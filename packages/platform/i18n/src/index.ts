@@ -6,6 +6,7 @@ export { I18nService } from './i18n.service';
 export type { I18nOptions, MessageParams } from './i18n.service';
 export {
   CLS_LOCALE_KEY,
+  CLS_LOCALE_SOURCE_KEY,
   CurrentLocale,
   LOCALE_HEADER,
   LOCALE_PREFERENCE_PROVIDER,
@@ -13,4 +14,4 @@ export {
   LocaleResolver,
   pickFromAcceptLanguage,
 } from './locale-resolver';
-export type { LocalePreferenceProvider } from './locale-resolver';
+export type { LocalePreferenceProvider, LocaleSource } from './locale-resolver';

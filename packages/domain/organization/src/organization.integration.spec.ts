@@ -157,7 +157,7 @@ describe.skipIf(needsInfra())(
         .set('X-Test-Actor', user('ua', tenantA))
         .send({
           tenantId: tenantB,
-          code: 'X',
+          code: 'XX',
           name: 'x',
           timezone: 'Africa/Cairo',
           currency: 'EGP',

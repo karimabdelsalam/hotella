@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { localeSchema, uuidSchema } from '@hotella/contracts-api';
 import { APPROVED_FONTS, CODE_RE, HEX_COLOR_RE } from '../domain/values';
 
-const code = z.string().trim().toUpperCase().regex(CODE_RE, 'Code: 2–32 chars, A–Z 0–9 _ -');
+/** Same normalization as `normalizeCode()` (trim, upper-case, whitespace → `_`), then the format check. */
+const code = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .overwrite((s) => s.replace(/\s+/g, '_'))
+  .regex(CODE_RE, 'Code: 2–32 chars, A–Z 0–9 _ -');
 const translation = z.object({
   locale: localeSchema,
   name: z.string().trim().min(1).max(200),

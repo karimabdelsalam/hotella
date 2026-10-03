@@ -4,6 +4,9 @@ import { ClsService } from 'nestjs-cls';
 import { I18nService } from './i18n.service';
 
 export const CLS_LOCALE_KEY = 'locale';
+export const CLS_LOCALE_SOURCE_KEY = 'locale_source';
+/** Where the request locale came from, in chain order (Spec §79). */
+export type LocaleSource = 'explicit' | 'preference' | 'detected' | 'property' | 'default';
 export const LOCALE_QUERY_PARAM = 'lang';
 export const LOCALE_HEADER = 'x-locale';
 
@@ -58,35 +61,42 @@ export class LocaleResolver implements NestMiddleware {
   ) {}
 
   async resolve(req: Request): Promise<string> {
+    return (await this.resolveWithSource(req)).locale;
+  }
+
+  async resolveWithSource(req: Request): Promise<{ locale: string; source: LocaleSource }> {
     const supported = this.i18n.supportedLocales;
     const explicit =
       (typeof req.query[LOCALE_QUERY_PARAM] === 'string'
         ? req.query[LOCALE_QUERY_PARAM]
         : undefined) ?? (req.headers[LOCALE_HEADER] as string | undefined);
     const explicitMatch = this.i18n.match(explicit);
-    if (explicitMatch) return explicitMatch;
+    if (explicitMatch) return { locale: explicitMatch, source: 'explicit' };
 
     const pref = await this.prefs?.actorPreference(req);
     const prefMatch = this.i18n.match(pref);
-    if (prefMatch) return prefMatch;
+    if (prefMatch) return { locale: prefMatch, source: 'preference' };
 
     const detected = pickFromAcceptLanguage(
       req.headers['accept-language'],
       (l) => this.i18n.normalize(l),
       supported,
     );
-    if (detected) return detected;
+    if (detected) return { locale: detected, source: 'detected' };
 
     const property = await this.prefs?.propertyDefault(req);
     const propertyMatch = this.i18n.match(property);
-    if (propertyMatch) return propertyMatch;
+    if (propertyMatch) return { locale: propertyMatch, source: 'property' };
 
-    return this.i18n.defaultLocale;
+    return { locale: this.i18n.defaultLocale, source: 'default' };
   }
 
   async use(req: Request, res: Response, next: NextFunction): Promise<void> {
-    const locale = await this.resolve(req);
-    if (this.cls.isActive()) this.cls.set(CLS_LOCALE_KEY, locale);
+    const { locale, source } = await this.resolveWithSource(req);
+    if (this.cls.isActive()) {
+      this.cls.set(CLS_LOCALE_KEY, locale);
+      this.cls.set(CLS_LOCALE_SOURCE_KEY, source);
+    }
     res.setHeader('Content-Language', locale);
     next();
   }
@@ -104,6 +114,18 @@ export class CurrentLocale {
       (this.cls.isActive() ? this.cls.get<string>(CLS_LOCALE_KEY) : undefined) ??
       this.i18n.defaultLocale
     );
+  }
+  /**
+   * The locale the requester actually asked for (explicit, profile preference or Accept-Language), or null when the
+   * current locale is only a fallback. Lets a resource with its own default (a property) apply it before the
+   * platform default.
+   */
+  requested(): string | null {
+    if (!this.cls.isActive()) return null;
+    const source = this.cls.get<LocaleSource | undefined>(CLS_LOCALE_SOURCE_KEY);
+    return source === 'explicit' || source === 'preference' || source === 'detected'
+      ? (this.cls.get<string>(CLS_LOCALE_KEY) ?? null)
+      : null;
   }
   /** Translate in the current request's locale. */
   t(

@@ -16,8 +16,12 @@ import {
 class TController {
   constructor(private readonly locale: CurrentLocale) {}
   @Get()
-  read(): { locale: string; text: string } {
-    return { locale: this.locale.get(), text: this.locale.t('common.items', { count: 2 }) };
+  read(): { locale: string; requested: string | null; text: string } {
+    return {
+      locale: this.locale.get(),
+      requested: this.locale.requested(),
+      text: this.locale.t('common.items', { count: 2 }),
+    };
   }
 }
 const prefs: LocalePreferenceProvider = {
@@ -59,7 +63,7 @@ describe('LocaleResolver chain (Spec §79.3)', () => {
       .set('x-test-pref', 'en')
       .expect(200);
     expect(res.headers['content-language']).toBe('ar');
-    expect(res.body).toEqual({ locale: 'ar', text: 'عنصران' });
+    expect(res.body).toEqual({ locale: 'ar', requested: 'ar', text: 'عنصران' });
   });
   it('actor preference beats Accept-Language, which beats property default, which beats platform default', async () => {
     expect(
@@ -89,6 +93,17 @@ describe('LocaleResolver chain (Spec §79.3)', () => {
     expect(
       (await request(app.getHttpServer()).get('/t').set('Accept-Language', 'de')).body.locale,
     ).toBe('en');
+  });
+  it('requested() is null when the locale is only a property or platform fallback', async () => {
+    const detected = await request(app.getHttpServer()).get('/t').set('Accept-Language', 'ar');
+    expect(detected.body.requested).toBe('ar');
+    const property = await request(app.getHttpServer())
+      .get('/t')
+      .set('Accept-Language', 'de')
+      .set('x-test-property', 'ar');
+    expect(property.body).toMatchObject({ locale: 'ar', requested: null });
+    const fallback = await request(app.getHttpServer()).get('/t');
+    expect(fallback.body).toMatchObject({ locale: 'en', requested: null });
   });
   it('ignores unsupported explicit choices', async () => {
     expect(

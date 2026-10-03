@@ -223,7 +223,7 @@ export class BrandingController {
     return this.branding.resolve(
       query.property,
       query.channel ?? null,
-      query.lang ?? this.locale.get(),
+      query.lang ?? this.locale.requested(),
     );
   }
 }
