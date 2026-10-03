@@ -7,8 +7,9 @@ The Master Spec describes the platform as a "cloud platform" that hotel agents r
 
 ## Decision
 - **Runtime:** containers. Pilot/single-site: Docker Compose on a hardened Linux host. Production/multi-tenant: Kubernetes (k3s or RKE2 — lightweight, on-prem friendly) with Helm charts kept in `infra/k8s`. The six logical deployables from Spec §71 (`platform-api`, `platform-worker`, `platform-scheduler`, `realtime-gateway`, `integration-worker`, `ai-worker`) map to separate deployments; workers are split by BullMQ queue so guest-realtime never shares a pool with analytics/background-AI.
-- **Database:** self-managed PostgreSQL 16 with pgvector. Backups and point-in-time recovery with **pgBackRest** to the local object store, streaming replica where justified, quarterly restore drills. RPO ≤ 15 min, RTO ≤ 2 h for the pilot; tightened per contract later.
+- **Database:** self-managed PostgreSQL 18 with pgvector. Backups and point-in-time recovery with **pgBackRest** to the local object store, streaming replica where justified, quarterly restore drills. RPO ≤ 15 min, RTO ≤ 2 h for the pilot; tightened per contract later.
 - **Object storage:** **MinIO** (S3-compatible) — the storage abstraction already targets S3 so no code change.
+- **Cache/queue store:** **Valkey 9** (ADR-0016), single node for the pilot, Valkey cluster or Sentinel-style HA when a second tenant is onboarded.
 - **Secrets:** **HashiCorp Vault** (self-hosted) as the production `SecretProvider` adapter; Kubernetes auth or AppRole for workloads. Dev/test keep `EnvSecretProvider`.
 - **Observability backend:** self-hosted Grafana stack — Prometheus (metrics), Loki (logs), Tempo (traces) — fed by the OpenTelemetry collector. No vendor SaaS dependency.
 - **Ingress/TLS:** Traefik or NGINX ingress with cert-manager; internal CA or public certificates depending on exposure. The hotel agent still connects **outbound** to the platform (Spec §48); the platform never initiates connections into hotel networks.

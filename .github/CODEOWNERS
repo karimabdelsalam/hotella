@@ -1,0 +1,6 @@
+# Default owners; refine per package as the team grows.
+*                               @karimabdelsalam
+/docs/spec/                     @karimabdelsalam
+/docs/adr/                      @karimabdelsalam
+/packages/platform/             @karimabdelsalam
+/packages/contracts/            @karimabdelsalam

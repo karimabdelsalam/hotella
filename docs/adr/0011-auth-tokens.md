@@ -11,5 +11,5 @@ Spec §65–66: staff strong password/MFA now, OIDC/SAML later; short-lived acce
 - **Scopes:** guest authorization is evaluated against grant scopes and stay state on every request; the phone/channel identity is never sufficient (§18.3).
 
 ## Consequences
-- Permission changes take effect immediately (per-request resolution with a short Redis cache keyed by membership version).
+- Permission changes take effect immediately (per-request resolution with a short Valkey cache keyed by membership version).
 - Guest flows need no account management UI.

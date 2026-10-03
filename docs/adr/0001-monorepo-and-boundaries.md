@@ -6,14 +6,14 @@
 Spec §2.1 mandates a modular monolith with explicit bounded contexts that may later be extracted. Spec §77 suggests `/apps`, `/packages/domain`, `/packages/platform`, `/packages/contracts` and warns against `/domain` becoming an unstructured shared package. Spec §3 forbids one domain mutating another domain's tables.
 
 ## Decision
-- Single repository, pnpm workspaces, Turborepo for task orchestration and caching. Node 22 LTS, TypeScript 5 `strict`.
+- Single repository, pnpm workspaces, Turborepo for task orchestration and caching. Pure ESM. Node 26, TypeScript 7 (`tsgo` type-check, SWC emit), pnpm 11 — versions governed by ADR-0016.
 - One pnpm package per bounded context under `packages/domain/<ctx>` named `@hotella/domain-<ctx>`; platform packages `@hotella/platform-*`; contracts `@hotella/contracts-*`.
-- Each domain package exposes a `src/public` entrypoint (interfaces, DTO types, event names). ESLint `boundaries` rules:
+- Each domain package exposes a `src/public` entrypoint (interfaces, DTO types, event names). Boundaries are enforced by **dependency-cruiser** (explicit allow-rules, cycle detection, graph output) with oxlint for code-level rules:
   - `domain/*` may import `platform/*`, `contracts/*`, and other domains **only** via `@hotella/domain-<other>/public`.
   - `platform/*` may not import `domain/*`.
   - `contracts/*` imports nothing but zod and other contracts.
   - `apps/*` may import anything (they compose modules).
-- Lint failure on violation is a CI failure.
+- A dependency-cruiser violation is a CI failure; the generated dependency graph (`docs/architecture/dependency-graph.svg`) is refreshed in CI so onboarding docs never go stale.
 - Spec §77 lists ten suggested domain packages. We keep all of them and add, as separate bounded contexts with their own PostgreSQL schema, the contexts the spec names in §3 but did not list in §77: `catalog` (Service Catalog, §7), `inspections` (§11), `relations` (§12), `lostfound` (§13), `logbook` (§14), `knowledge` (§37) and `audit` (§68). This is an elaboration, not a deviation: §77 is explicitly "suggested" and §3 is the authoritative context list.
 
 ## Consequences
