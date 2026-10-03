@@ -36,3 +36,51 @@ export const RoomSignalChanged = defineEvent({
     source: z.enum(ROOM_SIGNAL_SOURCES),
   }),
 });
+
+export const CLEANING_TYPES = [
+  'STAYOVER',
+  'CHECKOUT',
+  'ARRIVAL',
+  'DEEP_CLEAN',
+  'TURNDOWN',
+  'TOUCH_UP',
+  'VIP',
+  'OTHER',
+] as const;
+export const HK_JOB_STATUSES = [
+  'OPEN',
+  'IN_PROGRESS',
+  'DONE',
+  'INSPECTED',
+  'FAILED_INSPECTION',
+  'SKIPPED',
+  'CANCELLED',
+] as const;
+
+export const HkJobCreated = defineEvent({
+  type: 'hk.job.created',
+  version: 1,
+  description:
+    'A cleaning job was created for a room and day (its work item carries assignment and SLA).',
+  payload: z.object({
+    job_id: z.uuid(),
+    room_id: z.uuid(),
+    work_item_id: z.uuid().nullable(),
+    cleaning_type: z.enum(CLEANING_TYPES),
+    origin: z.enum(['GENERATED', 'STAFF', 'INSPECTION']),
+    credits: z.number().min(0),
+    scheduled_for: z.iso.date(),
+  }),
+});
+
+export const HkJobStatusChanged = defineEvent({
+  type: 'hk.job.status_changed',
+  version: 1,
+  description: 'A cleaning job started, finished, was inspected, skipped or cancelled.',
+  payload: z.object({
+    job_id: z.uuid(),
+    room_id: z.uuid(),
+    from: z.enum(HK_JOB_STATUSES),
+    to: z.enum(HK_JOB_STATUSES),
+  }),
+});

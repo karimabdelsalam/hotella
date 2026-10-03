@@ -1,4 +1,9 @@
-import { RoomSignalChanged, RoomStateChanged } from '@hotella/contracts-events';
+import {
+  HkJobCreated,
+  HkJobStatusChanged,
+  RoomSignalChanged,
+  RoomStateChanged,
+} from '@hotella/contracts-events';
 import { defineManifest } from '@hotella/platform-manifest';
 
 export const HOUSEKEEPING_MANIFEST = defineManifest({
@@ -13,7 +18,12 @@ export const HOUSEKEEPING_MANIFEST = defineManifest({
     { code: 'hk.inspect', descriptionKey: 'hk.permission.inspect', risk: 'LOW' },
     { code: 'hk.config.manage', descriptionKey: 'hk.permission.config_manage', risk: 'MEDIUM' },
   ],
-  events: [RoomStateChanged.name, RoomSignalChanged.name],
+  events: [
+    RoomStateChanged.name,
+    RoomSignalChanged.name,
+    HkJobCreated.name,
+    HkJobStatusChanged.name,
+  ],
   entitlements: ['HOUSEKEEPING'],
   localeNamespaces: ['hk'],
   integrationCapabilities: ['ROOM_STATUS_READ', 'ROOM_STATUS_WRITE'],

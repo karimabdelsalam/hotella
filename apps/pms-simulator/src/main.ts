@@ -15,6 +15,7 @@ const ALL_CAPABILITIES = [
   'ROOM_MOVE_EVENT',
   'PROFILE_EVENT',
   'ROOM_STATUS_READ',
+  'ROOM_STATUS_WRITE',
   'RESERVATION_READ',
   'GUEST_READ',
   'RECONCILIATION_READ',
@@ -72,6 +73,12 @@ async function main(): Promise<void> {
       onCommand: async (cmd) => {
         if (cmd.command_type === 'RESYNC_IN_HOUSE') {
           out(`command RESYNC_IN_HOUSE: ${holder.pms!.resyncInHouse()} in-house record(s)`);
+          return { status: 'ACKNOWLEDGED' };
+        }
+        if (cmd.command_type === 'SET_ROOM_STATUS') {
+          const { room_number, status } = cmd.payload as { room_number: string; status: string };
+          holder.pms!.acceptRoomStatus(room_number, status);
+          out(`command SET_ROOM_STATUS: room ${room_number} ${status}`);
           return { status: 'ACKNOWLEDGED' };
         }
         return { status: 'FAILED', error: `unsupported command ${cmd.command_type}` };

@@ -1,6 +1,16 @@
 import { sql } from 'drizzle-orm';
-import { index, pgSchema, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
-import { classify, versioned } from '@hotella/platform-database';
+import {
+  date,
+  index,
+  numeric,
+  pgSchema,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
+import { baseColumns, classify, versioned } from '@hotella/platform-database';
 
 /**
  * Housekeeping (Spec §9, §16, BUILD_PLAN Phase 7, schema `hk`). The room projection is fast state; history and work are
@@ -156,3 +166,152 @@ export const roomSignals = classify(
 
 export type RoomStateRow = typeof roomStates.$inferSelect;
 export type RoomSignalRow = typeof roomSignals.$inferSelect;
+
+// ---- cleaning jobs (Spec §9.1–§9.2, BUILD_PLAN 7.2) ----
+
+export const cleaningType = hk.enum('cleaning_type', [
+  'STAYOVER',
+  'CHECKOUT',
+  'ARRIVAL',
+  'DEEP_CLEAN',
+  'TURNDOWN',
+  'TOUCH_UP',
+  'VIP',
+  'OTHER',
+]);
+export const jobStatus = hk.enum('job_status', [
+  'OPEN',
+  'IN_PROGRESS',
+  'DONE',
+  'INSPECTED',
+  'FAILED_INSPECTION',
+  'SKIPPED',
+  'CANCELLED',
+]);
+export const jobOrigin = hk.enum('job_origin', ['GENERATED', 'STAFF', 'INSPECTION']);
+export const inspectionResult = hk.enum('inspection_result', ['PASS', 'FAIL']);
+
+/** A cleaning of a room on a day; its work (assignment, SLA, history) is an `HK_JOB` work item. */
+export const jobs = classify(
+  hk.table(
+    'jobs',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      workItemId: uuid('work_item_id'),
+      roomId: uuid('room_id').notNull(),
+      stayId: uuid('stay_id'),
+      cleaningType: cleaningType('cleaning_type').notNull(),
+      origin: jobOrigin('origin').notNull(),
+      /** Copied from the credit rules at creation: later rule changes do not rewrite history. */
+      credits: numeric('credits', { precision: 5, scale: 2, mode: 'number' }).notNull(),
+      status: jobStatus('status').notNull().default('OPEN'),
+      /** The property-local day the job is for. */
+      scheduledFor: date('scheduled_for', { mode: 'string' }).notNull(),
+      startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+      completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+      inspectedAt: timestamp('inspected_at', { withTimezone: true, mode: 'date' }),
+      skipReason: varchar('skip_reason', { length: 200 }),
+      ...versioned(),
+    },
+    (t) => [
+      // Generated jobs are idempotent: one per room, type and day.
+      uniqueIndex('jobs_generated_uq')
+        .on(t.roomId, t.cleaningType, t.scheduledFor)
+        .where(sql`${t.origin} = 'GENERATED'`),
+      uniqueIndex('jobs_work_item_uq').on(t.workItemId),
+      index('jobs_property_day_idx').on(t.tenantId, t.propertyId, t.scheduledFor),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    workItemId: 'INTERNAL',
+    roomId: 'INTERNAL',
+    stayId: 'INTERNAL',
+    cleaningType: 'INTERNAL',
+    origin: 'INTERNAL',
+    credits: 'INTERNAL',
+    status: 'INTERNAL',
+    scheduledFor: 'INTERNAL',
+    startedAt: 'INTERNAL',
+    completedAt: 'INTERNAL',
+    inspectedAt: 'INTERNAL',
+    skipReason: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Credits of a cleaning type for the property, optionally for one room type (Spec §9.2). */
+export const creditRules = classify(
+  hk.table(
+    'credit_rules',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      cleaningType: cleaningType('cleaning_type').notNull(),
+      roomTypeId: uuid('room_type_id'),
+      credits: numeric('credits', { precision: 5, scale: 2, mode: 'number' }).notNull(),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('credit_rules_type_uq')
+        .on(t.propertyId, t.cleaningType)
+        .where(sql`${t.roomTypeId} is null`),
+      uniqueIndex('credit_rules_room_type_uq')
+        .on(t.propertyId, t.cleaningType, t.roomTypeId)
+        .where(sql`${t.roomTypeId} is not null`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    cleaningType: 'INTERNAL',
+    roomTypeId: 'INTERNAL',
+    credits: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** A supervisor's inspection of a cleaned room (minimal hook before the Phase 9 inspection engine). */
+export const inspections = classify(
+  hk.table(
+    'inspections',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      jobId: uuid('job_id')
+        .notNull()
+        .references(() => jobs.id, { onDelete: 'restrict' }),
+      roomId: uuid('room_id').notNull(),
+      result: inspectionResult('result').notNull(),
+      notes: text('notes'),
+      inspectorId: uuid('inspector_id'),
+      inspectedAt: timestamp('inspected_at', { withTimezone: true, mode: 'date' }).notNull(),
+    },
+    (t) => [index('inspections_job_idx').on(t.jobId)],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    jobId: 'INTERNAL',
+    roomId: 'INTERNAL',
+    result: 'INTERNAL',
+    notes: 'INTERNAL',
+    inspectorId: 'INTERNAL',
+    inspectedAt: 'INTERNAL',
+  },
+);
+
+export type JobRow = typeof jobs.$inferSelect;
+export type CreditRuleRow = typeof creditRules.$inferSelect;

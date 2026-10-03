@@ -30,6 +30,10 @@ export {
   ServiceVersionPublished,
 } from './catalog-events';
 export {
+  CLEANING_TYPES,
+  HK_JOB_STATUSES,
+  HkJobCreated,
+  HkJobStatusChanged,
   ROOM_SIGNAL_SOURCES,
   ROOM_SIGNALS,
   ROOM_STATE_CAUSES,

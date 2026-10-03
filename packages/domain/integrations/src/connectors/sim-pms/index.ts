@@ -27,6 +27,7 @@ export const SIM_PMS_MANIFEST = defineConnector({
     'ROOM_MOVE_EVENT',
     'PROFILE_EVENT',
     'ROOM_STATUS_READ',
+    'ROOM_STATUS_WRITE',
     'RESERVATION_READ',
     'GUEST_READ',
     'RECONCILIATION_READ',
@@ -55,6 +56,18 @@ export const SIM_PMS_MANIFEST = defineConnector({
         'Replay the in-house list as FIAS database-sync records (DS/DR/DE), e.g. before a reconciliation run.',
       requires: 'RECONCILIATION_READ',
       payload: z.object({}).strict(),
+    },
+    {
+      code: 'SET_ROOM_STATUS',
+      description:
+        "Write a room's housekeeping status back to the PMS after a cleaning or an inspection (FIAS RE from the interface).",
+      requires: 'ROOM_STATUS_WRITE',
+      payload: z
+        .object({
+          room_number: z.string().min(1).max(16),
+          status: z.enum(['DIRTY', 'CLEAN', 'INSPECTED']),
+        })
+        .strict(),
     },
   ],
   configSchema: z.object({

@@ -41,6 +41,8 @@ export class SimulationError extends Error {}
 
 export class SimulatedPms {
   readonly reservations = new Map<string, SimReservation>();
+  /** Room statuses the platform wrote back (SET_ROOM_STATUS), by room number. */
+  readonly roomStatuses = new Map<string, string>();
   private counter = 0;
 
   constructor(
@@ -126,6 +128,14 @@ export class SimulatedPms {
   /** FIAS maid status 1–6 (dirty/clean/inspected × vacant/occupied). */
   roomStatus(room: string, status: 1 | 2 | 3 | 4 | 5 | 6, at?: string): void {
     this.fias('RE', { RN: room, RS: String(status), ...this.stamp(at) });
+  }
+
+  /**
+   * A room status written by the platform (SET_ROOM_STATUS). The PMS records it and, like OPERA for statuses set
+   * through the interface, does not echo it back as an event.
+   */
+  acceptRoomStatus(room: string, status: string): void {
+    this.roomStatuses.set(room, status);
   }
 
   /** Database sync of the in-house list (FIAS DS/DR/DE), e.g. on a RESYNC_IN_HOUSE command. */

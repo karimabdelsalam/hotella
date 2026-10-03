@@ -218,5 +218,8 @@
   "errors.hk.room.not_found": "هذه الغرفة غير موجودة.",
   "errors.hk.room.version_conflict": "حدّث شخص آخر هذه الغرفة. أعد التحميل وحاول مرة أخرى.",
   "errors.hk.room.move_not_allowed": "لا يمكن نقل الغرفة يدويًا من {from} إلى {to}.",
-  "errors.hk.signal.no_room": "لا توجد غرفة على إقامتك الآن."
+  "errors.hk.signal.no_room": "لا توجد غرفة على إقامتك الآن.",
+  "errors.hk.job.not_found": "مهمة التنظيف هذه غير موجودة.",
+  "errors.hk.job.not_open": "لا يمكن تخطي إلا مهمة لم تبدأ بعد.",
+  "errors.hk.job.not_awaiting_inspection": "هذه الغرفة لا تنتظر فحصًا."
 }

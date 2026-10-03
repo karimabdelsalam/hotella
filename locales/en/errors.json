@@ -218,5 +218,8 @@
   "errors.hk.room.not_found": "This room does not exist.",
   "errors.hk.room.version_conflict": "This room was updated by someone else. Reload and try again.",
   "errors.hk.room.move_not_allowed": "A room cannot go from {from} to {to} by hand.",
-  "errors.hk.signal.no_room": "There is no room on your stay right now."
+  "errors.hk.signal.no_room": "There is no room on your stay right now.",
+  "errors.hk.job.not_found": "This cleaning job does not exist.",
+  "errors.hk.job.not_open": "Only a job that has not started can be skipped.",
+  "errors.hk.job.not_awaiting_inspection": "This room is not waiting for an inspection."
 }
