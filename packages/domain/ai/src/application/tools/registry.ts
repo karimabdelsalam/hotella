@@ -1,37 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import type { Risk } from '../../domain/policy';
+import type { AiToolDefinition, AiToolRegistrar, ToolContext } from '../../public';
 
-/** Who and where a tool acts for: fixed by the execution, never chosen by the model (Spec §31). */
-export interface ToolContext {
-  readonly tenantId: string;
-  readonly propertyId: string;
-  readonly executionId: string;
-  readonly agentCode: string;
-  /** The language the guest (or staff member) is served in. */
-  readonly locale: string;
-  /** The guest an execution serves; guest-facing tools act only for them. */
-  readonly guest: { readonly guestId: string; readonly stayId: string } | null;
-  readonly conversationId: string | null;
-}
-
-/**
- * A registered AI tool (Spec §31): a schema the model fills in, a risk level, the permission it needs and a handler
- * that acts only through the owning contexts' public APIs (CLAUDE.md rule 12: AI never writes business tables).
- */
-export interface AiToolDefinition<I = unknown> {
-  /** `<context>.<verb_noun>`, as declared in the AI manifest. */
-  readonly code: string;
-  /** What the tool does, for the model (not shown to people). */
-  readonly description: string;
-  readonly risk: Risk;
-  readonly requiredPermission: string;
-  readonly input: z.ZodType<I>;
-  readonly needs?: { readonly guest?: boolean; readonly conversation?: boolean };
-  /** Checked before a proposal is made, so a person is never asked to approve something that cannot happen. */
-  readonly precheck?: (args: I, ctx: ToolContext) => Promise<void>;
-  readonly handle: (args: I, ctx: ToolContext) => Promise<unknown>;
-}
+export type { AiToolDefinition, ToolContext };
 
 /** Model function names allow neither dots nor most punctuation: `catalog.list_services` → `catalog__list_services`. */
 export const toModelName = (code: string) => code.replace('.', '__');
@@ -39,7 +10,7 @@ export const toModelName = (code: string) => code.replace('.', '__');
 const CODE_RE = /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/;
 
 @Injectable()
-export class ToolRegistry {
+export class ToolRegistry implements AiToolRegistrar {
   private readonly tools = new Map<string, AiToolDefinition>();
 
   register<I>(tool: AiToolDefinition<I>): void {

@@ -1,4 +1,5 @@
 /** The ONLY surface other bounded contexts may import from this package (ADR-0001). */
+import type { ZodType } from 'zod';
 
 export type DataClass = 'PUBLIC' | 'INTERNAL' | 'CONFIDENTIAL' | 'SENSITIVE' | 'RESTRICTED';
 export type Capability =
@@ -78,5 +79,47 @@ export interface ModelGatewayApi {
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */
 export const MODEL_GATEWAY = Symbol.for('hotella.domain.ai.gateway');
+
+// ---- tools contributed by other contexts (Spec §31) ----
+
+export type AiRisk = 'READ' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+/** Who and where a tool acts for: fixed by the execution, never chosen by the model. */
+export interface ToolContext {
+  readonly tenantId: string;
+  readonly propertyId: string;
+  readonly executionId: string;
+  readonly agentCode: string;
+  /** The language the guest (or staff member) is served in. */
+  readonly locale: string;
+  /** The guest an execution serves; guest-facing tools act only for them. */
+  readonly guest: { readonly guestId: string; readonly stayId: string } | null;
+  readonly conversationId: string | null;
+}
+
+/**
+ * A registered AI tool: a schema the model fills in, a risk level, the permission it needs and a handler that acts only
+ * through the owning context's application services (CLAUDE.md rule 12: AI never writes business tables). The tool
+ * must also be declared in the owning module's manifest `aiTools`.
+ */
+export interface AiToolDefinition<I = unknown> {
+  /** `<context>.<verb_noun>`. */
+  readonly code: string;
+  /** What the tool does, for the model (not shown to people). */
+  readonly description: string;
+  readonly risk: AiRisk;
+  readonly requiredPermission: string;
+  readonly input: ZodType<I>;
+  readonly needs?: { readonly guest?: boolean; readonly conversation?: boolean };
+  /** Checked before a proposal is made, so a person is never asked to approve something that cannot happen. */
+  readonly precheck?: (args: I, ctx: ToolContext) => Promise<void>;
+  readonly handle: (args: I, ctx: ToolContext) => Promise<unknown>;
+}
+
+/** Where owning contexts register their tools at module init (like work item kinds). */
+export interface AiToolRegistrar {
+  register<I>(tool: AiToolDefinition<I>): void;
+}
+export const AI_TOOL_REGISTRY = Symbol.for('hotella.domain.ai.tools');
 
 export { AI_MANIFEST } from '../manifest';

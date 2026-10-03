@@ -209,5 +209,10 @@
   "errors.comms.conversation.ai_needs_verified_guest": "The AI assistant can only take part once the guest is verified.",
   "errors.comms.draft.not_pending": "This AI suggestion is no longer current. Reload the conversation.",
   "errors.ai.agent.not_found": "This AI assistant does not exist.",
-  "errors.ai.execution.not_found": "This AI execution does not exist."
+  "errors.ai.execution.not_found": "This AI execution does not exist.",
+  "errors.knowledge.document.not_found": "This document does not exist.",
+  "errors.knowledge.document.archived": "This document is archived.",
+  "errors.knowledge.document.version_conflict": "This document was changed by someone else. Reload and try again.",
+  "errors.knowledge.version.not_found": "This document version does not exist.",
+  "errors.knowledge.version.not_draft": "Only a draft can be published; published versions never change."
 }

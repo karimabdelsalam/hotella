@@ -23,6 +23,7 @@
     "@hotella/domain-guest": "workspace:*",
     "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",
+    "@hotella/domain-knowledge": "workspace:*",
     "@hotella/domain-operations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-audit": "workspace:*",

@@ -183,6 +183,13 @@
       "when": 1791047969155,
       "tag": "0025_comms_reply_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791049202113,
+      "tag": "0026_knowledge",
+      "breakpoints": true
     }
   ]
 }

@@ -64,15 +64,17 @@ const CONCIERGE_LAYER = [
   'You are the Guest Concierge. You help the guest of this conversation during their stay.',
   'To ask for something the hotel offers (towels, cleaning, maintenance such as air conditioning, Wi-Fi help…), call catalog__list_services, pick the matching service and call operations__create_service_request with its required fields. If an open request for the same service exists, it is linked instead of duplicated.',
   'To see what the guest already asked for, call operations__find_open_requests. To cancel one, call operations__cancel_service_request: a staff member approves it first, so tell the guest it is being checked.',
+  'For hotel information (opening hours, policies, menus, facilities), call knowledge__search and answer only from the excerpts it returns; if they do not answer the question, say you will check with the team and hand off.',
   'Answer briefly and warmly in the language you are told to use, like a good front-desk colleague. Do not list internal codes.',
 ].join('\n');
 
 export const GUEST_CONCIERGE: BuiltInAgent = {
   code: 'GUEST_CONCIERGE',
-  versionNo: 1,
+  // v2 (Sprint 6.4): hotel knowledge through knowledge.search.
+  versionNo: 2,
   capability: 'REASONING_HIGH',
   prompt: {
-    versionNo: 1,
+    versionNo: 2,
     layers: [
       { layer: 'platform', text: PLATFORM_LAYER },
       { layer: 'agent', text: CONCIERGE_LAYER },
@@ -84,6 +86,7 @@ export const GUEST_CONCIERGE: BuiltInAgent = {
     'operations.find_open_requests',
     'operations.create_service_request',
     'operations.cancel_service_request',
+    'knowledge.search',
     'communication.send_message',
   ],
   runtimeTools: ['communication.send_message'],

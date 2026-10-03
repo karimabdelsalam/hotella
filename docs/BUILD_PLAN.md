@@ -1317,7 +1317,7 @@ ai.feedback             id, tenant_id, execution_id, kind (DRAFT_EDIT|REASSIGNME
 | 6.1 | `@hotella/domain-ai`: providers, models, routing rules, `MODEL_GATEWAY` (`complete`, `embed`) with `OPENAI_COMPATIBLE`, `ANTHROPIC` and `FAKE` adapters, fallback, cost/latency in `ai.model_calls`, egress policy (data class filter + identifier masking), budgets and kill switches, admin API (platform admin for providers/models, tenant for routing overrides) | delivered |
 | 6.2 | Tool registry + AI policy stage: tool definitions declared in the AI manifest, execution through the ActionGate as `AI_AGENT`, risk decisions, `ai.executions`/`ai.execution_steps`, `ai.action_proposals` + approval kind `AI_ACTION`; tools v1 `guest.get_current_stay`, `catalog.list_services`, `operations.find_open_requests`, `operations.create_service_request`, `operations.cancel_service_request`, `communication.send_message` (`knowledge.search` moves to 6.4) | delivered |
 | 6.3 | Agents and prompts (immutable versions), Context Engine with context policies, execution audit read API, Guest Concierge v1 runtime triggered by guest messages (AUTO/ASSIST), language rule, handoff → inbox, drafts with edit-distance feedback, staff inbox shows AI drafts | delivered |
-| 6.4 | Knowledge v1 (`knowledge` schema: documents, versions, chunks, embeddings with pgvector; scope tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank with document version references; retrieved text framed as untrusted data) | planned |
+| 6.4 | Knowledge v1 (`knowledge` schema: documents, versions, chunks, embeddings with pgvector; scope tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank with document version references; retrieved text framed as untrusted data) | delivered |
 | 6.5 | M2 acceptance: "الجو حر أوي هنا" end to end with the `FAKE` provider scripted, HIGH-risk proposal → approval → execution, execution audit complete, the no-direct-write rule enforced by depcruise + test; `docs/acceptance/phase-6.md` | planned |
 
 Reality notes for 6.1:
@@ -1390,6 +1390,61 @@ Reality notes for 6.3:
   `CATALOG_API`), so AI tools run through the same ActionGate there. While wiring this, plain queue jobs (`onJob`) were
   found never to run in the worker (SLA sweep, approval expiry, notification delivery, heartbeat); fixed separately
   in `platform-queue`.
+
+#### 6.D Knowledge v1 design (Sprint 6.4)
+
+- **Context and dependency direction.** `@hotella/domain-knowledge` (code `knowledge`, schema `knowledge`) owns
+  documents and retrieval. It depends on `@hotella/domain-ai/public` (Model Gateway embeddings, tool registration);
+  the AI context never imports it. Its tool `knowledge.search` is declared in the knowledge manifest and registered
+  into the AI tool registry at boot (`AI_TOOL_REGISTRY` in `ai/public`), the pattern 6.B describes for owning contexts.
+- **Model.**
+  ```text
+  knowledge.documents          id, tenant_id, property_id (null = whole tenant), kind (POLICY|FAQ|MENU|MANUAL|GENERAL),
+                               title, status (ACTIVE|ARCHIVED), version
+  knowledge.document_versions  id, tenant_id, document_id, version_no, status (DRAFT|PUBLISHED|SUPERSEDED), language,
+                               audience (GUEST|STAFF|ALL), classification (PUBLIC|INTERNAL|CONFIDENTIAL),
+                               department_code, effective_from, effective_until, body, published_at
+                               (immutable once published; one published version per document and language)
+  knowledge.chunks             id, tenant_id, version_id, seq, text, normalized, search tsvector (generated, 'simple')
+  knowledge.chunk_embeddings   chunk_id, tenant_id, model_code, dims, embedding vector (pgvector, any dimension)
+  ```
+- **Ingestion.** Publishing splits the body into paragraph chunks (~800 characters, sentence-aware, overlap of one
+  sentence), stores an Arabic/Latin-normalized copy for keyword search (diacritics and tatweel removed, alef/ya/ta
+  marbuta forms unified, lower case), and embeds the chunks through `MODEL_GATEWAY.embed` with the version's
+  classification as data class. If no embedding route exists yet (Q8), chunks stay keyword-searchable and the worker's
+  `knowledge.embed.sweep` job embeds them later.
+- **Retrieval** (`KNOWLEDGE_API.search`): candidates are chunks of published versions of active documents of the
+  tenant, for the property or the whole tenant, whose audience matches, whose classification is at most the caller's
+  maximum, and that are effective today (UTC); the requested language first, then any. Keyword rank
+  (`ts_rank_cd` on the normalized text) and vector rank (cosine distance for the same embedding model) are fused by
+  reciprocal rank (k = 60), deterministic, no model call; results carry document, version id and number, title and
+  excerpt (Spec §38 traceability). Exact vector search over the scoped candidates is enough for hotel-sized corpora;
+  an HNSW index per embedding dimension comes with the chosen embedding model.
+- **Safety.** The guest-facing tool searches only `GUEST`/`ALL` audiences at `PUBLIC` classification; excerpts return
+  to the model inside the tool result marked as reference data, never instructions (Spec §37, CLAUDE.md rule 12).
+  Structured live data (stays, requests, counts) stays with the domain tools.
+- **API and permissions.** `knowledge.read` (search, list) and `knowledge.manage` (documents, versions, publish,
+  archive); tenant-wide documents need tenant-wide membership. Concierge v2 adds `knowledge.search` to its tools and
+  prompt.
+- **Tests.** Chunking and normalization unit tests; integration: publish → chunks/embeddings, scope (property vs
+  tenant, audience, classification, effective dates, archived, superseded), Arabic keyword match across spelling
+  variants, hybrid ranking with the FAKE embedder, the tool through the ActionGate, tenant isolation (RLS).
+
+Reality notes for 6.4:
+- Migration `0026_knowledge` creates the `vector` extension (the pgvector image in CI, compose and the pilot; local
+  development needs pgvector installed) and the `knowledge` schema with RLS on all four tables; `knowledge` joins the
+  application schemas granted to the app role.
+- Keyword search: the normalizer also folds Arabic-Indic digits and strips the definite article (and its و/ب/ك/ف/لل
+  prefixes) from words, so "الإفطار", "إفطار" and "بالإفطار" meet; queries match any normalized term (OR) ranked by
+  `ts_rank_cd`. Vector neighbours count only within cosine distance 0.5. "Rerank" is the reciprocal-rank fusion; a
+  model reranker is not needed for hotel-sized corpora and would add a model call per search.
+- The `FAKE` embedder now uses signed feature hashing of words (64 dimensions), so texts sharing words are similar and
+  vector retrieval is exercised in tests; `FakeModelProvider.failWith` applies to embeddings too.
+- Tools registered by owning contexts: `ai/public` exposes `AI_TOOL_REGISTRY` and the tool types; `KnowledgeCoreModule`
+  registers `knowledge.search` when the AI tools are composed (API and worker). Guest Concierge v2 (agent and prompt
+  version 2) adds the tool; v1 stays as published history.
+- Embedding happens right after publishing (best effort) and in the worker's `knowledge.embed.sweep` job (every 5
+  minutes on `background-ai`) for chunks published without an embedding route.
 
 ### Phase 7 — Housekeeping
 `hk` schema: `room_operational_states` projection (+version), `housekeeping_jobs` via work items, `credit_rules`, `room_signals` (DND/MUR/PRIVACY/SERVICE_REQUESTED with source), assignment boards, inspection hook (Phase 9 engine, early minimal version here), arrival readiness v0 (configurable dimensions, Spec §16). Consumes `hotel.guest.checked_out.v1` → CHECKOUT job; `hotel.room.status_changed.v1`. Housekeeping Copilot recommendations (assignment balancing by credits/location/history) as proposals only.

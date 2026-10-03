@@ -3,6 +3,7 @@ import { GuestEventsModule } from '@hotella/domain-guest';
 import { IntegrationsCoreModule, IntegrationsModule } from '@hotella/domain-integrations';
 import { IdentityDirectoryModule } from '@hotella/domain-identity';
 import { AiModule, AiWorkerModule } from '@hotella/domain-ai';
+import { KnowledgeWorkerModule } from '@hotella/domain-knowledge';
 import { CatalogServicesModule, CatalogWorkerModule } from '@hotella/domain-catalog';
 import { CommunicationsWorkerModule } from '@hotella/domain-communications';
 import { OperationsWorkerModule } from '@hotella/domain-operations';
@@ -58,6 +59,8 @@ const WORKER_MODULES = [
   }),
   // The Model Gateway and the Guest Concierge runtime on `background-ai` (ADR-0018, BUILD_PLAN 6.3).
   AiWorkerModule,
+  // Hotel knowledge for the concierge's knowledge.search tool, and the embedding sweep.
+  KnowledgeWorkerModule,
   WorkerRuntimeModule,
 ];
 

@@ -13,7 +13,7 @@ export type FakeReply =
 /**
  * Deterministic provider for tests, CI and local development (ADR-0018): answers from a script (in order, or by a
  * function of the request), records every request, and can be told to fail. Embeddings are a stable hash of the text,
- * so similar inputs are not similar — retrieval tests rely on keyword and metadata ranking, or provide their own.
+ * built from the words, so texts sharing words are similar (enough for retrieval tests).
  */
 export class FakeModelProvider implements ModelProvider {
   readonly kind = 'FAKE' as const;
@@ -52,6 +52,7 @@ export class FakeModelProvider implements ModelProvider {
     _ctx: ProviderContext,
     req: { model: string; inputs: readonly string[] },
   ): Promise<EmbeddingResult> {
+    if (this.failWith && (!this.failFor || this.failFor === _ctx.providerCode)) throw this.failWith;
     return {
       vectors: req.inputs.map((t) => hashVector(t)),
       usage: { input: req.inputs.join(' ').length, output: 0, cached: 0 },
@@ -59,12 +60,25 @@ export class FakeModelProvider implements ModelProvider {
   }
 }
 
-/** 16-dimensional, unit-length vector derived from the text (deterministic). */
-export function hashVector(text: string, dims = 16): number[] {
+/**
+ * Deterministic embedding for tests and local runs: signed feature hashing of the words (64 dimensions, unit length).
+ * Texts sharing words are similar, unrelated texts are close to orthogonal — enough to exercise vector retrieval.
+ */
+export function hashVector(text: string, dims = 64): number[] {
   const v = new Array<number>(dims).fill(0);
-  for (let i = 0; i < text.length; i++) v[i % dims]! += ((text.charCodeAt(i) * 31 + i) % 97) / 97;
-  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1;
-  return v.map((x) => x / norm);
+  const words = text
+    .normalize('NFKC')
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+  for (const word of words) {
+    let h = 0x811c9dc5;
+    for (const ch of word) h = Math.imul(h ^ ch.codePointAt(0)!, 0x01000193) >>> 0;
+    v[h % dims]! += h >>> 31 ? -1 : 1;
+  }
+  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+  if (norm === 0) v[0] = 1;
+  return norm === 0 ? v : v.map((x) => x / norm);
 }
 
 export { ModelProviderError };

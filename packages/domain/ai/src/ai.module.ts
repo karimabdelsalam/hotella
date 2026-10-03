@@ -22,7 +22,7 @@ import { ToolsV1 } from './application/tools/v1';
 import { AI_SETTINGS } from './domain/settings';
 import { AiRepositories } from './infrastructure/repositories';
 import { AI_MANIFEST } from './manifest';
-import { MODEL_GATEWAY } from './public';
+import { AI_TOOL_REGISTRY, MODEL_GATEWAY } from './public';
 
 /** Inbox consumers of the worker: rejected or expired AI proposals are closed; guest messages wake the concierge. */
 export const AI_PROPOSAL_SETTLE_CONSUMER = 'ai.proposal-settle';
@@ -57,12 +57,21 @@ export class AiCoreModule {}
 
 /**
  * The tool registry and executor (Spec §31–§34) with tools v1, and the `AI_ACTION` approval kind. Needs the
- * ActionGate (AuthModule) and the public APIs the tools act through.
+ * ActionGate (AuthModule) and the public APIs the tools act through. Global, so owning contexts can register their
+ * own tools through `AI_TOOL_REGISTRY`.
  */
+@Global()
 @Module({
   imports: [AiCoreModule],
-  providers: [ToolRegistry, ToolsV1, ToolExecutor, ContextEngine, ConciergeRuntime],
-  exports: [ToolRegistry, ToolExecutor, ContextEngine, ConciergeRuntime],
+  providers: [
+    ToolRegistry,
+    { provide: AI_TOOL_REGISTRY, useExisting: ToolRegistry },
+    ToolsV1,
+    ToolExecutor,
+    ContextEngine,
+    ConciergeRuntime,
+  ],
+  exports: [ToolRegistry, AI_TOOL_REGISTRY, ToolExecutor, ContextEngine, ConciergeRuntime],
 })
 export class AiToolsModule implements OnModuleInit {
   constructor(

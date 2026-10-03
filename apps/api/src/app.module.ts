@@ -6,6 +6,7 @@ import {
   identityLocalePreferences,
 } from '@hotella/domain-identity';
 import { AiModule } from '@hotella/domain-ai';
+import { KnowledgeModule } from '@hotella/domain-knowledge';
 import { CatalogModule } from '@hotella/domain-catalog';
 import { CommunicationsModule, CommunicationsRealtimeModule } from '@hotella/domain-communications';
 import { GuestModule } from '@hotella/domain-guest';
@@ -60,6 +61,7 @@ import { MetaModule } from './meta/meta.module';
     CommunicationsRealtimeModule,
     CatalogModule,
     AiModule,
+    KnowledgeModule,
     HealthModule,
     MetaModule,
   ],

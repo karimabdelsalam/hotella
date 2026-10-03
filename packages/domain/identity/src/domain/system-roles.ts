@@ -23,6 +23,7 @@ const GUEST_DESK = [
   'guest.activation.issue',
   'guest.activation.assist',
   'inbox.read',
+  'knowledge.read',
   'inbox.reply',
   'inbox.takeover',
   'catalog.read',
@@ -109,6 +110,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'ai.routing.manage',
       'ai.usage.read',
       'ai.execution.read',
+      'knowledge.manage',
     ],
   },
   {

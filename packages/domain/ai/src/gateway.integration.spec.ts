@@ -326,7 +326,7 @@ describe.skipIf(needsInfra())(`Model Gateway against PostgreSQL (${infraSkipReas
       code: 'ai.gateway.unavailable',
     });
     const emb = await gateway.embed({ tenantId, texts: [{ text: 'towels', dataClass: 'PUBLIC' }] });
-    expect(emb.vectors[0]).toHaveLength(16);
+    expect(emb.vectors[0]).toHaveLength(64);
     const usage = await http().get('/ai/usage').set('X-Test-Actor', gm()).expect(200);
     const capabilities = (usage.body.rows as Array<{ capability: string }>).map(
       (r) => r.capability,

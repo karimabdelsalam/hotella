@@ -209,5 +209,10 @@
   "errors.comms.conversation.ai_needs_verified_guest": "لا يشارك مساعد الذكاء الاصطناعي إلا بعد التحقق من هوية الضيف.",
   "errors.comms.draft.not_pending": "لم يعد اقتراح الذكاء الاصطناعي هذا حديثًا. أعد تحميل المحادثة.",
   "errors.ai.agent.not_found": "مساعد الذكاء الاصطناعي هذا غير موجود.",
-  "errors.ai.execution.not_found": "تنفيذ الذكاء الاصطناعي هذا غير موجود."
+  "errors.ai.execution.not_found": "تنفيذ الذكاء الاصطناعي هذا غير موجود.",
+  "errors.knowledge.document.not_found": "هذا المستند غير موجود.",
+  "errors.knowledge.document.archived": "هذا المستند مؤرشف.",
+  "errors.knowledge.document.version_conflict": "عدّل شخص آخر هذا المستند. أعد التحميل وحاول مرة أخرى.",
+  "errors.knowledge.version.not_found": "إصدار المستند هذا غير موجود.",
+  "errors.knowledge.version.not_draft": "لا يُنشر إلا المسودة؛ الإصدارات المنشورة لا تتغير."
 }
