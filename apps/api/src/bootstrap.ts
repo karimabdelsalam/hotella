@@ -8,5 +8,6 @@ export const API_PREFIX = 'api/v1';
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalPipes(new ZodValidationPipe());
-  app.useGlobalFilters(new ProblemDetailsFilter());
+  // Resolved from the container so the filter can localize `detail` in the request locale.
+  app.useGlobalFilters(app.get(ProblemDetailsFilter));
 }

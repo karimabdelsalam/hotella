@@ -1,0 +1,11 @@
+{
+  "app.name": "هوتيلا",
+  "app.powered_by": "مدعوم من {brand}",
+  "common.yes": "نعم",
+  "common.no": "لا",
+  "common.save": "حفظ",
+  "common.cancel": "إلغاء",
+  "common.items": "{count, plural, =0 {لا توجد عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}",
+  "locale.name.en": "الإنجليزية",
+  "locale.name.ar": "العربية"
+}

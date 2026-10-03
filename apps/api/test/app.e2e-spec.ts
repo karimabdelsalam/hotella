@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
+import { I18nModule } from '@hotella/platform-i18n';
 import { ObservabilityModule } from '@hotella/platform-observability';
 import { EnvSecretProvider, SecretsModule } from '@hotella/platform-secrets';
 import { StorageModule } from '@hotella/platform-storage';
@@ -10,6 +11,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { configureApp } from '../src/bootstrap';
 import { HealthModule } from '../src/health/health.module';
+import { ProblemDetailsFilter } from '../src/common/problem-details.filter';
 import { MetaModule } from '../src/meta/meta.module';
 
 const testEnv = {
@@ -28,6 +30,7 @@ describe('api skeleton (e2e)', () => {
       imports: [
         ConfigModule.forRoot({ env: testEnv }),
         ObservabilityModule.forRoot(),
+        I18nModule.forRoot(),
         SecretsModule.forRoot({
           providers: [
             new EnvSecretProvider({ STORAGE_ACCESS_KEY: 'test', STORAGE_SECRET_KEY: 'test' }),
@@ -38,6 +41,7 @@ describe('api skeleton (e2e)', () => {
         HealthModule,
         MetaModule,
       ],
+      providers: [ProblemDetailsFilter],
     }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
@@ -94,8 +98,39 @@ describe('api skeleton (e2e)', () => {
     expect(minted.headers['x-correlation-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it('unknown route → Problem Details 404', async () => {
-    const res = await request(app.getHttpServer()).get('/api/v1/nope').expect(404);
-    expect(res.body).toMatchObject({ status: 404, code: 'platform.http_404' });
+  it('unknown route → Problem Details 404, localized detail from the request locale', async () => {
+    const en = await request(app.getHttpServer()).get('/api/v1/nope').expect(404);
+    expect(en.body).toMatchObject({
+      status: 404,
+      code: 'platform.http_404',
+      detail: 'The requested resource was not found.',
+    });
+    const ar = await request(app.getHttpServer())
+      .get('/api/v1/nope')
+      .set('Accept-Language', 'ar')
+      .expect(404);
+    expect(ar.body.detail).toBe('المورد المطلوب غير موجود.');
+    expect(ar.headers['content-language']).toBe('ar');
+  });
+
+  it('validation detail is an ICU plural in Arabic with exposed params', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/meta/echo?lang=ar')
+      .send({ message: '', locale: 'fr' })
+      .expect(400);
+    expect(res.body.detail).toBe('يوجد حقلان غير صالحين.');
+    expect(res.body.params).toEqual({ count: 2 });
+  });
+
+  it('AppError renders its code with localized detail (meta/fail)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/meta/fail')
+      .set('Accept-Language', 'ar')
+      .expect(409);
+    expect(res.body).toMatchObject({
+      status: 409,
+      code: 'platform.conflict',
+      detail: 'يتعارض هذا التغيير مع الحالة الحالية. حدّث الصفحة وحاول مرة أخرى.',
+    });
   });
 });

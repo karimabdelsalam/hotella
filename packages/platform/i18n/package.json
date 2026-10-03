@@ -1,0 +1,48 @@
+{
+  "name": "@hotella/platform-i18n",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ICU MessageFormat localization shared with the frontend catalog, locale resolution chain (Spec §79.3), AppError with localized Problem Details.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "hotella-locales-check": "./bin/locales-check.mjs"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@hotella/platform-config": "workspace:*",
+    "@hotella/platform-observability": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "intl-messageformat": "12.1.2",
+    "nestjs-cls": "6.3.1",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@hotella/tooling": "workspace:*",
+    "@nestjs/core": "11.2.7",
+    "@nestjs/platform-express": "11.2.7",
+    "@nestjs/testing": "11.2.7",
+    "@types/express": "5.0.6",
+    "@types/supertest": "7.2.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "supertest": "7.3.1",
+    "vitest": "4.1.11"
+  }
+}

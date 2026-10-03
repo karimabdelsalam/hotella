@@ -4,14 +4,16 @@ import {
   type ExceptionFilter,
   HttpException,
   HttpStatus,
+  Injectable,
 } from '@nestjs/common';
+import { CurrentLocale, AppError } from '@hotella/platform-i18n';
 import type { Request, Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
 import type { ZodError } from 'zod';
 
 /**
  * RFC 9457 Problem Details for every error response (ADR-0012).
- * `code` is a stable machine-readable identifier; `detail` becomes localized in Sprint 0.3.8.
+ * `code` is stable and machine-readable; `detail` is localized from `errors.<code>` in the request locale.
  */
 export interface ProblemDetails {
   type: string;
@@ -21,13 +23,24 @@ export interface ProblemDetails {
   instance: string;
   code: string;
   correlation_id: string | null;
+  /** Message parameters (only for client errors that opt in), so UIs can re-render in another locale. */
+  params?: Record<string, string | number | boolean | null>;
   errors?: ReadonlyArray<{ path: string; message: string }>;
   /** Extension member: per-dependency readiness details from Terminus (/ready). */
   details?: Record<string, unknown>;
 }
 
+const TITLES: Record<string, string> = {
+  'platform.validation_failed': 'Validation failed',
+  'platform.not_ready': 'Service not ready',
+  'platform.internal_error': 'Internal Server Error',
+};
+
+@Injectable()
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
+  constructor(private readonly locale: CurrentLocale) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
@@ -40,49 +53,49 @@ export class ProblemDetailsFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code = 'platform.internal_error';
-    let title = 'Internal Server Error';
-    let detail: string | undefined;
+    let params: Record<string, string | number | boolean | null> = {};
+    let exposeParams = false;
     let errors: ProblemDetails['errors'];
     let details: Record<string, unknown> | undefined;
 
-    if (exception instanceof ZodValidationException) {
+    if (exception instanceof AppError) {
+      status = exception.status;
+      code = exception.code;
+      params = exception.params;
+      exposeParams = exception.expose;
+    } else if (exception instanceof ZodValidationException) {
       status = HttpStatus.BAD_REQUEST;
       code = 'platform.validation_failed';
-      title = 'Validation failed';
       const zodError = exception.getZodError() as ZodError;
       errors = zodError.issues.map((i) => ({
         path: i.path.map(String).join('.'),
         message: i.message,
       }));
+      params = { count: errors.length };
+      exposeParams = true;
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
-      const body = exception.getResponse();
-      title = HttpStatus[status]?.toString().replaceAll('_', ' ') ?? 'Error';
       code = `platform.http_${status}`;
-      if (typeof body === 'string') {
-        detail = body;
-      } else {
-        const obj = body as { message?: string | string[]; details?: Record<string, unknown> };
-        detail = obj.message?.toString();
+      const body = exception.getResponse();
+      if (typeof body === 'object' && body !== null) {
+        const obj = body as { details?: Record<string, unknown> };
         if (obj.details && typeof obj.details === 'object') {
-          // Terminus HealthCheckResult: keep per-dependency details as an extension member.
           details = obj.details;
-          if (status === HttpStatus.SERVICE_UNAVAILABLE) {
-            code = 'platform.not_ready';
-            title = 'Service not ready';
-          }
+          if (status === HttpStatus.SERVICE_UNAVAILABLE) code = 'platform.not_ready';
         }
       }
     }
 
+    const detailKey = `errors.${code}`;
     const problem: ProblemDetails = {
       type: `https://hotella.app/problems/${code}`,
-      title,
+      title: TITLES[code] ?? HttpStatus[status]?.toString().replaceAll('_', ' ') ?? 'Error',
       status,
-      ...(detail ? { detail } : {}),
+      detail: this.locale.t(detailKey, params),
       instance: req.originalUrl,
       code,
       correlation_id: correlationId,
+      ...(exposeParams && Object.keys(params).length > 0 ? { params } : {}),
       ...(errors ? { errors } : {}),
       ...(details ? { details } : {}),
     };

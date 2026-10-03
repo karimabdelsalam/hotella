@@ -1,0 +1,21 @@
+{
+  "errors.platform.internal_error": "حدث خطأ من جانبنا. يُرجى المحاولة مرة أخرى.",
+  "errors.platform.validation_failed": "{count, plural, one {يوجد حقل واحد غير صالح} two {يوجد حقلان غير صالحين} few {توجد # حقول غير صالحة} many {يوجد # حقلًا غير صالح} other {يوجد # حقل غير صالح}}.",
+  "errors.platform.not_ready": "الخدمة غير جاهزة بعد.",
+  "errors.platform.not_found": "المورد المطلوب غير موجود.",
+  "errors.platform.unauthorized": "يُرجى تسجيل الدخول للمتابعة.",
+  "errors.platform.forbidden": "ليست لديك صلاحية للقيام بذلك.",
+  "errors.platform.conflict": "يتعارض هذا التغيير مع الحالة الحالية. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.platform.rate_limited": "طلبات كثيرة جدًا. يُرجى الانتظار {retryAfterSeconds, plural, one {ثانية واحدة} two {ثانيتين} few {# ثوانٍ} many {# ثانية} other {# ثانية}} ثم المحاولة مرة أخرى.",
+  "errors.platform.idempotency_key_reused": "تمت معالجة هذا الطلب مسبقًا بمحتوى مختلف.",
+  "errors.platform.http_400": "الطلب غير صالح.",
+  "errors.platform.http_404": "المورد المطلوب غير موجود.",
+  "errors.platform.http_405": "هذه العملية غير مسموح بها.",
+  "errors.platform.http_409": "يتعارض هذا التغيير مع الحالة الحالية.",
+  "errors.platform.http_413": "الطلب كبير جدًا.",
+  "errors.platform.http_415": "نوع المحتوى غير مدعوم.",
+  "errors.platform.http_422": "تعذّرت معالجة الطلب.",
+  "errors.platform.http_429": "طلبات كثيرة جدًا.",
+  "errors.platform.http_500": "حدث خطأ من جانبنا.",
+  "errors.platform.http_503": "الخدمة غير متاحة مؤقتًا."
+}

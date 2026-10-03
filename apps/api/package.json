@@ -14,6 +14,7 @@
   "dependencies": {
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",
+    "@hotella/platform-i18n": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
     "@hotella/platform-secrets": "workspace:*",
     "@hotella/platform-storage": "workspace:*",

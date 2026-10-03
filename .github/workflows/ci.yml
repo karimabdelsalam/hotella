@@ -57,6 +57,8 @@ jobs:
       - run: pnpm depcruise
       - run: pnpm build
       - run: pnpm typecheck
+      - name: Locale catalogs have en/ar key parity and valid ICU
+        run: pnpm locales:check
       - name: Schema and migrations are in sync
         run: pnpm db:check
       - name: Migrations apply to a real PostgreSQL 18

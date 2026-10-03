@@ -1,0 +1,21 @@
+{
+  "errors.platform.internal_error": "Something went wrong on our side. Please try again.",
+  "errors.platform.validation_failed": "{count, plural, one {One field is invalid} other {# fields are invalid}}.",
+  "errors.platform.not_ready": "The service is not ready yet.",
+  "errors.platform.not_found": "The requested resource was not found.",
+  "errors.platform.unauthorized": "Please sign in to continue.",
+  "errors.platform.forbidden": "You do not have permission to do this.",
+  "errors.platform.conflict": "This change conflicts with the current state. Refresh and try again.",
+  "errors.platform.rate_limited": "Too many requests. Please wait {retryAfterSeconds, plural, one {# second} other {# seconds}} and try again.",
+  "errors.platform.idempotency_key_reused": "This request was already processed with a different body.",
+  "errors.platform.http_400": "The request is invalid.",
+  "errors.platform.http_404": "The requested resource was not found.",
+  "errors.platform.http_405": "This operation is not allowed.",
+  "errors.platform.http_409": "This change conflicts with the current state.",
+  "errors.platform.http_413": "The request is too large.",
+  "errors.platform.http_415": "The content type is not supported.",
+  "errors.platform.http_422": "The request could not be processed.",
+  "errors.platform.http_429": "Too many requests.",
+  "errors.platform.http_500": "Something went wrong on our side.",
+  "errors.platform.http_503": "The service is temporarily unavailable."
+}
