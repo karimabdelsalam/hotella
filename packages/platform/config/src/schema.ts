@@ -17,6 +17,10 @@ export const envSchema = z.object({
   /** Base URL used for guest-facing links (activation URLs). Phase 4 uses it; declared early so envs are complete. */
   PUBLIC_BASE_URL: z.url().default('http://localhost:3000'),
 
+  /** HTTP conventions (ADR-0012). */
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(600),
+  OPENAPI_ENABLED: z.stringbool().default(true),
+
   /** Worker process shape (Spec §71): which queue groups this process serves, relay cadence, scheduler role. */
   WORKER_QUEUES: z.string().min(1).default('all'),
   WORKER_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -68,6 +72,7 @@ export interface AppConfig {
   readonly shutdown: { readonly timeoutMs: number };
   readonly database: { readonly url: string };
   readonly valkey: { readonly url: string };
+  readonly http: { readonly rateLimitPerMinute: number; readonly openApiEnabled: boolean };
   readonly worker: {
     readonly queues: 'all' | readonly string[];
     readonly port: number;
@@ -121,6 +126,10 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
     shutdown: { timeoutMs: e.SHUTDOWN_TIMEOUT_MS },
     database: { url: e.DATABASE_URL },
     valkey: { url: e.VALKEY_URL },
+    http: {
+      rateLimitPerMinute: e.RATE_LIMIT_PER_MINUTE,
+      openApiEnabled: e.OPENAPI_ENABLED && e.NODE_ENV !== 'production',
+    },
     worker: {
       queues:
         e.WORKER_QUEUES.trim() === 'all'

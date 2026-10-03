@@ -1,17 +1,19 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
+import type { OpenAPIObject } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
+import { HttpConventionsModule } from '@hotella/platform-http';
 import { I18nModule } from '@hotella/platform-i18n';
 import { ObservabilityModule } from '@hotella/platform-observability';
 import { EnvSecretProvider, SecretsModule } from '@hotella/platform-secrets';
+import { QueueModule } from '@hotella/platform-queue';
 import { StorageModule } from '@hotella/platform-storage';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { configureApp } from '../src/bootstrap';
 import { HealthModule } from '../src/health/health.module';
-import { ProblemDetailsFilter } from '../src/common/problem-details.filter';
 import { MetaModule } from '../src/meta/meta.module';
 
 const testEnv = {
@@ -24,6 +26,7 @@ const testEnv = {
 
 describe('api skeleton (e2e)', () => {
   let app: INestApplication;
+  let openApi: OpenAPIObject | undefined;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -37,14 +40,15 @@ describe('api skeleton (e2e)', () => {
           ],
         }),
         DatabaseModule.forRoot(),
+        QueueModule.forRoot(),
+        HttpConventionsModule.forRoot({ store: 'memory' }),
         StorageModule.forRoot(),
         HealthModule,
         MetaModule,
       ],
-      providers: [ProblemDetailsFilter],
     }).compile();
     app = moduleRef.createNestApplication({ logger: false });
-    configureApp(app);
+    openApi = configureApp(app, { openApi: true });
     await app.init();
   });
 
@@ -96,6 +100,21 @@ describe('api skeleton (e2e)', () => {
     expect(res.headers['x-correlation-id']).toBe('corr-abcdef12');
     const minted = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
     expect(minted.headers['x-correlation-id']).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('serves the OpenAPI document generated from zod DTOs and it matches the snapshot', async () => {
+    const res = await request(app.getHttpServer()).get('/api/docs/json').expect(200);
+    expect(res.body.openapi).toMatch(/^3\./);
+    expect(Object.keys(res.body.paths)).toEqual(
+      expect.arrayContaining(['/api/v1/health', '/api/v1/ready', '/api/v1/meta/echo']),
+    );
+    expect(
+      res.body.paths['/api/v1/meta/echo'].post.requestBody.content['application/json'].schema,
+    ).toBeDefined();
+    expect(openApi).toBeDefined();
+    await expect(JSON.stringify(openApi, null, 2)).toMatchFileSnapshot(
+      './__snapshots__/openapi.json',
+    );
   });
 
   it('unknown route → Problem Details 404, localized detail from the request locale', async () => {

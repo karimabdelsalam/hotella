@@ -37,6 +37,15 @@
     },
     {
       "path": "apps/worker"
+    },
+    {
+      "path": "packages/contracts/api"
+    },
+    {
+      "path": "packages/platform/i18n"
+    },
+    {
+      "path": "packages/platform/http"
     }
   ]
 }

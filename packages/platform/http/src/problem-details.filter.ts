@@ -6,13 +6,15 @@ import {
   HttpStatus,
   Injectable,
 } from '@nestjs/common';
-import { CurrentLocale, AppError } from '@hotella/platform-i18n';
+import { InvalidCursorError } from '@hotella/contracts-api';
+import { AppError, CurrentLocale } from '@hotella/platform-i18n';
+import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import type { Request, Response } from 'express';
-import { ZodValidationException } from 'nestjs-zod';
 import type { ZodError } from 'zod';
 
 /**
- * RFC 9457 Problem Details for every error response (ADR-0012).
+ * RFC 9457 Problem Details for every error response (ADR-0012). Unknown exceptions are logged with the
+ * correlation id and rendered as a generic 500 so no internals leak.
  * `code` is stable and machine-readable; `detail` is localized from `errors.<code>` in the request locale.
  */
 export interface ProblemDetails {
@@ -39,7 +41,10 @@ const TITLES: Record<string, string> = {
 @Injectable()
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
-  constructor(private readonly locale: CurrentLocale) {}
+  constructor(
+    private readonly locale: CurrentLocale,
+    @InjectLogger() private readonly logger: Logger,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -63,7 +68,11 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       code = exception.code;
       params = exception.params;
       exposeParams = exception.expose;
-    } else if (exception instanceof ZodValidationException) {
+    } else if (exception instanceof InvalidCursorError) {
+      status = HttpStatus.BAD_REQUEST;
+      code = 'platform.invalid_cursor';
+    } else if (isZodValidationException(exception)) {
+      // Structural check: pnpm may give each package its own nestjs-zod instance, so instanceof is unreliable.
       status = HttpStatus.BAD_REQUEST;
       code = 'platform.validation_failed';
       const zodError = exception.getZodError() as ZodError;
@@ -86,6 +95,18 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       }
     }
 
+    if (status >= 500) {
+      this.logger.error(
+        {
+          err:
+            exception instanceof Error
+              ? { message: exception.message, stack: exception.stack }
+              : exception,
+          code,
+        },
+        'unhandled exception',
+      );
+    }
     const detailKey = `errors.${code}`;
     const problem: ProblemDetails = {
       type: `https://hotella.app/problems/${code}`,
@@ -101,4 +122,13 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     };
     res.status(status).type('application/problem+json').send(problem);
   }
+}
+
+function isZodValidationException(value: unknown): value is { getZodError(): unknown } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { getZodError?: unknown }).getZodError === 'function' &&
+    (value as { name?: string }).name === 'ZodValidationException'
+  );
 }

@@ -1,42 +1,30 @@
-import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { type HealthIndicatorResult, HealthIndicatorService } from '@nestjs/terminus';
-import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
-import { Redis } from 'ioredis';
+import { VALKEY } from '@hotella/platform-queue';
+import type { Redis } from 'ioredis';
 
-/** Readiness probe for Valkey (RESP). Sprint 0.3.5 replaces it with the shared client from @hotella/platform-queue. */
+/** Readiness probe for Valkey through the shared connection from @hotella/platform-queue. */
 @Injectable()
-export class ValkeyHealthIndicator implements OnModuleDestroy {
-  private readonly client: Redis;
-
+export class ValkeyHealthIndicator {
   constructor(
-    @Inject(APP_CONFIG) config: AppConfig,
+    @Inject(VALKEY) private readonly client: Redis,
     private readonly indicators: HealthIndicatorService,
-  ) {
-    this.client = new Redis(config.valkey.url, {
-      lazyConnect: true,
-      maxRetriesPerRequest: 1,
-      connectTimeout: 2_000,
-      enableOfflineQueue: false,
-      retryStrategy: () => null, // the probe reconnects on demand; no background retry storm
-    });
-    this.client.on('error', () => undefined);
-  }
+  ) {}
 
   async isHealthy(key: string): Promise<HealthIndicatorResult> {
     const indicator = this.indicators.check(key);
     try {
-      if (this.client.status !== 'ready') await this.client.connect();
-      const pong = await this.client.ping();
+      const pong = await Promise.race([
+        this.client.ping(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout after 2000ms')), 2_000).unref(),
+        ),
+      ]);
       return pong === 'PONG'
         ? indicator.up()
-        : indicator.down({ message: `unexpected reply ${pong}` });
+        : indicator.down({ message: `unexpected reply ${String(pong)}` });
     } catch (err) {
-      this.client.disconnect(false);
       return indicator.down({ message: err instanceof Error ? err.message : 'unreachable' });
     }
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    this.client.disconnect(false);
   }
 }

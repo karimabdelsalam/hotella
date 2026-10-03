@@ -1,12 +1,22 @@
 {
-  "name": "@hotella/api",
+  "name": "@hotella/platform-http",
   "version": "0.0.0",
   "private": true,
-  "description": "Hotella platform API (NestJS 11). Composes platform and domain modules; exposes /api/v1.",
+  "description": "HTTP conventions for all Hotella apps (ADR-0012): Problem Details filter, idempotency keys, rate limiting, OpenAPI, app bootstrap.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "nest build",
-    "dev": "nest start --watch",
-    "start": "node dist/main.js",
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "clean": "rm -rf dist coverage"
@@ -14,37 +24,25 @@
   "dependencies": {
     "@hotella/contracts-api": "workspace:*",
     "@hotella/platform-config": "workspace:*",
-    "@hotella/platform-database": "workspace:*",
-    "@hotella/platform-http": "workspace:*",
     "@hotella/platform-i18n": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
     "@hotella/platform-queue": "workspace:*",
-    "@hotella/platform-secrets": "workspace:*",
-    "@hotella/platform-storage": "workspace:*",
     "@nestjs/common": "11.2.7",
     "@nestjs/core": "11.2.7",
-    "@nestjs/platform-express": "11.2.7",
     "@nestjs/swagger": "11.4.7",
-    "@nestjs/terminus": "11.1.1",
     "ioredis": "5.11.1",
     "nestjs-zod": "5.5.0",
-    "pg": "8.23.1",
-    "pino": "10.4.0",
-    "pino-pretty": "13.1.3",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@hotella/platform-testing": "workspace:*",
     "@hotella/tooling": "workspace:*",
-    "@nestjs/cli": "11.0.24",
+    "@nestjs/platform-express": "11.2.7",
     "@nestjs/testing": "11.2.7",
-    "@swc/cli": "0.8.1",
-    "@swc/core": "1.16.13",
     "@types/express": "5.0.6",
-    "@types/pg": "8.23.1",
     "@types/supertest": "7.2.1",
-    "chokidar": "5.0.0",
     "supertest": "7.3.1",
     "vitest": "4.1.11"
   }

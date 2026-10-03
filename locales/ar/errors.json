@@ -17,5 +17,8 @@
   "errors.platform.http_422": "تعذّرت معالجة الطلب.",
   "errors.platform.http_429": "طلبات كثيرة جدًا.",
   "errors.platform.http_500": "حدث خطأ من جانبنا.",
-  "errors.platform.http_503": "الخدمة غير متاحة مؤقتًا."
+  "errors.platform.http_503": "الخدمة غير متاحة مؤقتًا.",
+  "errors.platform.invalid_cursor": "مؤشر الصفحات غير صالح.",
+  "errors.platform.idempotency_key_invalid": "ترويسة Idempotency-Key غير صالحة.",
+  "errors.platform.idempotency_in_progress": "لا يزال طلب يحمل نفس Idempotency-Key قيد المعالجة."
 }

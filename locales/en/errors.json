@@ -17,5 +17,8 @@
   "errors.platform.http_422": "The request could not be processed.",
   "errors.platform.http_429": "Too many requests.",
   "errors.platform.http_500": "Something went wrong on our side.",
-  "errors.platform.http_503": "The service is temporarily unavailable."
+  "errors.platform.http_503": "The service is temporarily unavailable.",
+  "errors.platform.invalid_cursor": "The pagination cursor is invalid.",
+  "errors.platform.idempotency_key_invalid": "The Idempotency-Key header is invalid.",
+  "errors.platform.idempotency_in_progress": "A request with this Idempotency-Key is still being processed."
 }
