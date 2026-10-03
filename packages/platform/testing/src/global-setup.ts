@@ -24,10 +24,19 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   }
 
   const stops: Array<() => Promise<unknown>> = [];
+  // PostgreSQL and Valkey are required for integration suites; MinIO is optional (its suite skips without it),
+  // so a registry hiccup for MinIO must never take the database/queue suites down.
   const [pg, valkey, minio] = await Promise.all([
     needPg ? startPostgres() : undefined,
     needValkey ? startValkey() : undefined,
-    needS3 ? startMinio() : undefined,
+    needS3
+      ? startMinio().catch((err: unknown) => {
+          process.stderr.write(
+            `[test-infra] MinIO unavailable, storage integration tests will skip: ${err instanceof Error ? err.message : String(err)}\n`,
+          );
+          return undefined;
+        })
+      : undefined,
   ]);
   if (pg) {
     writeTestInfra({ TEST_DATABASE_URL: pg.getConnectionUri() });

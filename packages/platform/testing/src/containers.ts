@@ -10,7 +10,8 @@ import {
 export const IMAGES = {
   postgres: 'pgvector/pgvector:pg18',
   valkey: 'valkey/valkey:9',
-  minio: 'minio/minio:latest',
+  // Docker Hub's minio/minio is no longer pullable (2026); the project publishes to quay.io.
+  minio: 'quay.io/minio/minio:latest',
 } as const;
 
 /** True when a container runtime (Docker/Podman) is reachable. Never throws. */

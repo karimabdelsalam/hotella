@@ -1,10 +1,42 @@
 {
   "extends": "./tooling/tsconfig.base.json",
-  "compilerOptions": { "noEmit": true },
+  "compilerOptions": {
+    "noEmit": true
+  },
   "include": [],
   "references": [
-    { "path": "packages/platform/config" },
-    { "path": "packages/platform/observability" },
-    { "path": "apps/api" }
+    {
+      "path": "packages/contracts/events"
+    },
+    {
+      "path": "packages/platform/config"
+    },
+    {
+      "path": "packages/platform/observability"
+    },
+    {
+      "path": "packages/platform/database"
+    },
+    {
+      "path": "packages/platform/secrets"
+    },
+    {
+      "path": "packages/platform/testing"
+    },
+    {
+      "path": "packages/platform/storage"
+    },
+    {
+      "path": "packages/platform/events"
+    },
+    {
+      "path": "packages/platform/queue"
+    },
+    {
+      "path": "apps/api"
+    },
+    {
+      "path": "apps/worker"
+    }
   ]
 }

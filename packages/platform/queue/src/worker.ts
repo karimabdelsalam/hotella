@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { type Job, Worker, type WorkerOptions } from 'bullmq';
 import type { Redis } from 'ioredis';
 import type { EventEnvelope } from '@hotella/contracts-events';
@@ -7,10 +8,25 @@ import type { JobEnvelope } from './job';
 import { DEFAULT_CONCURRENCY, QUEUE_PREFIX, type QueueName } from './queues';
 
 export type EventHandler = (envelope: EventEnvelope) => Promise<void>;
+export type JobHandler<T = unknown> = (data: T, job: Job<JobEnvelope<T>>) => Promise<void>;
 
-/** Subscriptions: event name → consumer-tagged handlers. Each consumer is idempotent via the inbox. */
+/**
+ * Subscriptions. Events: name → consumer-tagged handlers, each idempotent via the inbox.
+ * Plain jobs (scheduler ticks, maintenance): name → one handler, BullMQ retries apply.
+ */
+@Injectable()
 export class EventConsumerRegistry {
   private readonly handlers = new Map<string, Array<{ consumer: string; handler: EventHandler }>>();
+  private readonly jobs = new Map<string, JobHandler>();
+
+  onJob<T>(jobName: string, handler: JobHandler<T>): void {
+    if (this.jobs.has(jobName)) throw new Error(`Job handler for "${jobName}" already registered`);
+    this.jobs.set(jobName, handler as JobHandler);
+  }
+
+  jobHandler(jobName: string): JobHandler | undefined {
+    return this.jobs.get(jobName);
+  }
 
   on(eventName: string, consumer: string, handler: EventHandler): void {
     const list = this.handlers.get(eventName) ?? [];

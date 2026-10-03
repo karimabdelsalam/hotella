@@ -48,6 +48,15 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...valid, OTEL_ENABLED: '0' }).otel.enabled).toBe(false);
   });
 
+  it('parses worker queue groups and supported locales', () => {
+    expect(loadConfig(valid).worker.queues).toBe('all');
+    expect(
+      loadConfig({ ...valid, WORKER_QUEUES: 'guest-realtime, critical-operational' }).worker.queues,
+    ).toEqual(['guest-realtime', 'critical-operational']);
+    expect(loadConfig(valid).i18n.supportedLocales).toEqual(['en', 'ar']);
+    expect(() => loadConfig({ ...valid, DEFAULT_LOCALE: 'english' })).toThrow();
+  });
+
   it('rejects unknown log levels and environments', () => {
     expect(() => loadConfig({ ...valid, LOG_LEVEL: 'verbose' })).toThrow();
     expect(() => loadConfig({ ...valid, NODE_ENV: 'staging' })).toThrow();

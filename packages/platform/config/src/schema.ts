@@ -17,6 +17,21 @@ export const envSchema = z.object({
   /** Base URL used for guest-facing links (activation URLs). Phase 4 uses it; declared early so envs are complete. */
   PUBLIC_BASE_URL: z.url().default('http://localhost:3000'),
 
+  /** Worker process shape (Spec §71): which queue groups this process serves, relay cadence, scheduler role. */
+  WORKER_QUEUES: z.string().min(1).default('all'),
+  WORKER_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+  WORKER_RELAY_INTERVAL_MS: z.coerce.number().int().min(50).max(60_000).default(500),
+  WORKER_RELAY_BATCH: z.coerce.number().int().min(1).max(1000).default(100),
+  WORKER_SCHEDULER_ENABLED: z.stringbool().default(true),
+
+  /** Localization (Spec §79): platform default and the locales shipped in /locales. */
+  DEFAULT_LOCALE: z
+    .string()
+    .regex(/^[a-z]{2}(-[A-Z]{2})?$/)
+    .default('en'),
+  SUPPORTED_LOCALES: z.string().min(2).default('en,ar'),
+  LOCALES_DIR: z.string().min(1).optional(),
+
   /** OpenTelemetry (ADR-0006). The SDK itself honours the standard OTEL_* variables; we only gate enablement. */
   OTEL_ENABLED: z.stringbool().default(false),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().default('http://localhost:4318'),
@@ -53,6 +68,18 @@ export interface AppConfig {
   readonly shutdown: { readonly timeoutMs: number };
   readonly database: { readonly url: string };
   readonly valkey: { readonly url: string };
+  readonly worker: {
+    readonly queues: 'all' | readonly string[];
+    readonly port: number;
+    readonly relayIntervalMs: number;
+    readonly relayBatch: number;
+    readonly schedulerEnabled: boolean;
+  };
+  readonly i18n: {
+    readonly defaultLocale: string;
+    readonly supportedLocales: readonly string[];
+    readonly localesDir?: string;
+  };
   readonly otel: {
     readonly enabled: boolean;
     readonly endpoint: string;
@@ -94,6 +121,25 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
     shutdown: { timeoutMs: e.SHUTDOWN_TIMEOUT_MS },
     database: { url: e.DATABASE_URL },
     valkey: { url: e.VALKEY_URL },
+    worker: {
+      queues:
+        e.WORKER_QUEUES.trim() === 'all'
+          ? 'all'
+          : e.WORKER_QUEUES.split(',')
+              .map((q) => q.trim())
+              .filter(Boolean),
+      port: e.WORKER_PORT,
+      relayIntervalMs: e.WORKER_RELAY_INTERVAL_MS,
+      relayBatch: e.WORKER_RELAY_BATCH,
+      schedulerEnabled: e.WORKER_SCHEDULER_ENABLED,
+    },
+    i18n: {
+      defaultLocale: e.DEFAULT_LOCALE,
+      supportedLocales: e.SUPPORTED_LOCALES.split(',')
+        .map((l) => l.trim())
+        .filter(Boolean),
+      ...(e.LOCALES_DIR ? { localesDir: e.LOCALES_DIR } : {}),
+    },
     otel: {
       enabled: e.OTEL_ENABLED,
       endpoint: e.OTEL_EXPORTER_OTLP_ENDPOINT,

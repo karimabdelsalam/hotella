@@ -6,14 +6,16 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
-import { EVENT_TRANSPORT } from '@hotella/platform-events';
 import { RequestContext } from '@hotella/platform-observability';
 import type { Redis } from 'ioredis';
 import { createValkeyConnection } from './connection';
 import { QueueRegistry } from './registry';
 import { BullmqEventTransport } from './transport';
+import { EventConsumerRegistry } from './worker';
 
 export const VALKEY = Symbol('VALKEY');
+/** The BullMQ-backed EventTransport. Apps that run the relay alias EVENT_TRANSPORT to it via useExisting. */
+export const BULLMQ_EVENT_TRANSPORT = Symbol('BULLMQ_EVENT_TRANSPORT');
 export const InjectValkey = (): ParameterDecorator => Inject(VALKEY);
 
 @Global()
@@ -40,12 +42,13 @@ export class QueueModule implements OnApplicationShutdown {
           useFactory: (v: Redis, ctx: RequestContext) => new QueueRegistry(v, ctx),
         },
         {
-          provide: EVENT_TRANSPORT,
+          provide: BULLMQ_EVENT_TRANSPORT,
           inject: [QueueRegistry],
           useFactory: (r: QueueRegistry) => new BullmqEventTransport(r),
         },
+        EventConsumerRegistry,
       ],
-      exports: [VALKEY, QueueRegistry, EVENT_TRANSPORT],
+      exports: [VALKEY, QueueRegistry, BULLMQ_EVENT_TRANSPORT, EventConsumerRegistry],
     };
   }
 

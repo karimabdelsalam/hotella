@@ -1,0 +1,10 @@
+{
+  "extends": "@hotella/tooling/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "composite": false
+  },
+  "include": ["./**/*.ts", "../src/**/*.ts"]
+}
