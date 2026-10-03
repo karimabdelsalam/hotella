@@ -1239,6 +1239,8 @@ Reality notes for 5.1:
 
 ### Phase 6 — AI Foundation (M2, detailed)
 
+> **Status: accepted on 2026-10-03; M2 reached** — evidence in `docs/acceptance/phase-6.md`.
+
 **Goal / acceptance (Spec §85, M2):** the same guest flow in natural language. A guest writes "الجو حر أوي هنا"; the
 Guest Concierge (over the tools that already exist) finds the stay and room, sees no open AC request, creates
 `AC_PROBLEM` (or relates it to an open one), the work goes to Engineering, and the guest is answered in Arabic.
@@ -1318,7 +1320,7 @@ ai.feedback             id, tenant_id, execution_id, kind (DRAFT_EDIT|REASSIGNME
 | 6.2 | Tool registry + AI policy stage: tool definitions declared in the AI manifest, execution through the ActionGate as `AI_AGENT`, risk decisions, `ai.executions`/`ai.execution_steps`, `ai.action_proposals` + approval kind `AI_ACTION`; tools v1 `guest.get_current_stay`, `catalog.list_services`, `operations.find_open_requests`, `operations.create_service_request`, `operations.cancel_service_request`, `communication.send_message` (`knowledge.search` moves to 6.4) | delivered |
 | 6.3 | Agents and prompts (immutable versions), Context Engine with context policies, execution audit read API, Guest Concierge v1 runtime triggered by guest messages (AUTO/ASSIST), language rule, handoff → inbox, drafts with edit-distance feedback, staff inbox shows AI drafts | delivered |
 | 6.4 | Knowledge v1 (`knowledge` schema: documents, versions, chunks, embeddings with pgvector; scope tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank with document version references; retrieved text framed as untrusted data) | delivered |
-| 6.5 | M2 acceptance: "الجو حر أوي هنا" end to end with the `FAKE` provider scripted, HIGH-risk proposal → approval → execution, execution audit complete, the no-direct-write rule enforced by depcruise + test; `docs/acceptance/phase-6.md` | planned |
+| 6.5 | M2 acceptance: "الجو حر أوي هنا" end to end with the `FAKE` provider scripted, HIGH-risk proposal → approval → execution, execution audit complete, the no-direct-write rule enforced by depcruise + test; `docs/acceptance/phase-6.md` | delivered |
 
 Reality notes for 6.1:
 - Migration `0022_ai_gateway`: `ai.providers`, `ai.models`, `ai.routing_rules` (platform defaults visible to every
@@ -1446,11 +1448,269 @@ Reality notes for 6.4:
 - Embedding happens right after publishing (best effort) and in the worker's `knowledge.embed.sweep` job (every 5
   minutes on `background-ai`) for chunks published without an embedding route.
 
-### Phase 7 — Housekeeping
-`hk` schema: `room_operational_states` projection (+version), `housekeeping_jobs` via work items, `credit_rules`, `room_signals` (DND/MUR/PRIVACY/SERVICE_REQUESTED with source), assignment boards, inspection hook (Phase 9 engine, early minimal version here), arrival readiness v0 (configurable dimensions, Spec §16). Consumes `hotel.guest.checked_out.v1` → CHECKOUT job; `hotel.room.status_changed.v1`. Housekeeping Copilot recommendations (assignment balancing by credits/location/history) as proposals only.
+Reality notes for 6.5:
+- The scripted-`FAKE` M2 run is `m2.integration.spec.ts` (the worker path, under the message event's correlation id);
+  the no-direct-write rule is `boundaries.spec.ts` next to the ESLint and dependency-cruiser rules.
+- The pilot smoke routes the stand-in as the platform default route (a GM with a property membership cannot change the
+  tenant-wide routing, by design).
+- The pilot smoke goes further than planned: a stand-in OpenAI-compatible model (`infra/docker/pilot/model-mock.mjs`,
+  compose profile `tools`) lets the deployed worker run the concierge through the real adapter, so M2 is also proven on
+  the deployed stack (queue job, gateway, tools, ActionGate, comms, execution record).
 
-### Phase 8 — Engineering / CMMS
-`eng` schema: assets (hierarchy, types with controlled JSON schemas, models), asset documents (knowledge layer), work orders (types, failure taxonomy tables SYMPTOM/FAILURE_MODE/CAUSE/RESOLUTION), meters & readings, PM plans (CALENDAR/METER/CONDITION) with versioned procedures, parts & usage, warranty rules, room restrictions (OOO/OOS/BLOCKED) with integration command when PMS is source of truth. Engineering knowledge retrieval (RAG over manuals, hybrid search, pgvector). Engineering Copilot. Arrival-risk intelligence v1 combining HK + ENG + stay ETA (rules first, AI for explanation).
+### Phase 7 — Housekeeping (detailed)
+
+**Goal / acceptance (Spec §9, §16; part of M3):** a check-out reported by the PMS makes the room dirty and creates the
+CHECKOUT clean with its credits for Housekeeping; attendants work their rooms from a board, DND and make-up-room
+signals shape the day, a supervisor inspects where the property requires it, the room becomes ready on the property's
+own readiness dimensions, and the PMS hears the new room status when the connector allows it. The supervisor gets a
+balanced assignment proposal (deterministic, credits and floors), never an automatic re-assignment.
+
+#### 7.A Domain model (schema `hk`, context `@hotella/domain-housekeeping`, code `hk`)
+
+```text
+hk.room_states            room_id (PK, = org room location id), tenant_id, property_id, occupancy (VACANT|OCCUPIED),
+                          housekeeping (DIRTY|CLEANING|CLEAN|INSPECTING|INSPECTED|PICKUP), front_office (PMS status text,
+                          e.g. OUT_OF_ORDER), last_cleaned_at, last_inspected_at, updated_at, version
+                          (fast projection; never the only record)
+hk.room_state_events      id, tenant_id, room_id, dimension (OCCUPANCY|HOUSEKEEPING|FRONT_OFFICE), from, to, cause
+                          (PMS|JOB|INSPECTION|STAFF|SYSTEM), actor_type/id, job_id, occurred_at (append-only history)
+hk.jobs                   id, tenant_id, property_id, work_item_id, room_id, stay_id, cleaning_type (STAYOVER|CHECKOUT|
+                          ARRIVAL|DEEP_CLEAN|TURNDOWN|TOUCH_UP|VIP|OTHER), credits numeric(5,2), status (OPEN|IN_PROGRESS|
+                          DONE|INSPECTED|FAILED_INSPECTION|SKIPPED|CANCELLED), scheduled_for date, started_at, completed_at,
+                          inspected_at, version; unique (room_id, cleaning_type, scheduled_for) for generated jobs
+hk.credit_rules           id, tenant_id, property_id, cleaning_type, room_type_id nullable, credits, version
+hk.room_signals           id, tenant_id, property_id, room_id, signal (DND|MAKE_UP_ROOM|PRIVACY|SERVICE_REQUESTED),
+                          source (PMS|BMS|SMART_ROOM|STAFF|GUEST_PORTAL), started_at, ended_at, actor_type/id
+                          (one open row per room and signal; history kept)
+hk.inspections            id, tenant_id, job_id, room_id, result (PASS|FAIL), notes, inspector_id, inspected_at
+```
+
+#### 7.B Design decisions taken before coding
+
+- **Room status ≠ cleaning job** (Spec §9). The projection answers "what is the room now" fast; every change is an
+  `hk.room_state_events` row (rule 10). Jobs are work items of kind `HK_JOB` in the operations engine (SLA, assignment
+  history, escalation come from there); a job follows its work item's status like service requests do.
+- **PMS is the source of truth for occupancy and front-office status** (rule 19): `hotel.guest.checked_in/out.v1`,
+  `hotel.stay.room_changed.v1` and `hotel.room.status_changed.v1` drive occupancy and FO state; a check-out makes the room
+  DIRTY and creates the CHECKOUT job. Housekeeping state changes made by the platform (cleaned, inspected) go back to
+  the PMS as a `SET_ROOM_STATUS` command only when the instance has `ROOM_STATUS_WRITE` (ActionGate connector stage);
+  otherwise they stay internal.
+- **Generation:** CHECKOUT on check-out; STAYOVER for occupied rooms once per property-local day (worker job, hourly
+  check of each property's configured hour, idempotent by the unique key); ARRIVAL for vacant-clean rooms with an
+  arrival today when the property asks for it; TOUCH_UP after a failed inspection. DND at generation time does not skip
+  the job: the job waits (`SKIPPED` only by staff, with a reason) and a make-up-room signal raises its priority.
+- **Credits** are deterministic: property rule for (type, room type) → property rule for the type → platform default
+  (CHECKOUT 1.0, STAYOVER 0.7, ARRIVAL 0.5, DEEP_CLEAN 2.0, TURNDOWN 0.4, TOUCH_UP 0.3, VIP 1.5, OTHER 0.5), copied onto
+  the job at creation so later rule changes do not rewrite history.
+- **Inspection hook (minimal, before the Phase 9 engine):** setting `hk.inspection.required` (property); when on, a done
+  job moves the room to INSPECTING and a supervisor records PASS (→ INSPECTED) or FAIL (→ DIRTY + TOUCH_UP job).
+- **Readiness v0** (Spec §16): dimensions configured per property (`hk.readiness.dimensions`: HOUSEKEEPING, INSPECTION,
+  ENGINEERING, NO_OOO); each evaluates to PASS/FAIL/UNKNOWN with a reason (ENGINEERING from open engineering work at the
+  room through `OPERATIONS_API`, NO_OOO from the front-office state). A room that becomes ready publishes
+  `hk.room.ready.v1`.
+- **Assignment proposal ("Housekeeping Copilot" v1):** deterministic balancing of the day's open jobs across chosen
+  attendants by credits, keeping floors together (location tree) — returned as a proposal the supervisor applies or
+  edits; nothing is assigned without a person. An AI explanation can come later; the numbers are code (rule 11).
+- **Guest signals:** the guest web gets a DND / make-up-room toggle (guest scope `SERVICE_REQUEST`), recorded with source
+  GUEST_PORTAL; the concierge gets `housekeeping.set_room_signal` (LOW) for its guest's room.
+- **Events:** `hk.room.state_changed.v1`, `hk.job.created.v1`, `hk.job.status_changed.v1`, `hk.room_signal.changed.v1`,
+  `hk.room.ready.v1`. **Permissions:** `hk.board.read`, `hk.room.manage`, `hk.job.manage`, `hk.inspect`,
+  `hk.config.manage`; roles HK_SUPERVISOR (all but config), ROOM_ATTENDANT (`hk.board.read` + task actions), GM (all).
+
+#### 7.C Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 7.1 | `@hotella/domain-housekeeping`: room states projection + history, PMS event consumers (check-in/out, room change, room status), room signals (staff + guest web + PMS), room board API, events, permissions, tenant-leak tests | delivered |
+| 7.2 | Jobs on the operations engine (`HK_JOB`), credit rules, generation (CHECKOUT, daily STAYOVER), job ↔ work item status, inspection hook (PASS/FAIL → TOUCH_UP), room status command to the PMS when allowed | delivered |
+| 7.3 | Readiness v0 (configurable dimensions, `hk.room.ready.v1`), ARRIVAL generation, make-up-room jobs first, assignment balancer proposal + apply, concierge tool `housekeeping.set_room_signal`, guest web DND/make-up toggle | delivered |
+| 7.4 | Staff web: housekeeping board (rooms by floor, states, signals, jobs, credits per attendant, assign, inspect) and the attendant's "my rooms" list, English and Arabic (RTL) with Playwright; pilot smoke: check-out → CHECKOUT job → done → room clean | delivered |
+| 7.5 | Phase 7 acceptance (`docs/acceptance/phase-7.md`) | delivered — Phase 7 accepted |
+
+Reality notes for 7.1:
+- Migration `0027_housekeeping`: `hk.room_states` (one row per room, created on first touch as VACANT/DIRTY — the
+  platform never claims a room clean without evidence; FK to `org.rooms`), append-only `hk.room_state_events`
+  (dimension, from, to, cause, actor, job), `hk.room_signals` (one open row per room and signal, history kept). RLS on
+  all three; `hk` joins the application schemas.
+- PMS consumer `hk.room-states` (worker): check-in → OCCUPIED; check-out → VACANT + DIRTY; room move → old room VACANT +
+  DIRTY, new room OCCUPIED; room status → housekeeping state (DIRTY/CLEAN/INSPECTED/PICKUP) or front-office
+  restriction (OUT_OF_ORDER/OUT_OF_SERVICE), a housekeeping status lifting an earlier restriction. Events older than
+  the last applied PMS event of the room are ignored.
+- Staff move housekeeping states by hand only along allowed moves (`staffMoveAllowed`) with the room's version
+  (optimistic locking), audited. DND/privacy and make-up-room/service-requested exclude each other; the guest web
+  toggles DND or make-up-room for the guest's current room (`POST /guest/room-signals`, source GUEST_PORTAL).
+- `HOUSEKEEPING_API` (`roomState`, `setGuestRoomSignal`) for the concierge tool and readiness in 7.3.
+
+Reality notes for 7.2:
+- Migration `0028_hk_jobs`: `hk.jobs` (unique work item; partial unique key (room, type, day) for GENERATED jobs only,
+  so staff can add a second clean the same day), `hk.credit_rules` (one rule per type, or per type and room type),
+  append-only `hk.inspections`; credits are `numeric(5,2)` checked to 0–20; FKs to tenant, property, room and room type;
+  RLS on all three.
+- `JobService`: a job is created with its `HK_JOB` work item (department HK, the room as location, title
+  `hk.job.title`) in one transaction; worker consumer `hk.jobs` creates CHECKOUT cleans on check-out and on a room move
+  (for the room left) and follows `ops.work_item.status_changed` for HK jobs (OPEN → IN_PROGRESS → DONE, or CANCELLED;
+  finished jobs are never reopened by late events). IN_PROGRESS moves a dirty room to CLEANING; DONE moves it to CLEAN,
+  or INSPECTING when `hk.inspection.required` is on. VIP jobs default to HIGH priority.
+- Stayover sweep: worker job `hk.stayover.generate` every hour on `normal`; per property, once its local hour passed
+  `hk.stayover.hour` (default 8), a STAYOVER clean for each occupied room, idempotent by the generated-job key; one
+  property's failure is logged and does not stop the others.
+- Inspection: `POST …/housekeeping/jobs/:id/inspection` (`hk.inspect`) only for a DONE job whose room is INSPECTING;
+  PASS → room INSPECTED; FAIL → room DIRTY and a TOUCH_UP job (origin INSPECTION, HIGH). Skip
+  (`POST …/jobs/:id/skip`, `hk.job.manage`) needs a reason, only while OPEN, and cancels the work item.
+- PMS write-back: after CLEAN (no inspection) or INSPECTED, a `SET_ROOM_STATUS` command (`{room_number, status}`) goes to
+  each ACTIVE instance whose effective capabilities include `ROOM_STATUS_WRITE` (otherwise the status stays internal);
+  idempotency key per job and outcome, sent after the transaction and best effort (a refused command never undoes the
+  clean). `SIM_PMS` declares the capability and command; the simulator records the status without echoing an event.
+  The check reads the instance's effective capabilities through `INTEGRATIONS_API` rather than the gate's connector
+  stage, because the write is a system follow-up of a person's action, not an action of its own.
+- Moved to 7.3: ARRIVAL generation (needs the day's arrivals from the guest context) and the make-up-room signal
+  raising an open job's priority.
+
+Reality notes for 7.3:
+- Readiness v0: `hk.room_states.ready` / `ready_since` (migration `0029_hk_readiness`), recomputed in the same
+  transaction as every state change and by worker consumer `hk.readiness` when engineering work (department ENG) at
+  the room is created or changes status (`OPERATIONS_API.openWorkItemsAtLocation`). A room is ready when it is VACANT
+  and every dimension of `hk.readiness.dimensions` passes (default HOUSEKEEPING, ENGINEERING, NO_OOO); a dimension that
+  could not be checked is UNKNOWN and never counts as passed. Becoming ready publishes `hk.room.ready.v1`;
+  `GET …/housekeeping/rooms/:id/readiness` explains each dimension (reason codes localized under
+  `hk.readiness.reason.*`). A change of the dimensions setting applies from the room's next change.
+- ARRIVAL: the hourly sweep (`generateDaily`, same `hk.stayover.generate` job) also creates an ARRIVAL check for each
+  vacant CLEAN/INSPECTED room an EXPECTED stay arriving that day is pre-assigned to, when `hk.arrival.clean` is on
+  (`GUEST_API.expectedArrivals`); dirty rooms already have their CHECKOUT clean.
+- Make-up room: instead of changing the work item's priority (which the operations engine does not support after
+  creation, and which would bypass its SLA policy choice), the job list puts open jobs of rooms asking to be made up
+  first and flags `makeUpRequested` / `doNotDisturb`; the attendant's list (7.4) uses the same order.
+- Assignment proposal: `POST …/housekeeping/assignments/proposal` (`hk.job.manage`) balances the day's OPEN jobs across
+  the chosen attendants (longest-floor-first by credits; a floor larger than 1.2× the fair share is split room by
+  room; floor = `org.rooms.floor_label`, now on `RoomSummary`, else the room number without its last two digits);
+  `POST …/housekeeping/assignments` applies a (possibly edited) plan through `OPERATIONS_API.assignTask` (the gate
+  checks `task.assign`, operations checks the attendant may take tasks), all or nothing, audited.
+- Concierge: `housekeeping.set_room_signal` (LOW, `hk.room.manage`, guest executions only) registered by the
+  housekeeping core module through `AI_TOOL_REGISTRY`; Guest Concierge v3 (agent and prompt) offers it, v2 stays as
+  history. Signals set this way have source GUEST_PORTAL and the AI execution as actor.
+- Guest web: "Your room" with Do not disturb / Please make up my room toggles (`GET`/`POST /guest/room-signals`),
+  English and Arabic, Playwright-covered.
+
+Reality notes for 7.4:
+- `apps/staff-web` `/[locale]/housekeeping`: "My rooms" (the person's assigned open jobs; Start and Done are one tap
+  each through the task lifecycle — START implies accept), "Rooms" (board by floor with state, occupancy, readiness,
+  out-of-order and guest signals) and "Today's jobs" (credits, status, flags, assignee; Passed/Failed for rooms waiting
+  for inspection when the person holds `hk.inspect`; with `hk.job.manage` the day plan: choose attendants from
+  `GET …/housekeeping/attendants` — active ROOM_ATTENDANT members — review the proposal, assign as proposed). The
+  header links Inbox and Housekeeping. Playwright: attendant flow and supervisor flow in English, the board in Arabic
+  (RTL mirroring checked).
+- A property without an active Housekeeping department still gets its cleans: the job's work item is created without
+  a department (unrouted, visible in the operations lists) and a warning is logged, rather than failing the PMS
+  consumer.
+- Pilot smoke ("housekeeping"): the simulator's SIM-C1 check-out from 506 created the CHECKOUT clean (credits 1.0,
+  unrouted — the smoke creates departments later); the GM starts and completes its task; the worker moves room 506 to
+  CLEAN and it becomes ready.
+
+### Phase 8 — Engineering / CMMS (detailed)
+
+**Goal / acceptance (Spec §10; completes M3 with Phase 7):** engineering works on real equipment. An AC complaint in
+room 504 becomes a CORRECTIVE work order on the room's fan-coil unit with symptom, diagnosis, failure mode, cause,
+resolution and downtime kept as structured history; preventive maintenance comes due by calendar or meter and creates
+work from a versioned procedure; a room that cannot be sold is restricted (OOO/OOS/BLOCKED) and the PMS hears it when
+the connector allows; engineering knowledge (manuals linked to assets and models) answers the engineer's question for
+that exact asset; warranty rules flag a vendor case. Open engineering work keeps the room from being ready (7.3).
+
+#### 8.A Domain model (schema `eng`, context `@hotella/domain-engineering`, code `eng`)
+
+```text
+eng.asset_types           id, tenant_id, code, properties_schema (controlled JSON schema), version; translations
+                          (asset_type_translations: name)
+eng.asset_models          id, tenant_id, asset_type_id, manufacturer, model_code, expected_life_months
+eng.assets                id, tenant_id, property_id, parent_asset_id, asset_number (unique per property),
+                          asset_type_id, asset_model_id, location_id (org location: room, plant room…), name,
+                          serial_number, status (ACTIVE|OUT_OF_SERVICE|RETIRED), criticality (LOW|MEDIUM|HIGH|CRITICAL),
+                          installed_at, warranty_until, properties (validated against the type schema), version
+eng.asset_documents       id, tenant_id, asset_id | asset_model_id, knowledge_document_id (Knowledge owns the file and
+                          its versions; engineering links), kind (MANUAL|DATASHEET|WARRANTY|DIAGRAM|PHOTO)
+eng.failure_codes         id, tenant_id nullable (platform starter set), kind (SYMPTOM|FAILURE_MODE|CAUSE|RESOLUTION),
+                          code, asset_type_id nullable, active; translations
+eng.work_orders           id, tenant_id, property_id, work_item_id (the ops engine carries assignment, SLA, history),
+                          type (CORRECTIVE|PREVENTIVE|PREDICTIVE|INSPECTION|EMERGENCY|PROJECT), asset_id, location_id,
+                          reported_at, symptom_code, diagnosis (text, CONFIDENTIAL), failure_mode_code, cause_code,
+                          resolution_code, downtime_started_at, downtime_ended_at, pm_plan_id, source (STAFF|GUEST_REQUEST|
+                          PM|INSPECTION|AI), source_ref, status (follows the work item), version
+eng.meters                id, tenant_id, asset_id, kind (RUNTIME_HOURS|CYCLES|ENERGY_KWH|TEMPERATURE|PRESSURE), unit,
+                          cumulative (bool)
+eng.meter_readings        id, tenant_id, meter_id, value numeric, read_at, source (STAFF|IOT|BMS|API), actor (append-only)
+eng.pm_procedures         id, tenant_id, code; eng.pm_procedure_versions (immutable once published: steps JSON,
+                          estimated minutes, required parts) — rule 9
+eng.pm_plans              id, tenant_id, property_id, asset_id | asset_type_id (+ location scope), procedure_id,
+                          trigger (CALENDAR every N days | METER every N units | CONDITION threshold), last_done_at,
+                          last_meter_value, next_due_at / next_due_value, lead_days, active, version
+eng.parts / eng.part_stock / eng.part_usages
+                          minimal stock per property (on hand, reorder level) and usage per work order; no purchasing
+                          (ERP adapters later, Spec §10.8)
+eng.room_restrictions     id, tenant_id, property_id, room_id, kind (OOO|OOS|BLOCKED_OPERATIONALLY), reason_code,
+                          starts_at, ends_at, work_order_id, source (PLATFORM|PMS), pms_sync_status (NOT_REQUIRED|PENDING|
+                          SENT|FAILED), released_at, released_by (history kept)
+eng.warranty_cases        id, tenant_id, work_order_id, asset_id, vendor, status (SUGGESTED|OPENED|CLOSED|DISMISSED)
+```
+
+#### 8.B Design decisions taken before coding
+
+- **Work orders on the operations engine** like service requests and cleans: a work order is an `ENG_WORK_ORDER` work
+  item for department ENG at the asset's location; it follows the work item's status. A guest `AC_PROBLEM` request
+  (catalog, department ENG) becomes a CORRECTIVE work order on the asset at the room when engineering triages it (one
+  click: "convert to work order", or automatically when the room has exactly one asset of the service's mapped asset
+  type) — the request keeps its own lifecycle and is closed by the work.
+- **Failure taxonomy** is four separate controlled code lists (platform starter set + tenant additions, translated);
+  closing a CORRECTIVE/EMERGENCY order requires symptom, failure mode, cause and resolution codes (deterministic
+  validation, rule 11). Downtime is computed from the downtime timestamps, never estimated by AI.
+- **Asset types** carry a controlled JSON schema (zod-compatible subset: string/number/boolean/enum, required, units)
+  validated on asset create/update; type schemas are versioned and never break existing assets.
+- **PM due computation** is deterministic code: CALENDAR → last done + N days (property time zone), METER → last value
+  + N units (cumulative meters), CONDITION → reading crosses a threshold. A worker sweep (hourly) creates the PREVENTIVE
+  work order `lead_days` ahead with the plan's **published procedure version** pinned; completing it moves the plan.
+- **Meter readings** are append-only; a reading lower than the last for a cumulative meter is refused (meter
+  replacement is an explicit reset event). IoT/BMS readings arrive through the integration layer later (Phase 13).
+- **Room restrictions:** creating OOO/OOS for a room publishes `eng.room_restriction.changed.v1`; housekeeping's
+  front-office dimension already blocks readiness. When the property's PMS instance has `ROOM_RESTRICTION_WRITE`, the
+  platform sends `SET_ROOM_RESTRICTION` (rule 19); a PMS-reported OOO stays PMS-owned (source PMS, read-only here).
+- **Engineering knowledge:** asset documents are Knowledge documents (audience STAFF, classification INTERNAL) linked
+  to an asset or model; the engineer's tool `engineering.search_manuals` restricts retrieval to the documents linked
+  to that asset, its model and its type before falling back to the property's engineering documents.
+- **Warranty:** rule-based — a CORRECTIVE order on an asset whose `warranty_until` is in the future suggests a warranty
+  case (`SUGGESTED`) to the supervisor; AI may draft the vendor message later, never send it.
+- **Engineering Copilot v1** (staff-facing agent, ASSIST only): explains an asset's history, finds the manual section,
+  suggests likely failure modes from the asset model's history (counts, deterministic) — read tools only.
+- **Arrival-risk intelligence v1** (rules first, AI for explanation): for today's and tomorrow's arrivals with an
+  assigned room, a deterministic risk score from the room's readiness (housekeeping state, open engineering work,
+  restrictions), the stay's ETA when the PMS gives it (`RESERVATION_READ`), VIP flag and the open work's SLA; shown to
+  front desk and the duty manager with reasons; the AI may phrase the explanation, never compute the score.
+- **Events:** `eng.work_order.created.v1`, `eng.work_order.closed.v1` (codes, downtime), `eng.pm.due.v1`,
+  `eng.room_restriction.changed.v1`, `eng.meter.reading_recorded.v1`. **Permissions:** `eng.asset.read`,
+  `eng.asset.manage`, `eng.work_order.read`, `eng.work_order.manage`, `eng.pm.manage`, `eng.restriction.manage`,
+  `eng.parts.manage`, `eng.config.manage`; roles ENGINEER (read + work orders + readings), CHIEF_ENGINEER (all), GM.
+
+#### 8.C Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 8.1 | `@hotella/domain-engineering`: asset types (schema, translations), models, assets with hierarchy and location, asset documents linked to Knowledge, failure code lists with starter set, APIs, events, permissions, tenant-leak tests | delivered |
+| 8.2 | Work orders on the operations engine (`ENG_WORK_ORDER`), types, taxonomy and downtime on close, guest request → work order, parts usage and stock, warranty suggestion | planned |
+| 8.3 | Meters and readings, PM procedures (versioned) and plans (CALENDAR/METER/CONDITION), due sweep creating PREVENTIVE work, room restrictions with PMS sync (`SET_ROOM_RESTRICTION`) | planned |
+| 8.4 | Engineering knowledge tool `engineering.search_manuals`, Engineering Copilot v1 (ASSIST), arrival-risk v1 (rules + explanation), staff web: work orders and asset pages (English/Arabic, Playwright), pilot smoke | planned |
+| 8.5 | Phase 8 acceptance (`docs/acceptance/phase-8.md`) | planned |
+
+Reality notes for 8.1:
+- Migration `0030_engineering_assets` creates schema `eng`: `asset_types` (+ translations) whose `properties` field list
+  is the controlled language of `domain/properties.ts` (TEXT, NUMBER with unit/range, BOOLEAN, CHOICE; unknown keys
+  refused); a type change must keep existing assets valid (`compatibleChange`: only optional additions, no removal,
+  retyping or narrowing of choices). `asset_models` per manufacturer + model code; `assets` with a unique number per
+  property, a location (FK to `org.locations`), an optional parent (cycle refused), criticality, warranty date and
+  typed values checked against the type; `asset_documents` link a knowledge document (FK) to an asset or a model —
+  a document of another property cannot be linked; `failure_codes` (+ translations) per tenant with an optional asset
+  type. RLS on every tenant table.
+- Reference data is tenant-wide under `/eng/*`; assets are property-scoped under `/properties/:id/eng/*`.
+  `POST /eng/failure-codes/starter` imports the starter taxonomy (8 symptoms, 7 failure modes, 7 causes, 8
+  resolutions, English and Arabic names) and skips codes the tenant already has.
+- `ENGINEERING_API` (`getAsset`, `assetsAtLocation`) and `KNOWLEDGE_API.getDocument` are the cross-context surfaces.
+  Roles: ENGINEER reads equipment, new CHIEF_ENGINEER manages engineering, GM holds all engineering permissions.
 
 ### Phase 9 — Inspections, Guest Relations, Lost & Found, Logbook
 Generic inspection engine first (`inspection` schema per Spec §11, critical finding ⇒ work item via rules). Then `relations` (complaints, categories, evidence, `complaint_candidates` from AI with confidence, service recovery actions through approvals), `lostfound` (items, vision-derived metadata kept separate from staff description, match candidates with score/reasons, audited claims), `logbook` entries + AI shift summary with human acknowledgement.
