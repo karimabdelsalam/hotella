@@ -547,6 +547,7 @@ Reality notes for 2.3 (details in ADR-0017 "Implementation notes"):
 - Device certificates use ECDSA P-256 (portable to .NET TLS); commands are signed with Ed25519 as decided. X.509 issuance uses `@peculiar/x509` (ADR-0016 row "Agent link").
 - `ReplayService` was split from `IngestService`, and `HealthService` from both, so the ingest path needs no staff action gate.
 - Rate limiting is a per-instance throttle frame (200 frames/s); hard limits arrive with the licensing/metering work (Phase 11).
+- Gate defect found and fixed: `pnpm db:check` passed vacuously since Phase 0 — drizzle-kit could not open the absolute temporary `out` path, printed the error and exited 0, so no drift migration was ever generated. The scratch journal now lives under the package (relative path), any drizzle-kit error fails the check, and drift was proven to be detected (temporary column → exit 2). The existing schema had no drift.
 
 ---
 

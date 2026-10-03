@@ -8,9 +8,8 @@
  *   studio             drizzle-kit studio
  */
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,25 +45,32 @@ switch (cmd) {
     break;
   }
   case 'check': {
-    // Generate into a temporary copy of the journal; any new SQL file means schema drift.
-    // The temp config lives next to the real one so its relative schema globs resolve identically.
-    const tmp = mkdtempSync(join(tmpdir(), 'hotella-dbcheck-'));
+    // Generate into a temporary copy of the journal; any new SQL file means schema drift. drizzle-kit only resolves
+    // `out` relative to the config, and it reports some failures on stderr with exit code 0, so the copy lives under
+    // the package (git-ignored) and any error output fails the check.
+    const tmpName = `.dbcheck-${process.pid}`;
+    const tmp = join(pkgDir, tmpName);
     const out = join(tmp, 'migrations');
+    rmSync(tmp, { recursive: true, force: true });
     cpSync(join(pkgDir, 'migrations'), out, { recursive: true });
     const cfg = join(pkgDir, 'drizzle.config.check.ts');
     const base = readFileSync(join(pkgDir, 'drizzle.config.ts'), 'utf8');
-    writeFileSync(cfg, base.replace("out: './migrations'", `out: ${JSON.stringify(out)}`));
+    writeFileSync(cfg, base.replace("out: './migrations'", `out: './${tmpName}/migrations'`));
     const before = new Set(readdirSync(out).filter((f) => f.endsWith('.sql')));
     let r;
+    let added = [];
     try {
       r = drizzleKit(['generate', '--config', 'drizzle.config.check.ts', '--name', 'drift_check']);
+      added = readdirSync(out).filter((f) => f.endsWith('.sql') && !before.has(f));
     } finally {
       rmSync(cfg, { force: true });
+      rmSync(tmp, { recursive: true, force: true });
     }
-    const after = readdirSync(out).filter((f) => f.endsWith('.sql'));
-    const added = after.filter((f) => !before.has(f));
-    rmSync(tmp, { recursive: true, force: true });
-    if (r.status !== 0) process.exit(r.status ?? 1);
+    const failed = r.status !== 0 || /\bError\b|ENOENT/.test(`${r.stdout}\n${r.stderr}`);
+    if (failed) {
+      console.error('\ndb:check could not run drizzle-kit (see the output above).');
+      process.exit(r.status || 3);
+    }
     if (added.length > 0) {
       console.error(
         `\nSchema drift: ${added.length} migration(s) would be generated. Run "pnpm db:generate <name>" and review the SQL.`,
