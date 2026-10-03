@@ -54,7 +54,14 @@ export async function runMigrations(url: string): Promise<void> {
 }
 
 /** Schemas the application reads and writes. The migration journal schema is deliberately not granted. */
-export const APPLICATION_SCHEMAS = ['org', 'iam', 'audit', 'platform', 'integration'] as const;
+export const APPLICATION_SCHEMAS = [
+  'org',
+  'iam',
+  'audit',
+  'platform',
+  'integration',
+  'guest',
+] as const;
 const ROLE_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 
 /**

@@ -1,0 +1,64 @@
+import { Global, Module, type OnModuleInit } from '@nestjs/common';
+import { IdempotentConsumer } from '@hotella/platform-events';
+import { ManifestRegistry } from '@hotella/platform-manifest';
+import { EventConsumerRegistry } from '@hotella/platform-queue';
+import { StaysController } from './api/controllers';
+import { GuestQueryService, StayQueryService } from './application/queries';
+import { StayProjector } from './application/stay-projector';
+import { GuestRepositories } from './infrastructure/repositories';
+import { GUEST_MANIFEST } from './manifest';
+import { GUEST_API } from './public';
+import { GuestPublicApiService } from './public-api.service';
+
+/** Consumer name in the inbox: one exactly-once effect per canonical event for the stay projection. */
+export const STAY_PROJECTOR_CONSUMER = 'guest.stay-projector';
+
+/**
+ * The guest context without HTTP routes: repositories, the stay projector and GUEST_API. Global so other contexts
+ * inject GUEST_API without importing this module; the worker imports it to run the projector.
+ */
+@Global()
+@Module({
+  providers: [
+    GuestRepositories,
+    StayProjector,
+    GuestPublicApiService,
+    { provide: GUEST_API, useExisting: GuestPublicApiService },
+  ],
+  exports: [GUEST_API, StayProjector, GuestRepositories],
+})
+export class GuestCoreModule {}
+
+/** Staff read API and manifest, for the API process. */
+@Module({
+  imports: [GuestCoreModule],
+  controllers: [StaysController],
+  providers: [StayQueryService, GuestQueryService],
+})
+export class GuestModule implements OnModuleInit {
+  constructor(private readonly manifests: ManifestRegistry) {}
+  onModuleInit(): void {
+    this.manifests.register(GUEST_MANIFEST);
+  }
+}
+
+/** Subscribes the stay projector to the canonical PMS events (worker process). */
+@Module({ imports: [GuestCoreModule] })
+export class GuestEventsModule implements OnModuleInit {
+  constructor(
+    private readonly consumers: EventConsumerRegistry,
+    private readonly projector: StayProjector,
+  ) {}
+  onModuleInit(): void {
+    for (const def of StayProjector.consumes)
+      this.consumers.on(def.name, STAY_PROJECTOR_CONSUMER, (envelope) =>
+        this.projector.apply(envelope),
+      );
+  }
+}
+
+/** Test and tooling helper: apply one canonical envelope exactly once, as the worker does. */
+export function projectOnce(idempotency: IdempotentConsumer, projector: StayProjector) {
+  return (envelope: Parameters<StayProjector['apply']>[0]) =>
+    idempotency.once(STAY_PROJECTOR_CONSUMER, envelope, (e) => projector.apply(e));
+}

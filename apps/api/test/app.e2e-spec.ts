@@ -8,6 +8,7 @@ import {
   identityAuthOptions,
   identityLocalePreferences,
 } from '@hotella/domain-identity';
+import { GuestModule } from '@hotella/domain-guest';
 import { IntegrationsModule } from '@hotella/domain-integrations';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
@@ -71,6 +72,7 @@ describe('api skeleton (e2e)', () => {
         OrganizationModule,
         IdentityModule,
         IntegrationsModule,
+        GuestModule,
         HealthModule,
         MetaModule,
       ],
@@ -157,7 +159,14 @@ describe('api skeleton (e2e)', () => {
     const byCode = new Map(
       (res.body as { code: string; events: string[] }[]).map((m) => [m.code, m]),
     );
-    expect([...byCode.keys()].sort()).toEqual(['audit', 'iam', 'integration', 'org', 'platform']);
+    expect([...byCode.keys()].sort()).toEqual([
+      'audit',
+      'guest',
+      'iam',
+      'integration',
+      'org',
+      'platform',
+    ]);
     expect(byCode.get('integration')?.events).toContain('hotel.guest.checked_in.v1');
     expect(byCode.get('iam')?.events).toContain('iam.session.revoked.v1');
     expect(byCode.get('platform')?.events).toContain('platform.feature_flag.changed.v1');

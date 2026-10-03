@@ -11,8 +11,13 @@ export const AUDIT_MANIFEST = defineManifest({
   localeNamespaces: ['audit'],
 });
 
+/** The audit writer alone (no HTTP routes): what background processes such as the worker need. */
 @Global()
-@Module({ controllers: [AuditController], providers: [AuditWriter], exports: [AuditWriter] })
+@Module({ providers: [AuditWriter], exports: [AuditWriter] })
+export class AuditCoreModule {}
+
+/** Writer + `GET /audit` + manifest, for the API. */
+@Module({ imports: [AuditCoreModule], controllers: [AuditController] })
 export class AuditModule implements OnModuleInit {
   constructor(private readonly manifests: ManifestRegistry) {}
   onModuleInit(): void {

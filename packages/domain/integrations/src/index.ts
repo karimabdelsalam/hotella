@@ -1,4 +1,4 @@
-export { IntegrationsModule } from './integrations.module';
+export { IntegrationsCoreModule, IntegrationsModule } from './integrations.module';
 export { IngestService } from './application/ingest.service';
 export type { IngestResult } from './application/ingest.service';
 export { CONNECTOR_ADAPTERS, ConnectorRegistry } from './connectors/registry';

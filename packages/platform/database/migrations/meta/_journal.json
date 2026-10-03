@@ -57,6 +57,13 @@
       "when": 1791026872565,
       "tag": "0007_integration_phase2",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791028101672,
+      "tag": "0008_guest_phase2",
+      "breakpoints": true
     }
   ]
 }

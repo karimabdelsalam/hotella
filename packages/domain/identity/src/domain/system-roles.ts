@@ -11,6 +11,8 @@ export interface SystemRoleDefinition {
 }
 
 const PROPERTY_READ = ['org.property.read', 'branding.read'] as const;
+/** Guest-facing desks: see stays and guests, keep preferences/consents (Spec §6, §26). */
+const GUEST_DESK = ['guest.read', 'guest.manage', 'stay.read'] as const;
 
 export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
   {
@@ -60,18 +62,26 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'integration.mapping.confirm',
       'integration.replay',
       'integration.reconcile',
+      ...GUEST_DESK,
+      'guest.merge',
+      'guest.data_request.manage',
+      'stay.manage',
     ],
   },
   {
     code: 'DUTY_MANAGER',
     audience: 'TENANT',
-    permissions: [...PROPERTY_READ, 'iam.user.read', 'integration.read'],
+    permissions: [...PROPERTY_READ, 'iam.user.read', 'integration.read', ...GUEST_DESK],
   },
   { code: 'HK_SUPERVISOR', audience: 'TENANT', permissions: [...PROPERTY_READ, 'iam.user.read'] },
   { code: 'ROOM_ATTENDANT', audience: 'TENANT', permissions: ['org.property.read'] },
   { code: 'ENGINEER', audience: 'TENANT', permissions: ['org.property.read'] },
-  { code: 'FRONT_DESK', audience: 'TENANT', permissions: [...PROPERTY_READ] },
-  { code: 'GUEST_RELATIONS', audience: 'TENANT', permissions: [...PROPERTY_READ] },
+  { code: 'FRONT_DESK', audience: 'TENANT', permissions: [...PROPERTY_READ, ...GUEST_DESK] },
+  {
+    code: 'GUEST_RELATIONS',
+    audience: 'TENANT',
+    permissions: [...PROPERTY_READ, ...GUEST_DESK],
+  },
 ];
 
 export const PLATFORM_ADMIN_ROLE = 'PLATFORM_ADMIN';

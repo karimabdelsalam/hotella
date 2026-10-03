@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { GuestEventsModule } from '@hotella/domain-guest';
+import { IntegrationsCoreModule } from '@hotella/domain-integrations';
+import { AuditCoreModule } from '@hotella/platform-audit';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
 import { EVENT_TRANSPORT, EventsModule } from '@hotella/platform-events';
@@ -22,6 +25,10 @@ import { WorkerRuntimeModule } from './runtime/runtime.module';
     }),
     FeatureFlagsModule,
     ManifestModule.forRoot(),
+    // Context consumers (no HTTP routes): the stay projection of canonical PMS events.
+    AuditCoreModule,
+    IntegrationsCoreModule,
+    GuestEventsModule,
     WorkerRuntimeModule,
   ],
 })

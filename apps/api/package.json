@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@hotella/contracts-api": "workspace:*",
+    "@hotella/domain-guest": "workspace:*",
     "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",

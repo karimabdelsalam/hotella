@@ -1,0 +1,8 @@
+{
+  "guest.permission.read": "View guests who stay at the property",
+  "guest.permission.manage": "Maintain guest preferences and consents",
+  "guest.permission.merge": "Merge duplicate guest profiles",
+  "guest.permission.data_request_manage": "Handle guest data requests (export, correction, anonymization)",
+  "guest.permission.stay_read": "View stays, rooms and parties",
+  "guest.permission.stay_manage": "Annotate stays"
+}

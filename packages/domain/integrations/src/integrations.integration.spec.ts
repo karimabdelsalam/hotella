@@ -418,15 +418,19 @@ describe.skipIf(needsInfra())(
               internalEntityType: 'guest.stay',
               internalEntityId,
               externalEntityType: EXTERNAL_ENTITY.RESERVATION,
-              externalId: 'R100',
+              externalId: 'REF-ONLY-1',
             }),
           { tenantId: tenantA },
         );
       expect(await link(stayId)).toBe(stayId);
       // First writer wins: a concurrent consumer converges on the same internal entity.
       expect(await link(otherId)).toBe(stayId);
-      expect(await api.resolveReference(tenantA, instanceId, 'RESERVATION', 'R100')).toBe(stayId);
-      expect(await api.resolveReference(tenantB, instanceId, 'RESERVATION', 'R100')).toBeNull();
+      expect(await api.resolveReference(tenantA, instanceId, 'RESERVATION', 'REF-ONLY-1')).toBe(
+        stayId,
+      );
+      expect(
+        await api.resolveReference(tenantB, instanceId, 'RESERVATION', 'REF-ONLY-1'),
+      ).toBeNull();
       const refs = await http()
         .get(
           `/properties/${propertyA}/external-references?entityType=guest.stay&entityId=${stayId}`,

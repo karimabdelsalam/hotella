@@ -16,6 +16,9 @@
   },
   "dependencies": {
     "@hotella/contracts-events": "workspace:*",
+    "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-integrations": "workspace:*",
+    "@hotella/platform-audit": "workspace:*",
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",
     "@hotella/platform-events": "workspace:*",

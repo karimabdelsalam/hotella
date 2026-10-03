@@ -76,5 +76,8 @@
   "errors.integration.mapping.room_not_found": "الغرفة المختارة غير موجودة في هذا الفندق.",
   "errors.integration.mapping.invalid_code": "استخدم رمزًا بأحرف لاتينية كبيرة أو أرقام أو شرطة سفلية بحد أقصى 32 حرفًا.",
   "errors.integration.exception.not_found": "لم يتم العثور على استثناء الربط.",
-  "errors.integration.capability_unavailable": "يتطلب هذا الإجراء نظامًا مربوطًا يدعم {capability}."
+  "errors.integration.capability_unavailable": "يتطلب هذا الإجراء نظامًا مربوطًا يدعم {capability}.",
+  "errors.guest.stay.not_found": "لم يتم العثور على الإقامة.",
+  "errors.guest.stay.not_in_room": "لا يوجد نزيل مقيم في هذه الغرفة حاليًا.",
+  "errors.guest.guest.not_found": "لم يتم العثور على النزيل."
 }

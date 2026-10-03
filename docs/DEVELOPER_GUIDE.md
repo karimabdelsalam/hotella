@@ -68,6 +68,8 @@ packages/
                                      → identity (schema `iam`: staff users, memberships, roles/permissions, sessions, MFA)
                                      → integrations (schema `integration`: connectors, instances, raw message inbox,
                                        parser/mapper → canonical hotel.* events, mappings, exceptions, external refs)
+                                     → guest (schema `guest`: guests, stays, party, room-assignment history — written only
+                                       by the StayProjector from canonical events; staff API is read-only)
   contracts/   zod schemas shared by everything → events (incl. canonical hotel.*), api, connectors (Connector SDK v0),
                                        later ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
@@ -118,7 +120,7 @@ agent / simulator → IngestService.ingest(instance, raw)   stored in integratio
 → canonical hotel.* event in the outbox                   consumed by core contexts (guest, later housekeeping, grants)
 ```
 
-A core context never sees vendor formats or vendor ids: it resolves and links opaque references through `INTEGRATIONS_API` (`resolveReference` / `linkReference`).
+A core context never sees vendor formats or vendor ids: it resolves and links opaque references through `INTEGRATIONS_API` (`resolveReference` / `linkReference`). The guest context's `StayProjector` runs in the worker (`GuestEventsModule`), one transaction per event with the inbox row, and publishes `guest.stay.*` events with internal ids for everyone downstream. Contexts expose a `<Ctx>CoreModule` without HTTP routes for background processes and a full module for the API.
 
 Dependency direction (enforced by dependency-cruiser; see the graph in `docs/architecture/dependency-graph.svg`):
 

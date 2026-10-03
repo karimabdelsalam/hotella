@@ -21,6 +21,7 @@ export {
   SessionRevoked,
   UserCreated,
 } from './iam-events';
+export { StayCreated, GuestStayRoomChanged, StayStatusChanged } from './guest-events';
 export { IntegrationExceptionOpened, IntegrationHealthChanged } from './integration-events';
 export {
   CANONICAL_ROOM_STATUSES,

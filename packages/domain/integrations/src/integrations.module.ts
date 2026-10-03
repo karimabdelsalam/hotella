@@ -16,22 +16,34 @@ import { INTEGRATIONS_MANIFEST } from './manifest';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from './public';
 import { IntegrationsPublicApiService } from './public-api.service';
 
-/** Global so other contexts can inject INTEGRATIONS_API (its only cross-context export) without importing this module. */
+/**
+ * The cross-context surface without HTTP routes or ingestion: INTEGRATIONS_API (external references, capabilities).
+ * Global so other contexts inject the token without importing this module; background processes import only this.
+ */
 @Global()
 @Module({
-  controllers: [IntegrationInstancesController, IntegrationQueueController],
   providers: [
     { provide: ConnectorRegistry, useValue: new ConnectorRegistry() },
     IntegrationRepositories,
+    IntegrationsPublicApiService,
+    { provide: INTEGRATIONS_API, useExisting: IntegrationsPublicApiService },
+  ],
+  exports: [INTEGRATIONS_API, ConnectorRegistry, IntegrationRepositories],
+})
+export class IntegrationsCoreModule {}
+
+/** The full Integration Platform for the API: administration, ingestion, catalog sync, manifest. */
+@Module({
+  imports: [IntegrationsCoreModule],
+  controllers: [IntegrationInstancesController, IntegrationQueueController],
+  providers: [
     ConnectorCatalogService,
     InstanceService,
     MappingService,
     ExceptionService,
     IngestService,
-    IntegrationsPublicApiService,
-    { provide: INTEGRATIONS_API, useExisting: IntegrationsPublicApiService },
   ],
-  exports: [INTEGRATIONS_API],
+  exports: [IngestService],
 })
 export class IntegrationsModule implements OnModuleInit {
   /** `AuthModule.forRoot({ stages: [IntegrationsModule.capabilityStage()] })` — action-gate stage 5 (Spec §60). */

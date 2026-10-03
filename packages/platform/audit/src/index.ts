@@ -1,4 +1,4 @@
-export { AUDIT_MANIFEST, AuditModule } from './audit.module';
+export { AUDIT_MANIFEST, AuditCoreModule, AuditModule } from './audit.module';
 export { AuditRequiresTransactionError, AuditWriter } from './audit-writer';
 export type { AuditEntry } from './audit-writer';
 export { REDACTED, redactForAudit } from './redact';

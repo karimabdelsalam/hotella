@@ -1,0 +1,8 @@
+{
+  "guest.permission.read": "عرض النزلاء المقيمين في الفندق",
+  "guest.permission.manage": "إدارة تفضيلات النزلاء وموافقاتهم",
+  "guest.permission.merge": "دمج ملفات النزلاء المكررة",
+  "guest.permission.data_request_manage": "معالجة طلبات بيانات النزلاء (تصدير، تصحيح، إخفاء الهوية)",
+  "guest.permission.stay_read": "عرض الإقامات والغرف والمرافقين",
+  "guest.permission.stay_manage": "إضافة ملاحظات على الإقامات"
+}

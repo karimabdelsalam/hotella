@@ -523,7 +523,7 @@ Connector `SIM_PMS` implementing the Connector SDK contract v0 **and the agent l
 | Sprint | Scope | Status |
 |---|---|---|
 | 2.1 | `@hotella/contracts-connectors` (Connector SDK v0: categories, capabilities, `defineConnector`, raw message, `ParseContext`, connector-neutral `InboundRecord`, `RECORD_CAPABILITY`, ordering keys, wall-clock → UTC helper); canonical `hotel.*` events + `integration.exception.opened.v1` / `integration.health.changed.v1`; `@hotella/domain-integrations` (schema `integration`, migration `0007_integration_phase2` with hand-reviewed FKs to `org` and forced RLS): connector catalog synced at boot, instances with enabled ∩ reported capabilities, raw inbox with replay-safe ingest, `SIM_PMS` adapter (FIAS-shaped records + OWS-shaped JSON), mapper with required/optional mapping types, deduplicated exceptions, HELD successors, replay, external references API, health counters, action-gate connector-capability stage; `TransactionRunner.read()` and tenant-pinned event consumers; RLS coverage test | delivered |
-| 2.2 | `@hotella/domain-guest` (schema `guest`): guests, identifiers, stays, reservation references, party, room-assignment history; idempotent consumers of the canonical events (stay state machine, out-of-order safety); read APIs incl. `GET /rooms/:id/current-stay`; worker wiring | planned |
+| 2.2 | `@hotella/domain-guest` (schema `guest`, migration `0008_guest_phase2` with FKs to `org`/`integration`, period CHECKs, forced RLS): guests, identifiers, stays, reservation references, party, room-assignment history; `StayProjector` = the only writer of stays (pure state machine, out-of-order safety, PMS reinstatements, per-reservation advisory locks), `guest.stay.created/status_changed/room_changed.v1`; read-only staff API (`/properties/:id/stays`, `/stays/:id`, `/rooms/:roomId/current-stay`, `/guests`, `/guests/:id` with masked contacts); worker runs the projector (`GuestEventsModule`); `AuditCoreModule` / `IntegrationsCoreModule` / `GuestCoreModule` without HTTP routes for background processes | delivered |
 | 2.3 | Agent link (ADR-0017) platform side: enrollment tokens, device certificates, WSS frames with sequence/ack/resend, HTTPS batches, heartbeat → health; `apps/pms-simulator` speaking the link with FIAS/OWS faces and YAML scenarios replayed in CI | planned |
 | 2.4 | Reconciliation runs/results, preferences & consents, guest merge, guest data requests (export/anonymize), integration commands service, Phase 2 acceptance record | planned |
 
@@ -534,6 +534,13 @@ Reality notes for 2.1:
 - Protocol-defined FIAS values (e.g. `RS` maid status 1–6, `YYMMDD` dates) are translated by the adapter; hotel-defined codes (rooms, rates, VIP) always go through mappings. FIAS wall-clock times are converted with the property timezone.
 - Raw message payloads (SENSITIVE) are not exposed through the staff API; staff see message metadata, status and error.
 - Ingestion has no staff HTTP endpoint on purpose: messages enter only through the agent link (2.3), authenticated as the instance (actor `INTEGRATION`).
+
+Reality notes for 2.2:
+- `guests.person_id` is not created: no flow links a guest to a staff person yet; it arrives with the use case. `party_role` has PRIMARY and ACCOMPANYING (children are counted on the stay; FIAS/OWS give no per-child profile).
+- Guest resolution is deterministic and conservative: by the PMS profile reference, else by exact name inside the same stay's party (a repeated snapshot), else a new guest. Nothing is matched across stays by name, e-mail or phone; duplicates are merged by staff (2.4).
+- Downstream contexts consume `guest.stay.*` events (internal ids) rather than `hotel.*` (vendor references): Phase 4 grants revoke on `guest.stay.status_changed.v1` → `CHECKED_OUT`.
+- A check-out, room move or cancellation for an unknown reservation is logged and ignored (nothing to close); reconciliation (2.4) reports it. A reference to a missing stay fails the job loudly (dead-letter set).
+- Staff see guest contact identifiers masked; full values are used by the communication channels (Phase 4).
 
 ---
 
