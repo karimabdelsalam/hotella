@@ -74,7 +74,9 @@ Spec §27–§44 and §83. Consequence for sequencing: deterministic workflows, 
 
 ### 1.5 First commercially meaningful milestone (drives Phases 0–5)
 
-**M1 — "Guest activates and gets served without OPERA":**
+**M1 — "Guest activates and gets served, driven by PMS data, without a live OPERA link yet":**
+
+> Source-of-truth rule for M1 and forever after: the platform does **not** create guests or stays on its own. Guest profile, reservation, check-in, room assignment, room move and check-out all originate from the PMS (OPERA in production). The platform only mints what OPERA does not have: activation tokens, OTP, access grants, sessions, conversations and work. When OPERA checks the guest out, the platform receives `hotel.guest.checked_out.v1` and **automatically** revokes room/stay scopes, ends guest sessions and closes the stay-bound conversation; nobody has to do anything in the platform. "Without OPERA" in M1 means only that during development the PMS simulator stands in for OPERA and emits the exact same canonical events, so the core is not blocked on the hotel link (Spec §85 Phase 2). Phase 10 swaps the simulator for the real FIAS/OWS adapters without touching anything built in Phases 0–6.
 
 ```text
 Simulated PMS check-in (Phase 2 simulator)
@@ -437,6 +439,7 @@ Connector `SIM_PMS` implementing the Connector SDK contract v0: HTTP endpoints /
 - Unknown room code from the simulator yields an `integration_exceptions` row and no stay; confirming the mapping and replaying resolves it.
 - PMS ids never appear as `id` of any `guest.*` row (test over schema).
 - Checkout emits `hotel.guest.checked_out.v1` consumed later by grants (Phase 4) and HK (Phase 7).
+- No API or UI path creates a guest or stay outside the canonical-event consumer (staff can only *view*, *merge*, annotate preferences/consents); a test asserts the stay state machine is driven exclusively by PMS events.
 
 ---
 
@@ -537,7 +540,7 @@ guest.guest_sessions            id, grant_id, session_token_hash, device_info, c
 
 - **Primary activation** (Spec §19): consume `hotel.guest.checked_in.v1` → mint `activation_token` (256-bit, hashed) → build URL on the property's guest-web domain → *delivery policy* (WhatsApp template if a verified channel identity exists, else staff-visible for front desk) → guest enters mobile → OTP via the fallback chain of ADR-0015 (WhatsApp template through the property's `MessagingProvider`, Meta Cloud API or BSP; automatic SMS fallback on provider error/timeout, manual fallback after 30 s, optional voice, staff-assisted verification as last resort; one verification session and one attempt counter across channels) → verify → `channel_identity` verified → `guest_access_grant` (scopes by property policy; accompanying guests narrower) → `guest_session`.
 - **Room QR fallback** (Spec §20): static QR → `room_qr_codes` resolve → room + last-name check against current stay (rate-limited) → same OTP path → grant.
-- **Checkout**: `hotel.guest.checked_out.v1` revokes room scopes; keeps post-stay scopes (`LOST_FOUND|FEEDBACK|INVOICE|SUPPORT`) for a configurable window.
+- **Checkout (automatic, PMS-driven)**: `hotel.guest.checked_out.v1` from the PMS revokes room/stay scopes, revokes all guest sessions bound to the grant, closes or archives the stay-bound conversation, and stops any AI auto mode; keeps post-stay scopes (`LOST_FOUND|FEEDBACK|INVOICE|SUPPORT`) for a configurable window. No staff action is required.
 - **Pre-arrival** (Spec §22): `EXPECTED` stays can get a narrower grant via the same path.
 - **Inbound WhatsApp**: webhook → signature check → `integration_messages`-style raw store → normalize → `channel_identity` lookup → conversation routing → message → (Phase 6) AI → or staff inbox. Unverified phone with room/stay request ⇒ activation prompt, never trust the phone.
 - **Realtime**: `apps/realtime` WS gateway pushes inbox updates and guest conversation updates (auth by staff access token / guest session).
@@ -637,7 +640,7 @@ Voice channel via PBX gateway → conversation engine → same tools; IoT/BMS te
 ## 11. Milestones & sequencing
 
 ```text
-Phase 0 ──> Phase 1 ──> Phase 2 ──> Phase 3 ──> Phase 4 ──> Phase 5  = M1 (guest served, no OPERA, no AI)
+Phase 0 ──> Phase 1 ──> Phase 2 ──> Phase 3 ──> Phase 4 ──> Phase 5  = M1 (guest served from PMS data via simulator, no live OPERA link, no AI)
                                                               └─> Phase 6  = M2 (AI concierge)
                                                                    ├─> Phase 7 (HK) ──┐
                                                                    ├─> Phase 8 (ENG) ─┼─> Phase 9 = M3
