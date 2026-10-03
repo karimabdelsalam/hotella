@@ -31,7 +31,9 @@ export class AgentKeys {
 
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
-    @Optional() private readonly secrets: SecretResolver | null,
+    // Explicit token: a `SecretResolver | null` annotation would emit `Object` as design metadata and @Optional
+    // would then silently inject nothing.
+    @Optional() @Inject(SecretResolver) private readonly secrets: SecretResolver | null,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
