@@ -34,21 +34,23 @@ pnpm test                    # unit + e2e + integration (Testcontainers starts P
 Full verification exactly as CI runs it:
 
 ```bash
-pnpm format:check && pnpm lint && pnpm lint:selftest && pnpm depcruise && pnpm build && pnpm typecheck && pnpm db:check && pnpm test
+pnpm format:check && pnpm lint && pnpm lint:selftest && pnpm depcruise && pnpm build && pnpm typecheck && pnpm locales:check && pnpm db:check && pnpm test
 ```
 
-Useful URLs in dev: Mailpit `http://localhost:8025`, SeaweedFS master UI `http://localhost:9333` (S3 on 8333), Grafana `http://localhost:3001`; API docs `http://localhost:3000/api/docs` arrive with Sprint 0.3.9.
+Useful URLs in dev: API docs `http://localhost:3000/api/docs` (JSON at `/api/docs/json`), worker status `http://localhost:3001/ready`, Mailpit `http://localhost:8025`, SeaweedFS master UI `http://localhost:9333` (S3 on 8333), Grafana `http://localhost:3002` is **not** used — the dev Grafana from `otel-lgtm` is on `http://localhost:3001`? No: the worker owns 3001; Grafana is mapped to `http://localhost:3003`.
 
 Everything above is a `package.json` script; if a script name changes, this section changes in the same PR.
 
 ## 3. Map of the repository
 
 ```text
-apps/          things you run        → api, worker, realtime, guest-web, staff-web, pms-simulator, hotel-agent (.NET)
+apps/          things you run        → api (:3000), worker (:3001), later realtime, guest-web, staff-web, pms-simulator, hotel-agent (.NET)
 packages/
-  platform/    infrastructure        → database, events, queue, auth, observability, storage, config, secrets, i18n, testing
-  domain/      business (one folder per bounded context, one PostgreSQL schema each)
-  contracts/   zod schemas shared by everything → events, api, connectors, ai-tools
+  platform/    infrastructure        → config, secrets, observability (logs, request context, tracing), database, events (outbox/inbox),
+                                       queue (BullMQ on Valkey), http (Problem Details, idempotency, rate limit, OpenAPI), i18n,
+                                       flags, manifest, storage (S3), testing (Testcontainers)
+  domain/      business (one folder per bounded context, one PostgreSQL schema each) — starts in Phase 1
+  contracts/   zod schemas shared by everything → events, api, later connectors, ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
 docs/          spec, plan, ADRs, traceability, this guide, architecture diagrams
 infra/         docker compose, k8s charts, CI pieces
