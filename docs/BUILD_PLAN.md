@@ -1083,8 +1083,8 @@ catalog.service_request_events        id, tenant_id, request_id, type CREATED|RE
 - **Duplicate detection** (Spec §23): an `OPEN`/`IN_PROGRESS` request of the same stay and service created within the
   version's `duplicate_window_minutes` (default 30) is **related**, not duplicated: `related_count` grows, a `RELATED`
   event keeps who asked and the new field values, `catalog.service_request.related.v1` is published, and the caller
-  gets the existing request with `related: true`. Rows are locked (`FOR UPDATE` on the stay's open requests of that
-  service) so two concurrent asks cannot both create.
+  gets the existing request with `related: true`. A transaction-scoped advisory lock per stay and service serializes
+  concurrent asks, so two of them cannot both create.
 - **One entrypoint**: `CatalogPublicApi.createServiceRequest()` (also `CATALOG_API` for the Phase 6 AI tool
   `operations.create_service_request`) runs scope → eligibility → availability → fields → duplicates → request +
   work item (`OPERATIONS_API.createWorkItem` in the same transaction, kind `SERVICE_REQUEST`, source
@@ -1138,10 +1138,30 @@ End-to-end CI scenario: simulator check-in → activation → request EXTRA_TOWE
 | Sprint | Scope | Status |
 |---|---|---|
 | 5.1 | `@hotella/domain-catalog`: categories, definitions, versions with translations, drafts, publish (immutable by trigger), tenant-wide vs property services, starter catalog import from the locale catalog, eligibility and availability rules, guest catalog `GET /guest/services` localized with fallback, manifest, permissions, `catalog.service_version.published.v1` | delivered |
-| 5.2 | Service requests: `createServiceRequest` entrypoint and `CATALOG_API`, fields validation, duplicate detection with locking, work item via `OPERATIONS_API` (SLA/workflow by code), status follow from ops events, guest and staff routes, requests board, history, anonymization (catalog fields; ops quoted titles), tenant-leak tests | planned |
+| 5.2 | Service requests: `createServiceRequest` entrypoint and `CATALOG_API`, fields validation, duplicate detection with locking, work item via `OPERATIONS_API` (SLA/workflow by code), status follow from ops events, guest and staff routes, requests board, history, anonymization (catalog fields; ops quoted titles), tenant-leak tests | delivered |
 | 5.3 | Guest notifications: `COMMUNICATIONS_API.notifyGuest`, `SYSTEM` messages in the stay conversation, WhatsApp text or `service_update` template by window, realtime push, `catalog.notify.statuses` | planned |
 | 5.4 | `apps/guest-web` PWA: BFF guest session cookie, activation (link, room QR), catalog, request form, my requests, chat; branding + attribution; Playwright in English (LTR) and Arabic (RTL); Docker target and pilot service | planned |
 | 5.5 | M1 end-to-end scenario in CI, pilot smoke extended to a service request, Phase 5 / M1 acceptance (`docs/acceptance/phase-5.md`) | planned |
+
+Reality notes for 5.2:
+- Order of checks in `createServiceRequest`: service (published, active, guest-visible for guest-facing sources) →
+  stay and party membership → eligibility → **fields** → duplicate window → availability (opening hours, lead time,
+  scheduling, daily cap per property day) → request + work item + `CREATED` history + audit + event, all in one
+  transaction. An invalid ask is refused even when an open request would have absorbed it.
+- Guests act through their session (`SERVICE_REQUEST` scope, their own stay); staff and later AI through the
+  ActionGate (`request.create`). Staff on a guest's behalf: `POST /properties/:p/stays/:s/service-requests`
+  (default: the primary guest), source `STAFF`. Guests see their own requests; the primary guest sees the stay's.
+- The request follows the work item's **current** status (read through `OPERATIONS_API.getWorkItem` on each
+  `ops.work_item.status_changed.v1`), so late or repeated deliveries never move it backwards. Guests cancel `OPEN`
+  requests; staff (`request.manage`) cancel open or started ones with a reason; the work item is cancelled with it.
+  When the stay leaves the house, `OPEN` requests are withdrawn (`STAY_ENDED`); started work is left to staff.
+- Status moves live in `RequestLifecycle` (API and worker); creation and reads in `ServiceRequestService` (API only,
+  it needs the ActionGate). `CATALOG_API` is provided by the API module.
+- Anonymization: the catalog removes TEXT field values from the guest's requests and asks and clears reasons; the
+  operations context replaces free-text work and task titles of the guest's work by `ops.work.title_redacted` and
+  clears free-text task-history reasons (consumer `ops.guest-anonymization`) — the Phase 3 open item. Migration
+  `0020_catalog_history` tightens the history trigger: field values may only be removed, reasons only cleared.
+- Permissions `request.read|create|manage` (guest desks and managers; supervisors read).
 
 Reality notes for 5.1:
 - Schema `catalog` (migration `0019_catalog`) holds the whole context, including the request tables 5.2 fills. Triggers:

@@ -17,5 +17,6 @@
   "ops.notification.sla_escalation.subject": "{trigger, select, RESPONSE_BREACH {Work not picked up} RESOLUTION_WARNING {Work close to its deadline} other {Work past its deadline}}",
   "ops.notification.sla_escalation.body": "Escalation level {level}: {trigger, select, RESPONSE_BREACH {nobody has taken the work on yet.} RESOLUTION_WARNING {the work is close to its deadline.} other {the work missed its deadline.}}",
   "ops.notification.approval_requested.subject": "Approval needed",
-  "ops.notification.approval_requested.body": "A {risk, select, CRITICAL {critical} HIGH {high-risk} MEDIUM {medium-risk} other {low-risk}} request ({kind}) waits for your decision."
+  "ops.notification.approval_requested.body": "A {risk, select, CRITICAL {critical} HIGH {high-risk} MEDIUM {medium-risk} other {low-risk}} request ({kind}) waits for your decision.",
+  "ops.work.title_redacted": "Request (details removed)"
 }

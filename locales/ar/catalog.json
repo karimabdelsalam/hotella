@@ -40,5 +40,11 @@
   "catalog.starter.option.until.h13": "الواحدة ظهرًا",
   "catalog.starter.option.until.h14": "الثانية ظهرًا",
   "catalog.starter.option.until.h16": "الرابعة عصرًا",
-  "catalog.starter.option.until.h18": "السادسة مساءً"
+  "catalog.starter.option.until.h18": "السادسة مساءً",
+  "catalog.permission.request_read": "عرض طلبات خدمات النزلاء",
+  "catalog.permission.request_create": "طلب خدمة نيابة عن نزيل",
+  "catalog.permission.request_manage": "إلغاء طلبات خدمات النزلاء",
+  "catalog.work_kind.service_request": "طلب خدمة من نزيل",
+  "catalog.request.work_title": "{service} · غرفة {room}",
+  "catalog.request.work_title_no_room": "{service}"
 }

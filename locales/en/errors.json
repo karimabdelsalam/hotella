@@ -176,5 +176,15 @@
   "errors.catalog.version.translation_missing": "Add at least one translation before publishing.",
   "errors.catalog.version.label_missing": "Field \"{field}\" needs a label (and labels for its options) in \"{locale}\".",
   "errors.catalog.version.department_unknown": "Department \"{department}\" does not exist at this property.",
-  "errors.catalog.request.stay_required": "Requests need an active stay."
+  "errors.catalog.request.stay_required": "Requests need an active stay.",
+  "errors.catalog.request.stay_not_eligible": "This service is not available for your stay right now.",
+  "errors.catalog.request.guest_not_eligible": "This service can only be requested by the main guest of the booking.",
+  "errors.catalog.request.room_not_eligible": "This service is not available for your room.",
+  "errors.catalog.request.scheduling_not_allowed": "This service cannot be booked for later.",
+  "errors.catalog.request.lead_time": "Please choose a later time for this service.",
+  "errors.catalog.request.closed": "This service is not available at this time.",
+  "errors.catalog.request.daily_limit": "You have reached today's limit for this service.",
+  "errors.catalog.request.field_invalid": "Please check \"{field}\".",
+  "errors.catalog.request.not_found": "Request not found.",
+  "errors.catalog.request.cannot_cancel": "This request can no longer be cancelled."
 }

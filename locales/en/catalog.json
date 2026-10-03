@@ -40,5 +40,11 @@
   "catalog.starter.option.until.h13": "1:00 PM",
   "catalog.starter.option.until.h14": "2:00 PM",
   "catalog.starter.option.until.h16": "4:00 PM",
-  "catalog.starter.option.until.h18": "6:00 PM"
+  "catalog.starter.option.until.h18": "6:00 PM",
+  "catalog.permission.request_read": "See guests' service requests",
+  "catalog.permission.request_create": "Request a service on a guest's behalf",
+  "catalog.permission.request_manage": "Cancel guests' service requests",
+  "catalog.work_kind.service_request": "Guest service request",
+  "catalog.request.work_title": "{service} · room {room}",
+  "catalog.request.work_title_no_room": "{service}"
 }

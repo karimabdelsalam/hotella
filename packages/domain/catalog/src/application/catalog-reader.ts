@@ -42,6 +42,7 @@ export interface GuestStanding {
   readonly stayStatus: string;
   readonly partyRole: 'PRIMARY' | 'ACCOMPANYING';
   readonly roomId: string | null;
+  readonly roomNumber: string | null;
   readonly roomTypeId: string | null;
 }
 
@@ -127,6 +128,7 @@ export class CatalogReader {
       stayStatus: stay.status,
       partyRole: stay.primaryGuestId === guestId ? 'PRIMARY' : 'ACCOMPANYING',
       roomId: stay.currentRoomId,
+      roomNumber: room?.roomNumber ?? null,
       roomTypeId: room?.roomTypeId ?? null,
     };
   }

@@ -244,4 +244,58 @@ export class OperationsRepositories {
       .where(and(tenantWhere(taskEvents, scope, inArray(taskEvents.taskId, [...taskIds]))))
       .orderBy(asc(taskEvents.occurredAt), asc(taskEvents.id));
   }
+
+  // ---- anonymization (Spec §69) ----
+
+  /**
+   * Clears what may quote an anonymized guest in their work: free-text titles of their work items and tasks (replaced
+   * by a neutral key) and free-text reasons in those tasks' history. Keyed titles (parameters are codes and room
+   * numbers) and the history itself stay (CLAUDE.md rule 21).
+   */
+  async redactGuestText(scope: TenantScope, guestId: string): Promise<number> {
+    const redacted = { title: null, titleKey: 'ops.work.title_redacted', titleParams: null };
+    const items = await this.x
+      .update(workItems)
+      .set(redacted)
+      .where(
+        tenantWhere(
+          workItems,
+          scope,
+          eq(workItems.guestId, guestId),
+          sql`${workItems.title} is not null`,
+        ),
+      )
+      .returning({ id: workItems.id });
+    const ofGuest = this.x
+      .select({ id: workItems.id })
+      .from(workItems)
+      .where(tenantWhere(workItems, scope, eq(workItems.guestId, guestId)));
+    await this.x
+      .update(tasks)
+      .set(redacted)
+      .where(
+        tenantWhere(
+          tasks,
+          scope,
+          inArray(tasks.workItemId, ofGuest),
+          sql`${tasks.title} is not null`,
+        ),
+      );
+    const tasksOfGuest = this.x
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(tenantWhere(tasks, scope, inArray(tasks.workItemId, ofGuest)));
+    await this.x
+      .update(taskEvents)
+      .set({ reason: null })
+      .where(
+        tenantWhere(
+          taskEvents,
+          scope,
+          inArray(taskEvents.taskId, tasksOfGuest),
+          sql`${taskEvents.reason} is not null`,
+        ),
+      );
+    return items.length;
+  }
 }

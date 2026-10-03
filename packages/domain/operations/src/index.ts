@@ -3,6 +3,7 @@ export {
   NOTIFICATION_DELIVERY_JOB,
   NOTIFICATION_DISPATCH_CONSUMER,
   NOTIFICATION_RULES_CONSUMER,
+  GUEST_ANONYMIZATION_CONSUMER,
   OperationsCoreModule,
   OperationsModule,
   OperationsWorkerModule,

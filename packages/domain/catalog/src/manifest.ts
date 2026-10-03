@@ -15,6 +15,9 @@ export const CATALOG_MANIFEST = defineManifest({
     { code: 'catalog.read', descriptionKey: 'catalog.permission.read', risk: 'READ' },
     { code: 'catalog.manage', descriptionKey: 'catalog.permission.manage', risk: 'MEDIUM' },
     { code: 'catalog.publish', descriptionKey: 'catalog.permission.publish', risk: 'MEDIUM' },
+    { code: 'request.read', descriptionKey: 'catalog.permission.request_read', risk: 'READ' },
+    { code: 'request.create', descriptionKey: 'catalog.permission.request_create', risk: 'LOW' },
+    { code: 'request.manage', descriptionKey: 'catalog.permission.request_manage', risk: 'LOW' },
   ],
   events: [
     ServiceVersionPublished.name,

@@ -2,6 +2,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import { GuestEventsModule } from '@hotella/domain-guest';
 import { IntegrationsCoreModule } from '@hotella/domain-integrations';
 import { IdentityDirectoryModule } from '@hotella/domain-identity';
+import { CatalogWorkerModule } from '@hotella/domain-catalog';
 import { CommunicationsWorkerModule } from '@hotella/domain-communications';
 import { OperationsWorkerModule } from '@hotella/domain-operations';
 import { OrganizationCoreModule } from '@hotella/domain-organization';
@@ -45,6 +46,8 @@ const WORKER_MODULES = [
   OperationsWorkerModule,
   // Communications follows guest events (anonymization).
   CommunicationsWorkerModule,
+  // Service requests follow their work items and the stay (catalog).
+  CatalogWorkerModule,
   WorkerRuntimeModule,
 ];
 

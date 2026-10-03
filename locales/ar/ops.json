@@ -17,5 +17,6 @@
   "ops.notification.sla_escalation.subject": "{trigger, select, RESPONSE_BREACH {عمل لم يستلمه أحد} RESOLUTION_WARNING {عمل يقترب من موعده النهائي} other {عمل تجاوز موعده النهائي}}",
   "ops.notification.sla_escalation.body": "مستوى التصعيد {level}: {trigger, select, RESPONSE_BREACH {لم يستلم أحد العمل بعد.} RESOLUTION_WARNING {العمل يقترب من موعده النهائي.} other {تجاوز العمل موعده النهائي.}}",
   "ops.notification.approval_requested.subject": "مطلوب موافقة",
-  "ops.notification.approval_requested.body": "طلب {risk, select, CRITICAL {حرج} HIGH {عالي المخاطر} MEDIUM {متوسط المخاطر} other {منخفض المخاطر}} ({kind}) بانتظار قرارك."
+  "ops.notification.approval_requested.body": "طلب {risk, select, CRITICAL {حرج} HIGH {عالي المخاطر} MEDIUM {متوسط المخاطر} other {منخفض المخاطر}} ({kind}) بانتظار قرارك.",
+  "ops.work.title_redacted": "طلب (تمت إزالة التفاصيل)"
 }

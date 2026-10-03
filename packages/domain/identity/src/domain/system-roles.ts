@@ -26,13 +26,16 @@ const GUEST_DESK = [
   'inbox.reply',
   'inbox.takeover',
   'catalog.read',
+  'request.read',
+  'request.create',
+  'request.manage',
 ] as const;
 /** Every staff member's own notifications and channel choices (Spec §25). */
 const MY_NOTIFICATIONS = ['notification.read', 'notification.preferences.manage'] as const;
 /** Everyone who does operational work: see, take, start, pause and finish their tasks (Spec §8.2). */
 const TASK_WORKER = ['task.read', 'task.accept', 'task.complete', ...MY_NOTIFICATIONS] as const;
 /** Supervisors also dispatch work and may act for an assignee. */
-const TASK_SUPERVISOR = [...TASK_WORKER, 'task.assign', 'task.cancel'] as const;
+const TASK_SUPERVISOR = [...TASK_WORKER, 'task.assign', 'task.cancel', 'request.read'] as const;
 /** Who watches the alert board (Spec §15) and acts on it. */
 const ALERT_DESK = ['alert.read', 'alert.ack'] as const;
 

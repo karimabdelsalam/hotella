@@ -1,6 +1,6 @@
 import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
-import { NotificationRequested } from '@hotella/contracts-events';
+import { GuestAnonymized, NotificationRequested } from '@hotella/contracts-events';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
@@ -43,6 +43,8 @@ export const NOTIFICATION_DELIVERY_JOB = 'ops.notification.deliver';
 /** Inbox consumers of the worker: notification rules and the dispatcher. */
 export const NOTIFICATION_RULES_CONSUMER = 'ops.notification-rules';
 export const NOTIFICATION_DISPATCH_CONSUMER = 'ops.notification-dispatcher';
+/** Anonymization clears free text that may quote the guest from their work (Spec §69). */
+export const GUEST_ANONYMIZATION_CONSUMER = 'ops.guest-anonymization';
 const SLA_SWEEP_EVERY_MS = 15_000;
 const APPROVAL_EXPIRY_EVERY_MS = 60_000;
 const NOTIFICATION_DELIVERY_EVERY_MS = 10_000;
@@ -136,6 +138,7 @@ export class OperationsWorkerModule implements OnModuleInit {
     private readonly approvals: ApprovalService,
     private readonly notifications: NotificationService,
     private readonly rules: NotificationRules,
+    private readonly work: WorkService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -162,6 +165,11 @@ export class OperationsWorkerModule implements OnModuleInit {
           await this.notifications.dispatch({ tenantId: envelope.tenant_id }, p.intent_id);
       },
     );
+    this.consumers.on(GuestAnonymized.name, GUEST_ANONYMIZATION_CONSUMER, async (envelope) => {
+      if (!envelope.tenant_id) return;
+      const e = GuestAnonymized.parse(envelope);
+      await this.work.redactGuestText(envelope.tenant_id, e.payload.guest_id);
+    });
     if (!this.config.worker.schedulerEnabled) return;
     for (const [job, every] of [
       [SLA_SWEEP_JOB, SLA_SWEEP_EVERY_MS],

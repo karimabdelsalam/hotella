@@ -133,6 +133,11 @@ export class WorkService {
     private readonly workflows: WorkflowRepositories,
   ) {}
 
+  /** Anonymization (Spec §69): clears free text that may quote the guest from their work; the history stays. */
+  redactGuestText(tenantId: string, guestId: string): Promise<number> {
+    return this.tx.run(() => this.repo.redactGuestText({ tenantId }, guestId));
+  }
+
   createWorkItem(input: CreateWorkItemInput): Promise<WorkItemSummary> {
     return this.tx.run(async () => {
       const scope: PropertyScope = { tenantId: input.tenantId, propertyId: input.propertyId };
