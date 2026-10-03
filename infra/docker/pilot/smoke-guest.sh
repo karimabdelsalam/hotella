@@ -174,8 +174,15 @@ echo "housekeeping: OK"
 # model adapter (it only reads, through engineering's tools); the engineer codes and closes the work; arrivals are
 # scored by the rules.
 eng="$API/properties/$property/eng"
-call -X POST "$API/eng/failure-codes/starter" "${auth[@]}" >/dev/null
-fcu=$(call "$API/eng/asset-types" "${auth[@]}" \
+# Failure codes and equipment types are the hotel group's (tenant-wide): its chief engineer sets them up.
+chief_invite=$(curl -fsS "$API/tenants/$tenant/users" -H "authorization: Bearer $admin" "${json[@]}" \
+  -d '{"email":"chief@pilot.example","givenName":"Pilot Chief Engineer","memberships":[{"propertyId":null,"roleCodes":["CHIEF_ENGINEER"]}]}' |
+  jq -r .invitation.token)
+curl -fsS "$API/auth/invitations/accept" "${json[@]}" -d "{\"token\":\"$chief_invite\",\"password\":\"$password\"}" >/dev/null
+chief=$(curl -fsS "$API/auth/login" "${json[@]}" -d "{\"tenantCode\":\"PILOT\",\"email\":\"chief@pilot.example\",\"password\":\"$password\"}" | jq -r .accessToken)
+chief_auth=(-H "authorization: Bearer $chief" "${json[@]}")
+call -X POST "$API/eng/failure-codes/starter" "${chief_auth[@]}" >/dev/null
+fcu=$(call "$API/eng/asset-types" "${chief_auth[@]}" \
   -d '{"code":"FCU","translations":[{"locale":"en","name":"Fan-coil unit"},{"locale":"ar","name":"وحدة ملف مروحة"}]}' | jq -r .id)
 work_item=$(psql "select work_item_id from catalog.service_requests where property_id = '$property' and service_code = 'AC_PROBLEM'")
 guest_room=$(psql "select location_id from ops.work_items where id = '$work_item'")
