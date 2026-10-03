@@ -32,7 +32,11 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
     const req = ctx.getRequest<Request>();
-    const correlationId = (req.headers['x-correlation-id'] as string | undefined) ?? null;
+    const fromResponse = res.getHeader('X-Correlation-Id');
+    const correlationId =
+      (typeof fromResponse === 'string'
+        ? fromResponse
+        : (req.headers['x-correlation-id'] as string | undefined)) ?? null;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code = 'platform.internal_error';

@@ -1,3 +1,4 @@
+import './tracing';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
@@ -15,7 +16,10 @@ async function main(): Promise<void> {
   app.enableShutdownHooks();
 
   await app.listen(config.app.port, config.app.host);
-  logger.info({ port: config.app.port, host: config.app.host, env: config.env }, 'api listening');
+  logger.info(
+    { port: config.app.port, host: config.app.host, env: config.env, otel: config.otel.enabled },
+    'api listening',
+  );
 }
 
 main().catch((err: unknown) => {

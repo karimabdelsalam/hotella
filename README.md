@@ -14,7 +14,7 @@
 
 ## Status
 
-Phase 0 (Repository & Engineering Foundation) — **Sprint 0.1 done** (workspace, tooling, lint/boundary rules, config, logging, API skeleton with health/ready and Problem Details, dev compose, CI). Sprint 0.2 (database, request context, tracing, secrets, Testcontainers) is next. See `docs/BUILD_PLAN.md` §4.
+Phase 0 (Repository & Engineering Foundation) — **Sprints 0.1 and 0.2 done**: workspace and tooling, lint/boundary rules, config, logging with request context, OpenTelemetry bootstrap, PostgreSQL access (Drizzle, UUIDv7, column helpers, data classes, migrations + drift check), secrets abstraction, S3 storage, Testcontainers harness, API skeleton with health/ready and Problem Details, dev compose, CI. Sprint 0.3 (events/outbox, queues, i18n, API conventions, module manifests) is next. See `docs/BUILD_PLAN.md` §4.
 
 ## Stack
 

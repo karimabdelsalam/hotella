@@ -1,0 +1,43 @@
+{
+  "name": "@hotella/platform-database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PostgreSQL access for all bounded contexts: Drizzle client, transaction context, column helpers (UUIDv7, tenant scope, versioning, translations, data classes), migrations.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "hotella-db": "./bin/hotella-db.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "migrations"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@hotella/platform-config": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "drizzle-orm": "0.45.3",
+    "pg": "8.23.1",
+    "uuidv7": "1.2.1"
+  },
+  "devDependencies": {
+    "@hotella/platform-testing": "workspace:*",
+    "@hotella/tooling": "workspace:*",
+    "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.11",
+    "vitest": "4.1.11"
+  }
+}

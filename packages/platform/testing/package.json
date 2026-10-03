@@ -1,0 +1,37 @@
+{
+  "name": "@hotella/platform-testing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test infrastructure: Testcontainers (PostgreSQL 18 + pgvector, Valkey 9, MinIO) with Docker detection, Vitest global setup, helpers.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./global-setup": {
+      "types": "./dist/global-setup.d.ts",
+      "default": "./dist/global-setup.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@testcontainers/postgresql": "12.2.0",
+    "@testcontainers/redis": "12.2.0",
+    "testcontainers": "12.2.0"
+  },
+  "devDependencies": {
+    "@hotella/tooling": "workspace:*",
+    "vitest": "4.1.11"
+  }
+}

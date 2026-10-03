@@ -88,6 +88,7 @@ export default tseslint.config(
   {
     files: [
       'tooling/**/*.mjs',
+      '**/bin/*.mjs',
       'scripts/**/*.{mjs,js}',
       '*.mjs',
       '*.cjs',
@@ -165,6 +166,42 @@ export default tseslint.config(
               message: 'Deep imports into another bounded context are forbidden (ADR-0001).',
             },
           ],
+        },
+      ],
+    },
+  },
+  // SCHEMA: ids are application-generated UUIDv7 (ADR-0003); no DB-side random uuid defaults.
+  {
+    files: [
+      '**/infrastructure/schema.ts',
+      '**/infrastructure/schema/**/*.ts',
+      'packages/platform/database/src/schema/**/*.ts',
+      'tooling/lint-fixtures/**/schema.ts',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.name='require']",
+          message: 'ESM-ready source: use import (ADR-0016).',
+        },
+        {
+          selector: "CallExpression[callee.property.name='defaultRandom']",
+          message:
+            'Ids are application-generated UUIDv7: use baseColumns() / $defaultFn(newId) (ADR-0003).',
+        },
+        {
+          selector: 'Literal[value=/gen_random_uuid|uuid_generate_v4/i]',
+          message: 'Ids are application-generated UUIDv7 (ADR-0003).',
+        },
+        {
+          selector: 'TemplateElement[value.raw=/gen_random_uuid|uuid_generate_v4/i]',
+          message: 'Ids are application-generated UUIDv7 (ADR-0003).',
+        },
+        {
+          selector:
+            "CallExpression[callee.name='timestamp'] > ObjectExpression > Property[key.name='withTimezone'] > Literal[value=false]",
+          message: 'Timestamps are TIMESTAMPTZ (Spec §2.2).',
         },
       ],
     },

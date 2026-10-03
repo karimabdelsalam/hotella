@@ -2,13 +2,17 @@
   "name": "@hotella/platform-observability",
   "version": "0.0.0",
   "private": true,
-  "description": "Structured logging (pino) with redaction and a Nest LoggerService adapter. Tracing and request context follow in Sprint 0.2.",
+  "description": "Structured logging (pino) with redaction, request context (CLS: correlation_id, tenant, property, actor), OpenTelemetry bootstrap.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./tracing": {
+      "types": "./dist/tracing.d.ts",
+      "default": "./dist/tracing.js"
     }
   },
   "files": [
@@ -24,10 +28,27 @@
   "dependencies": {
     "@hotella/platform-config": "workspace:*",
     "@nestjs/common": "11.2.7",
-    "pino": "10.4.0"
+    "@nestjs/core": "11.2.7",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "0.80.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.222.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.222.0",
+    "@opentelemetry/resources": "2.11.0",
+    "@opentelemetry/sdk-metrics": "2.11.0",
+    "@opentelemetry/sdk-node": "0.222.0",
+    "@opentelemetry/semantic-conventions": "1.43.0",
+    "nestjs-cls": "6.3.1",
+    "pino": "10.4.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
   },
   "devDependencies": {
     "@hotella/tooling": "workspace:*",
+    "@nestjs/platform-express": "11.2.7",
+    "@nestjs/testing": "11.2.7",
+    "@types/express": "5.0.6",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.3.1",
     "vitest": "4.1.11"
   }
 }

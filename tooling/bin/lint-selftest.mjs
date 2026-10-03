@@ -17,6 +17,10 @@ const cases = [
   { file: 'tooling/lint-fixtures/process-env.ts', rule: 'no-restricted-properties' },
   { file: 'tooling/lint-fixtures/console-log.ts', rule: 'no-console' },
   { file: 'tooling/lint-fixtures/require-and-dirname.ts', rule: 'no-restricted-globals' },
+  {
+    file: 'tooling/lint-fixtures/packages/domain/x/src/infrastructure/schema.ts',
+    rule: 'no-restricted-syntax',
+  },
 ];
 
 const eslint = new ESLint({ overrideConfigFile: 'eslint.config.mjs', ignore: false });

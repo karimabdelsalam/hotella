@@ -2,7 +2,10 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@hotella/platform-config';
-import { LoggerModule } from '@hotella/platform-observability';
+import { DatabaseModule } from '@hotella/platform-database';
+import { ObservabilityModule } from '@hotella/platform-observability';
+import { EnvSecretProvider, SecretsModule } from '@hotella/platform-secrets';
+import { StorageModule } from '@hotella/platform-storage';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { configureApp } from '../src/bootstrap';
@@ -24,7 +27,14 @@ describe('api skeleton (e2e)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ env: testEnv }),
-        LoggerModule.forRoot(),
+        ObservabilityModule.forRoot(),
+        SecretsModule.forRoot({
+          providers: [
+            new EnvSecretProvider({ STORAGE_ACCESS_KEY: 'test', STORAGE_SECRET_KEY: 'test' }),
+          ],
+        }),
+        DatabaseModule.forRoot(),
+        StorageModule.forRoot(),
         HealthModule,
         MetaModule,
       ],
@@ -72,6 +82,16 @@ describe('api skeleton (e2e)', () => {
     });
     const paths = (res.body.errors as { path: string }[]).map((e) => e.path);
     expect(paths).toEqual(expect.arrayContaining(['message', 'locale']));
+  });
+
+  it('every response carries X-Correlation-Id (echoed when well-formed)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/health')
+      .set('X-Correlation-Id', 'corr-abcdef12')
+      .expect(200);
+    expect(res.headers['x-correlation-id']).toBe('corr-abcdef12');
+    const minted = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+    expect(minted.headers['x-correlation-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('unknown route → Problem Details 404', async () => {

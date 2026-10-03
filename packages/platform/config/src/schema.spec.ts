@@ -35,6 +35,19 @@ describe('loadConfig', () => {
     }
   });
 
+  it('requires storage credentials to be SecretRefs, not values', () => {
+    expect(() => loadConfig({ ...valid, STORAGE_ACCESS_KEY_REF: 'AKIA-plaintext' })).toThrow();
+    expect(
+      loadConfig({ ...valid, STORAGE_ACCESS_KEY_REF: 'vault://kv/minio#access' }).storage
+        .accessKeyRef,
+    ).toBe('vault://kv/minio#access');
+  });
+
+  it('parses boolean-ish flags', () => {
+    expect(loadConfig({ ...valid, OTEL_ENABLED: 'true' }).otel.enabled).toBe(true);
+    expect(loadConfig({ ...valid, OTEL_ENABLED: '0' }).otel.enabled).toBe(false);
+  });
+
   it('rejects unknown log levels and environments', () => {
     expect(() => loadConfig({ ...valid, LOG_LEVEL: 'verbose' })).toThrow();
     expect(() => loadConfig({ ...valid, NODE_ENV: 'staging' })).toThrow();

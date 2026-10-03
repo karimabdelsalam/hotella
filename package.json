@@ -22,7 +22,11 @@
     "depcruise": "depcruise apps packages tooling --config .dependency-cruiser.cjs",
     "depcruise:graph": "depcruise apps packages --config .dependency-cruiser.cjs --output-type dot | dot -T svg > docs/architecture/dependency-graph.svg",
     "commitlint": "commitlint",
-    "clean": "turbo run clean && rm -rf node_modules/.cache"
+    "clean": "turbo run clean && rm -rf node_modules/.cache",
+    "db:migrate": "node packages/platform/database/bin/hotella-db.mjs migrate",
+    "db:generate": "node packages/platform/database/bin/hotella-db.mjs generate",
+    "db:check": "node packages/platform/database/bin/hotella-db.mjs check",
+    "db:studio": "node packages/platform/database/bin/hotella-db.mjs studio"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",

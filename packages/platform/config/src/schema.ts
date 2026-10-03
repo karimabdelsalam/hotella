@@ -16,6 +16,25 @@ export const envSchema = z.object({
   VALKEY_URL: z.url({ protocol: /^rediss?$/ }),
   /** Base URL used for guest-facing links (activation URLs). Phase 4 uses it; declared early so envs are complete. */
   PUBLIC_BASE_URL: z.url().default('http://localhost:3000'),
+
+  /** OpenTelemetry (ADR-0006). The SDK itself honours the standard OTEL_* variables; we only gate enablement. */
+  OTEL_ENABLED: z.stringbool().default(false),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.url().default('http://localhost:4318'),
+  OTEL_SERVICE_NAME: z.string().min(1).optional(),
+
+  /** Object storage (Spec §2.4, ADR-0013 MinIO). Credentials are SecretRefs, never values (ADR-0010). */
+  STORAGE_ENDPOINT: z.url().default('http://localhost:9000'),
+  STORAGE_REGION: z.string().min(1).default('us-east-1'),
+  STORAGE_BUCKET: z.string().min(3).default('hotella'),
+  STORAGE_FORCE_PATH_STYLE: z.stringbool().default(true),
+  STORAGE_ACCESS_KEY_REF: z
+    .string()
+    .regex(/^[a-z][a-z0-9+.-]*:\/\//i, 'must be a SecretRef like env://STORAGE_ACCESS_KEY')
+    .default('env://STORAGE_ACCESS_KEY'),
+  STORAGE_SECRET_KEY_REF: z
+    .string()
+    .regex(/^[a-z][a-z0-9+.-]*:\/\//i, 'must be a SecretRef like env://STORAGE_SECRET_KEY')
+    .default('env://STORAGE_SECRET_KEY'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -34,6 +53,19 @@ export interface AppConfig {
   readonly shutdown: { readonly timeoutMs: number };
   readonly database: { readonly url: string };
   readonly valkey: { readonly url: string };
+  readonly otel: {
+    readonly enabled: boolean;
+    readonly endpoint: string;
+    readonly serviceName: string;
+  };
+  readonly storage: {
+    readonly endpoint: string;
+    readonly region: string;
+    readonly bucket: string;
+    readonly forcePathStyle: boolean;
+    readonly accessKeyRef: string;
+    readonly secretKeyRef: string;
+  };
 }
 
 export class ConfigValidationError extends Error {
@@ -62,5 +94,23 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
     shutdown: { timeoutMs: e.SHUTDOWN_TIMEOUT_MS },
     database: { url: e.DATABASE_URL },
     valkey: { url: e.VALKEY_URL },
+    otel: {
+      enabled: e.OTEL_ENABLED,
+      endpoint: e.OTEL_EXPORTER_OTLP_ENDPOINT,
+      serviceName: e.OTEL_SERVICE_NAME ?? e.APP_NAME,
+    },
+    storage: {
+      endpoint: e.STORAGE_ENDPOINT,
+      region: e.STORAGE_REGION,
+      bucket: e.STORAGE_BUCKET,
+      forcePathStyle: e.STORAGE_FORCE_PATH_STYLE,
+      accessKeyRef: e.STORAGE_ACCESS_KEY_REF,
+      secretKeyRef: e.STORAGE_SECRET_KEY_REF,
+    },
   };
+}
+
+/** Reads and validates process.env. The only sanctioned env read outside this package's module (used by main.ts before Nest boots). */
+export function loadConfigFromEnv(): AppConfig {
+  return loadConfig(process.env);
 }

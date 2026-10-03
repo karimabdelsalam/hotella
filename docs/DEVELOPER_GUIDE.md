@@ -22,18 +22,19 @@ pnpm install                 # frozen lockfile
 cp .env.example .env         # dev defaults only; no secrets needed locally
 pnpm dev:infra               # PostgreSQL 18 + pgvector, Valkey 9, MinIO, Mailpit, Grafana (otel-lgtm)
 pnpm build                   # compiles packages (SWC) and the API; required once before dev/test
+pnpm db:migrate              # applies packages/platform/database/migrations (needs DATABASE_URL from .env)
 pnpm dev                     # api (nest start --watch) + packages in watch mode
 curl -s localhost:3000/api/v1/health   # liveness
 curl -s localhost:3000/api/v1/ready    # readiness: 200 when PostgreSQL + Valkey reachable, else 503 Problem Details with per-dependency details
-pnpm test                    # unit + e2e (Sprint 0.2 adds Testcontainers integration tests; Docker then required)
+pnpm test                    # unit + e2e + integration (Testcontainers starts PostgreSQL/Valkey/MinIO; without Docker those suites skip with a reason)
 ```
 
-> `pnpm db:migrate` / `pnpm db:generate` / `pnpm db:check` arrive with Sprint 0.2 (`@hotella/platform-database`).
+> Integration suites print `TEST_INFRA_UNAVAILABLE` and skip when no container runtime is reachable; CI always runs them against real services.
 
 Full verification exactly as CI runs it:
 
 ```bash
-pnpm format:check && pnpm lint && pnpm lint:selftest && pnpm depcruise && pnpm build && pnpm typecheck && pnpm test
+pnpm format:check && pnpm lint && pnpm lint:selftest && pnpm depcruise && pnpm build && pnpm typecheck && pnpm db:check && pnpm test
 ```
 
 Useful URLs in dev: Mailpit `http://localhost:8025`, MinIO console `http://localhost:9001`, Grafana `http://localhost:3001`; API docs `http://localhost:3000/api/docs` arrive with Sprint 0.3.9.
@@ -97,8 +98,8 @@ git switch -c feat/<ctx>-<short-description>
 pnpm --filter @hotella/domain-<ctx> test       # fast loop on one package
 pnpm lint && pnpm format && pnpm typecheck && pnpm depcruise
 pnpm lint:selftest                             # proves the forbidden-pattern rules still fire
-pnpm db:generate                               # (Sprint 0.2+) after changing a schema.ts; then READ the SQL it produced
-pnpm db:check                                  # (Sprint 0.2+) CI runs this; drift = failure
+pnpm db:generate <name>                        # after changing a schema.ts; then READ the SQL it produced (migrations/<n>_<name>.sql)
+pnpm db:check                                  # CI runs this; schema code not captured by a migration = failure
 git commit -m "feat(<ctx>): <what and why>"    # Conventional Commits, commitlint-enforced in CI
 ```
 
@@ -108,7 +109,7 @@ Open a PR; the template is the four quality gates (automated checks, spec review
 
 1. **Plan first.** Add a section to `docs/BUILD_PLAN.md` with scope, domain model, migrations, APIs, events, permissions, tests, acceptance (Spec §84.5). Add rows to `docs/TRACEABILITY.md`.
 2. `pnpm gen:context spa` (scaffold generator planned for Sprint 0.3) scaffolds `packages/domain/spa` with the folder layout above, a `pgSchema('spa')`, an empty `ModuleManifest`, locale namespaces `locales/{en,ar}/spa.json`, and a tenant-leak test.
-3. Define tables in `infrastructure/schema.ts` using the helpers (`baseColumns()`, `tenantScoped()`, `versioned()`, `translationTable()`, `dataClass(...)`). Run `pnpm db:generate`, review the SQL, commit the migration.
+3. Define tables in `infrastructure/schema.ts` using the helpers from `@hotella/platform-database` (`baseColumns()`, `tenantScoped()`/`propertyScoped()`, `versioned()`, `translationTable()`), wrap each table in `classify(table, { col: 'INTERNAL' | 'CONFIDENTIAL' | … })` (a missing column fails at load), add the file to `drizzle.config.ts` `schema` if it is a new package, run `pnpm db:generate <name>`, review the SQL, commit the migration.
 4. Write the domain model in `domain/` (pure TypeScript, unit-tested).
 5. Write use cases in `application/`; start transactions with `withTransaction()`; publish events with `EventPublisher`; write audit rows with `AuditWriter`.
 6. Declare events in `packages/contracts/events` (`defineEvent('spa.booking.created', 1, schema)`), permissions in the manifest (`spa.read`, `spa.book`), entitlement codes (`SPA`), AI tools if any (`spa.search_availability`).
@@ -132,7 +133,7 @@ No code: create a service definition in the catalog (staff API/UI), add translat
 
 ## 9. Observability while developing
 
-Every request has an `X-Correlation-Id` (generated if absent). Grep your logs for it, or open Grafana → Tempo and search by `correlation_id`. Outbox rows, queue jobs and audit rows carry the same id, so one id tells the whole story of a request.
+Every request has an `X-Correlation-Id` (echoed when the caller sends a well-formed one, minted otherwise, always returned in the response). Every log line carries `correlation_id`, `trace_id` (when `OTEL_ENABLED=true`), `tenant_id`, `property_id`, `actor_type`, `actor_id` from the request context (`RequestContext` in `@hotella/platform-observability`). Background work uses `requestContext.run(seed, fn)` so jobs and consumers log under the id that travelled with them. Grep logs for the id, or open Grafana → Tempo and search by `correlation_id`.
 
 ## 10. Upgrading dependencies
 
