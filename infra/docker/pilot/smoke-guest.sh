@@ -144,7 +144,7 @@ call "${cookie[@]}" "$GUEST_WEB/hotella/guest/requests" | jq -e '[.[] | select(.
 execution=$(call "$API/properties/$property/ai/executions?conversationId=$conversation&limit=1" "${auth[@]}" | jq '.[0]')
 echo "execution: $(jq -c '{agentCode, status, tokensIn, trigger}' <<<"$execution")"
 jq -e '.status == "COMPLETED" and .agentCode == "GUEST_CONCIERGE" and .tokensIn == 360' <<<"$execution" >/dev/null
-[ "$(psql "select count(*) from audit.audit_log a join catalog.service_requests r on r.id = a.entity_id
+[ "$(psql "select count(*) from audit.audit_log a join catalog.service_requests r on r.id::text = a.entity_id
   where r.property_id = '$property' and r.service_code = 'AC_PROBLEM' and a.action = 'catalog.request.create' and a.actor_type = 'AI_AGENT'")" = 1 ]
 echo "M2 concierge: OK"
 
