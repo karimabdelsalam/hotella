@@ -19,6 +19,8 @@
   "iam.role.room_attendant.description": "ينظف الغرف ويجهزها.",
   "iam.role.engineer.name": "مهندس الصيانة",
   "iam.role.engineer.description": "يتولى طلبات الصيانة والصيانة الوقائية.",
+  "iam.role.chief_engineer.name": "كبير المهندسين",
+  "iam.role.chief_engineer.description": "يدير الهندسة: المعدات وخطط الصيانة وأعمال فريق الصيانة.",
   "iam.role.front_desk.name": "موظف الاستقبال",
   "iam.role.front_desk.description": "يستقبل النزلاء ويتابع طلباتهم في مكتب الاستقبال.",
   "iam.role.guest_relations.name": "علاقات النزلاء",

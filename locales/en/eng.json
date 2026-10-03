@@ -1,0 +1,5 @@
+{
+  "eng.permission.asset_read": "See equipment and its documents",
+  "eng.permission.asset_manage": "Register and update equipment",
+  "eng.permission.config_manage": "Set up equipment types and failure codes"
+}

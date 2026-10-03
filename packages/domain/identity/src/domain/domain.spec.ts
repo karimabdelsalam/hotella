@@ -179,6 +179,7 @@ describe('system role catalog', () => {
       'HK_SUPERVISOR',
       'ROOM_ATTENDANT',
       'ENGINEER',
+      'CHIEF_ENGINEER',
       'FRONT_DESK',
       'GUEST_RELATIONS',
     ]);

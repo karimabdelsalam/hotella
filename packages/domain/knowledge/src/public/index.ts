@@ -32,8 +32,19 @@ export interface KnowledgePassage {
   readonly matchedBy: ReadonlyArray<'KEYWORD' | 'VECTOR'>;
 }
 
+/** A document's identity (no content), e.g. for engineering to link a manual to an asset. */
+export interface KnowledgeDocumentSummary {
+  readonly id: string;
+  readonly propertyId: string | null;
+  readonly kind: string;
+  readonly title: string;
+  readonly status: string;
+}
+
 export interface KnowledgePublicApi {
   search(input: KnowledgeSearchInput): Promise<readonly KnowledgePassage[]>;
+  /** Null for an unknown document or one of another tenant. */
+  getDocument(tenantId: string, documentId: string): Promise<KnowledgeDocumentSummary | null>;
 }
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */

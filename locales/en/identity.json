@@ -19,6 +19,8 @@
   "iam.role.room_attendant.description": "Cleans and prepares rooms.",
   "iam.role.engineer.name": "Engineer",
   "iam.role.engineer.description": "Handles maintenance requests and preventive work.",
+  "iam.role.chief_engineer.name": "Chief engineer",
+  "iam.role.chief_engineer.description": "Runs engineering: equipment, maintenance plans and the engineering team's work.",
   "iam.role.front_desk.name": "Front desk agent",
   "iam.role.front_desk.description": "Welcomes guests and handles their requests at reception.",
   "iam.role.guest_relations.name": "Guest relations",

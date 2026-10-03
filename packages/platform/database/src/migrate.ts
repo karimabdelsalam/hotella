@@ -67,6 +67,7 @@ export const APPLICATION_SCHEMAS = [
   'ai',
   'knowledge',
   'hk',
+  'eng',
 ] as const;
 const ROLE_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 

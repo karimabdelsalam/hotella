@@ -221,5 +221,20 @@
   "errors.hk.signal.no_room": "There is no room on your stay right now.",
   "errors.hk.job.not_found": "This cleaning job does not exist.",
   "errors.hk.job.not_open": "Only a job that has not started can be skipped.",
-  "errors.hk.job.not_awaiting_inspection": "This room is not waiting for an inspection."
+  "errors.hk.job.not_awaiting_inspection": "This room is not waiting for an inspection.",
+  "errors.eng.asset_type.not_found": "This equipment type does not exist.",
+  "errors.eng.asset_type.code_taken": "An equipment type with this code already exists.",
+  "errors.eng.asset_type.version_conflict": "This equipment type was changed by someone else. Reload and try again.",
+  "errors.eng.asset_type.incompatible_change": "This change would make existing equipment invalid: fields can be added as optional, never removed, retyped or narrowed.",
+  "errors.eng.asset_model.not_found": "This equipment model does not exist.",
+  "errors.eng.asset_model.taken": "This manufacturer and model are already registered.",
+  "errors.eng.asset_model.wrong_type": "This model is of another equipment type.",
+  "errors.eng.asset.not_found": "This equipment does not exist.",
+  "errors.eng.asset.number_taken": "Another piece of equipment at this property has this number.",
+  "errors.eng.asset.version_conflict": "This equipment was changed by someone else. Reload and try again.",
+  "errors.eng.asset.cycle": "A part cannot contain the equipment it belongs to.",
+  "errors.eng.asset.invalid_properties": "Some details do not fit the equipment type: {fields}.",
+  "errors.eng.document.not_found": "This document does not exist at this property.",
+  "errors.eng.document.already_linked": "This document is already linked.",
+  "errors.eng.failure_code.taken": "This failure code already exists."
 }

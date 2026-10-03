@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MODEL_GATEWAY, type ModelGatewayApi } from '@hotella/domain-ai/public';
-import { TransactionRunner } from '@hotella/platform-database';
+import { isUuid, TransactionRunner } from '@hotella/platform-database';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { fuseRanks, normalizeForSearch } from '../domain/text';
 import { type CandidateFilter, KnowledgeRepositories } from '../infrastructure/repositories';
 import type {
   KnowledgeClassification,
+  KnowledgeDocumentSummary,
   KnowledgePassage,
   KnowledgePublicApi,
   KnowledgeSearchInput,
@@ -29,6 +30,15 @@ export class KnowledgeRetriever implements KnowledgePublicApi {
     @Inject(MODEL_GATEWAY) private readonly gateway: ModelGatewayApi,
     @InjectLogger() private readonly logger: Logger,
   ) {}
+
+  getDocument(tenantId: string, documentId: string): Promise<KnowledgeDocumentSummary | null> {
+    return this.tx.read(async () => {
+      const d = isUuid(documentId) ? await this.repo.document({ tenantId }, documentId) : undefined;
+      return d
+        ? { id: d.id, propertyId: d.propertyId, kind: d.kind, title: d.title, status: d.status }
+        : null;
+    });
+  }
 
   async search(input: KnowledgeSearchInput): Promise<readonly KnowledgePassage[]> {
     const normalized = normalizeForSearch(input.query);

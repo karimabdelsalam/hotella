@@ -1,0 +1,5 @@
+{
+  "eng.permission.asset_read": "عرض المعدات ومستنداتها",
+  "eng.permission.asset_manage": "تسجيل المعدات وتحديثها",
+  "eng.permission.config_manage": "إعداد أنواع المعدات وأكواد الأعطال"
+}

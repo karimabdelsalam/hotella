@@ -221,5 +221,20 @@
   "errors.hk.signal.no_room": "لا توجد غرفة على إقامتك الآن.",
   "errors.hk.job.not_found": "مهمة التنظيف هذه غير موجودة.",
   "errors.hk.job.not_open": "لا يمكن تخطي إلا مهمة لم تبدأ بعد.",
-  "errors.hk.job.not_awaiting_inspection": "هذه الغرفة لا تنتظر فحصًا."
+  "errors.hk.job.not_awaiting_inspection": "هذه الغرفة لا تنتظر فحصًا.",
+  "errors.eng.asset_type.not_found": "نوع المعدة هذا غير موجود.",
+  "errors.eng.asset_type.code_taken": "يوجد نوع معدة بهذا الكود بالفعل.",
+  "errors.eng.asset_type.version_conflict": "قام شخص آخر بتعديل نوع المعدة هذا. أعد التحميل وحاول مرة أخرى.",
+  "errors.eng.asset_type.incompatible_change": "هذا التعديل سيجعل المعدات الحالية غير صالحة: يمكن إضافة حقول اختيارية فقط، دون حذف أو تغيير نوع أو تضييق.",
+  "errors.eng.asset_model.not_found": "موديل المعدة هذا غير موجود.",
+  "errors.eng.asset_model.taken": "هذا المصنع والموديل مسجلان بالفعل.",
+  "errors.eng.asset_model.wrong_type": "هذا الموديل من نوع معدة آخر.",
+  "errors.eng.asset.not_found": "هذه المعدة غير موجودة.",
+  "errors.eng.asset.number_taken": "توجد معدة أخرى في هذا الفندق بنفس الرقم.",
+  "errors.eng.asset.version_conflict": "قام شخص آخر بتعديل هذه المعدة. أعد التحميل وحاول مرة أخرى.",
+  "errors.eng.asset.cycle": "لا يمكن لجزء أن يحتوي على المعدة التي ينتمي إليها.",
+  "errors.eng.asset.invalid_properties": "بعض التفاصيل لا تناسب نوع المعدة: {fields}.",
+  "errors.eng.document.not_found": "هذا المستند غير موجود في هذا الفندق.",
+  "errors.eng.document.already_linked": "هذا المستند مرتبط بالفعل.",
+  "errors.eng.failure_code.taken": "كود العطل هذا موجود بالفعل."
 }

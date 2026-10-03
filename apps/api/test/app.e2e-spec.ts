@@ -11,6 +11,7 @@ import {
 import { GuestModule } from '@hotella/domain-guest';
 import { IntegrationsModule } from '@hotella/domain-integrations';
 import { AiModule } from '@hotella/domain-ai';
+import { EngineeringModule } from '@hotella/domain-engineering';
 import { HousekeepingModule } from '@hotella/domain-housekeeping';
 import { KnowledgeModule } from '@hotella/domain-knowledge';
 import { CatalogModule } from '@hotella/domain-catalog';
@@ -85,6 +86,7 @@ describe('api skeleton (e2e)', () => {
         AiModule,
         KnowledgeModule,
         HousekeepingModule,
+        EngineeringModule,
         HealthModule,
         MetaModule,
       ],
@@ -176,6 +178,7 @@ describe('api skeleton (e2e)', () => {
       'audit',
       'catalog',
       'comms',
+      'eng',
       'guest',
       'hk',
       'iam',
