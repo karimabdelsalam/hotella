@@ -75,6 +75,24 @@ export const DeliveryUpdated = defineEvent({
   }),
 });
 
+/** Staff sent an AI draft (edited or not): the AI context records how much it was changed (Spec §40). */
+export const ReplyDraftUsed = defineEvent({
+  type: 'comms.reply_draft.used',
+  version: 1,
+  description:
+    'Staff sent a reply based on an AI draft; carries the edit distance between the draft and what was sent.',
+  payload: z.object({
+    draft_id: z.uuid(),
+    conversation_id: z.uuid(),
+    execution_id: z.uuid().nullable(),
+    agent_code: z.string().max(64),
+    edit_distance: z.number().int().min(0),
+    draft_length: z.number().int().min(0),
+    sent_length: z.number().int().min(0),
+    used_by: z.uuid().nullable(),
+  }),
+});
+
 export const HandoffRequested = defineEvent({
   type: 'comms.handoff.requested',
   version: 1,

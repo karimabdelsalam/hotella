@@ -205,5 +205,9 @@
   "errors.ai.tool.failed": "The AI tool could not complete. Please try again.",
   "errors.ai.tool.disabled": "The AI tool \"{tool}\" is switched off.",
   "errors.ai.proposal.not_pending": "This AI proposal has already been decided.",
-  "errors.ai.proposal.not_executable": "This AI proposal can no longer be carried out."
+  "errors.ai.proposal.not_executable": "This AI proposal can no longer be carried out.",
+  "errors.comms.conversation.ai_needs_verified_guest": "The AI assistant can only take part once the guest is verified.",
+  "errors.comms.draft.not_pending": "This AI suggestion is no longer current. Reload the conversation.",
+  "errors.ai.agent.not_found": "This AI assistant does not exist.",
+  "errors.ai.execution.not_found": "This AI execution does not exist."
 }

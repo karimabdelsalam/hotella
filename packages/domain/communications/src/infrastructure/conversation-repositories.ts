@@ -16,7 +16,9 @@ import {
   inboundEvents,
   messageDeliveryEvents,
   messages,
+  replyDrafts,
   type ConversationRow,
+  type ReplyDraftRow,
   type InboundEventRow,
   type MessageRow,
   type ParticipantRow,
@@ -359,5 +361,94 @@ export class ConversationRepositories {
       )
       .returning({ id: messages.id });
     return rows.length;
+  }
+
+  // ---- AI drafts ----
+  /** Replaces the conversation's pending draft (the newest suggestion wins). */
+  async putDraft(values: Omit<typeof replyDrafts.$inferInsert, 'status'>): Promise<ReplyDraftRow> {
+    await this.x
+      .update(replyDrafts)
+      .set({
+        status: 'SUPERSEDED',
+        updatedAt: new Date(),
+        version: sql`${replyDrafts.version} + 1`,
+      })
+      .where(
+        tenantWhere(
+          replyDrafts,
+          { tenantId: values.tenantId },
+          eq(replyDrafts.conversationId, values.conversationId),
+          eq(replyDrafts.status, 'PENDING'),
+        ),
+      );
+    const [row] = await this.x.insert(replyDrafts).values(values).returning();
+    return row!;
+  }
+  async pendingDraft(
+    scope: TenantScope,
+    conversationId: string,
+  ): Promise<ReplyDraftRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(replyDrafts)
+      .where(
+        tenantWhere(
+          replyDrafts,
+          scope,
+          eq(replyDrafts.conversationId, conversationId),
+          eq(replyDrafts.status, 'PENDING'),
+        ),
+      );
+    return row;
+  }
+  async draftForUpdate(scope: TenantScope, id: string): Promise<ReplyDraftRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(replyDrafts)
+      .where(tenantWhere(replyDrafts, scope, eq(replyDrafts.id, id)))
+      .for('update');
+    return row;
+  }
+  async updateDraft(
+    scope: TenantScope,
+    id: string,
+    patch: Partial<Pick<ReplyDraftRow, 'status' | 'usedAt' | 'usedById' | 'editDistance'>>,
+  ): Promise<void> {
+    await this.x
+      .update(replyDrafts)
+      .set({ ...patch, updatedAt: new Date(), version: sql`${replyDrafts.version} + 1` })
+      .where(tenantWhere(replyDrafts, scope, eq(replyDrafts.id, id)));
+  }
+  /** Drafts of open conversations no longer apply once staff take over, the AI hands off or it closes. */
+  async discardPendingDrafts(scope: TenantScope, conversationId: string): Promise<void> {
+    await this.x
+      .update(replyDrafts)
+      .set({ status: 'DISCARDED', updatedAt: new Date(), version: sql`${replyDrafts.version} + 1` })
+      .where(
+        tenantWhere(
+          replyDrafts,
+          scope,
+          eq(replyDrafts.conversationId, conversationId),
+          eq(replyDrafts.status, 'PENDING'),
+        ),
+      );
+  }
+  async clearGuestDraftBodies(scope: TenantScope, guestId: string): Promise<void> {
+    await this.x
+      .update(replyDrafts)
+      .set({ body: null, updatedAt: new Date() })
+      .where(
+        tenantWhere(
+          replyDrafts,
+          scope,
+          inArray(
+            replyDrafts.conversationId,
+            this.x
+              .select({ id: conversations.id })
+              .from(conversations)
+              .where(tenantWhere(conversations, scope, eq(conversations.guestId, guestId))),
+          ),
+        ),
+      );
   }
 }

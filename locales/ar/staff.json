@@ -45,5 +45,11 @@
   "staff.sender.guest": "الضيف",
   "staff.sender.staff": "الموظف",
   "staff.sender.ai": "المساعد",
-  "staff.sender.system": "النظام"
+  "staff.sender.system": "النظام",
+  "staff.inbox.ai_mode": "مساعد الذكاء الاصطناعي",
+  "staff.inbox.ai_mode_off": "متوقف",
+  "staff.inbox.ai_mode_assist": "اقتراح الردود",
+  "staff.inbox.ai_mode_auto": "الرد على الضيف",
+  "staff.inbox.ai_suggestion": "اقتراح الذكاء الاصطناعي",
+  "staff.inbox.use_suggestion": "استخدام الاقتراح"
 }

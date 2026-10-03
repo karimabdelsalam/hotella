@@ -35,6 +35,7 @@ export {
   HandoffRequested,
   MessageReceived,
   MessageSent,
+  ReplyDraftUsed,
 } from './comms-events';
 export {
   GuestAnonymized,

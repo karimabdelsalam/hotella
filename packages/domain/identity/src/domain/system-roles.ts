@@ -108,6 +108,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'catalog.publish',
       'ai.routing.manage',
       'ai.usage.read',
+      'ai.execution.read',
     ],
   },
   {

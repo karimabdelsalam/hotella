@@ -169,6 +169,20 @@
       "when": 1791046938054,
       "tag": "0023_ai_executions",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791047858051,
+      "tag": "0024_ai_agents",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791047969155,
+      "tag": "0025_comms_reply_drafts",
+      "breakpoints": true
     }
   ]
 }

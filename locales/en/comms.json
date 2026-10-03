@@ -17,5 +17,6 @@
   "comms.inbound.activation_prompt": "Welcome to {property}. To help you with your stay, please open the link you received at check-in or scan the QR code in your room, then verify your number. The front desk can also help.",
   "comms.qr.sheet_title": "{property} — room codes",
   "comms.qr.room": "Room",
-  "comms.qr.instruction": "Scan to reach us, request services and chat with the hotel."
+  "comms.qr.instruction": "Scan to reach us, request services and chat with the hotel.",
+  "comms.setting.ai_mode_default": "How the AI assistant takes part in a verified guest's new conversation"
 }

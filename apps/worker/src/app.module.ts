@@ -1,13 +1,14 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { GuestEventsModule } from '@hotella/domain-guest';
-import { IntegrationsCoreModule } from '@hotella/domain-integrations';
+import { IntegrationsCoreModule, IntegrationsModule } from '@hotella/domain-integrations';
 import { IdentityDirectoryModule } from '@hotella/domain-identity';
-import { AiWorkerModule } from '@hotella/domain-ai';
-import { CatalogWorkerModule } from '@hotella/domain-catalog';
+import { AiModule, AiWorkerModule } from '@hotella/domain-ai';
+import { CatalogServicesModule, CatalogWorkerModule } from '@hotella/domain-catalog';
 import { CommunicationsWorkerModule } from '@hotella/domain-communications';
 import { OperationsWorkerModule } from '@hotella/domain-operations';
 import { OrganizationCoreModule } from '@hotella/domain-organization';
 import { AuditCoreModule } from '@hotella/platform-audit';
+import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
 import { EVENT_TRANSPORT, EventsModule } from '@hotella/platform-events';
@@ -47,9 +48,15 @@ const WORKER_MODULES = [
   OperationsWorkerModule,
   // Communications follows guest events (anonymization).
   CommunicationsWorkerModule,
-  // Service requests follow their work items and the stay (catalog).
+  // Service requests follow their work items and the stay (catalog); CATALOG_API for AI tools.
   CatalogWorkerModule,
-  // The Model Gateway for background AI work (ADR-0018).
+  CatalogServicesModule,
+  // AI tools act through the ActionGate as AI_AGENT (no HTTP guard: the worker's routes are health checks).
+  AuthModule.forRoot({
+    httpGuard: false,
+    stages: [IntegrationsModule.capabilityStage(), ...AiModule.gateStages()],
+  }),
+  // The Model Gateway and the Guest Concierge runtime on `background-ai` (ADR-0018, BUILD_PLAN 6.3).
   AiWorkerModule,
   WorkerRuntimeModule,
 ];

@@ -53,6 +53,8 @@ export function InboxApp({ realtimeUrl }: { readonly realtimeUrl: string }) {
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  // The AI suggestion the reply started from (sent with it, so the edit is measured).
+  const [usedDraftId, setUsedDraftId] = useState<string | null>(null);
 
   useEffect(() => {
     if (session.state === 'anonymous') router.replace('/login');
@@ -135,8 +137,9 @@ export function InboxApp({ realtimeUrl }: { readonly realtimeUrl: string }) {
   async function send(e: FormEvent) {
     e.preventDefault();
     if (!draft.trim()) return;
-    await act('messages', { body: draft.trim() });
+    await act('messages', { body: draft.trim(), ...(usedDraftId ? { draftId: usedDraftId } : {}) });
     setDraft('');
+    setUsedDraftId(null);
   }
 
   if (session.state !== 'signed-in') return <Header />;
@@ -253,7 +256,23 @@ export function InboxApp({ realtimeUrl }: { readonly realtimeUrl: string }) {
                       : t('inbox.no_room')}
                   </span>
                   {!detail.verified && <Badge tone="warning">{t('inbox.unverified')}</Badge>}
-                  <span className="ms-auto flex gap-2">
+                  <span className="ms-auto flex flex-wrap items-center gap-2">
+                    {detail.verified && detail.status !== 'CLOSED' && (
+                      <label className="flex items-center gap-1 text-sm text-slate-600">
+                        {t('inbox.ai_mode')}
+                        <select
+                          value={detail.aiMode}
+                          onChange={(e) => act('ai-mode', { mode: e.target.value })}
+                          className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                        >
+                          {(['OFF', 'ASSIST', 'AUTO'] as const).map((mode) => (
+                            <option key={mode} value={mode}>
+                              {t(`inbox.ai_mode_${mode.toLowerCase()}`)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     {detail.status !== 'HANDED_OFF' && detail.status !== 'CLOSED' && (
                       <Button variant="secondary" onClick={() => act('takeover')}>
                         {t('inbox.take_over')}
@@ -320,6 +339,26 @@ export function InboxApp({ realtimeUrl }: { readonly realtimeUrl: string }) {
                       </li>
                     ))}
                 </ol>
+                {detail.aiDraft && detail.aiDraft.id !== usedDraftId && (
+                  <div
+                    className="flex flex-wrap items-start gap-2 border-t border-violet-200 bg-violet-50 px-4 py-2 text-sm"
+                    data-testid="ai-draft"
+                  >
+                    <span className="font-medium text-violet-900">{t('inbox.ai_suggestion')}</span>
+                    <span className="flex-1 whitespace-pre-wrap" dir="auto">
+                      {detail.aiDraft.body}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setDraft(detail.aiDraft!.body);
+                        setUsedDraftId(detail.aiDraft!.id);
+                      }}
+                    >
+                      {t('inbox.use_suggestion')}
+                    </Button>
+                  </div>
+                )}
                 {detail.status !== 'CLOSED' && (
                   <form
                     onSubmit={send}

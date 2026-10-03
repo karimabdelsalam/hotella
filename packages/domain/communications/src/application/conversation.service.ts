@@ -12,10 +12,12 @@ import {
 import { GUEST_API, type GuestPrincipal, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
 import { AuditWriter } from '@hotella/platform-audit';
-import { newId, TransactionRunner } from '@hotella/platform-database';
+import { SettingsReader } from '@hotella/platform-settings';
+import { isUuid, newId, TransactionRunner } from '@hotella/platform-database';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError, I18nService } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
+import { COMMS_AI_MODE_DEFAULT } from '../domain/settings';
 import { ConversationRepositories } from '../infrastructure/conversation-repositories';
 import type {
   ChannelRow,
@@ -31,6 +33,8 @@ import type {
   CommunicationsPublicApi,
   GuestNotificationInput,
   GuestNotificationResult,
+  ConversationForAi,
+  ConversationMessage,
 } from '../public';
 import { type InboundItem, ProviderError } from './providers';
 
@@ -61,6 +65,7 @@ export class ConversationService implements CommunicationsPublicApi {
     private readonly i18n: I18nService,
     private readonly tx: TransactionRunner,
     private readonly audit: AuditWriter,
+    private readonly settings: SettingsReader,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @InjectLogger() private readonly logger: Logger,
@@ -538,6 +543,73 @@ export class ConversationService implements CommunicationsPublicApi {
 
   // ---- AI (Spec §23–§24) ----
 
+  conversationForAi(tenantId: string, conversationId: string): Promise<ConversationForAi | null> {
+    return this.tx.read(async () => {
+      const c = isUuid(conversationId)
+        ? await this.repo.conversation({ tenantId }, conversationId)
+        : undefined;
+      return c
+        ? {
+            id: c.id,
+            propertyId: c.propertyId,
+            stayId: c.stayId,
+            guestId: c.guestId,
+            status: c.status,
+            aiMode: c.aiMode,
+          }
+        : null;
+    });
+  }
+
+  recentMessages(
+    tenantId: string,
+    conversationId: string,
+    limit: number,
+  ): Promise<readonly ConversationMessage[]> {
+    return this.tx.read(async () =>
+      (
+        await this.repo.messagesOf({ tenantId }, conversationId, {
+          guestVisibleOnly: true,
+          limit: Math.min(Math.max(limit, 1), 50),
+        })
+      ).map((m) => ({
+        id: m.id,
+        direction: m.direction,
+        senderType: m.senderType,
+        body: m.body,
+        createdAt: m.createdAt.toISOString(),
+      })),
+    );
+  }
+
+  saveDraft(input: {
+    tenantId: string;
+    conversationId: string;
+    agentCode: string;
+    executionId: string | null;
+    body: string;
+  }): Promise<{ draftId: string }> {
+    return this.tx.run(async () => {
+      const c = await this.repo.conversationForUpdate(
+        { tenantId: input.tenantId },
+        input.conversationId,
+      );
+      if (!c) throw AppError.notFound('comms.conversation.not_found');
+      if (c.status === 'CLOSED') throw AppError.conflict('comms.conversation.closed');
+      if (c.status === 'HANDED_OFF') throw AppError.conflict('comms.conversation.handed_off');
+      const draft = await this.repo.putDraft({
+        id: newId(),
+        tenantId: c.tenantId,
+        propertyId: c.propertyId,
+        conversationId: c.id,
+        agentCode: input.agentCode,
+        executionId: input.executionId,
+        body: input.body,
+      });
+      return { draftId: draft.id };
+    });
+  }
+
   replyAsAi(input: {
     tenantId: string;
     conversationId: string;
@@ -574,6 +646,7 @@ export class ConversationService implements CommunicationsPublicApi {
         aiMode: 'OFF',
         handoffReason: input.reason,
       });
+      await this.repo.discardPendingDrafts(scope, c.id);
       await this.events.publish(HandoffRequested, {
         tenantId: c.tenantId,
         propertyId: c.propertyId,
@@ -631,7 +704,10 @@ export class ConversationService implements CommunicationsPublicApi {
       });
     } else if (envelope.event_type === GuestAnonymized.type) {
       const e = GuestAnonymized.parse(envelope);
-      await this.tx.run(() => this.repo.clearGuestMessageBodies(scope, e.payload.guest_id));
+      await this.tx.run(async () => {
+        await this.repo.clearGuestMessageBodies(scope, e.payload.guest_id);
+        await this.repo.clearGuestDraftBodies(scope, e.payload.guest_id);
+      });
     }
   }
 
@@ -653,6 +729,7 @@ export class ConversationService implements CommunicationsPublicApi {
       deliveryStatus: 'SENT',
       guestVisible: false,
     });
+    await this.repo.discardPendingDrafts(scope, conversation.id);
     return this.repo.updateConversation(scope, conversation.id, {
       status: 'CLOSED',
       aiMode: 'OFF',
@@ -680,6 +757,13 @@ export class ConversationService implements CommunicationsPublicApi {
       stayId: input.stayId,
       channelIdentityId: input.identityId,
       replyChannelType: input.replyChannelType,
+      // A verified guest's conversation starts in the property's AI mode; unverified contacts never meet the AI.
+      aiMode: input.stayId
+        ? await this.settings.value(COMMS_AI_MODE_DEFAULT, {
+            tenantId: at.tenantId,
+            propertyId: at.propertyId,
+          })
+        : 'OFF',
       lastMessageAt: now,
     });
     await this.events.publish(ConversationOpened, {

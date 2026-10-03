@@ -45,5 +45,11 @@
   "staff.sender.guest": "Guest",
   "staff.sender.staff": "Staff",
   "staff.sender.ai": "Assistant",
-  "staff.sender.system": "System"
+  "staff.sender.system": "System",
+  "staff.inbox.ai_mode": "AI assistant",
+  "staff.inbox.ai_mode_off": "Off",
+  "staff.inbox.ai_mode_assist": "Suggest replies",
+  "staff.inbox.ai_mode_auto": "Answer the guest",
+  "staff.inbox.ai_suggestion": "AI suggestion",
+  "staff.inbox.use_suggestion": "Use suggestion"
 }

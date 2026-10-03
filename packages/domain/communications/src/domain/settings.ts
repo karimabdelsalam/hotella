@@ -49,7 +49,20 @@ export const COMMS_ACTIVATION_TOKEN_TTL_HOURS = defineSetting({
   descriptionKey: 'comms.setting.activation_token_ttl_hours',
 });
 
+/**
+ * How the AI concierge takes part in a verified guest's conversation when it opens (Spec §23): `OFF`, `ASSIST` (drafts
+ * for staff) or `AUTO` (answers the guest). Staff change it per conversation; a takeover or hand-off turns it off.
+ */
+export const COMMS_AI_MODE_DEFAULT = defineSetting<'OFF' | 'ASSIST' | 'AUTO'>({
+  key: 'comms.ai_mode.default',
+  scopes: SCOPES,
+  schema: z.enum(['OFF', 'ASSIST', 'AUTO']),
+  default: 'OFF',
+  descriptionKey: 'comms.setting.ai_mode_default',
+});
+
 export const COMMUNICATIONS_SETTINGS = [
+  COMMS_AI_MODE_DEFAULT,
   COMMS_OTP_PRIMARY_CHANNEL,
   COMMS_OTP_FALLBACK_CHANNELS,
   COMMS_OTP_FALLBACK_TIMEOUT_SECONDS,

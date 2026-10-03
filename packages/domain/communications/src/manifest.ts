@@ -2,6 +2,7 @@ import {
   ConversationOpened,
   DeliveryUpdated,
   HandoffRequested,
+  ReplyDraftUsed,
   MessageReceived,
   MessageSent,
 } from '@hotella/contracts-events';
@@ -36,6 +37,7 @@ export const COMMUNICATIONS_MANIFEST = defineManifest({
     MessageSent.name,
     DeliveryUpdated.name,
     HandoffRequested.name,
+    ReplyDraftUsed.name,
   ],
   localeNamespaces: ['comms'],
 });

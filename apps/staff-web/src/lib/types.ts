@@ -50,6 +50,13 @@ export interface ConversationDetail extends ConversationSummary {
     readonly priority: string;
   }>;
   readonly messages: readonly ThreadMessage[];
+  /** The AI's suggested reply (ASSIST mode), until staff use it or the conversation moves on. */
+  readonly aiDraft: {
+    readonly id: string;
+    readonly body: string;
+    readonly agentCode: string;
+    readonly createdAt: string;
+  } | null;
 }
 
 export interface Me {

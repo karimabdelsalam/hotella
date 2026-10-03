@@ -1,10 +1,19 @@
 export {
+  AI_CONCIERGE_CONSUMER,
+  AI_CONCIERGE_JOB,
+  AI_FEEDBACK_CONSUMER,
   AI_PROPOSAL_SETTLE_CONSUMER,
   AiCoreModule,
   AiModule,
   AiToolsModule,
   AiWorkerModule,
 } from './ai.module';
+export { AgentCatalog } from './application/agent-catalog';
+export type { PublishedAgent } from './application/agent-catalog';
+export { ConciergeRuntime } from './application/concierge.runtime';
+export type { ConciergeOutcome } from './application/concierge.runtime';
+export { ContextEngine } from './application/context-engine';
+export { FeedbackRecorder } from './application/feedback-recorder';
 export { AI_ACTION_APPROVAL, ToolExecutor } from './application/tools/executor';
 export type {
   ExecutionHandle,
@@ -16,6 +25,8 @@ export { toModelName, ToolRegistry } from './application/tools/registry';
 export type { AiToolDefinition, ToolContext } from './application/tools/registry';
 export { aiExecutionScope, AiPolicyStage, ScopedAgentAuthorizer } from './application/tools/scope';
 export { decide, NO_AUTONOMY, riskRank } from './domain/policy';
+export { GUEST_CONCIERGE, HANDOFF_REASONS, replyLocale } from './domain/agents';
+export type { HandoffReason } from './domain/agents';
 export type { AutonomyPolicy, Decision, Risk } from './domain/policy';
 export { ModelGatewayService } from './application/gateway.service';
 export { ModelProviderRegistry } from './application/provider-registry';

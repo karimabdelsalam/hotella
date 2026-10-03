@@ -505,6 +505,9 @@ importers:
       '@hotella/platform-audit':
         specifier: workspace:*
         version: link:../../packages/platform/audit
+      '@hotella/platform-auth':
+        specifier: workspace:*
+        version: link:../../packages/platform/auth
       '@hotella/platform-config':
         specifier: workspace:*
         version: link:../../packages/platform/config

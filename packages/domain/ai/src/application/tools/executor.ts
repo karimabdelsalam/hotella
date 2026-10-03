@@ -100,16 +100,22 @@ export class ToolExecutor {
     return { id, ...handle };
   }
 
+  /** Closes the execution with its status and the totals of its model calls. */
   async finish(
-    handle: ExecutionHandle,
+    handle: Pick<ExecutionHandle, 'id' | 'tenantId'>,
     status: Exclude<ExecutionRow['status'], 'RUNNING'>,
   ): Promise<void> {
     await this.tx.run(() =>
-      this.repo.updateExecution({ tenantId: handle.tenantId }, handle.id, {
-        status,
-        finishedAt: new Date(),
-      }),
+      this.repo.closeExecution({ tenantId: handle.tenantId }, handle.id, status),
     );
+  }
+
+  /**
+   * Runs a public-API call as the agent (audit, approvals and events name the AI actor) — for what the runtime does
+   * itself (saving a draft, handing off), which is not an action on business data.
+   */
+  actAs<T>(handle: ExecutionHandle, fn: () => Promise<T>): Promise<T> {
+    return this.asActor(handle, fn);
   }
 
   /** Appends a step to the execution record (append-only; summaries carry codes, never guest text). */

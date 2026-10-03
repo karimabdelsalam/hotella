@@ -20,6 +20,11 @@ export interface AuthModuleOptions {
   readonly stages?: Provider[];
   /** Provider for PROPERTY_SCOPE_VERIFIER (organization context): foreign/unknown property → 404 before permissions. */
   readonly propertyVerifier?: Provider;
+  /**
+   * Install the AuthGuard on every HTTP route (default). Processes that only need the ActionGate for background work
+   * (the worker, whose own routes are operational health checks) pass false.
+   */
+  readonly httpGuard?: boolean;
 }
 
 @Global()
@@ -35,7 +40,7 @@ export class AuthModule {
         options.resolver ?? { provide: PERMISSION_RESOLVER, useClass: DenyAllResolver },
         ...(options.stages ?? []),
         options.propertyVerifier ?? { provide: PROPERTY_SCOPE_VERIFIER, useValue: null },
-        { provide: APP_GUARD, useClass: AuthGuard },
+        ...(options.httpGuard === false ? [] : [{ provide: APP_GUARD, useClass: AuthGuard }]),
       ],
       exports: [
         ActorStore,

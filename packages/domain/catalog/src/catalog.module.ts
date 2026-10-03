@@ -52,12 +52,24 @@ export class CatalogCoreModule implements OnModuleInit {
 }
 
 /**
- * Staff and guest API, settings, manifest and `CATALOG_API` (global, for the contexts composed in the API process).
- * Creating requests goes through the ActionGate, which the API process provides.
+ * `CATALOG_API` and the request service without routes (global): the API process and the worker (AI tools act through
+ * it). Creating requests goes through the ActionGate, which both processes provide.
  */
 @Global()
 @Module({
   imports: [CatalogCoreModule],
+  providers: [
+    ServiceRequestService,
+    CatalogPublicApiService,
+    { provide: CATALOG_API, useExisting: CatalogPublicApiService },
+  ],
+  exports: [CATALOG_API, ServiceRequestService],
+})
+export class CatalogServicesModule {}
+
+/** Staff and guest API, settings and manifest, for the API process. */
+@Module({
+  imports: [CatalogCoreModule, CatalogServicesModule],
   controllers: [
     CatalogAdminController,
     PropertyCatalogController,
@@ -65,14 +77,7 @@ export class CatalogCoreModule implements OnModuleInit {
     GuestRequestsController,
     StaffRequestsController,
   ],
-  providers: [
-    CatalogAdminService,
-    StarterCatalogService,
-    ServiceRequestService,
-    CatalogPublicApiService,
-    { provide: CATALOG_API, useExisting: CatalogPublicApiService },
-  ],
-  exports: [CATALOG_API, ServiceRequestService],
+  providers: [CatalogAdminService, StarterCatalogService],
 })
 export class CatalogModule implements OnModuleInit {
   constructor(

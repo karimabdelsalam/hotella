@@ -1,52 +1,17 @@
-import 'reflect-metadata';
-import { Global, type INestApplication, Module } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
+import type { INestApplication } from '@nestjs/common';
 import { CATALOG_API, type CatalogPublicApi } from '@hotella/domain-catalog/public';
-import { CatalogModule } from '@hotella/domain-catalog';
-import { CommunicationsModule } from '@hotella/domain-communications';
 import {
   COMMUNICATIONS_API,
   type CommunicationsPublicApi,
 } from '@hotella/domain-communications/public';
-import { GuestModule } from '@hotella/domain-guest';
-import { GUEST_API, GUEST_SESSION_HEADER, type GuestPublicApi } from '@hotella/domain-guest/public';
-import { IDENTITY_API } from '@hotella/domain-identity/public';
-import { IntegrationsModule } from '@hotella/domain-integrations';
-import { OperationsModule } from '@hotella/domain-operations';
-import { OrganizationModule } from '@hotella/domain-organization';
-import { AuditModule } from '@hotella/platform-audit';
-import {
-  ActorStore,
-  AUTHENTICATION_STRATEGY,
-  AuthModule,
-  HeaderActorStrategy,
-  PERMISSION_RESOLVER,
-  StaticPermissionResolver,
-} from '@hotella/platform-auth';
-import { ConfigModule } from '@hotella/platform-config';
-import {
-  applicationRoleUrl,
-  DATABASE,
-  type Database,
-  DatabaseModule,
-  newId,
-  runMigrations,
-} from '@hotella/platform-database';
-import { EventsModule } from '@hotella/platform-events';
-import { FeatureFlagService, FeatureFlagsModule } from '@hotella/platform-flags';
-import { HttpConventionsModule } from '@hotella/platform-http';
-import { I18nModule } from '@hotella/platform-i18n';
-import { ManifestModule } from '@hotella/platform-manifest';
-import { ObservabilityModule, RequestContext } from '@hotella/platform-observability';
-import { EnvSecretProvider, SecretsModule } from '@hotella/platform-secrets';
-import { SettingsModule } from '@hotella/platform-settings';
+import { GUEST_SESSION_HEADER } from '@hotella/domain-guest/public';
+import { ActorStore } from '@hotella/platform-auth';
+import { type Database, newId } from '@hotella/platform-database';
+import { RequestContext } from '@hotella/platform-observability';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
-import { ZodValidationPipe } from 'nestjs-zod';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AiModule } from './ai.module';
 import {
   AI_ACTION_APPROVAL,
   type ExecutionHandle,
@@ -57,36 +22,17 @@ import { ToolRegistry } from './application/tools/registry';
 import { killSwitch } from './domain/settings';
 import { AiRepositories } from './infrastructure/repositories';
 import { AI_MANIFEST } from './manifest';
+import {
+  type AiHarness,
+  createHotel as hotelOf,
+  guestToken,
+  type Hotel,
+  staff as user,
+  startAiApp,
+} from './testing/harness';
 
-const admin = JSON.stringify({ type: 'USER', id: 'admin', tenantId: null, isPlatformAdmin: true });
-const user = (id: string, tenantId: string) =>
-  JSON.stringify({ type: 'USER', id, tenantId, isPlatformAdmin: false });
 const stamp = Date.now().toString(36).toUpperCase();
 const CONCIERGE_TOOLS = AI_MANIFEST.aiTools.map((t) => t.code);
-
-@Global()
-@Module({
-  providers: [
-    {
-      provide: IDENTITY_API,
-      useValue: {
-        getStaffMember: async () => null,
-        usersWithPermission: async () => [],
-        usersWithRole: async () => [],
-        getStaffContact: async () => null,
-      },
-    },
-  ],
-  exports: [IDENTITY_API],
-})
-class FakeIdentityModule {}
-
-interface Hotel {
-  tenantId: string;
-  propertyId: string;
-  stayId: string;
-  guestId: string;
-}
 
 describe.skipIf(needsInfra())(`AI tools through the ActionGate (${infraSkipReason()})`, () => {
   const url = readTestInfra().databaseUrl!;
@@ -105,6 +51,7 @@ describe.skipIf(needsInfra())(`AI tools through the ActionGate (${infraSkipReaso
     'approval.read',
     'approval.decide',
   ];
+  let h: AiHarness;
   let app: INestApplication;
   let db: Database;
   let executor: ToolExecutor;
@@ -112,60 +59,10 @@ describe.skipIf(needsInfra())(`AI tools through the ActionGate (${infraSkipReaso
   let a: Hotel;
   let b: Hotel;
   let conversationId: string;
-  const http = () => request(app.getHttpServer());
-  const flags = new Map<string, boolean>();
-
-  const createHotel = async (code: string): Promise<Hotel> => {
-    const tenantId = (
-      await http()
-        .post('/tenants')
-        .set('X-Test-Actor', admin)
-        .send({ code, name: code })
-        .expect(201)
-    ).body.id as string;
-    const gm = user(gmId, tenantId);
-    const propertyId = (
-      await http()
-        .post('/properties')
-        .set('X-Test-Actor', gm)
-        .send({ code: 'AIT', name: 'Nile View', timezone: 'Africa/Cairo', currency: 'EGP' })
-        .expect(201)
-    ).body.id as string;
-    const base = `/properties/${propertyId}`;
-    for (const [dept, name] of [
-      ['HK', 'Housekeeping'],
-      ['ENG', 'Engineering'],
-      ['FO', 'Front office'],
-    ])
-      await http()
-        .post(`${base}/departments`)
-        .set('X-Test-Actor', gm)
-        .send({ code: dept, translations: [{ locale: 'en', name }] })
-        .expect(201);
-    const tree = await http().get(`${base}/locations`).set('X-Test-Actor', gm).expect(200);
-    const root = Array.isArray(tree.body) ? tree.body[0].id : tree.body.id;
-    const roomId = (
-      await http()
-        .post(`${base}/rooms`)
-        .set('X-Test-Actor', gm)
-        .send({ parentId: root, roomNumber: '504' })
-        .expect(201)
-    ).body.locationId as string;
-    await http().post(`${base}/catalog/starter`).set('X-Test-Actor', gm).send({}).expect(200);
-    // An in-house stay as the guest context projects it from the PMS.
-    const guestId = newId();
-    const stayId = newId();
-    const today = new Date().toISOString().slice(0, 10);
-    const departure = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
-    await db.execute(sql`insert into guest.guests (id, tenant_id, given_name, family_name, primary_locale)
-      values (${guestId}, ${tenantId}, 'Mona', 'Delta', 'ar')`);
-    await db.execute(sql`insert into guest.stays (id, tenant_id, property_id, status, primary_guest_id, expected_arrival, expected_departure, actual_checkin_at, last_pms_event_at)
-      values (${stayId}, ${tenantId}, ${propertyId}, 'IN_HOUSE', ${guestId}, ${today}, ${departure}, now(), now())`);
-    await db.execute(sql`insert into guest.stay_party_members (id, tenant_id, stay_id, guest_id, role, joined_at)
-      values (${newId()}, ${tenantId}, ${stayId}, ${guestId}, 'PRIMARY', now())`);
-    await db.execute(sql`insert into guest.room_assignments (id, tenant_id, property_id, stay_id, room_id, assigned_at, reason)
-      values (${newId()}, ${tenantId}, ${propertyId}, ${stayId}, ${roomId}, now(), 'INITIAL')`);
-    return { tenantId, propertyId, stayId, guestId };
+  const http = () => h.http();
+  const flags = {
+    set: (k: string, v: boolean) => h.flags.set(k, v),
+    delete: (k: string) => h.flags.delete(k),
   };
 
   const start = (hotel: Hotel, opts: { autoMedium?: boolean; tools?: string[] } = {}) =>
@@ -191,70 +88,14 @@ describe.skipIf(needsInfra())(`AI tools through the ActionGate (${infraSkipReaso
       );
 
   beforeAll(async () => {
-    await runMigrations(url);
-    const env = {
-      NODE_ENV: 'test',
-      LOG_LEVEL: 'silent',
-      DATABASE_URL: await applicationRoleUrl(url, 'hotella_app_ai_tools'),
-      VALKEY_URL: 'redis://127.0.0.1:1',
-      PUBLIC_BASE_URL: 'https://guest.example.test',
-    };
-    const ref = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ env }),
-        ObservabilityModule.forRoot(),
-        I18nModule.forRoot(),
-        SecretsModule.forRoot({
-          providers: [new EnvSecretProvider({ COMMS_OTP_HMAC_KEY: 'test-otp-key' })],
-        }),
-        HttpConventionsModule.forRoot({ store: 'memory' }),
-        DatabaseModule.forRoot(),
-        EventsModule.forRoot(),
-        FeatureFlagsModule,
-        ManifestModule.forRoot(),
-        AuditModule,
-        SettingsModule,
-        AuthModule.forRoot({
-          strategy: { provide: AUTHENTICATION_STRATEGY, useClass: HeaderActorStrategy },
-          resolver: {
-            provide: PERMISSION_RESOLVER,
-            useValue: new StaticPermissionResolver({ [gmId]: STAFF, [approverId]: STAFF }),
-          },
-          propertyVerifier: OrganizationModule.propertyVerifier(),
-          stages: [IntegrationsModule.capabilityStage(), ...AiModule.gateStages()],
-        }),
-        OrganizationModule,
-        IntegrationsModule,
-        GuestModule,
-        FakeIdentityModule,
-        OperationsModule,
-        CommunicationsModule,
-        CatalogModule,
-        AiModule,
-      ],
-    })
-      .overrideProvider(FeatureFlagService)
-      .useValue({ isEnabled: async (key: string) => flags.get(key) ?? false })
-      .compile();
-    app = ref.createNestApplication({ logger: false, rawBody: true });
-    app.useGlobalPipes(new ZodValidationPipe());
-    await app.init();
-    db = app.get(DATABASE);
+    h = await startAiApp(url, 'hotella_app_ai_tools', { [gmId]: STAFF, [approverId]: STAFF });
+    app = h.app;
+    db = h.db;
     executor = app.get(ToolExecutor);
     catalog = app.get(CATALOG_API);
-    a = await createHotel(`ai-tools-a-${stamp}`);
+    a = await hotelOf(h, `ai-tools-a-${stamp}`, gmId);
     // The guest opens the stay conversation on the guest web (CHAT scope).
-    const guests = app.get<GuestPublicApi>(GUEST_API);
-    const grant = await guests.issueGrant({
-      tenantId: a.tenantId,
-      propertyId: a.propertyId,
-      stayId: a.stayId,
-      guestId: a.guestId,
-      via: 'STAFF',
-      actor: { type: 'SYSTEM', id: null },
-      reason: 'test',
-    });
-    const token = (await guests.openGuestSession(a.tenantId, grant.id, 'test')).token;
+    const token = await guestToken(h, a);
     await http()
       .post('/guest/conversation/messages')
       .set(GUEST_SESSION_HEADER, token)
@@ -263,7 +104,7 @@ describe.skipIf(needsInfra())(`AI tools through the ActionGate (${infraSkipReaso
     conversationId = (
       await http().get('/guest/conversation').set(GUEST_SESSION_HEADER, token).expect(200)
     ).body.conversation.id;
-    b = await createHotel(`ai-tools-b-${stamp}`);
+    b = await hotelOf(h, `ai-tools-b-${stamp}`, gmId);
   });
   afterAll(() => app?.close());
 

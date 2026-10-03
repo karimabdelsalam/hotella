@@ -13,6 +13,7 @@ import {
   RoomQrAdminService,
 } from '../application/activation-admin.service';
 import {
+  aiModeSchema,
   assignConversationSchema,
   InboxService,
   inboxQuerySchema,
@@ -35,6 +36,7 @@ class InboxQueryDto extends createZodDto(inboxQuerySchema) {}
 class ReplyDto extends createZodDto(replySchema) {}
 class AssignConversationDto extends createZodDto(assignConversationSchema) {}
 class TakeoverDto extends createZodDto(takeoverSchema) {}
+class AiModeDto extends createZodDto(aiModeSchema) {}
 
 function propertyScope(ctx: RequestContext, actors: ActorStore, propertyId: string): PropertyScope {
   const tenantId = ctx.tenantId ?? actors.require().tenantId;
@@ -232,7 +234,7 @@ export class InboxController {
     @Param('conversationId') id: string,
     @Body() body: ReplyDto,
   ) {
-    return this.inbox.reply(this.scope(propertyId), id, body.body, this.actor());
+    return this.inbox.reply(this.scope(propertyId), id, body, this.actor());
   }
 
   @Post(':conversationId/assign')
@@ -255,6 +257,17 @@ export class InboxController {
     @Body() body: TakeoverDto,
   ) {
     return this.inbox.takeover(this.scope(propertyId), id, body.reason, this.actor());
+  }
+
+  @Post(':conversationId/ai-mode')
+  @HttpCode(200)
+  @RequirePermission('inbox.takeover')
+  aiMode(
+    @Param('propertyId') propertyId: string,
+    @Param('conversationId') id: string,
+    @Body() body: AiModeDto,
+  ) {
+    return this.inbox.setAiMode(this.scope(propertyId), id, body.mode, this.actor());
   }
 
   @Post(':conversationId/close')

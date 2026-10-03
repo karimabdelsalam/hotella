@@ -1,3 +1,4 @@
+import { editDistance } from './edit-distance';
 import { describe, expect, it } from 'vitest';
 import { isE164, maskPhone, toE164 } from './phone';
 import {
@@ -126,5 +127,17 @@ describe('OTP rules (ADR-0011, ADR-0015)', () => {
     expect(sameFamilyName('المَصْري', 'المصري')).toBe(true);
     expect(sameFamilyName('Nile', 'Delta')).toBe(false);
     expect(sameFamilyName(null, '')).toBe(false);
+  });
+});
+
+describe('edit distance of an AI draft', () => {
+  it('counts code-point insertions, deletions and substitutions', () => {
+    expect(editDistance('', '')).toBe(0);
+    expect(editDistance('abc', '')).toBe(3);
+    expect(editDistance('kitten', 'sitting')).toBe(3);
+    expect(editDistance('حاضر', 'حاضر')).toBe(0);
+    expect(editDistance('حاضر يا فندم', 'حاضر يا مدام')).toBe(3);
+    // An emoji is one code point, not two UTF-16 units.
+    expect(editDistance('ok 👍', 'ok')).toBe(2);
   });
 });

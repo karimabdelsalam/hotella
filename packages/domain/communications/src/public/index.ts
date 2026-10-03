@@ -26,8 +26,45 @@ export interface GuestNotificationResult {
   readonly channelType: 'WHATSAPP' | 'GUEST_WEB';
 }
 
+/** A conversation as the AI concierge sees it (who, where, and whether it may take part). */
+export interface ConversationForAi {
+  readonly id: string;
+  readonly propertyId: string;
+  readonly stayId: string | null;
+  readonly guestId: string | null;
+  readonly status: 'OPEN' | 'WAITING_GUEST' | 'WAITING_STAFF' | 'HANDED_OFF' | 'CLOSED';
+  readonly aiMode: 'OFF' | 'ASSIST' | 'AUTO';
+}
+
+/** A guest-visible message of a conversation (the guest's words are CONFIDENTIAL). */
+export interface ConversationMessage {
+  readonly id: string;
+  readonly direction: 'INBOUND' | 'OUTBOUND';
+  readonly senderType: 'GUEST' | 'STAFF' | 'AI' | 'SYSTEM' | 'EXTERNAL';
+  readonly body: string | null;
+  readonly createdAt: string;
+}
+
 /** What other contexts may ask of the Conversation Engine (rule 18: nobody sends through a provider directly). */
 export interface CommunicationsPublicApi {
+  conversationForAi(tenantId: string, conversationId: string): Promise<ConversationForAi | null>;
+  /** The latest guest-visible messages, oldest first. */
+  recentMessages(
+    tenantId: string,
+    conversationId: string,
+    limit: number,
+  ): Promise<readonly ConversationMessage[]>;
+  /**
+   * ASSIST mode (Spec §23): the AI suggests a reply for staff instead of sending it; it replaces any pending
+   * suggestion of the conversation. Refused once the conversation is closed or handed off.
+   */
+  saveDraft(input: {
+    readonly tenantId: string;
+    readonly conversationId: string;
+    readonly agentCode: string;
+    readonly executionId: string | null;
+    readonly body: string;
+  }): Promise<{ readonly draftId: string }>;
   /** Joins the caller's transaction. */
   notifyGuest(input: GuestNotificationInput): Promise<GuestNotificationResult>;
   /**

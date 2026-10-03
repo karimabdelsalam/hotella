@@ -205,5 +205,9 @@
   "errors.ai.tool.failed": "تعذّر على أداة الذكاء الاصطناعي إكمال العملية. حاول مرة أخرى.",
   "errors.ai.tool.disabled": "أداة الذكاء الاصطناعي \"{tool}\" متوقفة.",
   "errors.ai.proposal.not_pending": "تم البتّ في اقتراح الذكاء الاصطناعي هذا بالفعل.",
-  "errors.ai.proposal.not_executable": "لم يعد من الممكن تنفيذ اقتراح الذكاء الاصطناعي هذا."
+  "errors.ai.proposal.not_executable": "لم يعد من الممكن تنفيذ اقتراح الذكاء الاصطناعي هذا.",
+  "errors.comms.conversation.ai_needs_verified_guest": "لا يشارك مساعد الذكاء الاصطناعي إلا بعد التحقق من هوية الضيف.",
+  "errors.comms.draft.not_pending": "لم يعد اقتراح الذكاء الاصطناعي هذا حديثًا. أعد تحميل المحادثة.",
+  "errors.ai.agent.not_found": "مساعد الذكاء الاصطناعي هذا غير موجود.",
+  "errors.ai.execution.not_found": "تنفيذ الذكاء الاصطناعي هذا غير موجود."
 }

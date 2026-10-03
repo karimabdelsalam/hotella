@@ -637,3 +637,58 @@ export type VerificationSessionRow = typeof verificationSessions.$inferSelect;
 export type VerificationDeliveryRow = typeof verificationDeliveries.$inferSelect;
 export type RoomQrCodeRow = typeof roomQrCodes.$inferSelect;
 export type ChannelIdentityRow = typeof channelIdentities.$inferSelect;
+
+// ---- AI drafts (Spec §23 ASSIST mode, BUILD_PLAN 6.3) ----
+
+export const draftStatus = comms.enum('draft_status', [
+  'PENDING',
+  'USED',
+  'DISCARDED',
+  'SUPERSEDED',
+]);
+
+/** A reply the AI suggested to staff (ASSIST mode); at most one pending per conversation. */
+export const replyDrafts = classify(
+  comms.table(
+    'reply_drafts',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      conversationId: uuid('conversation_id')
+        .notNull()
+        .references(() => conversations.id, { onDelete: 'restrict' }),
+      agentCode: varchar('agent_code', { length: 64 }).notNull(),
+      executionId: uuid('execution_id'),
+      /** May quote the guest: cleared when the guest is anonymized. */
+      body: text('body'),
+      status: draftStatus('status').notNull().default('PENDING'),
+      usedAt: tz('used_at'),
+      usedById: uuid('used_by_id'),
+      editDistance: integer('edit_distance'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('reply_drafts_pending_uq')
+        .on(t.conversationId)
+        .where(sql`${t.status} = 'PENDING'`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    conversationId: 'INTERNAL',
+    agentCode: 'INTERNAL',
+    executionId: 'INTERNAL',
+    body: 'CONFIDENTIAL',
+    status: 'INTERNAL',
+    usedAt: 'INTERNAL',
+    usedById: 'INTERNAL',
+    editDistance: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+export type ReplyDraftRow = typeof replyDrafts.$inferSelect;

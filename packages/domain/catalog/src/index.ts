@@ -1,6 +1,7 @@
 export {
   CatalogCoreModule,
   CatalogModule,
+  CatalogServicesModule,
   CatalogWorkerModule,
   SERVICE_REQUEST_CONSUMER,
 } from './catalog.module';

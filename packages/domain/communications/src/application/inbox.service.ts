@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import { HandoffRequested } from '@hotella/contracts-events';
+import { HandoffRequested, ReplyDraftUsed } from '@hotella/contracts-events';
 import { GUEST_API, type GrantActor, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
@@ -9,6 +9,7 @@ import { ActionGate } from '@hotella/platform-auth';
 import { isUuid, type PropertyScope, TransactionRunner } from '@hotella/platform-database';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError } from '@hotella/platform-i18n';
+import { editDistance } from '../domain/edit-distance';
 import { maskPhone } from '../domain/phone';
 import { ConversationRepositories } from '../infrastructure/conversation-repositories';
 import type { ConversationRow } from '../infrastructure/schema';
@@ -29,7 +30,12 @@ export const inboxQuerySchema = z.object({
   unassigned: z.stringbool().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
-export const replySchema = z.object({ body: z.string().trim().min(1).max(4096) });
+export const replySchema = z.object({
+  body: z.string().trim().min(1).max(4096),
+  /** The AI draft this reply is based on (ASSIST mode), edited or not. */
+  draftId: z.uuid().optional(),
+});
+export const aiModeSchema = z.object({ mode: z.enum(['OFF', 'ASSIST', 'AUTO']) });
 export const assignConversationSchema = z.object({
   userId: z.uuid().nullable(),
   version: z.number().int().min(1),
@@ -99,8 +105,8 @@ export class InboxService {
               departmentCode: w.departmentCode,
             }))
           : [],
-        // Filled by the AI layer in Phase 6.
         aiSummary: null,
+        aiDraft: await this.draftOf(scope, c.id),
         messages: messages.map((m) => ({
           id: m.id,
           direction: m.direction,
@@ -119,10 +125,12 @@ export class InboxService {
     });
   }
 
-  reply(scope: PropertyScope, id: string, body: string, actor: GrantActor) {
+  reply(scope: PropertyScope, id: string, input: z.infer<typeof replySchema>, actor: GrantActor) {
     return this.act(scope, 'inbox.reply', 'write', async () => {
       const c = await this.find(scope, id, true);
       if (c.status === 'CLOSED') throw AppError.conflict('comms.conversation.closed');
+      const body = input.body;
+      if (input.draftId) await this.useDraft(scope, c.id, input.draftId, body, actor);
       const message = await this.engine.queue(c, { type: 'STAFF', ref: actor.id }, body);
       await this.repo.updateConversation(scope, c.id, {
         status: c.status === 'HANDED_OFF' ? 'HANDED_OFF' : 'WAITING_GUEST',
@@ -166,6 +174,7 @@ export class InboxService {
         handoffReason: reason ?? null,
       });
       await this.repo.participant(scope, c.id, 'STAFF', actor.id, now);
+      await this.repo.discardPendingDrafts(scope, c.id);
       await this.events.publish(HandoffRequested, {
         tenantId: scope.tenantId,
         propertyId: scope.propertyId,
@@ -190,6 +199,79 @@ export class InboxService {
         after: { status: updated.status, ai_mode: updated.aiMode },
       });
       return this.context(scope, updated);
+    });
+  }
+
+  /** Staff choose how the AI takes part in this conversation (`inbox.takeover`); audited. */
+  setAiMode(scope: PropertyScope, id: string, mode: 'OFF' | 'ASSIST' | 'AUTO', actor: GrantActor) {
+    return this.act(scope, 'inbox.takeover', 'write', async () => {
+      const c = await this.find(scope, id, true);
+      if (c.status === 'CLOSED') throw AppError.conflict('comms.conversation.closed');
+      // Only a verified guest's conversation may involve the AI.
+      if (mode !== 'OFF' && !c.stayId)
+        throw AppError.conflict('comms.conversation.ai_needs_verified_guest');
+      const updated = await this.repo.updateConversation(scope, c.id, {
+        aiMode: mode,
+        // Giving the conversation back to the AI ends the hand-off.
+        ...(mode !== 'OFF' && c.status === 'HANDED_OFF'
+          ? { status: 'WAITING_STAFF' as const, handoffReason: null }
+          : {}),
+      });
+      if (mode === 'OFF') await this.repo.discardPendingDrafts(scope, c.id);
+      await this.audit.record({
+        action: 'comms.conversation.ai_mode',
+        entityType: 'conversation',
+        entityId: c.id,
+        tenantId: scope.tenantId,
+        propertyId: scope.propertyId,
+        actor,
+        before: { ai_mode: c.aiMode, status: c.status },
+        after: { ai_mode: updated.aiMode, status: updated.status },
+      });
+      return this.context(scope, updated);
+    });
+  }
+
+  private async draftOf(scope: PropertyScope, conversationId: string) {
+    const d = await this.repo.pendingDraft(scope, conversationId);
+    return d && d.body
+      ? { id: d.id, body: d.body, agentCode: d.agentCode, createdAt: d.createdAt }
+      : null;
+  }
+
+  /** The reply is based on the AI draft: the draft is used and the edit distance goes to the AI context (Spec §40). */
+  private async useDraft(
+    scope: PropertyScope,
+    conversationId: string,
+    draftId: string,
+    sent: string,
+    actor: GrantActor,
+  ) {
+    const draft = await this.repo.draftForUpdate(scope, draftId);
+    if (!draft || draft.conversationId !== conversationId || draft.status !== 'PENDING')
+      throw AppError.conflict('comms.draft.not_pending');
+    const distance = editDistance(draft.body ?? '', sent);
+    await this.repo.updateDraft(scope, draft.id, {
+      status: 'USED',
+      usedAt: new Date(),
+      usedById: uuidOrNull(actor.id),
+      editDistance: distance,
+    });
+    await this.events.publish(ReplyDraftUsed, {
+      tenantId: scope.tenantId,
+      propertyId: scope.propertyId,
+      source: 'comms',
+      aggregate: { type: 'conversation', id: conversationId },
+      payload: {
+        draft_id: draft.id,
+        conversation_id: conversationId,
+        execution_id: draft.executionId,
+        agent_code: draft.agentCode,
+        edit_distance: distance,
+        draft_length: [...(draft.body ?? '')].length,
+        sent_length: [...sent].length,
+        used_by: uuidOrNull(actor.id),
+      },
     });
   }
 

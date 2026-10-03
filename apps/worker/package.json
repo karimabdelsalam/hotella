@@ -25,6 +25,7 @@
     "@hotella/domain-operations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-audit": "workspace:*",
+    "@hotella/platform-auth": "workspace:*",
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",
     "@hotella/platform-events": "workspace:*",

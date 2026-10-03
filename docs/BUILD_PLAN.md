@@ -1316,7 +1316,7 @@ ai.feedback             id, tenant_id, execution_id, kind (DRAFT_EDIT|REASSIGNME
 |---|---|---|
 | 6.1 | `@hotella/domain-ai`: providers, models, routing rules, `MODEL_GATEWAY` (`complete`, `embed`) with `OPENAI_COMPATIBLE`, `ANTHROPIC` and `FAKE` adapters, fallback, cost/latency in `ai.model_calls`, egress policy (data class filter + identifier masking), budgets and kill switches, admin API (platform admin for providers/models, tenant for routing overrides) | delivered |
 | 6.2 | Tool registry + AI policy stage: tool definitions declared in the AI manifest, execution through the ActionGate as `AI_AGENT`, risk decisions, `ai.executions`/`ai.execution_steps`, `ai.action_proposals` + approval kind `AI_ACTION`; tools v1 `guest.get_current_stay`, `catalog.list_services`, `operations.find_open_requests`, `operations.create_service_request`, `operations.cancel_service_request`, `communication.send_message` (`knowledge.search` moves to 6.4) | delivered |
-| 6.3 | Agents and prompts (immutable versions), Context Engine with context policies, execution audit read API, Guest Concierge v1 runtime triggered by guest messages (AUTO/ASSIST), language rule, handoff → inbox, drafts with edit-distance feedback, staff inbox shows AI drafts | planned |
+| 6.3 | Agents and prompts (immutable versions), Context Engine with context policies, execution audit read API, Guest Concierge v1 runtime triggered by guest messages (AUTO/ASSIST), language rule, handoff → inbox, drafts with edit-distance feedback, staff inbox shows AI drafts | delivered |
 | 6.4 | Knowledge v1 (`knowledge` schema: documents, versions, chunks, embeddings with pgvector; scope tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank with document version references; retrieved text framed as untrusted data) | planned |
 | 6.5 | M2 acceptance: "الجو حر أوي هنا" end to end with the `FAKE` provider scripted, HIGH-risk proposal → approval → execution, execution audit complete, the no-direct-write rule enforced by depcruise + test; `docs/acceptance/phase-6.md` | planned |
 
@@ -1360,6 +1360,36 @@ Reality notes for 6.2:
   from the approval engine). Approving runs the call as proposed inside the deciding transaction (a failure rolls the
   approval back); the worker's `ai.proposal-settle` consumer of `ops.approval.decided` closes rejected or expired ones.
   `ApprovalSummary` gained `tenantId` so handlers can load their tenant-scoped records.
+
+Reality notes for 6.3:
+- Migration `0024_ai_agents`: `ai.prompts`/`ai.prompt_versions` (ordered `{layer, text}` blocks), `ai.agents`/
+  `ai.agent_versions` (capability, prompt version, tool codes, context policy, autonomy policy, output contract,
+  max steps), one PUBLISHED version per prompt/agent (partial unique index), published rows immutable except
+  PUBLISHED → SUPERSEDED (trigger); `ai.feedback` (tenant data, one row per source). Agents are platform definitions:
+  the built-in `GUEST_CONCIERGE` v1 lives in `domain/agents.ts` and is published on first use (`AgentCatalog`); a
+  change means a new version number. Tenant prompt layers and an agent admin UI come later; `GET
+  /properties/:id/ai/agents` lists the versions.
+- Migration `0025_comms_reply_drafts`: ASSIST drafts belong to communications (`comms.reply_drafts`, at most one
+  pending per conversation, body CONFIDENTIAL and cleared on guest anonymization). The inbox detail returns `aiDraft`;
+  a staff reply may carry `draftId`, which marks it used, computes the edit distance (code-point Levenshtein in comms)
+  and publishes `comms.reply_draft.used.v1`; the AI worker records `ai.feedback` (DRAFT_EDIT).
+- AI mode: verified stay conversations open in the property's `comms.ai_mode.default` (OFF by default); staff switch
+  it per conversation with `POST /properties/:id/conversations/:id/ai-mode` (`inbox.takeover`, audited; giving it back
+  to the AI ends a hand-off). Takeover, hand-off and closing turn it off and discard pending drafts.
+- Runtime (`ConciergeRuntime`): the worker consumer `ai.concierge` of `comms.message.received.v1` queues
+  `ai.concierge.run` on `background-ai` (job id = message id). A run answers only the latest guest message of a
+  verified AUTO/ASSIST conversation not handed off; the reply language comes from the message's script, else the
+  guest's language. Context: `property.profile`, `guest.current_stay`, `catalog.services`, `catalog.open_requests`,
+  `conversation.recent` (the conversation becomes the message history). The loop calls the gateway with the tools the
+  model may use (all but `communication.send_message`, which the runtime uses for the reply) and a JSON output
+  contract `{reply, handoff}`; it stops at `max_steps` (6). AUTO replies go through the `communication.send_message`
+  tool (ActionGate); ASSIST saves a draft; a hand-off (model's reason, step budget, gateway failure, kill switch in AUTO)
+  goes through `comms.handOff` as the AI actor. Steps: CONTEXT, MODEL_CALL, TOOL_CALL, DECISION, RESPONSE; execution
+  totals (tokens, cost) are summed from its model calls when it closes.
+- The worker now composes `AuthModule.forRoot({ httpGuard: false, stages })` and `CatalogServicesModule` (the route-free
+  `CATALOG_API`), so AI tools run through the same ActionGate there. While wiring this, plain queue jobs (`onJob`) were
+  found never to run in the worker (SLA sweep, approval expiry, notification delivery, heartbeat); fixed separately
+  in `platform-queue`.
 
 ### Phase 7 — Housekeeping
 `hk` schema: `room_operational_states` projection (+version), `housekeeping_jobs` via work items, `credit_rules`, `room_signals` (DND/MUR/PRIVACY/SERVICE_REQUESTED with source), assignment boards, inspection hook (Phase 9 engine, early minimal version here), arrival readiness v0 (configurable dimensions, Spec §16). Consumes `hotel.guest.checked_out.v1` → CHECKOUT job; `hotel.room.status_changed.v1`. Housekeeping Copilot recommendations (assignment balancing by credits/location/history) as proposals only.

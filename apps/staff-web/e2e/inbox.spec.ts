@@ -34,6 +34,12 @@ const detail = {
     },
   ],
   aiSummary: null,
+  aiDraft: {
+    id: 'd1',
+    body: 'آسفين على الإزعاج، فريق الصيانة في الطريق.',
+    agentCode: 'GUEST_CONCIERGE',
+    createdAt: new Date().toISOString(),
+  },
   messages: [
     {
       id: 'm1',
@@ -159,6 +165,24 @@ test('signs in and works a conversation in English (left-to-right)', async ({ pa
       () => backend.calls.find((c) => c.method === 'POST' && c.path.endsWith('/messages'))?.body,
     )
     .toEqual({ body: 'We are sending towels now.' });
+  // The AI suggested a reply: staff use it (and may edit it); the draft id goes with what is sent.
+  await expect(page.getByTestId('ai-draft')).toContainText('AI suggestion');
+  await page.getByRole('button', { name: 'Use suggestion' }).click();
+  await expect(page.getByLabel('Write a reply…')).toHaveValue(
+    'آسفين على الإزعاج، فريق الصيانة في الطريق.',
+  );
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect
+    .poll(
+      () =>
+        backend.calls.filter((c) => c.method === 'POST' && c.path.endsWith('/messages')).at(-1)
+          ?.body,
+    )
+    .toEqual({ body: 'آسفين على الإزعاج، فريق الصيانة في الطريق.', draftId: 'd1' });
+  await page.getByLabel('AI assistant').selectOption('AUTO');
+  await expect
+    .poll(() => backend.calls.find((c) => c.path.endsWith('/ai-mode'))?.body)
+    .toEqual({ mode: 'AUTO' });
   await page.getByRole('button', { name: 'Take over' }).click();
   await expect.poll(() => backend.calls.some((c) => c.path.endsWith('/takeover'))).toBe(true);
 
@@ -189,6 +213,9 @@ test('the same inbox in Arabic is right-to-left and fully translated', async ({ 
   await page.getByRole('button', { name: /Mona Delta/ }).click();
   await expect(page.getByText('غرفة 504').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'تولّي المحادثة' })).toBeVisible();
+  await expect(page.getByTestId('ai-draft')).toContainText('اقتراح الذكاء الاصطناعي');
+  await expect(page.getByRole('button', { name: 'استخدام الاقتراح' })).toBeVisible();
+  await expect(page.getByLabel('مساعد الذكاء الاصطناعي')).toHaveValue('OFF');
   // Mirrored: inbound on the right (start in Arabic), replies on the left.
   const inbound = await page.locator('[data-direction="INBOUND"]').boundingBox();
   const outbound = await page.locator('[data-direction="OUTBOUND"]').boundingBox();

@@ -9,6 +9,7 @@ export const AI_MANIFEST = defineManifest({
     { code: 'ai.provider.manage', descriptionKey: 'ai.permission.provider_manage', risk: 'HIGH' },
     { code: 'ai.routing.manage', descriptionKey: 'ai.permission.routing_manage', risk: 'MEDIUM' },
     { code: 'ai.usage.read', descriptionKey: 'ai.permission.usage_read', risk: 'READ' },
+    { code: 'ai.execution.read', descriptionKey: 'ai.permission.execution_read', risk: 'READ' },
   ],
   events: [],
   // Tools v1 (BUILD_PLAN 6.2): the risk decides autonomy; the permission is all an agent holds for the tool.

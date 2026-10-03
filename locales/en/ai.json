@@ -5,5 +5,6 @@
   "ai.setting.external_providers_allowed": "AI providers outside the installation that may be used at all",
   "ai.setting.external_providers_enabled": "Allow AI providers outside the installation for this hotel group",
   "ai.setting.budget_monthly_limit_minor": "Monthly limit for AI providers outside the installation (minor currency units)",
-  "ai.approval.ai_action": "An action proposed by the AI assistant"
+  "ai.approval.ai_action": "An action proposed by the AI assistant",
+  "ai.permission.execution_read": "See what the AI assistant did and why"
 }

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
-import { ActorStore, RequirePermission } from '@hotella/platform-auth';
+import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform-auth';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import {
@@ -12,6 +12,10 @@ import {
   updateProviderSchema,
   usageQuerySchema,
 } from '../application/admin.service';
+import {
+  ExecutionAuditService,
+  executionsQuerySchema,
+} from '../application/execution-audit.service';
 
 class CreateProviderDto extends createZodDto(createProviderSchema) {}
 class UpdateProviderDto extends createZodDto(updateProviderSchema) {}
@@ -19,6 +23,7 @@ class CreateModelDto extends createZodDto(createModelSchema) {}
 class UpdateModelDto extends createZodDto(updateModelSchema) {}
 class RoutingDto extends createZodDto(routingSchema) {}
 class UsageQueryDto extends createZodDto(usageQuerySchema) {}
+class ExecutionsQueryDto extends createZodDto(executionsQuerySchema) {}
 
 /** AI providers, models and routing (ADR-0018). */
 @Controller('ai')
@@ -93,5 +98,40 @@ export class AiAdminController {
   @RequirePermission('ai.usage.read', { checkedBy: 'gate' })
   usage(@Query() query: UsageQueryDto) {
     return this.admin.usage(this.tenant(), query.from);
+  }
+}
+
+/** The execution record of a property (Spec §34): what the AI did, why, at what cost. */
+@Controller('properties/:propertyId/ai')
+@PropertyScoped({ from: 'param' })
+export class AiExecutionsController {
+  constructor(
+    private readonly audit: ExecutionAuditService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope(propertyId: string) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return { tenantId, propertyId };
+  }
+
+  @Get('executions')
+  @RequirePermission('ai.execution.read')
+  list(@Param('propertyId') propertyId: string, @Query() query: ExecutionsQueryDto) {
+    return this.audit.list(this.scope(propertyId), query);
+  }
+
+  @Get('executions/:id')
+  @RequirePermission('ai.execution.read')
+  detail(@Param('propertyId') propertyId: string, @Param('id') id: string) {
+    return this.audit.detail(this.scope(propertyId), id);
+  }
+
+  @Get('agents')
+  @RequirePermission('ai.execution.read')
+  agents(@Param('propertyId') propertyId: string) {
+    return this.audit.agentsList(this.scope(propertyId));
   }
 }

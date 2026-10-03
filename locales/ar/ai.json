@@ -5,5 +5,6 @@
   "ai.setting.external_providers_allowed": "مزوّدو الذكاء الاصطناعي خارج المنظومة المسموح باستخدامهم أصلًا",
   "ai.setting.external_providers_enabled": "السماح بمزوّدي الذكاء الاصطناعي خارج المنظومة لهذه المجموعة الفندقية",
   "ai.setting.budget_monthly_limit_minor": "الحد الشهري لمزوّدي الذكاء الاصطناعي خارج المنظومة (بأصغر وحدة للعملة)",
-  "ai.approval.ai_action": "إجراء اقترحه مساعد الذكاء الاصطناعي"
+  "ai.approval.ai_action": "إجراء اقترحه مساعد الذكاء الاصطناعي",
+  "ai.permission.execution_read": "عرض ما قام به مساعد الذكاء الاصطناعي ولماذا"
 }

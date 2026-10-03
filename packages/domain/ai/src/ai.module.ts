@@ -1,12 +1,17 @@
 import { Global, Inject, Module, type OnModuleInit, type Provider } from '@nestjs/common';
-import { ApprovalDecided } from '@hotella/contracts-events';
+import { ApprovalDecided, MessageReceived, ReplyDraftUsed } from '@hotella/contracts-events';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { AI_AGENT_AUTHORIZER, AI_POLICY_STAGE } from '@hotella/platform-auth';
 import { ManifestRegistry } from '@hotella/platform-manifest';
-import { EventConsumerRegistry } from '@hotella/platform-queue';
+import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { SettingsRegistry } from '@hotella/platform-settings';
-import { AiAdminController } from './api/controllers';
+import { AiAdminController, AiExecutionsController } from './api/controllers';
 import { AiAdminService } from './application/admin.service';
+import { AgentCatalog } from './application/agent-catalog';
+import { ConciergeRuntime } from './application/concierge.runtime';
+import { ContextEngine } from './application/context-engine';
+import { ExecutionAuditService } from './application/execution-audit.service';
+import { FeedbackRecorder } from './application/feedback-recorder';
 import { ModelGatewayService } from './application/gateway.service';
 import { ModelProviderRegistry } from './application/provider-registry';
 import { AI_ACTION_APPROVAL, ToolExecutor } from './application/tools/executor';
@@ -19,8 +24,12 @@ import { AiRepositories } from './infrastructure/repositories';
 import { AI_MANIFEST } from './manifest';
 import { MODEL_GATEWAY } from './public';
 
-/** Inbox consumer of the worker: rejected or expired AI proposals are closed. */
+/** Inbox consumers of the worker: rejected or expired AI proposals are closed; guest messages wake the concierge. */
 export const AI_PROPOSAL_SETTLE_CONSUMER = 'ai.proposal-settle';
+export const AI_CONCIERGE_CONSUMER = 'ai.concierge';
+export const AI_FEEDBACK_CONSUMER = 'ai.feedback';
+/** The concierge runs as a job on `background-ai`, never on the realtime queue that delivered the message. */
+export const AI_CONCIERGE_JOB = 'ai.concierge.run';
 
 /** The AI context without HTTP routes (API and worker): repositories, provider adapters and `MODEL_GATEWAY`. */
 @Global()
@@ -30,6 +39,8 @@ export const AI_PROPOSAL_SETTLE_CONSUMER = 'ai.proposal-settle';
     ModelProviderRegistry,
     ModelGatewayService,
     ProposalSettler,
+    AgentCatalog,
+    FeedbackRecorder,
     { provide: MODEL_GATEWAY, useExisting: ModelGatewayService },
   ],
   exports: [
@@ -37,6 +48,8 @@ export const AI_PROPOSAL_SETTLE_CONSUMER = 'ai.proposal-settle';
     ModelProviderRegistry,
     ModelGatewayService,
     ProposalSettler,
+    AgentCatalog,
+    FeedbackRecorder,
     MODEL_GATEWAY,
   ],
 })
@@ -48,8 +61,8 @@ export class AiCoreModule {}
  */
 @Module({
   imports: [AiCoreModule],
-  providers: [ToolRegistry, ToolsV1, ToolExecutor],
-  exports: [ToolRegistry, ToolExecutor],
+  providers: [ToolRegistry, ToolsV1, ToolExecutor, ContextEngine, ConciergeRuntime],
+  exports: [ToolRegistry, ToolExecutor, ContextEngine, ConciergeRuntime],
 })
 export class AiToolsModule implements OnModuleInit {
   constructor(
@@ -72,8 +85,8 @@ export class AiToolsModule implements OnModuleInit {
 /** Administration API, tools, settings and manifest, for the API process. */
 @Module({
   imports: [AiCoreModule, AiToolsModule],
-  controllers: [AiAdminController],
-  providers: [AiAdminService],
+  controllers: [AiAdminController, AiExecutionsController],
+  providers: [AiAdminService, ExecutionAuditService],
 })
 export class AiModule implements OnModuleInit {
   /**
@@ -97,12 +110,19 @@ export class AiModule implements OnModuleInit {
   }
 }
 
-/** Worker side: closes the proposals of rejected or expired `AI_ACTION` approvals. */
-@Module({ imports: [AiCoreModule] })
+/**
+ * Worker side (needs the ActionGate: `AuthModule.forRoot({ httpGuard: false, stages: [...AiModule.gateStages()] })`):
+ * a guest message in an AI conversation queues a concierge run on `background-ai`; staff use of a draft becomes
+ * feedback; rejected or expired proposals are closed.
+ */
+@Module({ imports: [AiCoreModule, AiToolsModule] })
 export class AiWorkerModule implements OnModuleInit {
   constructor(
     private readonly consumers: EventConsumerRegistry,
+    private readonly queues: QueueRegistry,
     private readonly settler: ProposalSettler,
+    private readonly runtime: ConciergeRuntime,
+    private readonly feedback: FeedbackRecorder,
   ) {}
   onModuleInit(): void {
     this.consumers.on(ApprovalDecided.name, AI_PROPOSAL_SETTLE_CONSUMER, async (envelope) => {
@@ -110,6 +130,30 @@ export class AiWorkerModule implements OnModuleInit {
       const e = ApprovalDecided.parse(envelope);
       if (e.payload.kind !== AI_ACTION_APPROVAL || e.payload.outcome === 'APPROVED') return;
       await this.settler.settle(envelope.tenant_id, e.payload.approval_id, e.payload.outcome);
+    });
+    this.consumers.on(MessageReceived.name, AI_CONCIERGE_CONSUMER, async (envelope) => {
+      const e = MessageReceived.parse(envelope);
+      if (!envelope.tenant_id || !e.payload.stay_id) return;
+      // One run per message (the job id dedupes a redelivered event).
+      await this.queues.enqueue(
+        'background-ai',
+        AI_CONCIERGE_JOB,
+        {
+          tenantId: envelope.tenant_id,
+          conversationId: e.payload.conversation_id,
+          messageId: e.payload.message_id,
+        },
+        { jobId: `concierge-${e.payload.message_id}` },
+      );
+    });
+    this.consumers.onJob<{ tenantId: string; conversationId: string; messageId: string }>(
+      AI_CONCIERGE_JOB,
+      async (data) => {
+        await this.runtime.onGuestMessage(data);
+      },
+    );
+    this.consumers.on(ReplyDraftUsed.name, AI_FEEDBACK_CONSUMER, async (envelope) => {
+      await this.feedback.onDraftUsed(envelope);
     });
   }
 }

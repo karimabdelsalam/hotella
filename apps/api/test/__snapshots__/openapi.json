@@ -5983,6 +5983,55 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/conversations/{conversationId}/ai-mode": {
+      "post": {
+        "operationId": "InboxController_aiMode",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiModeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inbox"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/conversations/{conversationId}/close": {
       "post": {
         "operationId": "InboxController_close",
@@ -7538,6 +7587,128 @@
         },
         "tags": [
           "AiAdmin"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/ai/executions": {
+      "get": {
+        "operationId": "AiExecutionsController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "conversationId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiExecutions"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/ai/executions/{id}": {
+      "get": {
+        "operationId": "AiExecutionsController_detail",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiExecutions"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/ai/agents": {
+      "get": {
+        "operationId": "AiExecutionsController_agents",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiExecutions"
         ]
       }
     },
@@ -10119,6 +10290,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 4096
+          },
+          "draftId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           }
         },
         "required": [
@@ -10153,6 +10329,22 @@
             "maxLength": 200
           }
         }
+      },
+      "AiModeDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "ASSIST",
+              "AUTO"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ]
       },
       "StartActivationDto": {
         "type": "object",

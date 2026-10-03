@@ -359,3 +359,162 @@ export const actionProposals = classify(
 export type ExecutionRow = typeof executions.$inferSelect;
 export type ExecutionStepRow = typeof executionSteps.$inferSelect;
 export type ActionProposalRow = typeof actionProposals.$inferSelect;
+
+// ---- agents and prompts (Spec §29–§30): platform definitions, immutable once published ----
+
+export const versionStatus = ai.enum('version_status', ['DRAFT', 'PUBLISHED', 'SUPERSEDED']);
+
+/** A prompt (Spec §30): its versions are ordered layers of instructions. */
+export const prompts = classify(
+  ai.table(
+    'prompts',
+    {
+      ...baseColumns(),
+      code: varchar('code', { length: 64 }).notNull(),
+    },
+    (t) => [unique('prompts_code_uq').on(t.code)],
+  ),
+  { id: 'INTERNAL', createdAt: 'INTERNAL', updatedAt: 'INTERNAL', code: 'INTERNAL' },
+);
+
+export const promptVersions = classify(
+  ai.table(
+    'prompt_versions',
+    {
+      ...baseColumns(),
+      promptId: uuid('prompt_id')
+        .notNull()
+        .references(() => prompts.id, { onDelete: 'restrict' }),
+      versionNo: integer('version_no').notNull(),
+      status: versionStatus('status').notNull().default('DRAFT'),
+      /** Ordered `{ layer, text }` blocks (platform, agent…); instructions for the model, not guest-facing text. */
+      layers: jsonb('layers').notNull(),
+      publishedAt: tz('published_at'),
+    },
+    (t) => [unique('prompt_versions_no_uq').on(t.promptId, t.versionNo)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    promptId: 'INTERNAL',
+    versionNo: 'INTERNAL',
+    status: 'INTERNAL',
+    layers: 'INTERNAL',
+    publishedAt: 'INTERNAL',
+  },
+);
+
+/** A logical agent (Spec §29), e.g. `GUEST_CONCIERGE`. */
+export const agents = classify(
+  ai.table(
+    'agents',
+    {
+      ...baseColumns(),
+      code: varchar('code', { length: 64 }).notNull(),
+      status: activeStatus('status').notNull().default('ACTIVE'),
+    },
+    (t) => [unique('agents_code_uq').on(t.code)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    code: 'INTERNAL',
+    status: 'INTERNAL',
+  },
+);
+
+/** What an agent is at one version: prompt, tools, context policy, autonomy, output contract, step budget. */
+export const agentVersions = classify(
+  ai.table(
+    'agent_versions',
+    {
+      ...baseColumns(),
+      agentId: uuid('agent_id')
+        .notNull()
+        .references(() => agents.id, { onDelete: 'restrict' }),
+      versionNo: integer('version_no').notNull(),
+      status: versionStatus('status').notNull().default('DRAFT'),
+      capability: varchar('capability', { length: 32 }).notNull(),
+      promptVersionId: uuid('prompt_version_id')
+        .notNull()
+        .references(() => promptVersions.id, { onDelete: 'restrict' }),
+      toolCodes: text('tool_codes').array().notNull(),
+      contextPolicy: jsonb('context_policy').notNull(),
+      autonomyPolicy: jsonb('autonomy_policy').notNull(),
+      outputContract: jsonb('output_contract').notNull(),
+      maxSteps: integer('max_steps').notNull(),
+      publishedAt: tz('published_at'),
+    },
+    (t) => [unique('agent_versions_no_uq').on(t.agentId, t.versionNo)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    agentId: 'INTERNAL',
+    versionNo: 'INTERNAL',
+    status: 'INTERNAL',
+    capability: 'INTERNAL',
+    promptVersionId: 'INTERNAL',
+    toolCodes: 'INTERNAL',
+    contextPolicy: 'INTERNAL',
+    autonomyPolicy: 'INTERNAL',
+    outputContract: 'INTERNAL',
+    maxSteps: 'INTERNAL',
+    publishedAt: 'INTERNAL',
+  },
+);
+
+export const feedbackKind = ai.enum('feedback_kind', [
+  'DRAFT_EDIT',
+  'REASSIGNMENT',
+  'GUEST_CORRECTION',
+  'RATING',
+]);
+
+/** How people corrected or rated an AI execution (Spec §40), e.g. how much staff edited a draft before sending it. */
+export const feedback = classify(
+  ai.table(
+    'feedback',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id'),
+      executionId: uuid('execution_id')
+        .notNull()
+        .references(() => executions.id, { onDelete: 'restrict' }),
+      kind: feedbackKind('kind').notNull(),
+      editDistance: integer('edit_distance'),
+      details: jsonb('details').notNull().default({}),
+      actorType: varchar('actor_type', { length: 16 }).notNull(),
+      actorId: uuid('actor_id'),
+      /** The source record (e.g. the draft) — the same source never counts twice. */
+      sourceRef: varchar('source_ref', { length: 64 }).notNull(),
+      createdAt: tz('created_at').notNull().defaultNow(),
+    },
+    (t) => [
+      unique('feedback_source_uq').on(t.tenantId, t.kind, t.sourceRef),
+      index('feedback_execution_idx').on(t.executionId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    executionId: 'INTERNAL',
+    kind: 'INTERNAL',
+    editDistance: 'INTERNAL',
+    details: 'INTERNAL',
+    actorType: 'INTERNAL',
+    actorId: 'INTERNAL',
+    sourceRef: 'INTERNAL',
+    createdAt: 'INTERNAL',
+  },
+);
+
+export type PromptVersionRow = typeof promptVersions.$inferSelect;
+export type AgentRow = typeof agents.$inferSelect;
+export type AgentVersionRow = typeof agentVersions.$inferSelect;
+export type FeedbackRow = typeof feedback.$inferSelect;
