@@ -1140,8 +1140,28 @@ End-to-end CI scenario: simulator check-in → activation → request EXTRA_TOWE
 | 5.1 | `@hotella/domain-catalog`: categories, definitions, versions with translations, drafts, publish (immutable by trigger), tenant-wide vs property services, starter catalog import from the locale catalog, eligibility and availability rules, guest catalog `GET /guest/services` localized with fallback, manifest, permissions, `catalog.service_version.published.v1` | delivered |
 | 5.2 | Service requests: `createServiceRequest` entrypoint and `CATALOG_API`, fields validation, duplicate detection with locking, work item via `OPERATIONS_API` (SLA/workflow by code), status follow from ops events, guest and staff routes, requests board, history, anonymization (catalog fields; ops quoted titles), tenant-leak tests | delivered |
 | 5.3 | Guest notifications: `COMMUNICATIONS_API.notifyGuest`, `SYSTEM` messages in the stay conversation, WhatsApp text or `service_update` template by window, realtime push, `catalog.notify.statuses` | delivered |
-| 5.4 | `apps/guest-web` PWA: BFF guest session cookie, activation (link, room QR), catalog, request form, my requests, chat; branding + attribution; Playwright in English (LTR) and Arabic (RTL); Docker target and pilot service | planned |
+| 5.4 | `apps/guest-web` PWA: BFF guest session cookie, activation (link, room QR), catalog, request form, my requests, chat; branding + attribution; Playwright in English (LTR) and Arabic (RTL); Docker target and pilot service | delivered |
 | 5.5 | M1 end-to-end scenario in CI, pilot smoke extended to a service request, Phase 5 / M1 acceptance (`docs/acceptance/phase-5.md`) | planned |
+
+Reality notes for 5.4:
+- `apps/guest-web` (Next.js 16, next-intl on `locales/{en,ar}/portal.json`, Tailwind 4 logical properties, `@hotella/ui`):
+  `/a/<token>` (activation link) and `/q/<token>` (room QR: last name, then phone) → code by WhatsApp/SMS, resend
+  another way after the policy delay, or the front-desk reference with "the front desk has confirmed me"; home with
+  greeting, room and the localized catalog; a form per service built from its fields; my requests with status and
+  cancel; chat. Links printed without a language follow the browser's language.
+- The guest session token lives only in the httpOnly cookie `hotella_gs` (`SameSite=Lax`, so opening the app from a
+  WhatsApp link keeps the session; `Secure` in production), set by `/bff/verify` and `/bff/complete`; `/bff/logout`
+  ends the session on the API. The same-origin proxy forwards only `guest/*` and `public/*` and refuses the routes
+  that mint a session, so no page script ever holds the token.
+- Because the token is not readable by scripts, the guest web refreshes requests (15 s) and chat (5 s) instead of
+  opening the realtime socket; a short-lived socket ticket can replace polling later without changing the API's
+  guest routes.
+- Branding comes from `GET /public/branding` (before a session) or `/guest/me`; only `#rgb/#rrggbb` colors reach CSS;
+  the attribution footer's visibility follows the platform policy. The PWA manifest is served per language
+  (`/<locale>/manifest.webmanifest`); an offline service worker is not part of M1.
+- Pilot: `guest-web` image target and compose service (`127.0.0.1:3200`), `HOTELLA_PUBLIC_BASE_URL` now defaults to
+  it so activation links open it; the smoke completes activation through the deployed guest web's BFF and reads
+  `/guest/me` through its proxy with the cookie, then signs out.
 
 Reality notes for 5.3:
 - `COMMUNICATIONS_API.notifyGuest` (joins the caller's transaction) writes a `SYSTEM` message, rendered from the locale

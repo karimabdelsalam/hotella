@@ -2,7 +2,8 @@
 # Phase 4 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
 # a general manager signs in, issues an activation link, the guest asks for a code (the OTP key is read from OpenBao;
 # the SMS channel here cannot deliver), front desk confirms the guest in person, the guest gets a session and sees
-# their stay; the printable room QR sheet renders; the realtime gateway accepts a WebSocket upgrade.
+# their stay (through the guest web app's BFF); the printable room QR sheet renders; the realtime gateway accepts a
+# WebSocket upgrade; the staff and guest web apps render in both directions.
 # Needs a signed-in platform admin token.
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -45,8 +46,16 @@ psql "select count(*) from comms.verification_deliveries d join comms.verificati
 session=$(curl -fsS "$API/properties/$property/verification-sessions?reference=$reference" "${auth[@]}" | jq -r '.[0].id')
 curl -fsS "$API/properties/$property/verification-sessions/$session/assist" "${auth[@]}" \
   -d '{"reason":"Identity confirmed at the front desk (pilot smoke)"}' | jq -e '.verified == true' >/dev/null
-guest=$(curl -fsS "$API/guest/activation/complete" "${json[@]}" -d "{\"handle\":\"$handle\",\"device\":\"smoke\"}" | jq -r .sessionToken)
-me=$(curl -fsS "$API/guest/me" -H "x-guest-session: $guest")
+# The guest finishes on the deployed guest web app: its BFF keeps the session in an httpOnly cookie (the token never
+# reaches the page) and its same-origin proxy turns the cookie into the guest session header.
+GUEST_WEB="${HOTELLA_GUEST_WEB:-http://localhost:3200}"
+done_body=$(curl -fsS -D "$DIR/.guest-headers" "$GUEST_WEB/bff/complete" "${json[@]}" -d "{\"handle\":\"$handle\"}")
+grep -qi '^set-cookie: hotella_gs=.*httponly' "$DIR/.guest-headers"
+# The cookie is Secure in production; send it back explicitly (plain HTTP on the runner).
+cookie=(-H "cookie: $(grep -i '^set-cookie: hotella_gs=' "$DIR/.guest-headers" | sed -E 's/^[Ss]et-[Cc]ookie: ([^;]*).*/\1/' | tr -d '\r')")
+rm -f "$DIR/.guest-headers"
+jq -e 'has("sessionToken") | not' <<<"$done_body" >/dev/null
+me=$(curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/me")
 echo "guest me: $(jq -c '{guest: .guest.givenName, stay: .stay.status, room: .stay.room.number, scopes: (.scopes | length)}' <<<"$me")"
 jq -e '.stay.status == "IN_HOUSE" and .stay.room.number == "504" and (.scopes | index("CHAT"))' <<<"$me" >/dev/null
 # The link was single use.
@@ -72,4 +81,12 @@ grep -qi '^set-cookie: hotella_rt=.*httponly' "$DIR/.bff-headers"; rm -f "$DIR/.
 jq -e 'has("refreshToken") | not' <<<"$bff" >/dev/null
 curl -fsS "$WEB/hotella/properties/$property/conversations" -H "authorization: Bearer $(jq -r .accessToken <<<"$bff")" | jq -e 'type == "array"' >/dev/null
 echo "staff web: OK"
+# The guest web app renders both directions and its proxy serves guest routes only.
+curl -fsS "$GUEST_WEB/en" | grep -q 'dir="ltr"'
+curl -fsS "$GUEST_WEB/ar" | grep -q 'dir="rtl"'
+[ "$(curl -s -o /dev/null -w '%{http_code}' "${cookie[@]}" "$GUEST_WEB/hotella/properties")" = 404 ]
+curl -fsS "${cookie[@]}" -X POST "$GUEST_WEB/bff/logout" -o /dev/null
+# Signing out ended the session on the API, not only the cookie.
+[ "$(curl -s -o /dev/null -w '%{http_code}' "${cookie[@]}" "$GUEST_WEB/hotella/guest/me")" = 401 ]
+echo "guest web: OK"
 echo "guest smoke: OK"

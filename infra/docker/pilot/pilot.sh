@@ -226,7 +226,17 @@ wait_staff_web() {
   die "staff web not ready"
 }
 
-cmd_start() { compose up -d api worker agent-gateway staff-web; wait_ready; wait_gateway; wait_staff_web; }
+wait_guest_web() {
+  local url="http://127.0.0.1:${HOTELLA_GUEST_WEB_PORT:-3200}/en"
+  for _ in $(seq 1 60); do curl -fsS -m 3 "$url" >/dev/null 2>&1 && { log "guest web ready: $url"; return 0; }; sleep 2; done
+  compose logs --tail=80 guest-web >&2 || true
+  die "guest web not ready"
+}
+
+cmd_start() {
+  compose up -d api worker agent-gateway staff-web guest-web
+  wait_ready; wait_gateway; wait_staff_web; wait_guest_web
+}
 
 # Runs the PMS simulator as a hotel agent against the gateway: enroll with a token, replay a scenario.
 cmd_simulate() {

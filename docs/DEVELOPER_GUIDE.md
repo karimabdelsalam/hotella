@@ -36,7 +36,18 @@ pnpm --filter @hotella/staff-web dev   # http://localhost:3100/en (or /ar); WEB_
 pnpm --filter @hotella/staff-web e2e   # Playwright, English (LTR) and Arabic (RTL), API mocked in the browser
 ```
 
-UI strings live in `locales/{en,ar}/staff.json` (the shared catalog); `scripts/sync-messages.mjs` turns them into the app's
+Guest web app (`apps/guest-web`, ADR-0009), the PWA guests open from activation links (`/a/<token>`) and room QR codes
+(`/q/<token>`); set `PUBLIC_BASE_URL=http://localhost:3200` for the API so the links it issues open it:
+
+```bash
+pnpm --filter @hotella/guest-web dev   # http://localhost:3200/en (or /ar)
+pnpm --filter @hotella/guest-web e2e   # Playwright, English (LTR) and Arabic (RTL), API mocked in the browser
+```
+
+The guest session token lives only in the httpOnly cookie `hotella_gs` (set by `/bff/verify` and `/bff/complete`); the
+same-origin proxy `/hotella/*` turns it into `X-Guest-Session` and forwards `guest/*` and `public/*` routes only.
+
+UI strings live in `locales/{en,ar}/staff.json` and `locales/{en,ar}/portal.json` (the shared catalog); `scripts/sync-messages.mjs` turns them into the app's
 next-intl messages at build/dev time. Layout uses logical properties only (`ms-*`, `me-*`, `text-start`, `border-e`).
 
 > Integration suites print `TEST_INFRA_UNAVAILABLE` and skip when no container runtime is reachable; CI always runs them against real services.
@@ -68,7 +79,8 @@ Everything above is a `package.json` script; if a script name changes, this sect
 ```text
 apps/          things you run        → api (:3000), worker (:3001), agent-gateway (:8443, TLS + client certificates),
                                        pms-simulator (reference hotel agent + simulated PMS), staff-web (:3100, Next.js
-                                       inbox with a BFF for sign-in); later guest-web, hotel-agent (.NET). The realtime
+                                       inbox with a BFF for sign-in), guest-web (:3200, guest PWA); later hotel-agent
+                                       (.NET). The realtime
                                        WebSocket gateway runs inside api for now.
 packages/
   platform/    infrastructure        → config, secrets, pki (agent CA, device certificates, command signatures), observability (logs, request context, tracing), database, events (outbox/inbox),

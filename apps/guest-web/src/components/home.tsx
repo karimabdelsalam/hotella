@@ -1,0 +1,167 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import { Button } from '@hotella/ui';
+import { Link, useRouter } from '../i18n/navigation';
+import { api, ApiError, call } from '../lib/api';
+import { useBrand } from '../lib/brand';
+import type { Catalog, Me } from '../lib/types';
+import { Card, Page, TopBar } from './ui';
+
+/** Loads the guest (`/guest/me`); null while loading, 'signed-out' without a valid session. */
+export function useGuest(): Me | null | 'signed-out' {
+  const locale = useLocale();
+  const { set } = useBrand();
+  const [me, setMe] = useState<Me | null | 'signed-out'>(null);
+  useEffect(() => {
+    let live = true;
+    api<Me>('guest/me', locale)
+      .then((m) => {
+        if (!live) return;
+        setMe(m);
+        set(m.branding);
+      })
+      .catch((e: unknown) => {
+        if (live && e instanceof ApiError && (e.status === 401 || e.status === 403))
+          setMe('signed-out');
+      });
+    return () => {
+      live = false;
+    };
+    // `set` is stable for the page's lifetime.
+  }, [locale]);
+  return me;
+}
+
+export function SignedOut() {
+  const t = useTranslations('portal.home');
+  return (
+    <>
+      <TopBar />
+      <Page>
+        <Card>
+          <h1 className="text-lg font-semibold">{t('signed_out_title')}</h1>
+          <p className="mt-2 text-sm text-slate-600">{t('signed_out_body')}</p>
+        </Card>
+      </Page>
+    </>
+  );
+}
+
+/** The guest's home: greeting, room, the service catalog and links to requests and chat. */
+export function Home() {
+  const t = useTranslations('portal.home');
+  const locale = useLocale();
+  const router = useRouter();
+  const me = useGuest();
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+
+  useEffect(() => {
+    if (!me || me === 'signed-out' || !me.scopes.includes('SERVICE_REQUEST')) return;
+    api<Catalog>('guest/services', locale)
+      .then(setCatalog)
+      .catch(() => setCatalog({ categories: [] }));
+  }, [me, locale]);
+
+  if (me === 'signed-out') return <SignedOut />;
+  return (
+    <>
+      <TopBar title={me?.property?.name}>
+        {me && (
+          <Button
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+            onClick={async () => {
+              await call('/bff/logout', locale, { method: 'POST' }).catch(() => undefined);
+              router.refresh();
+              window.location.reload();
+            }}
+          >
+            {t('sign_out')}
+          </Button>
+        )}
+      </TopBar>
+      <Page>
+        {!me && <p className="text-slate-500">{t('loading')}</p>}
+        {me && (
+          <>
+            <Card>
+              <h1 className="text-xl font-semibold">
+                {me.guest.givenName
+                  ? t('welcome', { name: me.guest.givenName })
+                  : t('welcome_plain')}
+              </h1>
+              {me.stay?.room && (
+                <p className="mt-1 text-sm text-slate-600">
+                  {t('room', { room: me.stay.room.number })}
+                </p>
+              )}
+              {me.branding?.welcomeText && (
+                <p className="mt-2 text-sm text-slate-700">{me.branding.welcomeText}</p>
+              )}
+              <nav className="mt-3 flex flex-wrap gap-2">
+                {me.scopes.includes('SERVICE_REQUEST') && (
+                  <Link
+                    href="/requests"
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                  >
+                    {t('my_requests')}
+                  </Link>
+                )}
+                {me.scopes.includes('CHAT') && (
+                  <Link
+                    href="/chat"
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                  >
+                    {t('chat')}
+                  </Link>
+                )}
+              </nav>
+            </Card>
+            {catalog?.categories.map((c) => (
+              <section
+                key={c.code}
+                aria-labelledby={`cat-${c.code}`}
+                className="flex flex-col gap-2"
+              >
+                <h2 id={`cat-${c.code}`} className="text-sm font-semibold uppercase text-slate-500">
+                  {c.name}
+                </h2>
+                <ul className="flex flex-col gap-2">
+                  {c.services.map((s) => (
+                    <li key={s.code}>
+                      <Link
+                        href={`/services/${s.code}`}
+                        className="flex items-center gap-3 rounded-lg bg-white p-3 shadow-sm"
+                        data-service={s.code}
+                      >
+                        <span className="flex flex-1 flex-col text-start">
+                          <span className="font-medium">{s.name}</span>
+                          {s.shortDescription && (
+                            <span className="text-sm text-slate-600">{s.shortDescription}</span>
+                          )}
+                        </span>
+                        {!s.openNow && (
+                          <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                            {t('closed_now')}
+                          </span>
+                        )}
+                        <span aria-hidden className="text-slate-400 rtl:rotate-180">
+                          ›
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            {catalog && catalog.categories.length === 0 && (
+              <p className="text-sm text-slate-500">{t('no_services')}</p>
+            )}
+          </>
+        )}
+      </Page>
+    </>
+  );
+}

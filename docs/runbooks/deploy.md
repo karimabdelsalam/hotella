@@ -4,7 +4,7 @@
 - Ubuntu Server LTS (or Debian stable), unattended security upgrades on, SSH keys only, no password logins.
 - Docker Engine with the Compose plugin; the operator account is in the `docker` group.
 - Firewall: only 443/tcp, the agent gateway port (8443/tcp, `HOTELLA_AGENT_PORT`) and SSH from the admin network are reachable from outside. The API listens on `127.0.0.1:3000` and staff reach it through the reverse proxy; hotel agents (ADR-0017) connect to the agent gateway, which terminates its own mutual TLS and must **not** sit behind the reverse proxy. Set `HOTELLA_AGENT_HOSTNAME` before `pilot.sh init` so the gateway certificate names the public agent hostname.
-- A TLS reverse proxy on the host (Caddy or NGINX) for the public name, e.g. `https://api.<customer>.hotella.app` → `http://127.0.0.1:3000` with HSTS. Certificates from the internal CA or a public CA depending on exposure.
+- A TLS reverse proxy on the host (Caddy or NGINX) for the public names, e.g. `https://api.<customer>.hotella.app` → `http://127.0.0.1:3000`, the staff portal → `http://127.0.0.1:3100` and the guest web app (`{property}.guest.hotella.app`, BUILD_PLAN Q4; set `HOTELLA_PUBLIC_BASE_URL` to it so activation links and room QR codes open it) → `http://127.0.0.1:3200`, all with HSTS. Certificates from the internal CA or a public CA depending on exposure.
 - Disk: separate volume for Docker data with room for the PostgreSQL data, the pgBackRest repository (≈ 4 full backups + WAL) and object storage.
 
 ## First installation
