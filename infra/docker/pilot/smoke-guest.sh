@@ -168,6 +168,33 @@ done
 echo "room 506 after its clean: $room"
 [ "$room" = "CLEAN ready=true" ]
 echo "housekeeping: OK"
+
+# Engineering (BUILD_PLAN 8.4) on the deployed stack: the guest's AC_PROBLEM request from M2 becomes a corrective work
+# order on the fan-coil unit of their room; the Engineering Copilot answers about that unit through the same on-prem
+# model adapter (it only reads, through engineering's tools); the engineer codes and closes the work; arrivals are
+# scored by the rules.
+eng="$API/properties/$property/eng"
+call -X POST "$API/eng/failure-codes/starter" "${auth[@]}" >/dev/null
+fcu=$(call "$API/eng/asset-types" "${auth[@]}" \
+  -d '{"code":"FCU","translations":[{"locale":"en","name":"Fan-coil unit"},{"locale":"ar","name":"وحدة ملف مروحة"}]}' | jq -r .id)
+work_item=$(psql "select work_item_id from catalog.service_requests where property_id = '$property' and service_code = 'AC_PROBLEM'")
+guest_room=$(psql "select location_id from ops.work_items where id = '$work_item'")
+asset=$(call "$eng/assets" "${auth[@]}" \
+  -d "{\"assetNumber\":\"FCU-SMOKE\",\"assetTypeId\":\"$fcu\",\"locationId\":\"$guest_room\",\"name\":\"Guest room fan-coil\"}" | jq -r .id)
+order=$(call "$eng/work-orders/from-request" "${auth[@]}" -d "{\"workItemId\":\"$work_item\",\"symptomCode\":\"NOT_COOLING\"}")
+echo "work order: $(jq -c '{number, type, source, status}' <<<"$order")"
+jq -e --arg asset "$asset" '.assetId == $asset and .source == "GUEST_REQUEST" and .type == "CORRECTIVE"' <<<"$order" >/dev/null
+copilot=$(call "$eng/copilot" "${auth[@]}" -d "{\"question\":\"Why is this unit not cooling?\",\"assetId\":\"$asset\"}")
+echo "copilot: $(jq -c '{outcome, answer}' <<<"$copilot")"
+jq -e '.outcome == "ANSWERED" and (.answer | contains("FCU-SMOKE"))' <<<"$copilot" >/dev/null
+call "$API/properties/$property/ai/executions/$(jq -r .executionId <<<"$copilot")" "${auth[@]}" |
+  jq -e '.agentCode == "ENGINEERING_COPILOT" and .trigger == "STAFF" and .status == "COMPLETED"
+    and ([.steps[] | select(.type == "TOOL_CALL" and .outcome == "OK")] | length) == 1' >/dev/null
+call "$eng/work-orders/$(jq -r .id <<<"$order")/complete" "${auth[@]}" \
+  -d '{"failureModeCode":"COMPRESSOR_NOT_STARTING","causeCode":"CAPACITOR_FAILED","resolutionCode":"CAPACITOR_REPLACED"}' |
+  jq -e '.status == "DONE"' >/dev/null
+call "$hk/arrival-risk?day=tomorrow" "${auth[@]}" | jq -e '(.arrivals | type) == "array"' >/dev/null
+echo "engineering: OK"
 # The link was single use.
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$API/guest/activation/start" "${json[@]}" -d "{\"token\":\"$token\"}")" = 410 ]
 
@@ -190,6 +217,9 @@ bff=$(curl -fsS -D "$DIR/.bff-headers" "$WEB/bff/login" "${json[@]}" \
 grep -qi '^set-cookie: hotella_rt=.*httponly' "$DIR/.bff-headers"; rm -f "$DIR/.bff-headers"
 jq -e 'has("refreshToken") | not' <<<"$bff" >/dev/null
 curl -fsS "$WEB/hotella/properties/$property/conversations" -H "authorization: Bearer $(jq -r .accessToken <<<"$bff")" | jq -e 'type == "array"' >/dev/null
+for page in en/engineering ar/engineering en/arrivals ar/arrivals ar/branding; do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "$WEB/$page")" = 200 ]
+done
 echo "staff web: OK"
 # The guest web app renders both directions and its proxy serves guest routes only.
 curl -fsS "$GUEST_WEB/en" | grep -q 'dir="ltr"'

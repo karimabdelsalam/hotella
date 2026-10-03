@@ -19,6 +19,19 @@ describe('egress policy', () => {
       'Call me on [phone] or [email], room 504',
     );
     expect(maskIdentifiers('card 4111 1111 1111 1111')).toBe('card [number]');
+    // Record ids and dates are not personal identifiers: tools need the ids back exactly.
+    const ids = Array.from(
+      { length: 30 },
+      (_, i) => `01900000-0000-7000-8000-${String(i).padStart(12, '0')}`,
+    );
+    expect(maskIdentifiers(`assets ${ids.join(', ')}`)).toBe(`assets ${ids.join(', ')}`);
+    expect(
+      maskIdentifiers(
+        '{"asset_id":"01a1036d-df42-7dfd-ae92-30719b47dc9d","reported_at":"2026-10-03T10:00:00.000Z","on":"2026-10-21","phone":"+201001112233"}',
+      ),
+    ).toBe(
+      '{"asset_id":"01a1036d-df42-7dfd-ae92-30719b47dc9d","reported_at":"2026-10-03T10:00:00.000Z","on":"2026-10-21","phone":"[phone]"}',
+    );
     const out = applyEgress(external, [
       { text: 'Guest phone +201001112233', dataClass: 'CONFIDENTIAL' },
       { text: 'Passport A1234567', dataClass: 'SENSITIVE' },

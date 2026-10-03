@@ -1,5 +1,6 @@
 // Development/CI only: an OpenAI-compatible model stand-in for the deployed AI smoke (BUILD_PLAN 6.5). It answers the
-// Guest Concierge deterministically — look at the services, create AC_PROBLEM, answer in Arabic — so the pilot proves
+// Guest Concierge deterministically — look at the services, create AC_PROBLEM, answer in Arabic — and the Engineering
+// Copilot (read the asset's history, answer naming it), so the pilot proves
 // the real path: worker queue → concierge runtime → Model Gateway → OPENAI_COMPATIBLE adapter → tools → comms.
 import { createServer } from 'node:http';
 import { stdout } from 'node:process';
@@ -33,12 +34,37 @@ function toolCall(name, args) {
   );
 }
 
-/** The next turn of the concierge conversation, decided from what the model has already seen. */
+/**
+ * The Engineering Copilot: read the open asset's history (its id is in the focus context), then answer naming the
+ * asset number the tool returned — proof the answer came through engineering's tool.
+ */
+function copilot(messages, toolResults) {
+  if (toolResults.length === 0) {
+    const system = messages
+      .filter((m) => m.role === 'system')
+      .map((m) => m.content)
+      .join('\n');
+    const assetId = /asset_id ([0-9a-f-]{36})/.exec(system)?.[1];
+    return toolCall('engineering__get_asset_history', { assetId });
+  }
+  const number = /"number":"([^"]+)"/.exec(toolResults.at(-1).content)?.[1] ?? 'the unit';
+  return completion(
+    {
+      content: JSON.stringify({
+        answer: `${number}: check the capacitor first, then the condensate drain.`,
+      }),
+    },
+    'stop',
+  );
+}
+
+/** The next turn of the concierge (or copilot) conversation, decided from what the model has already seen. */
 function answer(body) {
   const messages = body.messages ?? [];
   const lastUser = messages.map((m) => m.role).lastIndexOf('user');
   const toolResults = messages.slice(lastUser + 1).filter((m) => m.role === 'tool');
   const tools = (body.tools ?? []).map((t) => t.function.name);
+  if (tools.includes('engineering__get_asset_history')) return copilot(messages, toolResults);
   if (toolResults.length === 0 && tools.includes('catalog__list_services'))
     return toolCall('catalog__list_services', {});
   const last = toolResults.at(-1)?.content ?? '';

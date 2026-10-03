@@ -1704,7 +1704,7 @@ eng.warranty_cases        id, tenant_id, work_order_id, asset_id, vendor, status
 | 8.1 | `@hotella/domain-engineering`: asset types (schema, translations), models, assets with hierarchy and location, asset documents linked to Knowledge, failure code lists with starter set, APIs, events, permissions, tenant-leak tests | delivered |
 | 8.2 | Work orders on the operations engine (`ENG_WORK_ORDER`), types, taxonomy and downtime on close, guest request → work order, parts usage and stock, warranty suggestion | delivered |
 | 8.3 | Meters and readings, PM procedures (versioned) and plans (CALENDAR/METER/CONDITION), due sweep creating PREVENTIVE work, room restrictions with PMS sync (`SET_ROOM_RESTRICTION`) | delivered |
-| 8.4 | Engineering knowledge tool `engineering.search_manuals`, Engineering Copilot v1 (ASSIST), arrival-risk v1 (rules + explanation), staff web: work orders and asset pages (English/Arabic, Playwright), pilot smoke | planned |
+| 8.4 | Engineering knowledge tool `engineering.search_manuals`, Engineering Copilot v1 (ASSIST), arrival-risk v1 (rules + explanation), staff web: work orders and asset pages (English/Arabic, Playwright), pilot smoke | delivered |
 | 8.5 | Phase 8 acceptance (`docs/acceptance/phase-8.md`) | planned |
 
 Reality notes for 8.1:
@@ -1759,6 +1759,39 @@ Reality notes for 8.3:
   used instead of the planned `ROOM_RESTRICTION_WRITE`), `SET_ROOM_RESTRICTION` goes to the PMS on restrict and on
   release (idempotent per restriction and direction; outcome kept in `pms_sync`). `SIM_PMS` and the simulator accept
   it. PMS-reported out-of-order statuses stay PMS-owned (housekeeping front-office state).
+
+Reality notes for 8.4:
+- Engineering registers four READ tools through `AI_TOOL_REGISTRY` (declared in its manifest): `engineering.find_assets`
+  (by room number and/or words of the number or name; wildcards are literal), `engineering.get_asset_history` (type,
+  model, warranty, room, the last work orders with named codes, downtime and a truncated diagnosis),
+  `engineering.likely_failure_modes` (deterministic counts of failure modes, causes and resolutions on closed work of
+  the same model, else the same type, across the tenant — history, not a diagnosis) and `engineering.search_manuals`
+  (Knowledge search restricted to the documents linked to the asset and its model — `KnowledgeSearchInput.documentIds`
+  was added — then the property's STAFF documents up to INTERNAL). Handlers read engineering's tables directly after
+  the tool's gate; no second gate.
+- The AI context gained a generic staff-assistant runtime (`STAFF_ASSISTANT_API`): one question, one bounded run of
+  the agent loop now shared with the concierge (`runAgentLoop`), output `{answer}`, language from the question's
+  script, the sources (document versions) the tools returned, kill switch per agent, and an execution recorded with
+  trigger STAFF on behalf of the user. It refuses an agent whose tools are not all READ (ASSIST only).
+  `ENGINEERING_COPILOT` v1 is the first such agent. Staff call it through `POST /properties/:id/eng/copilot`
+  (`question`, optional `assetId` passed as focus), which needs both `eng.asset.read` and `eng.work_order.read`.
+- The identifier masking applied to external providers (ADR-0018) no longer mistakes record UUIDs and ISO dates for
+  phone numbers: with Claude or ChatGPT the copilot must get asset ids back exactly to call its tools.
+- Arrival risk v1 lives in housekeeping (it owns readiness): `GET /properties/:id/housekeeping/arrival-risk?day=today|tomorrow`
+  (`hk.arrivals.read`, granted to housekeeping desks, duty managers and the front desk). `assessArrival` scores each
+  expected arrival from fixed points per reason (restricted 60, no room 30, ETA passed 30, still occupied 25, dirty
+  25, open engineering work 25, ETA within 2 h 20, urgent work 10, being cleaned 10, VIP 10 when anything else is
+  wrong, awaiting inspection 5; capped at 100; HIGH ≥ 60, MEDIUM ≥ 25). The "explanation" is the ordered reason codes,
+  shown translated; no model phrases it in v1 (nothing to add over the reasons, and the score must stay deterministic).
+  `StaySummary` gained `eta` and `vip` (the VIP code itself stays in the guest context).
+- Staff web: `/engineering` (open work orders with room and equipment labels — added to the work-order list/detail —
+  coding, diagnosis, downtime and close-out; equipment with its history and the copilot panel, labelled as an AI
+  suggestion with its sources) and `/arrivals` (today/tomorrow, riskiest first, reasons). Header sections now follow
+  the person's permissions (`/me` loaded once per session). Playwright: English and Arabic for both.
+- Pilot smoke ("engineering"): the guest's AC_PROBLEM request from M2 becomes a corrective work order on the
+  fan-coil unit of their room; the copilot answers about that unit through the deployed OPENAI_COMPATIBLE adapter and
+  the stand-in model (one READ tool call, execution COMPLETED); the work is coded and closed; arrival risk answers;
+  the new staff pages render in both directions.
 
 ### Phase 9 — Inspections, Guest Relations, Lost & Found, Logbook
 Generic inspection engine first (`inspection` schema per Spec §11, critical finding ⇒ work item via rules). Then `relations` (complaints, categories, evidence, `complaint_candidates` from AI with confidence, service recovery actions through approvals), `lostfound` (items, vision-derived metadata kept separate from staff description, match candidates with score/reasons, audited claims), `logbook` entries + AI shift summary with human acknowledgement.

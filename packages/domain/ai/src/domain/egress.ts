@@ -40,11 +40,28 @@ const PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\+?\d(?:[\s().-]?\d){7,14}/g, '[phone]'],
 ];
 
-/** Masks identifiers a model never needs (phones, e-mails, card-like numbers); room numbers stay readable. */
+/**
+ * Platform record ids (UUIDs) and ISO dates/times look like digit runs but are not personal identifiers; an agent's
+ * tools need the ids back exactly, and dates carry meaning. They are set aside before masking and restored after.
+ */
+const KEEP =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b|\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?/gi;
+/** A placeholder without digits (so no pattern can match it): the index written in letters. */
+const placeholder = (i: number) =>
+  `\uE000${[...i.toString(26)].map((c) => String.fromCharCode(97 + parseInt(c, 26))).join('')}\uE000`;
+
+/** Masks identifiers a model never needs (phones, e-mails, card-like numbers); room numbers, ids and dates stay. */
 export function maskIdentifiers(text: string): string {
-  let out = text;
+  const kept: string[] = [];
+  let out = text.replace(KEEP, (m) => placeholder(kept.push(m) - 1));
   for (const [re, label] of PATTERNS) out = out.replace(re, label);
-  return out;
+  return out.replace(/\uE000([a-z]+)\uE000/g, (_, letters: string) => {
+    const index = parseInt(
+      [...letters].map((c) => (c.charCodeAt(0) - 97).toString(26)).join(''),
+      26,
+    );
+    return kept[index] ?? '';
+  });
 }
 
 export interface ClassifiedPart {
