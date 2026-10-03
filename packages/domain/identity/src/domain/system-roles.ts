@@ -11,8 +11,18 @@ export interface SystemRoleDefinition {
 }
 
 const PROPERTY_READ = ['org.property.read', 'branding.read'] as const;
-/** Guest-facing desks: see stays and guests, keep preferences/consents, end a guest's access (Spec §6, §21, §26). */
-const GUEST_DESK = ['guest.read', 'guest.manage', 'stay.read', 'guest.grant.revoke'] as const;
+/**
+ * Guest-facing desks: see stays and guests, keep preferences/consents, hand out activation links, confirm a guest in
+ * person when no code arrives, end a guest's access (Spec §6, §19, §21, §26).
+ */
+const GUEST_DESK = [
+  'guest.read',
+  'guest.manage',
+  'stay.read',
+  'guest.grant.revoke',
+  'guest.activation.issue',
+  'guest.activation.assist',
+] as const;
 /** Every staff member's own notifications and channel choices (Spec §25). */
 const MY_NOTIFICATIONS = ['notification.read', 'notification.preferences.manage'] as const;
 /** Everyone who does operational work: see, take, start, pause and finish their tasks (Spec §8.2). */
@@ -83,6 +93,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'approval.read',
       'approval.decide',
       'channel.manage',
+      'qr.manage',
     ],
   },
   {

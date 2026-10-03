@@ -79,8 +79,9 @@ packages/
                                        hours and escalation ladders, deduplicated alerts, immutable workflow versions,
                                        generic approvals, notification intents → deliveries (in-app, e-mail))
                                      → communications (schema `comms`: channels bound to provider adapters — WhatsApp via
-                                       Meta Cloud API or a BSP, SMS — with SecretRef credentials, channel identities;
-                                       activation/OTP, room QR, conversations and the inbox arrive through Phase 4)
+                                       Meta Cloud API or a BSP, SMS — with SecretRef credentials, channel identities,
+                                       guest activation: links, room QR, OTP with WhatsApp → SMS fallback, staff-assisted
+                                       verification, guest session guard; conversations and the inbox follow in 4.3)
   contracts/   zod schemas shared by everything → events (incl. canonical hotel.*), api, connectors (Connector SDK v0),
                                        later ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend

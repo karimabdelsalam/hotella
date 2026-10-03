@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgSchema, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core';
+import {
+  index,
+  integer,
+  jsonb,
+  pgSchema,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import { baseColumns, classify, versioned } from '@hotella/platform-database';
 
 /**
@@ -115,5 +125,227 @@ export const channelIdentities = classify(
   },
 );
 
+// ---- activation (Spec §19–§20, ADR-0011, ADR-0015) ----
+
+export const otpChannel = comms.enum('otp_channel', ['WHATSAPP', 'SMS', 'VOICE', 'STAFF']);
+export const verificationDeliveryStatus = comms.enum('verification_delivery_status', [
+  'SENT',
+  'DELIVERED',
+  'READ',
+  'FAILED',
+]);
+export const verificationTrigger = comms.enum('verification_trigger', [
+  'INITIAL',
+  'AUTO_FALLBACK',
+  'MANUAL_FALLBACK',
+  'STAFF_ASSIST',
+]);
+export const qrStatus = comms.enum('qr_status', ['ACTIVE', 'ROTATED', 'REVOKED']);
+
+/**
+ * Single-purpose, single-use activation links minted by the platform, never by the PMS (Spec §19.1). 256-bit tokens,
+ * SHA-256 at rest; issuing a new one for the same stay and guest revokes the previous one.
+ */
+export const activationTokens = classify(
+  comms.table(
+    'activation_tokens',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      stayId: uuid('stay_id').notNull(),
+      /** The party member it was issued for; null = whoever verifies (matched by phone, else the primary guest). */
+      guestId: uuid('guest_id'),
+      tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+      purpose: varchar('purpose', { length: 32 }).notNull().default('GUEST_ACTIVATION'),
+      deliveredVia: varchar('delivered_via', { length: 16 }).notNull(),
+      expiresAt: tz('expires_at').notNull(),
+      usedAt: tz('used_at'),
+      revokedAt: tz('revoked_at'),
+      createdByType: varchar('created_by_type', { length: 16 }).notNull(),
+      createdById: varchar('created_by_id', { length: 64 }),
+    },
+    (t) => [
+      uniqueIndex('activation_tokens_hash_uq').on(t.tokenHash),
+      index('activation_tokens_stay_idx').on(t.tenantId, t.stayId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    stayId: 'INTERNAL',
+    guestId: 'INTERNAL',
+    tokenHash: 'RESTRICTED',
+    purpose: 'INTERNAL',
+    deliveredVia: 'INTERNAL',
+    expiresAt: 'INTERNAL',
+    usedAt: 'INTERNAL',
+    revokedAt: 'INTERNAL',
+    createdByType: 'INTERNAL',
+    createdById: 'INTERNAL',
+  },
+);
+
+/**
+ * One OTP verification of a phone number for a stay, across every delivery channel (ADR-0015): one code, one attempt
+ * counter, one expiry. The code is derived from `otp_seed` under the OTP key (a SecretRef) and never stored.
+ */
+export const verificationSessions = classify(
+  comms.table(
+    'verification_sessions',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      stayId: uuid('stay_id').notNull(),
+      roomId: uuid('room_id'),
+      /** The party member being verified. */
+      guestId: uuid('guest_id').notNull(),
+      activationTokenId: uuid('activation_token_id').references(() => activationTokens.id),
+      roomQrCodeId: uuid('room_qr_code_id'),
+      phoneNormalized: varchar('phone_normalized', { length: 20 }).notNull(),
+      otpSeed: varchar('otp_seed', { length: 64 }).notNull(),
+      /** SHA-256 of the 256-bit handle the guest's device uses for this session (the id alone is not a secret). */
+      handleHash: varchar('handle_hash', { length: 64 }).notNull(),
+      locale: varchar('locale', { length: 16 }).notNull(),
+      /** Short code the guest reads to front desk for staff-assisted verification. */
+      reference: varchar('reference', { length: 8 }).notNull(),
+      attempts: integer('attempts').notNull().default(0),
+      maxAttempts: integer('max_attempts').notNull(),
+      expiresAt: tz('expires_at').notNull(),
+      verifiedAt: tz('verified_at'),
+      verifiedVia: otpChannel('verified_via'),
+      lockedAt: tz('locked_at'),
+      assistedByUserId: uuid('assisted_by_user_id'),
+      /** Set once the verified session became a guest session: a session completes exactly once. */
+      completedAt: tz('completed_at'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('verification_sessions_handle_uq').on(t.handleHash),
+      index('verification_sessions_phone_idx').on(t.tenantId, t.phoneNormalized, t.createdAt),
+      index('verification_sessions_open_idx')
+        .on(t.expiresAt)
+        .where(sql`${t.verifiedAt} IS NULL AND ${t.lockedAt} IS NULL`),
+      index('verification_sessions_reference_idx').on(t.propertyId, t.reference),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    stayId: 'INTERNAL',
+    roomId: 'INTERNAL',
+    guestId: 'INTERNAL',
+    activationTokenId: 'INTERNAL',
+    roomQrCodeId: 'INTERNAL',
+    phoneNormalized: 'SENSITIVE',
+    otpSeed: 'RESTRICTED',
+    handleHash: 'RESTRICTED',
+    locale: 'INTERNAL',
+    reference: 'INTERNAL',
+    attempts: 'INTERNAL',
+    maxAttempts: 'INTERNAL',
+    expiresAt: 'INTERNAL',
+    verifiedAt: 'INTERNAL',
+    verifiedVia: 'INTERNAL',
+    lockedAt: 'INTERNAL',
+    assistedByUserId: 'INTERNAL',
+    completedAt: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Every delivery attempt of a session's code (ADR-0015); the provider's error message is never kept. */
+export const verificationDeliveries = classify(
+  comms.table(
+    'verification_deliveries',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      sessionId: uuid('session_id')
+        .notNull()
+        .references(() => verificationSessions.id),
+      channel: otpChannel('channel').notNull(),
+      channelId: uuid('channel_id').references(() => channels.id),
+      providerCode: varchar('provider_code', { length: 64 }),
+      trigger: verificationTrigger('trigger').notNull(),
+      status: verificationDeliveryStatus('status').notNull(),
+      providerRef: varchar('provider_ref', { length: 128 }),
+      errorCode: varchar('error_code', { length: 32 }),
+      sentAt: tz('sent_at').notNull(),
+      statusAt: tz('status_at').notNull(),
+    },
+    (t) => [
+      index('verification_deliveries_session_idx').on(t.sessionId, t.sentAt),
+      index('verification_deliveries_provider_idx').on(t.channelId, t.providerRef),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    sessionId: 'INTERNAL',
+    channel: 'INTERNAL',
+    channelId: 'INTERNAL',
+    providerCode: 'INTERNAL',
+    trigger: 'INTERNAL',
+    status: 'INTERNAL',
+    providerRef: 'INTERNAL',
+    errorCode: 'INTERNAL',
+    sentAt: 'INTERNAL',
+    statusAt: 'INTERNAL',
+  },
+);
+
+/**
+ * Static room QR codes (Spec §20): an opaque token resolving to a room, never to a guest or stay. Rotation and
+ * revocation invalidate printed codes without any PMS change. One ACTIVE code per room.
+ */
+export const roomQrCodes = classify(
+  comms.table(
+    'room_qr_codes',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      roomId: uuid('room_id').notNull(),
+      tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+      status: qrStatus('status').notNull().default('ACTIVE'),
+      rotatedFromId: uuid('rotated_from_id'),
+      statusChangedAt: tz('status_changed_at'),
+    },
+    (t) => [
+      uniqueIndex('room_qr_codes_hash_uq').on(t.tokenHash),
+      uniqueIndex('room_qr_codes_active_uq')
+        .on(t.roomId)
+        .where(sql`${t.status} = 'ACTIVE'`),
+      index('room_qr_codes_property_idx').on(t.tenantId, t.propertyId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    roomId: 'INTERNAL',
+    tokenHash: 'RESTRICTED',
+    status: 'INTERNAL',
+    rotatedFromId: 'INTERNAL',
+    statusChangedAt: 'INTERNAL',
+  },
+);
+
 export type ChannelRow = typeof channels.$inferSelect;
+export type ActivationTokenRow = typeof activationTokens.$inferSelect;
+export type VerificationSessionRow = typeof verificationSessions.$inferSelect;
+export type VerificationDeliveryRow = typeof verificationDeliveries.$inferSelect;
+export type RoomQrCodeRow = typeof roomQrCodes.$inferSelect;
 export type ChannelIdentityRow = typeof channelIdentities.$inferSelect;

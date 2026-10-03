@@ -10,6 +10,8 @@ export interface PropertySummary {
   readonly name: string;
   readonly timezone: string;
   readonly currency: string;
+  /** ISO 3166-1 alpha-2, when set (national phone numbers are read with it). */
+  readonly country: string | null;
   readonly defaultLocale: string;
   readonly enabledLocales: readonly string[];
   readonly status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';

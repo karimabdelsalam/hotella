@@ -1,10 +1,11 @@
 import 'reflect-metadata';
-import type { INestApplication } from '@nestjs/common';
+import { Global, type INestApplication, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { eq, sql } from 'drizzle-orm';
 import { createEnvelope, GuestAnonymized } from '@hotella/contracts-events';
 import { GuestModule } from '@hotella/domain-guest';
 import { IntegrationsModule } from '@hotella/domain-integrations';
+import { OPERATIONS_API } from '@hotella/domain-operations/public';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
 import {
@@ -50,6 +51,19 @@ const user = (id: string, tenantId: string): string =>
   JSON.stringify({ type: 'USER', id, tenantId, isPlatformAdmin: false });
 const stamp = Date.now().toString(36).toUpperCase();
 const PERMS = ['org.property.read', 'org.property.manage', 'channel.manage'];
+
+/** Channel health alerts go to the operations engine; not exercised here. */
+@Global()
+@Module({
+  providers: [
+    {
+      provide: OPERATIONS_API,
+      useValue: { raiseAlert: async () => ({ alertId: '', created: false }) },
+    },
+  ],
+  exports: [OPERATIONS_API],
+})
+class FakeOperationsModule {}
 
 describe.skipIf(needsInfra())(`Communications against PostgreSQL (${infraSkipReason()})`, () => {
   const url = readTestInfra().databaseUrl!;
@@ -104,6 +118,7 @@ describe.skipIf(needsInfra())(`Communications against PostgreSQL (${infraSkipRea
         OrganizationModule,
         IntegrationsModule,
         GuestModule,
+        FakeOperationsModule,
         CommunicationsModule,
       ],
     }).compile();

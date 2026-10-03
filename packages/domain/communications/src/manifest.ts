@@ -7,6 +7,17 @@ export const COMMUNICATIONS_MANIFEST = defineManifest({
     'Communications & guest identity: channels behind provider adapters, channel identities, activation, OTP, room QR, conversations and the staff inbox.',
   permissions: [
     { code: 'channel.manage', descriptionKey: 'comms.permission.channel_manage', risk: 'HIGH' },
+    {
+      code: 'guest.activation.issue',
+      descriptionKey: 'comms.permission.activation_issue',
+      risk: 'MEDIUM',
+    },
+    {
+      code: 'guest.activation.assist',
+      descriptionKey: 'comms.permission.activation_assist',
+      risk: 'HIGH',
+    },
+    { code: 'qr.manage', descriptionKey: 'comms.permission.qr_manage', risk: 'MEDIUM' },
   ],
   events: [],
   localeNamespaces: ['comms'],

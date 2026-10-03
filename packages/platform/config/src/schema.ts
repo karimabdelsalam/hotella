@@ -134,6 +134,10 @@ export const envSchema = z.object({
   NOTIFY_SMTP_USER: z.string().min(1).optional(),
   NOTIFY_SMTP_PASSWORD_REF: secretRef('vault://kv/hotella/app#smtp_password').optional(),
   NOTIFY_EMAIL_FROM: z.string().min(3).default('no-reply@localhost'),
+  /** Guest OTP (ADR-0011): codes are derived with HMAC-SHA256 under this key; a SecretRef, never a value. */
+  COMMS_OTP_HMAC_KEY_REF: secretRef('vault://kv/hotella/app#otp_hmac_key').default(
+    'env://COMMS_OTP_HMAC_KEY',
+  ),
   /** Retention of delivered events: published outbox rows and processed inbox rows are purged after these days. */
   EVENTS_OUTBOX_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
   EVENTS_INBOX_RETENTION_DAYS: z.coerce.number().int().min(7).max(365).default(30),
@@ -201,6 +205,9 @@ export interface AppConfig {
     readonly loginMaxAttempts: number;
     readonly loginLockMinutes: number;
     readonly inviteTtlHours: number;
+  };
+  readonly comms: {
+    readonly otpKeyRef: string;
   };
   readonly notifications: {
     readonly smtp: {
@@ -341,6 +348,7 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
       loginLockMinutes: e.IAM_LOGIN_LOCK_MINUTES,
       inviteTtlHours: e.IAM_INVITE_TTL_HOURS,
     },
+    comms: { otpKeyRef: e.COMMS_OTP_HMAC_KEY_REF },
     notifications: {
       smtp: e.NOTIFY_SMTP_HOST
         ? {

@@ -1,3 +1,13 @@
 {
-  "comms.permission.channel_manage": "إعداد قنوات المراسلة ومزوديها"
+  "comms.permission.channel_manage": "إعداد قنوات المراسلة ومزوديها",
+  "comms.permission.activation_issue": "إصدار روابط تفعيل الضيوف",
+  "comms.permission.activation_assist": "تأكيد هوية الضيف حضوريًا عند عدم وصول الرمز",
+  "comms.permission.qr_manage": "إنشاء رموز QR للغرف وتدويرها وإلغاؤها",
+  "comms.setting.otp_primary_channel": "القناة المستخدمة أولًا لإرسال رموز الضيوف",
+  "comms.setting.otp_fallback_channels": "القنوات البديلة عند عدم وصول الرمز",
+  "comms.setting.otp_fallback_timeout_seconds": "عدد الثواني لانتظار إشعار التسليم قبل تجربة القناة التالية",
+  "comms.setting.otp_manual_fallback_after_seconds": "عدد الثواني قبل أن يطلب الضيف الرمز بطريقة أخرى",
+  "comms.setting.otp_staff_assist_enabled": "يمكن لمكتب الاستقبال تأكيد هوية الضيف حضوريًا",
+  "comms.setting.activation_token_ttl_hours": "عدد ساعات صلاحية رابط التفعيل",
+  "comms.otp.sms_text": "رمزك في {property} هو {code}. ينتهي خلال 5 دقائق. لا تشاركه مع أحد."
 }

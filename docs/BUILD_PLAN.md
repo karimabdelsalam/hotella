@@ -891,9 +891,44 @@ Events: `comms.conversation.opened.v1`, `comms.message.received.v1`, `comms.mess
 | Sprint | Scope | Status |
 |---|---|---|
 | 4.1 | Guest access in the guest context: grants (scopes by policy, companions narrower, pre-arrival, post-stay window), guest sessions, `GUEST_API` (issue grant, open/authenticate/revoke session), checkout revocation in the projector, `guest.grant.revoked.v1`, staff grants list/revoke; `@hotella/domain-communications` skeleton: channels CRUD with `credential_ref`, `MessagingProvider`/`SmsProvider` ports with fake adapters, channel identities, phone normalization, manifest | delivered |
-| 4.2 | Activation: tokens (on in-house stays with a verified identity, front-desk issuance/revoke), verification sessions with HMAC OTP, delivery chain WhatsApp → SMS with `verification_deliveries`, fallback sweep, health pre-emption + alert, rate limits, guest routes (`/guest/activation/*`, `/guest/me`), `GuestSessionGuard`, staff-assisted verification; room QR codes (generate, rotate, revoke, verify with last name); `guest.activated.v1` | planned |
+| 4.2 | Activation: tokens (on in-house stays with a verified identity, front-desk issuance/revoke), verification sessions with HMAC OTP, delivery chain WhatsApp → SMS with `verification_deliveries`, fallback sweep, health pre-emption + alert, rate limits, guest routes (`/guest/activation/*`, `/guest/me`), `GuestSessionGuard`, staff-assisted verification; room QR codes (generate, rotate, revoke, verify with last name); `guest.activated.v1` | delivered |
 | 4.3 | Messaging: Meta Cloud API and generic BSP adapters (templates, text, media refs, webhook signatures, delivery receipts) with contract tests; webhooks with raw store and worker normalization; conversations, participants, messages, delivery events; routing by verified identity + active grant; activation prompt for unverified phones; outbound queue with retries; staff inbox (list/filter, detail with guest/stay/room/open work, send, assign, takeover/handoff, close); guest conversation routes; checkout closes stay conversations; `comms.*` events | planned |
 | 4.4 | `apps/realtime` WebSocket gateway (staff access token / guest session; inbox and conversation updates through Valkey pub/sub); printable room QR sheet; pilot smoke extended to activation; Phase 4 acceptance (`docs/acceptance/phase-4.md`) | planned |
+
+Reality notes for 4.2:
+- The OTP is **derived, not stored**: `code = HMAC-SHA256(key, session id ‖ random seed)` truncated to 6 digits, under
+  the key `COMMS_OTP_HMAC_KEY_REF` (a SecretRef; pilot: `kv/hotella/app#otp_hmac_key`). The row keeps only the seed
+  (RESTRICTED), so a fallback channel re-sends *the same* code (ADR-0015) and the database alone never reveals it —
+  this replaces the plan's `otp_hash` column. Codes are compared in constant time.
+- The guest's device holds a 256-bit **handle** (SHA-256 at rest) for its verification session; the session id alone is
+  never a credential. A wrong code is counted and committed before the error is returned; the fifth locks the session.
+  A verified session becomes a grant and a guest session exactly once (`completed_at`); the activation link is consumed
+  at that moment (single use; replay → 410).
+- Who is verified: a link issued for a party member names them; otherwise the party member whose PMS phone matches the
+  verified number, else the primary guest. Room QR: the last name (case-, accent- and Arabic-diacritic-insensitive)
+  must match a member of a stay in house in that room; every mismatch gets the same `comms.qr.no_match`.
+- Delivery: the chain is primary + fallbacks from configuration, limited to the property's active channels and
+  skipping OFFLINE/AUTH_FAILED ones (which raises the `CHANNEL_UNHEALTHY` alert, deduplicated per channel). A provider
+  error moves on at once (`AUTO_FALLBACK`); a send without a delivery receipt after `comms.otp.fallback_timeout_seconds`
+  is moved on by the worker sweep `comms.otp.fallback` (every 5 s, SKIP LOCKED); the guest may ask for the next channel
+  after `comms.otp.manual_fallback_after_seconds`. Health: a success heals; an unavailable provider degrades, then takes
+  the channel offline; an authentication failure sticks until the channel's credentials or configuration change.
+  Delivery receipts (`ActivationService.deliveryStatus`) are fed by the provider webhooks of 4.3.
+- Staff-assisted verification: the guest reads out a 6-character reference; staff with `guest.activation.assist` find
+  the open session (masked phone, guest name) and confirm it with a reason (audited); the guest's device then calls
+  `POST /guest/activation/complete`. A session locked by wrong codes may still be confirmed in person; an expired one not.
+- Arrival: on `EXPECTED → IN_HOUSE` the worker sends the activation template to the primary guest's most recently
+  verified WhatsApp number at the tenant, if the property has a healthy WhatsApp channel; nothing is ever sent to an
+  unverified number. Otherwise front desk issues the link (`POST /properties/:p/stays/:s/activation-tokens`), shown once.
+- Guest API: `POST /guest/activation/start|otp/request|otp/resend|otp/verify|complete`, `GET /guest/qr/:token`,
+  `POST /guest/qr/:token/verify`, `GET /guest/me`, `POST /guest/logout`; per-IP rate limits on every public step.
+  `GuestSessionGuard` reads `X-Guest-Session`, re-checks session, grant and scope per request and sets a GUEST actor.
+- Staff API: activation tokens (issue/list/revoke, `guest.activation.issue`), verification sessions by reference and
+  assist (`guest.activation.assist`), room QR codes (list, generate/rotate — token shown once — revoke, `qr.manage`).
+  Front desk, guest relations and managers hold the activation permissions; general managers hold `qr.manage` and
+  `channel.manage`. The printable sheet arrives in 4.4.
+- `PropertySummary` exposes the property's country (national phone numbers); `GUEST_API.stayParty` gives verification
+  flows the party with names and PMS phone numbers.
 
 Reality notes for 4.1:
 - Grants carry the party role and their scopes; every change is a row in `guest.guest_access_grant_events`

@@ -17,6 +17,7 @@ x-app-env: &app-env
   STORAGE_SECRET_KEY_REF: vault://kv/hotella/app#s3_secret_key
   IAM_JWT_SIGNING_KEY_REF: vault://kv/hotella/app#jwt_private_key
   IAM_MFA_KEY_REF: vault://kv/hotella/app#mfa_key
+  COMMS_OTP_HMAC_KEY_REF: vault://kv/hotella/app#otp_hmac_key
   SECRETS_VAULT_ADDR: https://openbao:8200
   SECRETS_VAULT_AUTH: approle
   SECRETS_VAULT_ROLE_ID_FILE: /run/approle/role_id

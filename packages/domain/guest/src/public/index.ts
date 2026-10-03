@@ -80,6 +80,17 @@ export interface GuestPrincipal {
   readonly scopes: readonly GuestScope[];
 }
 
+/** A current member of a stay's party, for verification flows (names and PMS contact numbers are CONFIDENTIAL). */
+export interface StayPartyMember {
+  readonly guestId: string;
+  readonly role: 'PRIMARY' | 'ACCOMPANYING';
+  readonly givenName: string;
+  readonly familyName: string | null;
+  readonly primaryLocale: string | null;
+  /** Phone numbers the PMS gave for this guest, as normalized by the guest context. */
+  readonly phones: readonly string[];
+}
+
 export interface GuestPublicApi {
   getStay(tenantId: string, stayId: string): Promise<StaySummary | null>;
   /** In-house stays assigned to a room right now. */
@@ -88,6 +99,9 @@ export interface GuestPublicApi {
     propertyId: string,
     roomId: string,
   ): Promise<readonly StaySummary[]>;
+
+  /** Current party of a stay (primary first); empty for an unknown stay. */
+  stayParty(tenantId: string, stayId: string): Promise<readonly StayPartyMember[]>;
 
   // ---- guest access (Spec §19.3, §21) ----
   /** Grants access to a verified guest of an active stay (reuses a live grant of the same guest and stay). */

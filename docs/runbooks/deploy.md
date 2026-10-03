@@ -34,6 +34,11 @@ docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml pull api worke
 infra/docker/pilot/pilot.sh migrate                     # forward-only, expand/contract (ADR-0002)
 infra/docker/pilot/pilot.sh start                       # recreates api/worker with the new images, waits for readiness
 ```
+Releases that introduce a new secret say so in their notes. Add it to OpenBao **before** `start`, with `kv patch`
+(never rewrite the whole `kv/hotella/app` secret: values added by hand, such as `smtp_password`, would be lost). The
+Phase 4 release needs the guest OTP key: `bao kv patch kv/hotella/app otp_hmac_key="$(openssl rand -base64 32)"`
+(fresh installations get it from `pilot.sh init`). Without it guests cannot receive codes (`comms.otp.unavailable`).
+
 Read the release notes first: a release that contains a *contract* migration (dropping a column) requires that the previous release was already running the *expand* step; never skip releases that say so.
 
 ## After a host reboot

@@ -8,6 +8,7 @@ import type {
   GuestPublicApi,
   IssueGrantInput,
   OpenedGuestSession,
+  StayPartyMember,
   StaySummary,
 } from './public';
 
@@ -31,6 +32,38 @@ export class GuestPublicApiService implements GuestPublicApi {
     const stays = await this.repo.inHouseStaysInRoom({ tenantId, propertyId }, roomId);
     const out: StaySummary[] = [];
     for (const s of stays) out.push(await this.summary(tenantId, s));
+    return out;
+  }
+
+  async stayParty(tenantId: string, stayId: string): Promise<readonly StayPartyMember[]> {
+    const scope = { tenantId };
+    const party = await this.repo.activeParty(scope, stayId);
+    const guests = new Map(
+      (
+        await this.repo.guestsByIds(
+          scope,
+          party.map((m) => m.guestId),
+        )
+      ).map((g) => [g.id, g]),
+    );
+    const out: StayPartyMember[] = [];
+    for (const m of [...party].sort((a, b) =>
+      a.role === 'PRIMARY' ? -1 : b.role === 'PRIMARY' ? 1 : 0,
+    )) {
+      const g = guests.get(m.guestId);
+      if (!g || g.status !== 'ACTIVE') continue;
+      const phones = (await this.repo.identifiers(scope, g.id))
+        .filter((i) => i.kind === 'PHONE')
+        .map((i) => i.valueNormalized);
+      out.push({
+        guestId: g.id,
+        role: m.role,
+        givenName: g.givenName,
+        familyName: g.familyName,
+        primaryLocale: g.primaryLocale,
+        phones,
+      });
+    }
     return out;
   }
 

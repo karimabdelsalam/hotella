@@ -537,6 +537,9 @@ importers:
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../guest
+      '@hotella/domain-operations':
+        specifier: workspace:*
+        version: link:../operations
       '@hotella/domain-organization':
         specifier: workspace:*
         version: link:../organization
@@ -579,6 +582,9 @@ importers:
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       drizzle-orm:
         specifier: 0.45.3
         version: 0.45.3(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)
@@ -589,6 +595,9 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
+      '@hotella/domain-identity':
+        specifier: workspace:*
+        version: link:../identity
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../integrations
@@ -601,9 +610,6 @@ importers:
       '@hotella/tooling':
         specifier: workspace:*
         version: link:../../../tooling
-      '@nestjs/core':
-        specifier: 11.2.7
-        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-express':
         specifier: 11.2.7
         version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)

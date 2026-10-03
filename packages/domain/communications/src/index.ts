@@ -1,9 +1,15 @@
 export {
+  ARRIVAL_ACTIVATION_CONSUMER,
   CommunicationsCoreModule,
   CommunicationsModule,
   CommunicationsWorkerModule,
   GUEST_LIFECYCLE_CONSUMER,
+  OTP_FALLBACK_JOB,
 } from './communications.module';
+export { ActivationService } from './application/activation.service';
+export { ArrivalActivation } from './application/arrival-activation';
+export { OtpKeyring } from './application/otp-delivery';
+export { GUEST_SESSION_HEADER } from './api/guest-session.guard';
 export { ChannelRuntime } from './application/channel.service';
 export { ChannelIdentityService } from './application/identity.service';
 export { GuestLifecycleConsumer } from './application/guest-lifecycle';

@@ -1,3 +1,13 @@
 {
-  "comms.permission.channel_manage": "Set up messaging channels and their providers"
+  "comms.permission.channel_manage": "Set up messaging channels and their providers",
+  "comms.permission.activation_issue": "Hand out guest activation links",
+  "comms.permission.activation_assist": "Confirm a guest in person when no code arrives",
+  "comms.permission.qr_manage": "Generate, rotate and revoke room QR codes",
+  "comms.setting.otp_primary_channel": "Channel used first to send guest codes",
+  "comms.setting.otp_fallback_channels": "Channels tried next when a code is not delivered",
+  "comms.setting.otp_fallback_timeout_seconds": "Seconds to wait for a delivery receipt before trying the next channel",
+  "comms.setting.otp_manual_fallback_after_seconds": "Seconds before a guest may ask for the code another way",
+  "comms.setting.otp_staff_assist_enabled": "Front desk may confirm a guest in person",
+  "comms.setting.activation_token_ttl_hours": "Hours an activation link stays valid",
+  "comms.otp.sms_text": "{code} is your {property} code. It expires in 5 minutes. Never share it."
 }
