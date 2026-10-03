@@ -9,6 +9,7 @@ import { AiAdminController, AiExecutionsController } from './api/controllers';
 import { AiAdminService } from './application/admin.service';
 import { AgentCatalog } from './application/agent-catalog';
 import { ConciergeRuntime } from './application/concierge.runtime';
+import { StaffAssistantRuntime } from './application/staff-assistant.runtime';
 import { ContextEngine } from './application/context-engine';
 import { ExecutionAuditService } from './application/execution-audit.service';
 import { FeedbackRecorder } from './application/feedback-recorder';
@@ -22,7 +23,7 @@ import { ToolsV1 } from './application/tools/v1';
 import { AI_SETTINGS } from './domain/settings';
 import { AiRepositories } from './infrastructure/repositories';
 import { AI_MANIFEST } from './manifest';
-import { AI_TOOL_REGISTRY, MODEL_GATEWAY } from './public';
+import { AI_TOOL_REGISTRY, MODEL_GATEWAY, STAFF_ASSISTANT_API } from './public';
 
 /** Inbox consumers of the worker: rejected or expired AI proposals are closed; guest messages wake the concierge. */
 export const AI_PROPOSAL_SETTLE_CONSUMER = 'ai.proposal-settle';
@@ -70,8 +71,17 @@ export class AiCoreModule {}
     ToolExecutor,
     ContextEngine,
     ConciergeRuntime,
+    StaffAssistantRuntime,
+    { provide: STAFF_ASSISTANT_API, useExisting: StaffAssistantRuntime },
   ],
-  exports: [ToolRegistry, AI_TOOL_REGISTRY, ToolExecutor, ContextEngine, ConciergeRuntime],
+  exports: [
+    ToolRegistry,
+    AI_TOOL_REGISTRY,
+    ToolExecutor,
+    ContextEngine,
+    ConciergeRuntime,
+    STAFF_ASSISTANT_API,
+  ],
 })
 export class AiToolsModule implements OnModuleInit {
   constructor(

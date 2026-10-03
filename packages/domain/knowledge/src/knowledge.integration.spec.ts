@@ -219,6 +219,21 @@ describe.skipIf(needsInfra())(`Knowledge v1 (${infraSkipReason()})`, () => {
       language: 'en',
     });
     expect(titles(staffFound)).toContain('Master keys');
+    // Restricted to named documents (an asset's manuals): only those, still within scope; none named finds nothing.
+    const keysDoc = staffFound.find((p) => p.title === 'Master keys')!.documentId;
+    const only = (documentIds: readonly string[]) =>
+      api.search({
+        tenantId: a.tenantId,
+        propertyId: P1(),
+        query: 'check-out keys',
+        audience: 'STAFF',
+        maxClassification: 'INTERNAL',
+        language: 'en',
+        documentIds,
+      });
+    expect(titles(await only([keysDoc]))).toEqual(['Master keys']);
+    expect(titles(await only([]))).toEqual([]);
+    expect(titles(await only(['not-a-uuid']))).toEqual([]);
     // Not yet effective, archived: not found.
     expect(titles(await guestSearch('المسبح'))).toEqual([]);
     expect(titles(await guestSearch('الجيم'))).toEqual([]);

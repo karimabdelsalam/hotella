@@ -37,6 +37,21 @@ export const ENGINEERING_MANIFEST = defineManifest({
     PmDue.name,
     RoomRestrictionChanged.name,
   ],
+  // The Engineering Copilot's tools (BUILD_PLAN 8.4): all READ.
+  aiTools: [
+    { code: 'engineering.find_assets', risk: 'READ', requiredPermission: 'eng.asset.read' },
+    {
+      code: 'engineering.get_asset_history',
+      risk: 'READ',
+      requiredPermission: 'eng.work_order.read',
+    },
+    {
+      code: 'engineering.likely_failure_modes',
+      risk: 'READ',
+      requiredPermission: 'eng.work_order.read',
+    },
+    { code: 'engineering.search_manuals', risk: 'READ', requiredPermission: 'eng.asset.read' },
+  ],
   integrationCapabilities: ['OOO_WRITE'],
   entitlements: ['ENGINEERING'],
   localeNamespaces: ['eng'],

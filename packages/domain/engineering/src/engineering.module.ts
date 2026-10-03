@@ -1,4 +1,5 @@
-import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
+import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
+import { AI_TOOL_REGISTRY, type AiToolRegistrar } from '@hotella/domain-ai/public';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { ManifestRegistry } from '@hotella/platform-manifest';
@@ -13,7 +14,9 @@ import {
 } from './api/controllers';
 import { MaintenanceService } from './application/maintenance.service';
 import { RestrictionService } from './application/restriction.service';
+import { EngineeringAiTools } from './application/ai-tools';
 import { AssetService } from './application/asset.service';
+import { CopilotService } from './application/copilot.service';
 import { EngineeringPublicApiService } from './application/public-api.service';
 import { ENG_WORK_ORDER_KIND, WorkOrderService } from './application/work-order.service';
 import { EngineeringRepositories } from './infrastructure/repositories';
@@ -28,7 +31,8 @@ const PM_SWEEP_EVERY_MS = 60 * 60 * 1000;
 
 /**
  * Engineering without HTTP routes (API and worker): repositories, the asset registry, work orders and
- * `ENGINEERING_API`. Registers the `ENG_WORK_ORDER` work kind with the operations engine.
+ * `ENGINEERING_API`. Registers the `ENG_WORK_ORDER` work kind with the operations engine and, where the AI context is
+ * loaded, the Engineering Copilot's tools.
  */
 @Global()
 @Module({
@@ -38,6 +42,7 @@ const PM_SWEEP_EVERY_MS = 60 * 60 * 1000;
     WorkOrderService,
     MaintenanceService,
     RestrictionService,
+    EngineeringAiTools,
     EngineeringPublicApiService,
     { provide: ENGINEERING_API, useExisting: EngineeringPublicApiService },
   ],
@@ -51,8 +56,13 @@ const PM_SWEEP_EVERY_MS = 60 * 60 * 1000;
   ],
 })
 export class EngineeringCoreModule implements OnModuleInit {
-  constructor(@Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi) {}
+  constructor(
+    @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
+    private readonly aiTools: EngineeringAiTools,
+    @Optional() @Inject(AI_TOOL_REGISTRY) private readonly tools?: AiToolRegistrar,
+  ) {}
   onModuleInit(): void {
+    if (this.tools) this.aiTools.registerInto(this.tools);
     this.ops.registerWorkItemKind({
       code: ENG_WORK_ORDER_KIND,
       module: 'eng',
@@ -64,6 +74,7 @@ export class EngineeringCoreModule implements OnModuleInit {
 /** Staff API and manifest, for the API process. */
 @Module({
   imports: [EngineeringCoreModule],
+  providers: [CopilotService],
   controllers: [
     EngineeringReferenceController,
     AssetsController,

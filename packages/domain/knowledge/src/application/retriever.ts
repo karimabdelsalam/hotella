@@ -51,6 +51,7 @@ export class KnowledgeRetriever implements KnowledgePublicApi {
       classifications: CLASSES.slice(0, CLASSES.indexOf(input.maxClassification) + 1),
       today: new Date().toISOString().slice(0, 10),
       departmentCode: input.departmentCode ?? null,
+      documentIds: input.documentIds ? input.documentIds.filter(isUuid) : null,
     };
     const limit = Math.min(Math.max(input.limit ?? 5, 1), 20);
     return this.tx.read(async () => {

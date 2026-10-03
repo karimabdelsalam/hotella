@@ -5,7 +5,8 @@ import { sql } from 'drizzle-orm';
 import { GuestModule } from '@hotella/domain-guest';
 import { IDENTITY_API } from '@hotella/domain-identity/public';
 import { IntegrationsModule } from '@hotella/domain-integrations';
-import { KNOWLEDGE_API } from '@hotella/domain-knowledge/public';
+import { STAFF_ASSISTANT_API, type StaffAssistantInput } from '@hotella/domain-ai/public';
+import { KNOWLEDGE_API, type KnowledgeSearchInput } from '@hotella/domain-knowledge/public';
 import { OperationsModule } from '@hotella/domain-operations';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
@@ -68,6 +69,34 @@ export const ADMIN = JSON.stringify({
 export const staff = (id: string, tenantId: string): string =>
   JSON.stringify({ type: 'USER', id, tenantId, isPlatformAdmin: false });
 
+/** The knowledge searches engineering made, newest last. */
+export const SEARCHES: KnowledgeSearchInput[] = [];
+/** The questions put to the staff assistant, newest last (answered at once, without a model). */
+export const ASKS: StaffAssistantInput[] = [];
+
+@Global()
+@Module({
+  providers: [
+    {
+      provide: STAFF_ASSISTANT_API,
+      useValue: {
+        ask: async (input: StaffAssistantInput) => {
+          ASKS.push(input);
+          return {
+            executionId: 'execution-1',
+            outcome: 'ANSWERED',
+            answer: 'Check the capacitor first.',
+            locale: 'en',
+            sources: [],
+          };
+        },
+      },
+    },
+  ],
+  exports: [STAFF_ASSISTANT_API],
+})
+class FakeStaffAssistantModule {}
+
 /** Knowledge as engineering sees it: a document's identity, read straight from its table. */
 @Global()
 @Module({
@@ -76,7 +105,22 @@ export const staff = (id: string, tenantId: string): string =>
       provide: KNOWLEDGE_API,
       inject: [DATABASE],
       useFactory: (db: Database) => ({
-        search: async () => [],
+        // Every search is recorded; documents named by id answer with one passage each.
+        search: async (input: KnowledgeSearchInput) => {
+          SEARCHES.push(input);
+          return (input.documentIds ?? []).map((id, i) => ({
+            chunkId: `chunk-${i}`,
+            documentId: id,
+            versionId: `version-${i}`,
+            versionNo: 1,
+            title: 'Linked manual',
+            kind: 'MANUAL',
+            language: 'en',
+            text: 'Reset the unit: switch off at the isolator for 30 seconds.',
+            score: 1,
+            matchedBy: ['KEYWORD'],
+          }));
+        },
         getDocument: async (tenantId: string, id: string) => {
           const { rows } = await db.execute(
             sql`select id, property_id, kind, title, status from knowledge.documents where id = ${id} and tenant_id = ${tenantId}`,
@@ -153,6 +197,7 @@ export async function startEngineeringApp(
       FakeIdentityModule,
       OperationsModule,
       FakeKnowledgeModule,
+      FakeStaffAssistantModule,
       EngineeringModule,
     ],
   }).compile();

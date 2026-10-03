@@ -213,6 +213,7 @@
   "errors.comms.conversation.ai_needs_verified_guest": "لا يشارك مساعد الذكاء الاصطناعي إلا بعد التحقق من هوية الضيف.",
   "errors.comms.draft.not_pending": "لم يعد اقتراح الذكاء الاصطناعي هذا حديثًا. أعد تحميل المحادثة.",
   "errors.ai.agent.not_found": "مساعد الذكاء الاصطناعي هذا غير موجود.",
+  "errors.ai.agent.not_read_only": "هذا المساعد مسموح له بالقراءة فقط، لكن إحدى أدواته يمكنها التنفيذ.",
   "errors.ai.execution.not_found": "تنفيذ الذكاء الاصطناعي هذا غير موجود.",
   "errors.knowledge.document.not_found": "هذا المستند غير موجود.",
   "errors.knowledge.document.archived": "هذا المستند مؤرشف.",

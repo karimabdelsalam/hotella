@@ -6,7 +6,6 @@ import {
 } from '@hotella/domain-communications/public';
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { FeatureFlagService } from '@hotella/platform-flags';
-import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import {
   GUEST_CONCIERGE,
@@ -15,14 +14,9 @@ import {
   replyLocale,
 } from '../domain/agents';
 import { killSwitch } from '../domain/settings';
-import {
-  type ClassifiedText,
-  type GatewayCompletion,
-  type GatewayMessage,
-  MODEL_GATEWAY,
-  type ModelGatewayApi,
-} from '../public';
+import { type ClassifiedText, MODEL_GATEWAY, type ModelGatewayApi } from '../public';
 import { AgentCatalog, type PublishedAgent } from './agent-catalog';
+import { runAgentLoop } from './agent-loop';
 import { ContextEngine } from './context-engine';
 import { type ExecutionHandle, ToolExecutor } from './tools/executor';
 import { ToolRegistry } from './tools/registry';
@@ -33,9 +27,6 @@ const LANGUAGE: Record<'ar' | 'en', string> = {
   ar: 'Reply in Arabic, in the same dialect and tone the guest used (Egyptian Arabic is fine).',
   en: 'Reply in English.',
 };
-
-/** Tool results and messages are capped before they go back to the model. */
-const MAX_TOOL_RESULT_CHARS = 6000;
 
 /**
  * The Guest Concierge v1 runtime (Spec §23–§24, BUILD_PLAN 6.B): triggered by a guest message in a verified stay
@@ -202,89 +193,21 @@ export class ConciergeRuntime {
       },
       ...built.parts,
     ];
-    const tools = this.registry.forModel(
-      agent.tools.filter((t) => !agent.output.runtimeTools.includes(t)),
+    return runAgentLoop(
+      { gateway: this.gateway, executor: this.executor, registry: this.registry },
+      {
+        handle,
+        agent,
+        system,
+        history: built.history,
+        output: { name: 'concierge_reply', schema: outputSchema },
+        parse: (content) => parseOutput(content, outputSchema),
+        describe: (answer) => ({
+          outcome: answer.handoff ? 'HANDOFF' : 'ANSWER',
+          summary: { handoff: answer.handoff, reply_chars: answer.reply.length },
+        }),
+      },
     );
-    const turns: GatewayMessage[] = [];
-    for (let step = 0; step < agent.maxSteps; step++) {
-      let completion: GatewayCompletion;
-      const started = Date.now();
-      try {
-        completion = await this.gateway.complete({
-          tenantId: handle.tenantId,
-          propertyId: handle.propertyId,
-          capability: agent.capability,
-          system,
-          messages: [...built.history, ...turns],
-          tools,
-          jsonSchema: {
-            name: 'concierge_reply',
-            schema: z.toJSONSchema(outputSchema) as Record<string, unknown>,
-          },
-          executionId: handle.id,
-          agentCode: agent.code,
-        });
-      } catch (e) {
-        await this.executor.step(handle, {
-          type: 'MODEL_CALL',
-          name: agent.capability,
-          outcome: e instanceof AppError ? e.code : 'ERROR',
-          latencyMs: Date.now() - started,
-        });
-        return null;
-      }
-      await this.executor.step(handle, {
-        type: 'MODEL_CALL',
-        name: agent.capability,
-        outcome: completion.finishReason.toUpperCase(),
-        summary: {
-          provider: completion.provider,
-          model: completion.model,
-          model_call_id: completion.modelCallId,
-          fallback_from: completion.fallbackFrom,
-          tool_calls: completion.toolCalls.length,
-          cost_minor: completion.costMinor,
-        },
-        latencyMs: Date.now() - started,
-      });
-      if (completion.toolCalls.length > 0) {
-        turns.push({
-          role: 'assistant',
-          content: completion.content,
-          toolCalls: completion.toolCalls,
-          dataClass: 'CONFIDENTIAL',
-        });
-        for (const call of completion.toolCalls) {
-          const tool = this.registry.fromModelName(call.name);
-          const outcome = await this.executor.invoke(handle, {
-            tool: tool?.code ?? call.name,
-            arguments: call.arguments,
-          });
-          turns.push({
-            role: 'tool',
-            toolCallId: call.id,
-            content: JSON.stringify(outcome).slice(0, MAX_TOOL_RESULT_CHARS),
-            dataClass: 'CONFIDENTIAL',
-          });
-        }
-        continue;
-      }
-      const parsed = parseOutput(completion.content, outputSchema);
-      await this.executor.step(handle, {
-        type: 'DECISION',
-        name: 'output',
-        outcome: parsed ? (parsed.handoff ? 'HANDOFF' : 'ANSWER') : 'UNPARSEABLE',
-        summary: parsed ? { handoff: parsed.handoff, reply_chars: parsed.reply.length } : {},
-      });
-      return parsed;
-    }
-    await this.executor.step(handle, {
-      type: 'DECISION',
-      name: 'step_budget',
-      outcome: 'EXHAUSTED',
-      summary: { max_steps: agent.maxSteps },
-    });
-    return null;
   }
 
   private async handOff(handle: ExecutionHandle, reason: HandoffReason): Promise<'HANDED_OFF'> {

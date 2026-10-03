@@ -213,6 +213,70 @@ export class EngineeringRepositories {
       )
       .orderBy(asc(assets.assetNumber));
   }
+  /** Assets of the property whose number or name contains the text (case-insensitive), at most `limit`. */
+  searchAssets(scope: PropertyScope, text: string, limit: number): Promise<AssetRow[]> {
+    const like = `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    return this.x
+      .select()
+      .from(assets)
+      .where(
+        propertyWhere(
+          assets,
+          scope,
+          or(sql`${assets.assetNumber} ilike ${like}`, sql`${assets.name} ilike ${like}`)!,
+        ),
+      )
+      .orderBy(asc(assets.assetNumber))
+      .limit(limit);
+  }
+  /**
+   * How often each failure mode, cause and resolution was recorded on closed work orders of assets of one model (or,
+   * without a model, one type) across the tenant — deterministic counts for "what usually fails on this".
+   */
+  async failureStats(
+    scope: TenantScope,
+    of: { readonly assetModelId: string } | { readonly assetTypeId: string },
+  ): Promise<{
+    closed: number;
+    codes: Array<{ kind: 'FAILURE_MODE' | 'CAUSE' | 'RESOLUTION'; code: string; count: number }>;
+  }> {
+    const assetFilter =
+      'assetModelId' in of
+        ? eq(assets.assetModelId, of.assetModelId)
+        : eq(assets.assetTypeId, of.assetTypeId);
+    const base = and(
+      eq(workOrders.tenantId, scope.tenantId),
+      eq(workOrders.status, 'DONE'),
+      assetFilter,
+    );
+    const [total] = await this.x
+      .select({ n: sql<number>`count(*)::int` })
+      .from(workOrders)
+      .innerJoin(assets, eq(assets.id, workOrders.assetId))
+      .where(base);
+    const column = {
+      FAILURE_MODE: workOrders.failureModeCode,
+      CAUSE: workOrders.causeCode,
+      RESOLUTION: workOrders.resolutionCode,
+    } as const;
+    const codes: Array<{
+      kind: 'FAILURE_MODE' | 'CAUSE' | 'RESOLUTION';
+      code: string;
+      count: number;
+    }> = [];
+    for (const kind of ['FAILURE_MODE', 'CAUSE', 'RESOLUTION'] as const) {
+      const rows = await this.x
+        .select({ code: column[kind], n: sql<number>`count(*)::int` })
+        .from(workOrders)
+        .innerJoin(assets, eq(assets.id, workOrders.assetId))
+        .where(and(base, sql`${column[kind]} is not null`))
+        .groupBy(column[kind])
+        .orderBy(sql`count(*) desc`, asc(column[kind]))
+        .limit(5);
+      for (const r of rows) if (r.code) codes.push({ kind, code: r.code, count: r.n });
+    }
+    return { closed: total?.n ?? 0, codes };
+  }
   /** The asset's ancestors, nearest first (cycle-safe: depth-limited). */
   async ancestors(scope: TenantScope, id: string): Promise<string[]> {
     const rows = await this.x.execute(sql`

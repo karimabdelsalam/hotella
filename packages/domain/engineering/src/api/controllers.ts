@@ -36,12 +36,14 @@ import {
   readingSchema,
   updatePlanSchema,
 } from '../application/maintenance.service';
+import { askCopilotSchema, CopilotService } from '../application/copilot.service';
 import {
   createRestrictionSchema,
   listRestrictionsSchema,
   RestrictionService,
 } from '../application/restriction.service';
 
+class AskCopilotDto extends createZodDto(askCopilotSchema) {}
 class CreateAssetTypeDto extends createZodDto(createAssetTypeSchema) {}
 class UpdateAssetTypeDto extends createZodDto(updateAssetTypeSchema) {}
 class CreateAssetModelDto extends createZodDto(createAssetModelSchema) {}
@@ -183,6 +185,7 @@ class WarrantyDecisionDto extends createZodDto(warrantyDecisionSchema) {}
 export class WorkOrdersController {
   constructor(
     private readonly orders: WorkOrderService,
+    private readonly copilot: CopilotService,
     private readonly ctx: RequestContext,
     private readonly actors: ActorStore,
   ) {}
@@ -203,6 +206,14 @@ export class WorkOrdersController {
   @RequirePermission('eng.work_order.manage', { checkedBy: 'gate' })
   create(@Param('propertyId') propertyId: string, @Body() body: CreateWorkOrderDto) {
     return this.orders.create(this.scope(propertyId), body);
+  }
+
+  /** Engineering Copilot v1 (ASSIST): a question, optionally about the asset the engineer has open. */
+  @Post('copilot')
+  @HttpCode(200)
+  @RequirePermission('eng.work_order.read', { checkedBy: 'gate' })
+  ask(@Param('propertyId') propertyId: string, @Body() body: AskCopilotDto) {
+    return this.copilot.ask(this.scope(propertyId), body);
   }
 
   @Post('work-orders/from-request')

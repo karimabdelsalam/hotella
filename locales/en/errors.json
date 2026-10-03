@@ -213,6 +213,7 @@
   "errors.comms.conversation.ai_needs_verified_guest": "The AI assistant can only take part once the guest is verified.",
   "errors.comms.draft.not_pending": "This AI suggestion is no longer current. Reload the conversation.",
   "errors.ai.agent.not_found": "This AI assistant does not exist.",
+  "errors.ai.agent.not_read_only": "This assistant may only read, but one of its tools can act.",
   "errors.ai.execution.not_found": "This AI execution does not exist.",
   "errors.knowledge.document.not_found": "This document does not exist.",
   "errors.knowledge.document.archived": "This document is archived.",

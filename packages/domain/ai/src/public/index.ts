@@ -122,4 +122,39 @@ export interface AiToolRegistrar {
 }
 export const AI_TOOL_REGISTRY = Symbol.for('hotella.domain.ai.tools');
 
+// ---- staff-facing assistants (Spec §29, ASSIST) ----
+
+export interface StaffAssistantInput {
+  readonly tenantId: string;
+  readonly propertyId: string;
+  /** A built-in staff agent, e.g. `ENGINEERING_COPILOT`. */
+  readonly agentCode: string;
+  readonly question: string;
+  /** The person's language; the question's script wins when it is clearly Arabic or English. */
+  readonly locale: string;
+  /** The staff member who asked (the execution is recorded on their behalf). */
+  readonly userId: string;
+  /** What the person is looking at (e.g. the asset), labelled with its data class. */
+  readonly focus?: readonly ClassifiedText[];
+}
+
+export interface StaffAssistantAnswer {
+  readonly executionId: string;
+  readonly outcome: 'ANSWERED' | 'DISABLED' | 'FAILED';
+  readonly answer: string | null;
+  readonly locale: 'ar' | 'en';
+  /** The documents the tools returned while answering (exact versions, Spec §38). */
+  readonly sources: ReadonlyArray<{
+    readonly documentId: string;
+    readonly title: string;
+    readonly versionNo: number;
+  }>;
+}
+
+/** Asks a staff assistant a question; it may only read (its tools are READ) and answers in the person's language. */
+export interface StaffAssistantApi {
+  ask(input: StaffAssistantInput): Promise<StaffAssistantAnswer>;
+}
+export const STAFF_ASSISTANT_API = Symbol.for('hotella.domain.ai.staff-assistant');
+
 export { AI_MANIFEST } from '../manifest';

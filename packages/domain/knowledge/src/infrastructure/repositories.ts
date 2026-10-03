@@ -27,6 +27,8 @@ export interface CandidateFilter {
   readonly today: string;
   readonly language: string | null;
   readonly departmentCode: string | null;
+  /** Only these documents (e.g. the manuals linked to one asset); null for every document in scope. */
+  readonly documentIds: readonly string[] | null;
 }
 
 @Injectable()
@@ -214,6 +216,16 @@ export class KnowledgeRepositories {
       ${
         f.departmentCode
           ? sql`and (${documentVersions.departmentCode} is null or ${documentVersions.departmentCode} = ${f.departmentCode})`
+          : sql``
+      }
+      ${
+        f.documentIds
+          ? f.documentIds.length > 0
+            ? sql`and ${documents.id} in (${sql.join(
+                f.documentIds.map((id) => sql`${id}::uuid`),
+                sql`, `,
+              )})`
+            : sql`and false`
           : sql``
       }`;
   }

@@ -14,6 +14,8 @@ export interface KnowledgeSearchInput {
   /** Preferred language; other languages are used only when it has no match. */
   readonly language?: string | null;
   readonly departmentCode?: string | null;
+  /** Only these documents (still within the scope above); an empty list finds nothing. */
+  readonly documentIds?: readonly string[] | null;
   readonly limit?: number;
 }
 
