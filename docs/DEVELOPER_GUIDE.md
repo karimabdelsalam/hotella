@@ -21,13 +21,22 @@ corepack enable              # pnpm 11, exact version pinned
 pnpm install                 # frozen lockfile
 cp .env.example .env         # dev defaults only; no secrets needed locally
 pnpm dev:infra               # PostgreSQL 18 + pgvector, Valkey 9, MinIO, Mailpit, Grafana (otel-lgtm)
-pnpm db:migrate              # applies packages/platform/database/migrations
-pnpm dev                     # api + worker with hot reload
-curl -s localhost:3000/api/v1/ready
-pnpm test                    # unit + integration (Testcontainers; Docker must be running)
+pnpm build                   # compiles packages (SWC) and the API; required once before dev/test
+pnpm dev                     # api (nest start --watch) + packages in watch mode
+curl -s localhost:3000/api/v1/health   # liveness
+curl -s localhost:3000/api/v1/ready    # readiness: 200 when PostgreSQL + Valkey reachable, else 503 Problem Details with per-dependency details
+pnpm test                    # unit + e2e (Sprint 0.2 adds Testcontainers integration tests; Docker then required)
 ```
 
-Useful URLs in dev: API docs `http://localhost:3000/api/docs`, Mailpit `http://localhost:8025`, MinIO console `http://localhost:9001`, Grafana `http://localhost:3001`.
+> `pnpm db:migrate` / `pnpm db:generate` / `pnpm db:check` arrive with Sprint 0.2 (`@hotella/platform-database`).
+
+Full verification exactly as CI runs it:
+
+```bash
+pnpm format:check && pnpm lint && pnpm lint:selftest && pnpm depcruise && pnpm build && pnpm typecheck && pnpm test
+```
+
+Useful URLs in dev: Mailpit `http://localhost:8025`, MinIO console `http://localhost:9001`, Grafana `http://localhost:3001`; API docs `http://localhost:3000/api/docs` arrive with Sprint 0.3.9.
 
 Everything above is a `package.json` script; if a script name changes, this section changes in the same PR.
 
@@ -85,11 +94,12 @@ Full list in `CLAUDE.md`; these are the ones that bite newcomers:
 
 ```bash
 git switch -c feat/<ctx>-<short-description>
-pnpm test --filter @hotella/domain-<ctx>      # fast loop on one package
+pnpm --filter @hotella/domain-<ctx> test       # fast loop on one package
 pnpm lint && pnpm format && pnpm typecheck && pnpm depcruise
-pnpm db:generate                               # after changing a schema.ts; then READ the SQL it produced
-pnpm db:check                                  # CI runs this; drift = failure
-git commit -m "feat(<ctx>): <what and why>"    # Conventional Commits, commitlint-enforced
+pnpm lint:selftest                             # proves the forbidden-pattern rules still fire
+pnpm db:generate                               # (Sprint 0.2+) after changing a schema.ts; then READ the SQL it produced
+pnpm db:check                                  # (Sprint 0.2+) CI runs this; drift = failure
+git commit -m "feat(<ctx>): <what and why>"    # Conventional Commits, commitlint-enforced in CI
 ```
 
 Open a PR; the template is the four quality gates (automated checks, spec review, docs sync, acceptance). Keep PRs small and single-purpose. Reviewers check the Definition of Done in `BUILD_PLAN.md` §12.
@@ -97,7 +107,7 @@ Open a PR; the template is the four quality gates (automated checks, spec review
 ## 6. How to add a new bounded context (worked example: `spa`)
 
 1. **Plan first.** Add a section to `docs/BUILD_PLAN.md` with scope, domain model, migrations, APIs, events, permissions, tests, acceptance (Spec §84.5). Add rows to `docs/TRACEABILITY.md`.
-2. `pnpm gen:context spa` scaffolds `packages/domain/spa` with the folder layout above, a `pgSchema('spa')`, an empty `ModuleManifest`, locale namespaces `locales/{en,ar}/spa.json`, and a tenant-leak test.
+2. `pnpm gen:context spa` (scaffold generator planned for Sprint 0.3) scaffolds `packages/domain/spa` with the folder layout above, a `pgSchema('spa')`, an empty `ModuleManifest`, locale namespaces `locales/{en,ar}/spa.json`, and a tenant-leak test.
 3. Define tables in `infrastructure/schema.ts` using the helpers (`baseColumns()`, `tenantScoped()`, `versioned()`, `translationTable()`, `dataClass(...)`). Run `pnpm db:generate`, review the SQL, commit the migration.
 4. Write the domain model in `domain/` (pure TypeScript, unit-tested).
 5. Write use cases in `application/`; start transactions with `withTransaction()`; publish events with `EventPublisher`; write audit rows with `AuditWriter`.

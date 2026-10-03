@@ -1,0 +1,7 @@
+dist
+coverage
+node_modules
+.turbo
+pnpm-lock.yaml
+docs/spec/HOTELLA_MASTER_SPEC.md
+docs/

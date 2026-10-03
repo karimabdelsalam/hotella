@@ -6,20 +6,23 @@ concrete technology decisions are in `docs/BUILD_PLAN.md` and `docs/adr/`; `docs
 Read all three before changing anything structural. Work phase by phase; never build ahead of the current phase.
 
 ## Stack (locked by ADRs, do not change without a new ADR)
+
 TypeScript 6 strict (ESM-style source, CommonJS output until the planned NestJS 12 move) · Node 24 LTS · NestJS 11 modular monolith
-· pnpm 11 + Turborepo · PostgreSQL 18 (+pgvector) · Drizzle ORM 0.45 (core query builder) with reviewed SQL migrations · Valkey 9 + BullMQ
-· S3-compatible storage · Zod 4 contracts (+ nestjs-zod) · pino + OpenTelemetry SDK 2 · Vitest 4 + Testcontainers
-· ESLint 10 + eslint-plugin-boundaries + Prettier 3 + dependency-cruiser · ICU MessageFormat catalog shared with the frontend
+· pnpm 10 (11 from 28 Oct 2026) + Turborepo · PostgreSQL 18 (+pgvector) · Drizzle ORM 0.45 (core query builder) with reviewed SQL migrations · Valkey 9 + ioredis 5 + BullMQ 5
+· S3-compatible storage · Zod 4 contracts (+ nestjs-zod) · pino 10 + OpenTelemetry SDK 2 · Vitest 4 + Testcontainers
+· ESLint 10 (type-aware, `no-restricted-imports` per layer) + Prettier 3 + dependency-cruiser + package `exports` maps · ICU MessageFormat catalog shared with the frontend
 · Next.js 16 LTS + next-intl + Tailwind 4 · .NET 10 LTS for the on-prem hotel agent (Phase 10)
 · Version policy: **Maturity Gate** (GA ≥ 6 months, ecosystem + tooling ready, exit path, no node-gyp); HOLD list with dates for NestJS 12 / TS 7 / Node 26 / Drizzle 1.0 / oxlint — ADR-0016
 · Hosted on **Planova-operated internet-reachable servers** (Compose → k3s/RKE2, Vault, MinIO, Valkey, Grafana stack) — ADR-0013; hotels run only the thin agent, which connects **outbound-only** (enrollment → mTLS, WSS/HTTPS, durable ordered idempotent link, signed commands) — ADR-0017 · OPERA 5 via FIAS + OWS adapters — ADR-0014 · WhatsApp via Meta Cloud API or BSP adapters with SMS OTP fallback — ADR-0015.
 
 ## Repository shape
+
 - `apps/*` compose; `packages/platform/*` are infrastructure; `packages/domain/*` are bounded contexts; `packages/contracts/*` are zod schemas (events, api, connectors, ai-tools).
-- A domain package exposes other domains **only** `src/public`. Never import another domain's `infrastructure`, `schema` or repositories. ESLint boundaries enforces this; dependency-cruiser forbids cycles.
+- A domain package exposes other domains **only** `src/public`. Never import another domain's `infrastructure`, `schema` or repositories. ESLint `no-restricted-imports` and the package `exports` maps enforce this; dependency-cruiser forbids cycles. `pnpm lint:selftest` must keep passing.
 - Each bounded context owns its PostgreSQL schema (`org`, `iam`, `guest`, `catalog`, `ops`, `hk`, `eng`, `inspection`, `relations`, `lostfound`, `logbook`, `comms`, `knowledge`, `ai`, `integration`, `license`, `audit`, `platform`). No domain writes another domain's tables; use its application service or an event.
 
 ## Hard rules (from Spec §82–§84; violating any of these is a bug)
+
 1. Every tenant-owned table has `tenant_id` (and `property_id` where scoped); every query is tenant-filtered through the repository base; cross-tenant probing returns 404.
 2. Ids are application-generated UUIDv7 (`newId()`), timestamps are `TIMESTAMPTZ` in UTC, concurrency-sensitive rows have `version`.
 3. External/PMS ids live only in `integration.external_references`; they are never primary keys.
@@ -45,7 +48,16 @@ TypeScript 6 strict (ESM-style source, CommonJS output until the planned NestJS 
 23. Staff UX stays simpler than the backend: never push platform complexity into the staff or guest screens.
 24. Naming is binding: events `<context>.<entity>.<event>.vN` (`hotel.*` reserved for canonical PMS events), permissions `<domain>.<resource>.<action>`, locale keys `<domain>.<entity>.<message>`, schemas as listed above.
 
+## Autonomy rule (set by the product owner)
+
+Keep working without pausing: finish the current sprint, run its gates, commit, push, and continue to the next sprint/phase in order.
+Stop and ask the owner **only** for a decision that is theirs to make: commercial/licensing terms, a change of scope or phase order,
+a security or privacy trade-off, an irreversible or destructive action (data deletion, force-push, production changes), spending money,
+or a material deviation from the spec. Everything else is decided here with the spec, ADRs and this file, and reported in the summary.
+Never stop for a question whose answer the spec or an ADR already gives.
+
 ## Working conventions
+
 - Read `docs/DEVELOPER_GUIDE.md` first; it is the onboarding path and must stay accurate (update it in the same PR as any command or layout change).
 - Conventional Commits (`feat(ops): …`, `fix(guest): …`, `docs: …`); scope = package or context code.
 - Write ESM-ready source: `import` only, no `require`, no `__dirname`, no CommonJS-only idioms; no TypeScript options deprecated in 6.x; no dependency that compiles native code at install (`node-gyp`).

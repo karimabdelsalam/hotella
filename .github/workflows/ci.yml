@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: lint · typecheck · build · test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: hotella
+          POSTGRES_PASSWORD: hotella
+          POSTGRES_DB: hotella
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U hotella -d hotella" --health-interval 5s --health-timeout 3s --health-retries 20
+      valkey:
+        image: valkey/valkey:9
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://hotella:hotella@localhost:5432/hotella
+      VALKEY_URL: redis://localhost:6379
+      TURBO_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4 # reads packageManager from package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Commit messages follow Conventional Commits
+        if: github.event_name == 'pull_request'
+        run: pnpm commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm lint:selftest
+      - run: pnpm depcruise
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Readiness against real PostgreSQL 18 + Valkey 9
+        run: |
+          node apps/api/dist/main.js & echo $! > api.pid
+          for i in $(seq 1 30); do curl -fsS localhost:3000/api/v1/ready && break; sleep 1; done
+          curl -fsS localhost:3000/api/v1/ready | tee ready.json
+          kill "$(cat api.pid)"
+        env:
+          NODE_ENV: test
+          LOG_LEVEL: warn

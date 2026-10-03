@@ -8,7 +8,7 @@ Spec §2.1 mandates a modular monolith with explicit bounded contexts that may l
 ## Decision
 - Single repository, pnpm workspaces, Turborepo for task orchestration and caching. Node 24 LTS, TypeScript 6 (strict, `verbatimModuleSyntax`, ESM-style source compiled to CommonJS until the planned NestJS 12 move), pnpm 11 — versions governed by ADR-0016.
 - One pnpm package per bounded context under `packages/domain/<ctx>` named `@hotella/domain-<ctx>`; platform packages `@hotella/platform-*`; contracts `@hotella/contracts-*`.
-- Each domain package exposes a `src/public` entrypoint (interfaces, DTO types, event names). Boundaries are enforced by **ESLint 10 + eslint-plugin-boundaries** (explicit allow-rules per layer) and **dependency-cruiser** in CI (repo-wide `no-circular` + dependency graph for docs):
+- Each domain package exposes a `src/public` entrypoint (interfaces, DTO types, event names). Boundaries are enforced three ways, none depending on symlink resolution: (1) **ESLint `no-restricted-imports`** scoped per layer folder (deterministic, no module resolver), (2) **package `exports` maps** — a domain package exports only `.` and `./public`, so Node and TypeScript refuse deep imports at runtime and compile time, (3) **dependency-cruiser** in CI for repo-wide `no-circular`, the layer rules on resolved paths, and the dependency graph for docs. `pnpm lint:selftest` proves each rule fails on a negative fixture. Rules:
   - `domain/*` may import `platform/*`, `contracts/*`, and other domains **only** via `@hotella/domain-<other>/public`.
   - `platform/*` may not import `domain/*`.
   - `contracts/*` imports nothing but zod and other contracts.

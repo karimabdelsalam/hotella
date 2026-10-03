@@ -1,0 +1,50 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", ":pinAllExceptPeerDependencies"],
+  "schedule": ["before 6am on monday"],
+  "rangeStrategy": "pin",
+  "labels": ["dependencies"],
+  "major": {
+    "enabled": false,
+    "description": "Majors pass the Maturity Gate and update ADR-0016 by hand (docs/adr/0016)."
+  },
+  "packageRules": [
+    { "groupName": "NestJS", "matchPackageNames": ["/^@nestjs\\//", "nestjs-zod", "nestjs-cls"] },
+    {
+      "groupName": "Database (Drizzle, pg)",
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit", "pg", "@types/pg"]
+    },
+    { "groupName": "Queue & cache (BullMQ, ioredis)", "matchPackageNames": ["bullmq", "ioredis"] },
+    {
+      "groupName": "Observability (pino, OpenTelemetry)",
+      "matchPackageNames": ["/^pino/", "/^@opentelemetry\\//"]
+    },
+    {
+      "groupName": "Lint & format",
+      "matchPackageNames": [
+        "eslint",
+        "/^@eslint\\//",
+        "typescript-eslint",
+        "prettier",
+        "dependency-cruiser",
+        "globals"
+      ]
+    },
+    {
+      "groupName": "Build & test tooling",
+      "matchPackageNames": [
+        "typescript",
+        "/^@swc\\//",
+        "unplugin-swc",
+        "vitest",
+        "/^@vitest\\//",
+        "turbo",
+        "supertest",
+        "@types/supertest",
+        "@types/node"
+      ]
+    },
+    { "groupName": "Contracts (zod)", "matchPackageNames": ["zod"] },
+    { "matchManagers": ["docker-compose", "github-actions"], "groupName": "Infra images & actions" }
+  ]
+}

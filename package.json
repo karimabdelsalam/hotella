@@ -1,0 +1,40 @@
+{
+  "name": "hotella",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hotella \u2014 Hotel Intelligence Platform (Planova). Modular-monolith monorepo.",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "pnpm": ">=10.0.0 <11"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "dev:infra": "docker compose -f infra/docker/docker-compose.dev.yml up -d",
+    "dev:infra:down": "docker compose -f infra/docker/docker-compose.dev.yml down",
+    "lint": "eslint . --max-warnings 0",
+    "lint:selftest": "node tooling/bin/lint-selftest.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "depcruise": "depcruise apps packages tooling --config .dependency-cruiser.cjs",
+    "depcruise:graph": "depcruise apps packages --config .dependency-cruiser.cjs --output-type dot | dot -T svg > docs/architecture/dependency-graph.svg",
+    "commitlint": "commitlint",
+    "clean": "turbo run clean && rm -rf node_modules/.cache"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.1",
+    "dependency-cruiser": "18.5.0",
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
+    "turbo": "2.11.7",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0"
+  }
+}

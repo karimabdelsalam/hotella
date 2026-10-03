@@ -1,0 +1,10 @@
+{
+  "extends": "./tooling/tsconfig.base.json",
+  "compilerOptions": { "noEmit": true },
+  "include": [],
+  "references": [
+    { "path": "packages/platform/config" },
+    { "path": "packages/platform/observability" },
+    { "path": "apps/api" }
+  ]
+}

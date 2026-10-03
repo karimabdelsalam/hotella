@@ -1,0 +1,22 @@
+{
+  "name": "@hotella/tooling",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared build/test/tsconfig tooling for all Hotella packages.",
+  "bin": {
+    "hotella-build": "./bin/build.mjs"
+  },
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./vitest": "./vitest.base.mjs",
+    "./swc": "./swc.config.mjs"
+  },
+  "dependencies": {
+    "@swc/cli": "0.8.1",
+    "@swc/core": "1.16.13",
+    "chokidar": "5.0.0",
+    "typescript": "6.0.3",
+    "unplugin-swc": "2.0.0",
+    "vitest": "4.1.11"
+  }
+}

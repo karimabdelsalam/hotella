@@ -1,0 +1,16 @@
+packages:
+  - apps/*
+  - packages/platform/*
+  - packages/domain/*
+  - packages/contracts/*
+  - tooling
+
+# pnpm settings (pnpm 10 reads them from here; keeps npm from warning about unknown .npmrc keys)
+engineStrict: true
+autoInstallPeers: true
+strictPeerDependencies: false
+saveExact: true
+# Only packages listed here may run install scripts. Native compilation (node-gyp) is forbidden by ADR-0016;
+# @swc/core's script only verifies its prebuilt binary.
+onlyBuiltDependencies:
+  - '@swc/core'

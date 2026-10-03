@@ -1,0 +1,33 @@
+{
+  "name": "@hotella/platform-observability",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Structured logging (pino) with redaction and a Nest LoggerService adapter. Tracing and request context follow in Sprint 0.2.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@hotella/platform-config": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@hotella/tooling": "workspace:*",
+    "vitest": "4.1.11"
+  }
+}
