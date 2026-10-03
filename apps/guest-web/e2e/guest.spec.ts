@@ -238,8 +238,10 @@ test('the guest app in Arabic is right-to-left and fully translated', async ({ p
     .poll(() => backend.calls.some((c) => c.path === 'guest/requests/r2/cancel'))
     .toBe(true);
 
+  const thread = page.waitForResponse((r) => r.url().endsWith('/hotella/guest/conversation'));
   await page.goto('/ar/chat');
   await expect(page.getByRole('heading', { name: 'تحدّث مع الفندق' })).toBeVisible();
+  await thread;
   await expect(page.locator('[data-sender="SYSTEM"]')).toHaveText(
     'نعمل على طلبك: مشكلة في التكييف.',
   );

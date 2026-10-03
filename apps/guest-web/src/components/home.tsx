@@ -16,18 +16,24 @@ export function useGuest(): Me | null | 'signed-out' {
   const [me, setMe] = useState<Me | null | 'signed-out'>(null);
   useEffect(() => {
     let live = true;
-    api<Me>('guest/me', locale)
-      .then((m) => {
-        if (!live) return;
-        setMe(m);
-        set(m.branding);
-      })
-      .catch((e: unknown) => {
-        if (live && e instanceof ApiError && (e.status === 401 || e.status === 403))
-          setMe('signed-out');
-      });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // A dropped connection is retried a few times; only the API saying "no session" signs the guest out.
+    const attempt = (left: number) =>
+      api<Me>('guest/me', locale)
+        .then((m) => {
+          if (!live) return;
+          setMe(m);
+          set(m.branding);
+        })
+        .catch((e: unknown) => {
+          if (!live) return;
+          if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setMe('signed-out');
+          else if (left > 0) timer = setTimeout(() => void attempt(left - 1), 1000);
+        });
+    void attempt(3);
     return () => {
       live = false;
+      if (timer) clearTimeout(timer);
     };
     // `set` is stable for the page's lifetime.
   }, [locale]);
