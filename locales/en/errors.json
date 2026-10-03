@@ -104,5 +104,13 @@
   "errors.ops.task.version_conflict": "The task was changed by someone else (now version {version}). Reload and try again.",
   "errors.ops.task.transition_not_allowed": "A task that is {status} cannot be moved with {action}.",
   "errors.ops.task.not_assignee": "Only the assignee or a supervisor can do this on the task.",
-  "errors.ops.task.assignee_invalid": "This person or department cannot take tasks at this property."
+  "errors.ops.task.assignee_invalid": "This person or department cannot take tasks at this property.",
+  "errors.ops.version_conflict": "Someone else changed this first (now version {version}). Reload and try again.",
+  "errors.ops.business_hours.code_taken": "Business hours with the code {code} already exist at this property.",
+  "errors.ops.business_hours.not_found": "The business hours were not found.",
+  "errors.ops.business_hours.invalid": "The business hours are not valid: {problem}.",
+  "errors.ops.sla_policy.code_taken": "An SLA policy with the code {code} already exists at this property.",
+  "errors.ops.sla_policy.not_found": "The SLA policy was not found.",
+  "errors.ops.alert.not_found": "The alert was not found.",
+  "errors.ops.alert.transition_not_allowed": "The alert is already {status}."
 }

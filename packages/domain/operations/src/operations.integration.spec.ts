@@ -26,17 +26,28 @@ import {
   DatabaseModule,
   newId,
   runMigrations,
+  TransactionRunner,
   withTransaction,
 } from '@hotella/platform-database';
-import { EventsModule, eventsSchema } from '@hotella/platform-events';
+import { EventPublisher, EventsModule, eventsSchema } from '@hotella/platform-events';
 import { FeatureFlagsModule } from '@hotella/platform-flags';
 import { HttpConventionsModule } from '@hotella/platform-http';
 import { I18nModule } from '@hotella/platform-i18n';
 import { ManifestModule } from '@hotella/platform-manifest';
-import { ObservabilityModule } from '@hotella/platform-observability';
+import { LOGGER, ObservabilityModule } from '@hotella/platform-observability';
 import { SettingsModule } from '@hotella/platform-settings';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
-import { taskEvents, tasks, workItems } from './infrastructure/schema';
+import { AlertService } from './application/alert.service';
+import { SlaMonitor } from './application/sla.service';
+import {
+  alerts,
+  escalations,
+  slaInstances,
+  taskEvents,
+  tasks,
+  workItems,
+} from './infrastructure/schema';
+import { SlaRepositories } from './infrastructure/sla-repositories';
 import { OperationsModule } from './operations.module';
 import { OPERATIONS_API, type OperationsPublicApi } from './public';
 
@@ -55,8 +66,15 @@ const ids = {
   other: newId(),
 };
 const grants: Record<string, string[]> = {
-  [ids.gm]: [...ORG, 'org.department.manage', ...SUPERVISOR],
-  [ids.sup]: SUPERVISOR,
+  [ids.gm]: [
+    ...ORG,
+    'org.department.manage',
+    ...SUPERVISOR,
+    'sla.manage',
+    'alert.read',
+    'alert.ack',
+  ],
+  [ids.sup]: [...SUPERVISOR, 'alert.read', 'alert.ack'],
   [ids.w1]: WORKER,
   [ids.w2]: WORKER,
   [ids.viewer]: ['task.read'],
@@ -88,6 +106,7 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
   let db: Database;
   let admin: Client;
   let ops: OperationsPublicApi;
+  let monitor: SlaMonitor;
   let tenantA: string;
   let tenantB: string;
   let propertyA: string;
@@ -173,6 +192,14 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
     // Two future modules register their kinds of work; neither owns a task table.
     ops.registerWorkItemKind({ code: 'TEST_A_JOB', module: 'testa', descriptionKey: 'x' });
     ops.registerWorkItemKind({ code: 'TEST_B_ORDER', module: 'testb', descriptionKey: 'x' });
+    ops.registerWorkItemKind({ code: 'TEST_SLA_JOB', module: 'testb', descriptionKey: 'x' });
+    monitor = new SlaMonitor(
+      app.get(SlaRepositories),
+      app.get(AlertService),
+      app.get(EventPublisher),
+      app.get(TransactionRunner),
+      app.get(LOGGER),
+    );
 
     const root = actor('root', null);
     tenantA = (
@@ -323,15 +350,16 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
       'ASSIGN',
     ]);
 
-    // Every other table this test touched is the engine's own: no module-specific task table exists.
-    const tables = await admin.query<{ table_name: string }>(
-      `select table_name from information_schema.tables where table_schema = 'ops' order by 1`,
+    // The only task tables are the engine's own: no module brought a task table of its own.
+    const tables = await admin.query<{ table_schema: string; table_name: string }>(
+      `select table_schema, table_name from information_schema.tables
+       where table_name like '%task%' and table_schema not in ('pg_catalog', 'information_schema')
+       order by 1, 2`,
     );
-    expect(tables.rows.map((r) => r.table_name)).toEqual([
-      'task_assignments',
-      'task_events',
-      'tasks',
-      'work_items',
+    expect(tables.rows.map((r) => `${r.table_schema}.${r.table_name}`)).toEqual([
+      'ops.task_assignments',
+      'ops.task_events',
+      'ops.tasks',
     ]);
   });
 
@@ -575,5 +603,293 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
       { tenantId: tenantA },
     );
     expect(own!.n).toBe(1);
+  });
+
+  describe('SLA, escalation and alerts', () => {
+    const MIN = 60_000;
+    const sla = async (workItemId: string) =>
+      (await db.select().from(slaInstances).where(eq(slaInstances.workItemId, workItemId)))[0]!;
+    const gmPost = (path: string, body: object) =>
+      http().post(`${base()}${path}`).set('X-Test-Actor', actor(ids.gm)).send(body);
+
+    it('business hours and policies are validated, versioned and audited', async () => {
+      expect(
+        (await gmPost('/business-hours', { code: 'EMPTY', schedule: { days: {} } }).expect(422))
+          .body.code,
+      ).toBe('ops.business_hours.invalid');
+      const days = Object.fromEntries(
+        ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((d) => [d, [['08:00', '20:00']]]),
+      );
+      const hours = (
+        await gmPost('/business-hours', { code: 'day', schedule: { days } }).expect(201)
+      ).body;
+      expect(hours).toMatchObject({ code: 'DAY', version: 1 });
+      await gmPost('/business-hours', { code: 'DAY', schedule: { days } }).expect(409);
+      await http()
+        .patch(`${base()}/business-hours/${hours.id}`)
+        .set('X-Test-Actor', actor(ids.gm))
+        .send({ version: 7, schedule: { days, closedDates: ['2026-12-25'] } })
+        .expect(409);
+      await http()
+        .patch(`${base()}/business-hours/${hours.id}`)
+        .set('X-Test-Actor', actor(ids.gm))
+        .send({ version: 1, schedule: { days, closedDates: ['2026-12-25'] } })
+        .expect(200);
+
+      const policy = {
+        code: 'HK_DAY',
+        matchKind: 'TEST_A_JOB',
+        matchDepartmentCode: 'HK',
+        responseMinutes: 15,
+        resolutionMinutes: 120,
+        businessHoursCode: 'DAY',
+        pauseReasons: ['waiting_guest'],
+        escalationRules: [
+          { level: 1, trigger: 'RESOLUTION_BREACH', offsetMinutes: 0, severity: 'WARNING' },
+        ],
+      };
+      const created = (await gmPost('/sla-policies', policy).expect(201)).body;
+      expect(created).toMatchObject({
+        code: 'HK_DAY',
+        businessHoursCode: 'DAY',
+        pauseReasons: ['WAITING_GUEST'],
+      });
+      await gmPost('/sla-policies', policy).expect(409);
+      expect(
+        (await gmPost('/sla-policies', { ...policy, code: 'X1', matchKind: 'NOPE' }).expect(422))
+          .body.code,
+      ).toBe('ops.work_item.kind_unknown');
+      await gmPost('/sla-policies', { ...policy, code: 'X2', matchDepartmentCode: 'SPA' }).expect(
+        422,
+      );
+      await gmPost('/sla-policies', {
+        ...policy,
+        code: 'X3',
+        escalationRules: [policy.escalationRules[0], policy.escalationRules[0]],
+      }).expect(400);
+      // Supervisors run the floor; they do not set the targets.
+      await http().get(`${base()}/sla-policies`).set('X-Test-Actor', actor(ids.sup)).expect(403);
+      // The policy follows a business-hours calendar in the property's time zone.
+      const item = await work('TEST_A_JOB', { departmentCode: 'HK' });
+      const instance = await sla(item.id);
+      expect(instance).toMatchObject({
+        policyId: created.id,
+        status: 'RUNNING',
+        calendar: { kind: 'BUSINESS_HOURS', timeZone: 'Africa/Cairo' },
+      });
+      expect(instance.resolutionDueAt.getTime()).toBeGreaterThan(instance.responseDueAt!.getTime());
+    });
+
+    it('the clock is met by taking the work on, pauses while the guest is awaited and stops when done', async () => {
+      await gmPost('/sla-policies', {
+        code: 'SLA_FAST',
+        matchKind: 'TEST_SLA_JOB',
+        responseMinutes: 15,
+        resolutionMinutes: 60,
+        pauseReasons: ['WAITING_GUEST'],
+      }).expect(201);
+      const item = await work('TEST_SLA_JOB', {
+        tasks: [{ assignTo: { type: 'USER', userId: ids.w1 } }],
+      });
+      const taskId = item.tasks[0]!.id;
+      const started = await sla(item.id);
+      expect(started).toMatchObject({ status: 'RUNNING', calendar: { kind: 'ALWAYS' } });
+      expect(started.responseDueAt!.getTime() - started.startedAt.getTime()).toBe(15 * MIN);
+      expect(started.nextCheckAt).toEqual(started.responseDueAt);
+
+      await act(taskId, 'start', ids.w1).expect(200);
+      expect((await sla(item.id)).responseMetAt).not.toBeNull();
+      // A pause for another reason does not stop the clock.
+      await act(taskId, 'pause', ids.w1, { reason: 'BREAK' }).expect(200);
+      expect((await sla(item.id)).status).toBe('RUNNING');
+      await act(taskId, 'resume', ids.w1).expect(200);
+      await act(taskId, 'pause', ids.w1, { reason: 'WAITING_GUEST' }).expect(200);
+      const paused = await sla(item.id);
+      expect(paused).toMatchObject({ status: 'PAUSED', nextCheckAt: null });
+      await new Promise((r) => setTimeout(r, 30));
+      await act(taskId, 'resume', ids.w1).expect(200);
+      const resumed = await sla(item.id);
+      expect(resumed.status).toBe('RUNNING');
+      expect(resumed.resolutionDueAt.getTime()).toBeGreaterThan(started.resolutionDueAt.getTime());
+
+      await act(taskId, 'complete', ids.w1).expect(200);
+      const done = await sla(item.id);
+      expect(done).toMatchObject({
+        status: 'COMPLETED',
+        nextCheckAt: null,
+        resolutionBreachedAt: null,
+      });
+      const view = await http()
+        .get(`${base()}/work-items/${item.id}`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .expect(200);
+      expect(view.body.sla).toMatchObject({
+        status: 'COMPLETED',
+        responseBreached: false,
+        resolutionBreached: false,
+      });
+    });
+
+    it('missed targets climb the escalation ladder into one deduplicated alert, and close with the work', async () => {
+      await gmPost('/sla-policies', {
+        code: 'SLA_LADDER',
+        matchKind: 'TEST_SLA_JOB',
+        matchPriority: 'URGENT',
+        responseMinutes: 15,
+        resolutionMinutes: 60,
+        escalationRules: [
+          {
+            level: 1,
+            trigger: 'RESPONSE_BREACH',
+            offsetMinutes: 0,
+            severity: 'WARNING',
+            notifyRoles: ['duty_manager'],
+          },
+          { level: 1, trigger: 'RESOLUTION_BREACH', offsetMinutes: 0, severity: 'WARNING' },
+          {
+            level: 2,
+            trigger: 'RESOLUTION_BREACH',
+            offsetMinutes: 30,
+            severity: 'CRITICAL',
+            notifyRoles: ['GENERAL_MANAGER'],
+          },
+        ],
+      }).expect(201);
+      const item = await work('TEST_SLA_JOB', { priority: 'URGENT' });
+      const instance = await sla(item.id);
+      const at = (minutes: number) => new Date(instance.startedAt.getTime() + minutes * MIN);
+
+      await monitor.sweep(at(10));
+      expect(
+        await db.select().from(escalations).where(eq(escalations.slaInstanceId, instance.id)),
+      ).toEqual([]);
+      await monitor.sweep(at(16));
+      await monitor.sweep(at(16)); // idempotent
+      const afterResponse = await sla(item.id);
+      expect(afterResponse.responseBreachedAt).toEqual(afterResponse.responseDueAt);
+      const steps = () =>
+        db
+          .select()
+          .from(escalations)
+          .where(eq(escalations.slaInstanceId, instance.id))
+          .orderBy(asc(escalations.triggeredAt), asc(escalations.level));
+      expect((await steps()).map((e) => `${e.trigger}:${e.level}`)).toEqual(['RESPONSE_BREACH:1']);
+      expect((await steps())[0]!.notifyRoles).toEqual(['DUTY_MANAGER']);
+
+      await monitor.sweep(at(61));
+      await monitor.sweep(at(95));
+      expect((await steps()).map((e) => `${e.trigger}:${e.level}`)).toEqual([
+        'RESPONSE_BREACH:1',
+        'RESOLUTION_BREACH:1',
+        'RESOLUTION_BREACH:2',
+      ]);
+      const raised = await db
+        .select()
+        .from(alerts)
+        .where(and(eq(alerts.subjectId, item.id), eq(alerts.status, 'OPEN')))
+        .orderBy(asc(alerts.type));
+      expect(raised.map((a) => [a.type, a.severity, a.occurrences])).toEqual([
+        ['SLA_RESOLUTION_BREACHED', 'CRITICAL', 2],
+        ['SLA_RESPONSE_BREACHED', 'WARNING', 1],
+      ]);
+      expect((await outbox('ops.sla.breached', instance.id)).length).toBe(2);
+      expect((await outbox('ops.escalation.triggered', instance.id)).length).toBe(3);
+      expect(await sla(item.id)).toMatchObject({ nextCheckAt: null, status: 'RUNNING' });
+
+      // Taking the work on ends "nobody responded"; finishing it ends the breach.
+      await act(item.tasks[0]!.id, 'start', ids.w1).expect(200);
+      const open = async () =>
+        (
+          await db
+            .select({ type: alerts.type })
+            .from(alerts)
+            .where(and(eq(alerts.subjectId, item.id), eq(alerts.status, 'OPEN')))
+        ).map((a) => a.type);
+      expect(await open()).toEqual(['SLA_RESOLUTION_BREACHED']);
+      await act(item.tasks[0]!.id, 'complete', ids.w1).expect(200);
+      expect(await open()).toEqual([]);
+      expect(await sla(item.id)).toMatchObject({ status: 'COMPLETED' });
+    });
+
+    it('the same alert condition raised 50 times is one alert; staff acknowledge and resolve it', async () => {
+      const key = `ac-failure-${stamp}`;
+      const results = [];
+      for (let i = 0; i < 50; i++)
+        results.push(
+          await ops.raiseAlert({
+            tenantId: tenantA,
+            propertyId: propertyA,
+            type: 'REPEATED_AC_FAILURE',
+            severity: i === 49 ? 'CRITICAL' : 'WARNING',
+            dedupeKey: key,
+            subject: { type: 'location', id: room },
+            evidence: { last_reading: i },
+          }),
+        );
+      expect(results.filter((r) => r.created)).toHaveLength(1);
+      const [alert] = await db.select().from(alerts).where(eq(alerts.dedupeKey, key));
+      expect(alert).toMatchObject({
+        occurrences: 50,
+        severity: 'CRITICAL',
+        status: 'OPEN',
+        evidence: { last_reading: 49 },
+      });
+      expect(alert!.lastSeenAt.getTime()).toBeGreaterThanOrEqual(alert!.firstSeenAt.getTime());
+      expect((await outbox('ops.alert.raised', alert!.id)).length).toBe(1);
+
+      const board = await http()
+        .get(`${base()}/alerts?status=OPEN`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .expect(200);
+      expect(board.body.map((a: { id: string }) => a.id)).toContain(alert!.id);
+      await http().get(`${base()}/alerts`).set('X-Test-Actor', actor(ids.w1)).expect(403);
+      await http()
+        .post(`${base()}/alerts/${alert!.id}/acknowledge`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .expect(200);
+      await http()
+        .post(`${base()}/alerts/${alert!.id}/acknowledge`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .expect(409);
+      // Still the same condition while acknowledged.
+      expect(
+        (
+          await ops.raiseAlert({
+            tenantId: tenantA,
+            propertyId: propertyA,
+            type: 'REPEATED_AC_FAILURE',
+            severity: 'WARNING',
+            dedupeKey: key,
+          })
+        ).created,
+      ).toBe(false);
+      const resolved = await http()
+        .post(`${base()}/alerts/${alert!.id}/resolve`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .send({ resolution: 'Compressor replaced' })
+        .expect(200);
+      expect(resolved.body).toMatchObject({
+        status: 'RESOLVED',
+        resolution: 'Compressor replaced',
+        resolvedBy: { type: 'USER', id: ids.sup },
+      });
+      // After resolution the condition can come back as a new alert.
+      expect(
+        (
+          await ops.raiseAlert({
+            tenantId: tenantA,
+            propertyId: propertyA,
+            type: 'REPEATED_AC_FAILURE',
+            severity: 'WARNING',
+            dedupeKey: key,
+          })
+        ).created,
+      ).toBe(true);
+      // Another tenant cannot see or touch it.
+      await http()
+        .post(`/properties/${propertyB}/alerts/${alert!.id}/acknowledge`)
+        .set('X-Test-Actor', actor(ids.other, tenantB))
+        .expect(403);
+    });
   });
 });

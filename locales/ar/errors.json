@@ -104,5 +104,13 @@
   "errors.ops.task.version_conflict": "عدّل شخص آخر المهمة (الإصدار الآن {version}). أعد التحميل وحاول مرة أخرى.",
   "errors.ops.task.transition_not_allowed": "لا يمكن تنفيذ {action} على مهمة حالتها {status}.",
   "errors.ops.task.not_assignee": "لا يقوم بهذا الإجراء إلا المكلَّف بالمهمة أو المشرف.",
-  "errors.ops.task.assignee_invalid": "هذا الشخص أو القسم لا يمكنه استلام المهام في هذا الفندق."
+  "errors.ops.task.assignee_invalid": "هذا الشخص أو القسم لا يمكنه استلام المهام في هذا الفندق.",
+  "errors.ops.version_conflict": "عدّل شخص آخر هذا العنصر أولًا (الإصدار الآن {version}). أعد التحميل وحاول مرة أخرى.",
+  "errors.ops.business_hours.code_taken": "توجد ساعات عمل بالرمز {code} بالفعل في هذا الفندق.",
+  "errors.ops.business_hours.not_found": "لم يتم العثور على ساعات العمل.",
+  "errors.ops.business_hours.invalid": "ساعات العمل غير صالحة: {problem}.",
+  "errors.ops.sla_policy.code_taken": "توجد سياسة مستوى خدمة بالرمز {code} بالفعل في هذا الفندق.",
+  "errors.ops.sla_policy.not_found": "لم يتم العثور على سياسة مستوى الخدمة.",
+  "errors.ops.alert.not_found": "لم يتم العثور على التنبيه.",
+  "errors.ops.alert.transition_not_allowed": "التنبيه في حالة {status} بالفعل."
 }

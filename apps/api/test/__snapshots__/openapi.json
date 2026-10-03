@@ -4211,6 +4211,382 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/business-hours": {
+      "get": {
+        "operationId": "SlaAdminController_listBusinessHours",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SlaAdmin"
+        ]
+      },
+      "post": {
+        "operationId": "SlaAdminController_createBusinessHours",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBusinessHoursDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SlaAdmin"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/business-hours/{id}": {
+      "patch": {
+        "operationId": "SlaAdminController_updateBusinessHours",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBusinessHoursDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SlaAdmin"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/sla-policies": {
+      "get": {
+        "operationId": "SlaAdminController_listPolicies",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SlaAdmin"
+        ]
+      },
+      "post": {
+        "operationId": "SlaAdminController_createPolicy",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSlaPolicyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SlaAdmin"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/sla-policies/{id}": {
+      "patch": {
+        "operationId": "SlaAdminController_updatePolicy",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSlaPolicyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SlaAdmin"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/alerts": {
+      "get": {
+        "operationId": "AlertsController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Alerts"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/alerts/{alertId}/acknowledge": {
+      "post": {
+        "operationId": "AlertsController_acknowledge",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "alertId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Alerts"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/alerts/{alertId}/resolve": {
+      "post": {
+        "operationId": "AlertsController_resolve",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "alertId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveAlertDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Alerts"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "HealthController_liveness",
@@ -6100,6 +6476,366 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "CreateBusinessHoursDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "object",
+                "additionalProperties": {
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-4]):[0-5]\\d$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-4]):[0-5]\\d$"
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              },
+              "closedDates": {
+                "maxItems": 366,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                }
+              }
+            },
+            "required": [
+              "days"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "schedule"
+        ]
+      },
+      "UpdateBusinessHoursDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "object",
+                "additionalProperties": {
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-4]):[0-5]\\d$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-4]):[0-5]\\d$"
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              },
+              "closedDates": {
+                "maxItems": 366,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                }
+              }
+            },
+            "required": [
+              "days"
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "schedule"
+        ]
+      },
+      "CreateSlaPolicyDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "matchKind": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true
+          },
+          "matchServiceCode": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true
+          },
+          "matchDepartmentCode": {
+            "type": "string",
+            "maxLength": 32,
+            "nullable": true
+          },
+          "matchPriority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "NORMAL",
+              "HIGH",
+              "URGENT",
+              null
+            ],
+            "nullable": true
+          },
+          "responseMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 525600,
+            "nullable": true
+          },
+          "resolutionMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 525600
+          },
+          "businessHoursCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$",
+            "nullable": true
+          },
+          "pauseReasons": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[A-Z][A-Z0-9_]*$"
+            }
+          },
+          "escalationRules": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9
+                },
+                "trigger": {
+                  "type": "string",
+                  "enum": [
+                    "RESPONSE_BREACH",
+                    "RESOLUTION_WARNING",
+                    "RESOLUTION_BREACH"
+                  ]
+                },
+                "offsetMinutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10080
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "INFO",
+                    "WARNING",
+                    "CRITICAL"
+                  ]
+                },
+                "notifyRoles": {
+                  "default": [],
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]*$"
+                  }
+                }
+              },
+              "required": [
+                "level",
+                "trigger",
+                "offsetMinutes",
+                "severity"
+              ]
+            }
+          }
+        },
+        "required": [
+          "code",
+          "resolutionMinutes"
+        ]
+      },
+      "UpdateSlaPolicyDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ]
+          },
+          "matchKind": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true
+          },
+          "matchServiceCode": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true
+          },
+          "matchDepartmentCode": {
+            "type": "string",
+            "maxLength": 32,
+            "nullable": true
+          },
+          "matchPriority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "NORMAL",
+              "HIGH",
+              "URGENT",
+              null
+            ],
+            "nullable": true
+          },
+          "responseMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 525600,
+            "nullable": true
+          },
+          "resolutionMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 525600
+          },
+          "businessHoursCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$",
+            "nullable": true
+          },
+          "pauseReasons": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[A-Z][A-Z0-9_]*$"
+            }
+          },
+          "escalationRules": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9
+                },
+                "trigger": {
+                  "type": "string",
+                  "enum": [
+                    "RESPONSE_BREACH",
+                    "RESOLUTION_WARNING",
+                    "RESOLUTION_BREACH"
+                  ]
+                },
+                "offsetMinutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10080
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "INFO",
+                    "WARNING",
+                    "CRITICAL"
+                  ]
+                },
+                "notifyRoles": {
+                  "default": [],
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]*$"
+                  }
+                }
+              },
+              "required": [
+                "level",
+                "trigger",
+                "offsetMinutes",
+                "severity"
+              ]
+            }
+          }
+        },
+        "required": [
+          "version",
+          "resolutionMinutes"
+        ]
+      },
+      "ResolveAlertDto": {
+        "type": "object",
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "resolution"
         ]
       },
       "EchoDto": {

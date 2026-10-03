@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GuestEventsModule } from '@hotella/domain-guest';
 import { IntegrationsCoreModule } from '@hotella/domain-integrations';
+import { OperationsWorkerModule } from '@hotella/domain-operations';
 import { AuditCoreModule } from '@hotella/platform-audit';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
@@ -29,6 +30,8 @@ import { WorkerRuntimeModule } from './runtime/runtime.module';
     AuditCoreModule,
     IntegrationsCoreModule,
     GuestEventsModule,
+    // The SLA sweep (breaches, escalation ladder, alerts) on the critical-operational queue.
+    OperationsWorkerModule,
     WorkerRuntimeModule,
   ],
 })

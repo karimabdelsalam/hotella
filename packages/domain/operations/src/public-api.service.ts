@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { TransactionRunner } from '@hotella/platform-database';
+import { AlertService } from './application/alert.service';
 import { WorkItemKindRegistry, WorkService } from './application/work.service';
 import type {
   CreateWorkItemInput,
   NewTaskInput,
   OperationsPublicApi,
+  RaiseAlertInput,
   TaskSummary,
   WorkItemKindDefinition,
   WorkItemSummary,
@@ -14,6 +17,8 @@ export class OperationsPublicApiService implements OperationsPublicApi {
   constructor(
     private readonly kinds: WorkItemKindRegistry,
     private readonly work: WorkService,
+    private readonly alerts: AlertService,
+    private readonly tx: TransactionRunner,
   ) {}
 
   registerWorkItemKind(kind: WorkItemKindDefinition): void {
@@ -37,5 +42,11 @@ export class OperationsPublicApiService implements OperationsPublicApi {
   }
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary> {
     return this.work.cancelWorkItem(tenantId, workItemId, reason);
+  }
+  raiseAlert(input: RaiseAlertInput): Promise<{ alertId: string; created: boolean }> {
+    return this.tx.run(async () => {
+      const { alert, created } = await this.alerts.raise(input);
+      return { alertId: alert.id, created };
+    });
   }
 }

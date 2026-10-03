@@ -17,6 +17,8 @@ const GUEST_DESK = ['guest.read', 'guest.manage', 'stay.read'] as const;
 const TASK_WORKER = ['task.read', 'task.accept', 'task.complete'] as const;
 /** Supervisors also dispatch work and may act for an assignee. */
 const TASK_SUPERVISOR = [...TASK_WORKER, 'task.assign', 'task.cancel'] as const;
+/** Who watches the alert board (Spec §15) and acts on it. */
+const ALERT_DESK = ['alert.read', 'alert.ack'] as const;
 
 export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
   {
@@ -73,6 +75,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'guest.data_request.manage',
       'stay.manage',
       ...TASK_SUPERVISOR,
+      'sla.manage',
+      ...ALERT_DESK,
     ],
   },
   {
@@ -84,12 +88,13 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'integration.read',
       ...GUEST_DESK,
       ...TASK_SUPERVISOR,
+      ...ALERT_DESK,
     ],
   },
   {
     code: 'HK_SUPERVISOR',
     audience: 'TENANT',
-    permissions: [...PROPERTY_READ, 'iam.user.read', ...TASK_SUPERVISOR],
+    permissions: [...PROPERTY_READ, 'iam.user.read', ...TASK_SUPERVISOR, ...ALERT_DESK],
   },
   {
     code: 'ROOM_ATTENDANT',

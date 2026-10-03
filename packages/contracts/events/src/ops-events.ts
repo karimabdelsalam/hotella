@@ -83,3 +83,53 @@ export const TaskStatusChanged = defineEvent({
     reason: z.string().nullable(),
   }),
 });
+
+const slaTarget = z.enum(['RESPONSE', 'RESOLUTION']);
+const severity = z.enum(['INFO', 'WARNING', 'CRITICAL']);
+
+export const SlaBreached = defineEvent({
+  type: 'ops.sla.breached',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A work item missed its response or resolution target (computed deterministically, Spec §8.3).',
+  payload: z.object({
+    sla_instance_id: z.uuid(),
+    work_item_id: z.uuid(),
+    target: slaTarget,
+    due_at: z.iso.datetime({ offset: true }),
+  }),
+});
+
+export const EscalationTriggered = defineEvent({
+  type: 'ops.escalation.triggered',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A step of an SLA escalation ladder fired: the alert to act on and the roles to notify (notification intents).',
+  payload: z.object({
+    escalation_id: z.uuid(),
+    sla_instance_id: z.uuid(),
+    work_item_id: z.uuid(),
+    trigger: z.enum(['RESPONSE_BREACH', 'RESOLUTION_WARNING', 'RESOLUTION_BREACH']),
+    level: z.number().int().min(1),
+    severity,
+    notify_roles: z.array(z.string()),
+    alert_id: z.uuid(),
+  }),
+});
+
+export const AlertRaised = defineEvent({
+  type: 'ops.alert.raised',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A new operational alert opened (Spec §15). Repeats of the same condition update the open alert and are not re-announced.',
+  payload: z.object({
+    alert_id: z.uuid(),
+    type: z.string(),
+    severity,
+    subject_type: z.string().nullable(),
+    subject_id: z.uuid().nullable(),
+  }),
+});

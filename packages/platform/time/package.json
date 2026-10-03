@@ -1,0 +1,28 @@
+{
+  "name": "@hotella/platform-time",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic time in hotel timezones: IANA wall clock ↔ UTC (DST-aware), local calendar arithmetic. Dependency-free; used by SLA business hours and schedules.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "devDependencies": {
+    "@hotella/tooling": "workspace:*",
+    "vitest": "4.1.11"
+  }
+}

@@ -3,5 +3,8 @@
   "ops.permission.task_assign": "إسناد المهام وإعادة إسنادها وإلغاء إسنادها",
   "ops.permission.task_accept": "استلام المهام الخاصة وبدؤها وإيقافها مؤقتًا",
   "ops.permission.task_complete": "إنهاء المهام",
-  "ops.permission.task_cancel": "إلغاء المهام"
+  "ops.permission.task_cancel": "إلغاء المهام",
+  "ops.permission.sla_manage": "إدارة ساعات العمل وسياسات مستوى الخدمة",
+  "ops.permission.alert_read": "عرض التنبيهات التشغيلية",
+  "ops.permission.alert_ack": "الإقرار بالتنبيهات التشغيلية وحلها"
 }

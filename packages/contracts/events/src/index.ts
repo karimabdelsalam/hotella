@@ -35,7 +35,10 @@ export {
   ReconciliationSnapshotCompleted,
 } from './integration-events';
 export {
+  AlertRaised,
+  EscalationTriggered,
   PRIORITIES,
+  SlaBreached,
   TASK_STATUSES,
   TaskAssigned,
   TaskStatusChanged,

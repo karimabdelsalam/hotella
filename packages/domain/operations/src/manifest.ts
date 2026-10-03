@@ -1,4 +1,7 @@
 import {
+  AlertRaised,
+  EscalationTriggered,
+  SlaBreached,
   TaskAssigned,
   TaskStatusChanged,
   WorkItemCreated,
@@ -17,12 +20,18 @@ export const OPERATIONS_MANIFEST = defineManifest({
     { code: 'task.accept', descriptionKey: 'ops.permission.task_accept', risk: 'LOW' },
     { code: 'task.complete', descriptionKey: 'ops.permission.task_complete', risk: 'LOW' },
     { code: 'task.cancel', descriptionKey: 'ops.permission.task_cancel', risk: 'MEDIUM' },
+    { code: 'sla.manage', descriptionKey: 'ops.permission.sla_manage', risk: 'MEDIUM' },
+    { code: 'alert.read', descriptionKey: 'ops.permission.alert_read', risk: 'READ' },
+    { code: 'alert.ack', descriptionKey: 'ops.permission.alert_ack', risk: 'LOW' },
   ],
   events: [
     WorkItemCreated.name,
     WorkItemStatusChanged.name,
     TaskAssigned.name,
     TaskStatusChanged.name,
+    SlaBreached.name,
+    EscalationTriggered.name,
+    AlertRaised.name,
   ],
   localeNamespaces: ['ops'],
 });

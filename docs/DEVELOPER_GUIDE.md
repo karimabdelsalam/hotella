@@ -74,8 +74,9 @@ packages/
                                      → guest (schema `guest`: guests, stays, party, room-assignment history — written only
                                        by the StayProjector from canonical events; staff API is read-only)
                                      → operations (schema `ops`: the one operations engine — work items created by modules
-                                       through OPERATIONS_API, tasks, assignment history, task history; SLA, workflows,
-                                       approvals, alerts and notifications arrive in Phase 3 sprints)
+                                       through OPERATIONS_API, tasks, assignment history, task history, SLA with business
+                                       hours and escalation ladders, deduplicated alerts; workflows, approvals and
+                                       notifications arrive in Phase 3 sprints)
   contracts/   zod schemas shared by everything → events (incl. canonical hotel.*), api, connectors (Connector SDK v0),
                                        later ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
@@ -128,7 +129,7 @@ agent / simulator → IngestService.ingest(instance, raw)   stored in integratio
 
 A core context never sees vendor formats or vendor ids: it resolves and links opaque references through `INTEGRATIONS_API` (`resolveReference` / `linkReference`). The guest context's `StayProjector` runs in the worker (`GuestEventsModule`), one transaction per event with the inbox row, and publishes `guest.stay.*` events with internal ids for everyone downstream. Contexts expose a `<Ctx>CoreModule` without HTTP routes for background processes and a full module for the API.
 
-Operational work (Spec §8): a module never builds its own task table. At boot it registers its kinds of work (`OPERATIONS_API.registerWorkItemKind({ code: 'HK_JOB', module: 'hk', … })`); when something needs doing it calls `OPERATIONS_API.createWorkItem(…)` inside its own transaction, naming its record as the source. The engine owns tasks (lifecycle in BUILD_PLAN §7.5), assignment history and task history, and publishes `ops.work_item.*` / `ops.task.*` events the module can react to (e.g. close its record when the work item is `RESOLVED`). Staff take, start, pause and finish tasks through `/properties/:id/tasks/…`; a task given to a department (`TEAM`) waits in that department's queue until a member claims it.
+Operational work (Spec §8): a module never builds its own task table. At boot it registers its kinds of work (`OPERATIONS_API.registerWorkItemKind({ code: 'HK_JOB', module: 'hk', … })`); when something needs doing it calls `OPERATIONS_API.createWorkItem(…)` inside its own transaction, naming its record as the source. The engine owns tasks (lifecycle in BUILD_PLAN §7.5), assignment history and task history, and publishes `ops.work_item.*` / `ops.task.*` events the module can react to (e.g. close its record when the work item is `RESOLVED`). Staff take, start, pause and finish tasks through `/properties/:id/tasks/…`; a task given to a department (`TEAM`) waits in that department's queue until a member claims it. If a property has an SLA policy that matches the work (`/properties/:id/sla-policies`, optionally on `/business-hours`), the clock starts with the work item; the worker's `ops.sla.sweep` job records breaches, climbs the escalation ladder and raises deduplicated alerts (`/properties/:id/alerts`). Wall-clock time in a hotel's time zone goes through `@hotella/platform-time`, never hand-written offsets.
 
 Trying the agent link locally: `pnpm --filter @hotella/agent-gateway dev` (outside production it creates an ephemeral agent CA and logs a warning), create an instance and an enrollment token through the staff API, then `node apps/pms-simulator/dist/main.js enroll --gateway https://localhost:8443 --ca <ca.pem> --token <token>` and `… run --gateway https://localhost:8443 --scenario apps/pms-simulator/scenarios/basic-stay.yml`. The quickest full loop is the test `pnpm --filter @hotella/pms-simulator test`, which starts both sides over real mutual TLS.
 

@@ -660,9 +660,27 @@ tasks terminal, at least one DONE) or CANCELLED (all cancelled). Every transitio
 | Sprint | Scope | Status |
 |---|---|---|
 | 3.1 | `org.departments` (+ translations, API, `ORGANIZATION_API.getDepartment`); `@hotella/domain-operations`: work items, tasks, assignment history, task events; kind registry; `OPERATIONS_API.createWorkItem/addTask`; task lifecycle API (assign/unassign/accept/reject/start/pause/resume/complete/cancel); `my tasks`/department/property lists; events `ops.work_item.created.v1`, `ops.work_item.status_changed.v1`, `ops.task.assigned.v1`, `ops.task.status_changed.v1`; permissions; role grants | delivered |
-| 3.2 | `@hotella/platform-time` (IANA wall clock ↔ UTC); business hours; SLA policies with property/department/service overrides; `computeSlaDeadlines`; SLA instances started by work items, paused/resumed by task pauses with policy pause rules; timers on `critical-operational` + a sweep; breach → escalation ladder → deduplicated alert; `ops.sla.breached.v1`, `ops.escalation.triggered.v1`, `ops.alert.raised.v1` | planned |
+| 3.2 | `@hotella/platform-time` (IANA wall clock ↔ UTC); business hours; SLA policies with property/department/service overrides; `computeSlaDeadlines`; SLA instances started by work items, paused/resumed by task pauses with policy pause rules; timers on `critical-operational` + a sweep; breach → escalation ladder → deduplicated alert; `ops.sla.breached.v1`, `ops.escalation.triggered.v1`, `ops.alert.raised.v1` | delivered |
 | 3.3 | Workflow definitions/versions (immutable once published), deterministic interpreter with code-registered guards and actions (create task, start SLA, notify, request approval); generic approval engine (risk level, expiry job, audited decisions, handler registry); `ops.approval.requested.v1`, `ops.approval.decided.v1` | planned |
-| 3.4 | Notification intents and deliveries; `IN_APP` inbox and `EMAIL` (SMTP, Mailpit locally) adapters; preferences with critical-policy override; alert acknowledgement/resolution; outbox retention purge; Phase 3 acceptance (`docs/acceptance/phase-3.md`) | planned |
+| 3.4 | Notification intents (from escalations and alerts) and deliveries; `IN_APP` inbox and `EMAIL` (SMTP, Mailpit locally) adapters; preferences with critical-policy override; outbox retention purge; Phase 3 acceptance (`docs/acceptance/phase-3.md`) | planned |
+
+Reality notes for 3.2:
+- Timers are one repeatable job, `ops.sla.sweep` every 15 s on `critical-operational`, over an indexed `next_check_at`
+  (claimed with `FOR UPDATE SKIP LOCKED`, so several workers are safe), instead of one delayed job per deadline. Targets
+  are minute-based; the API path never depends on Valkey; evaluation is idempotent (`evaluateSla`, unit-tested).
+- SLA state follows the tasks inside the same transaction: the response target is met by the first accept/start/complete,
+  the resolution clock pauses only while every open task is paused for a reason the policy lists (e.g. `WAITING_GUEST`)
+  and its deadline is recomputed from the pause history; resolution/cancellation of the work item closes the SLA.
+- An SLA copies targets, calendar (business hours + the property's time zone) and escalation ladder from its policy when
+  it starts, so policy edits never move running deadlines. `ops.business_hours` has no time-zone column (the property's
+  is used) and no `department_code`: department hours are a separate code chosen by a department-matched policy.
+- Policies are property-scoped in this sprint (the property is the broadest override); a tenant-wide default comes with
+  multi-property chains if needed. Selection is deterministic: service > department > priority > kind, ties by id.
+- Alerts moved here from 3.4 because escalation needs them: one active alert per dedupe key (partial unique index +
+  `ON CONFLICT`), repeats count and only raise severity, SLA alerts close themselves (SYSTEM) when the response is met
+  or the work is resolved/cancelled. Escalations record the roles to notify; intents for them arrive in 3.4.
+- `@hotella/platform-time` converts wall clock ↔ UTC with ECMAScript Temporal's `compatible` disambiguation (a
+  non-existent local time moves forward by the gap; a repeated one takes the earlier instant).
 
 Reality notes for 3.1:
 - Tasks keep the plan's status set without `REJECTED`: an assignee who rejects a task hands it back (`ASSIGNED → NEW`, the

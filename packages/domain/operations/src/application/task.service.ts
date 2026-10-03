@@ -23,7 +23,8 @@ import {
 import { OperationsRepositories } from '../infrastructure/repositories';
 import type { TaskRow } from '../infrastructure/schema';
 import { taskSummary } from './work.service';
-import { OPS_SOURCE, type ResolvedAssignee, WorkService } from './work.service';
+import { OPS_SOURCE } from './constants';
+import { type ResolvedAssignee, WorkService } from './work.service';
 
 const reason = z.string().trim().min(1).max(500);
 const expectedVersion = z.number().int().min(1).optional();

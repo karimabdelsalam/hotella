@@ -6,7 +6,9 @@ import { ActionGate, ActorStore } from '@hotella/platform-auth';
 import { isUuid, type PropertyScope, TransactionRunner } from '@hotella/platform-database';
 import { AppError, CurrentLocale, I18nService } from '@hotella/platform-i18n';
 import { OperationsRepositories } from '../infrastructure/repositories';
+import { SlaRepositories } from '../infrastructure/sla-repositories';
 import type {
+  SlaInstanceRow,
   TaskAssignmentRow,
   TaskEventRow,
   TaskRow,
@@ -49,6 +51,7 @@ export type ListWorkItemsQuery = z.infer<typeof listWorkItemsQuerySchema>;
 export class OperationsQueryService {
   constructor(
     private readonly repo: OperationsRepositories,
+    private readonly sla: SlaRepositories,
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly actors: ActorStore,
@@ -108,9 +111,18 @@ export class OperationsQueryService {
         scope,
         rows.map((r) => r.id),
       );
+      const slas = new Map(
+        (
+          await this.sla.instancesOfWorkItems(
+            scope,
+            rows.map((r) => r.id),
+          )
+        ).map((i) => [i.workItemId, i]),
+      );
       return {
         items: rows.map((w) => ({
           ...this.workItemView(w),
+          sla: slaView(slas.get(w.id)),
           tasks: taskRows.filter((t) => t.workItemId === w.id).map((t) => this.taskView(t)),
         })),
         next: nextCursor(rows, query.limit),
@@ -125,12 +137,14 @@ export class OperationsQueryService {
         throw AppError.notFound('ops.work_item.not_found');
       const taskRows = await this.repo.tasksOfWorkItems(scope, [item.id]);
       const ids = taskRows.map((t) => t.id);
-      const [assignments, events] = await Promise.all([
+      const [assignments, events, sla] = await Promise.all([
         this.repo.assignments(scope, ids),
         this.repo.taskEvents(scope, ids),
+        this.sla.instanceOfWorkItem(scope, item.id),
       ]);
       return {
         ...this.workItemView(item),
+        sla: slaView(sla),
         tasks: taskRows.map((t) => ({
           ...this.taskView(t),
           assignments: assignments.filter((a) => a.taskId === t.id).map(assignmentView),
@@ -196,6 +210,7 @@ export class OperationsQueryService {
         entityId: w.sourceEntityId,
       },
       departmentCode: w.departmentCode,
+      serviceCode: w.serviceCode,
       locationId: w.locationId,
       stayId: w.stayId,
       guestId: w.guestId,
@@ -206,6 +221,21 @@ export class OperationsQueryService {
       version: w.version,
     };
   }
+}
+
+/** The SLA as staff see it: targets, whether they were met or breached, and whether the clock is paused. */
+function slaView(i: SlaInstanceRow | undefined) {
+  if (!i) return null;
+  return {
+    status: i.status,
+    startedAt: i.startedAt,
+    responseDueAt: i.responseDueAt,
+    resolutionDueAt: i.resolutionDueAt,
+    responseMetAt: i.responseMetAt,
+    resolutionMetAt: i.resolutionMetAt,
+    responseBreached: i.responseBreachedAt !== null,
+    resolutionBreached: i.resolutionBreachedAt !== null,
+  };
 }
 
 function assignmentView(a: TaskAssignmentRow) {

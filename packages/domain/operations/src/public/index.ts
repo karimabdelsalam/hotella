@@ -47,6 +47,8 @@ export interface CreateWorkItemInput {
   readonly priority?: Priority;
   readonly locationId?: string | null;
   readonly departmentCode?: string | null;
+  /** Catalog service the work fulfils (SLA policies may target it). */
+  readonly serviceCode?: string | null;
   readonly stayId?: string | null;
   /** Must belong to the stay's party. */
   readonly guestId?: string | null;
@@ -81,6 +83,7 @@ export interface WorkItemSummary {
     readonly entityId: string | null;
   };
   readonly departmentCode: string | null;
+  readonly serviceCode: string | null;
   readonly locationId: string | null;
   readonly stayId: string | null;
   readonly guestId: string | null;
@@ -103,6 +106,22 @@ export interface OperationsPublicApi {
   ): Promise<readonly WorkItemSummary[]>;
   /** The source module withdrew the work (e.g. the guest cancelled the request): open tasks are cancelled. */
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary>;
+  /** Raises (or refreshes) a deduplicated operational alert (Spec §15). */
+  raiseAlert(
+    input: RaiseAlertInput,
+  ): Promise<{ readonly alertId: string; readonly created: boolean }>;
+}
+
+export interface RaiseAlertInput {
+  readonly tenantId: string;
+  readonly propertyId: string;
+  /** Stable condition type, e.g. `REPEATED_AC_FAILURE`, `ARRIVAL_ROOM_NOT_READY`. */
+  readonly type: string;
+  readonly severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  /** Identifies the condition: raising the same key again updates the open alert instead of creating another. */
+  readonly dedupeKey: string;
+  readonly subject?: { readonly type: string; readonly id: string } | null;
+  readonly evidence?: Record<string, unknown>;
 }
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */

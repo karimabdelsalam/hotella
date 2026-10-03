@@ -27,6 +27,8 @@ import {
   type TaskStatus,
 } from '../domain/task-lifecycle';
 import { OperationsRepositories } from '../infrastructure/repositories';
+import { OPS_SOURCE } from './constants';
+import { SlaService } from './sla.service';
 import type { TaskRow, WorkItemRow } from '../infrastructure/schema';
 import type {
   AssigneeInput,
@@ -37,8 +39,6 @@ import type {
   WorkItemSummary,
   WorkTitle,
 } from '../public';
-
-export const OPS_SOURCE = 'ops';
 
 /** Kinds of work registered by modules at boot; unknown kinds are refused rather than guessed. */
 @Injectable()
@@ -97,6 +97,7 @@ export function workItemSummary(w: WorkItemRow, taskRows: readonly TaskRow[]): W
       entityId: w.sourceEntityId,
     },
     departmentCode: w.departmentCode,
+    serviceCode: w.serviceCode,
     locationId: w.locationId,
     stayId: w.stayId,
     guestId: w.guestId,
@@ -127,6 +128,7 @@ export class WorkService {
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @Inject(IDENTITY_API) private readonly identity: IdentityPublicApi,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
+    private readonly sla: SlaService,
   ) {}
 
   createWorkItem(input: CreateWorkItemInput): Promise<WorkItemSummary> {
@@ -153,6 +155,7 @@ export class WorkService {
         priority,
         locationId,
         departmentCode,
+        serviceCode: input.serviceCode ?? null,
         stayId,
         guestId,
         createdByType: actor?.type ?? 'SYSTEM',
@@ -197,6 +200,8 @@ export class WorkService {
           tasks: created.map((t) => t.id),
         },
       });
+      // The SLA clock starts with the work (most specific policy of the property, if any).
+      await this.sla.start(scope, item);
       const final = await this.recomputeStatus(scope, item.id);
       return workItemSummary(final, created);
     });
@@ -298,7 +303,10 @@ export class WorkService {
       (t) => t.status,
     );
     const next = deriveWorkItemStatus(statuses);
-    if (next === item.status) return item;
+    if (next === item.status) {
+      await this.sla.sync(scope, item.id);
+      return item;
+    }
     const now = new Date();
     const updated = await this.repo.updateWorkItem(scope, item.id, {
       status: next,
@@ -319,6 +327,7 @@ export class WorkService {
         to: next,
       },
     });
+    await this.sla.sync(scope, item.id);
     return updated;
   }
 

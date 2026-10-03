@@ -18,6 +18,7 @@
     "@hotella/contracts-events": "workspace:*",
     "@hotella/domain-guest": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",
+    "@hotella/domain-operations": "workspace:*",
     "@hotella/platform-audit": "workspace:*",
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",

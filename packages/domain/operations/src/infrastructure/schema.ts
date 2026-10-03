@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   index,
+  integer,
   jsonb,
   pgSchema,
   text,
@@ -11,6 +12,7 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 import { baseColumns, classify, propertyScoped, versioned } from '@hotella/platform-database';
+import type { EscalationRule, SlaCalendar, WeeklySchedule } from '../domain/sla';
 
 /**
  * Operations engine (Spec §8, schema `ops`). One set of tables for every module's work: a module creates a work item
@@ -59,6 +61,8 @@ export const workItems = classify(
       guestId: uuid('guest_id'),
       stayId: uuid('stay_id'),
       departmentCode: varchar('department_code', { length: 32 }),
+      /** Catalog service (Phase 5) the work fulfils; SLA policies may target it. */
+      serviceCode: varchar('service_code', { length: 64 }),
       workflowInstanceId: uuid('workflow_instance_id'),
       slaInstanceId: uuid('sla_instance_id'),
       createdByType: varchar('created_by_type', { length: 16 }).notNull(),
@@ -95,6 +99,7 @@ export const workItems = classify(
     guestId: 'INTERNAL',
     stayId: 'INTERNAL',
     departmentCode: 'INTERNAL',
+    serviceCode: 'INTERNAL',
     workflowInstanceId: 'INTERNAL',
     slaInstanceId: 'INTERNAL',
     createdByType: 'INTERNAL',
@@ -254,7 +259,302 @@ export const taskEvents = classify(
   },
 );
 
+export const activeStatus = ops.enum('active_status', ['ACTIVE', 'INACTIVE']);
+export const slaStatus = ops.enum('sla_status', ['RUNNING', 'PAUSED', 'COMPLETED', 'CANCELLED']);
+export const alertStatus = ops.enum('alert_status', ['OPEN', 'ACKNOWLEDGED', 'RESOLVED']);
+export const alertSeverity = ops.enum('alert_severity', ['INFO', 'WARNING', 'CRITICAL']);
+
+/** Weekly opening hours of a property (or a department of it), in the property's time zone (Spec §8.3). */
+export const businessHours = classify(
+  ops.table(
+    'business_hours',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      code: varchar('code', { length: 32 }).notNull(),
+      schedule: jsonb('schedule').$type<WeeklySchedule>().notNull(),
+      ...versioned(),
+    },
+    (t) => [uniqueIndex('business_hours_property_code_uq').on(t.propertyId, t.code)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    code: 'INTERNAL',
+    schedule: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/**
+ * Response/resolution targets with their clock, pause reasons and escalation ladder. Matching criteria left null match
+ * anything; the most specific policy wins (service > department > priority > kind).
+ */
+export const slaPolicies = classify(
+  ops.table(
+    'sla_policies',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      code: varchar('code', { length: 32 }).notNull(),
+      matchKind: varchar('match_kind', { length: 64 }),
+      matchServiceCode: varchar('match_service_code', { length: 64 }),
+      matchDepartmentCode: varchar('match_department_code', { length: 32 }),
+      matchPriority: priority('match_priority'),
+      responseMinutes: integer('response_minutes'),
+      resolutionMinutes: integer('resolution_minutes').notNull(),
+      businessHoursId: uuid('business_hours_id').references(() => businessHours.id, {
+        onDelete: 'restrict',
+      }),
+      /** Task pause reasons that stop the resolution clock (e.g. WAITING_GUEST); others do not. */
+      pauseReasons: text('pause_reasons')
+        .array()
+        .notNull()
+        .default(sql`'{}'::text[]`),
+      escalationRules: jsonb('escalation_rules').$type<EscalationRule[]>().notNull().default([]),
+      status: activeStatus('status').notNull().default('ACTIVE'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('sla_policies_property_code_uq').on(t.propertyId, t.code),
+      index('sla_policies_property_status_idx').on(t.propertyId, t.status),
+      check(
+        'sla_policies_minutes_ck',
+        sql`${t.resolutionMinutes} > 0 AND (${t.responseMinutes} IS NULL OR ${t.responseMinutes} > 0)`,
+      ),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    code: 'INTERNAL',
+    matchKind: 'INTERNAL',
+    matchServiceCode: 'INTERNAL',
+    matchDepartmentCode: 'INTERNAL',
+    matchPriority: 'INTERNAL',
+    responseMinutes: 'INTERNAL',
+    resolutionMinutes: 'INTERNAL',
+    businessHoursId: 'INTERNAL',
+    pauseReasons: 'INTERNAL',
+    escalationRules: 'INTERNAL',
+    status: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/**
+ * The SLA of one work item. Targets, calendar and ladder are copied from the policy when the clock starts, so editing
+ * a policy never moves running deadlines.
+ */
+export const slaInstances = classify(
+  ops.table(
+    'sla_instances',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      workItemId: uuid('work_item_id')
+        .notNull()
+        .references(() => workItems.id, { onDelete: 'cascade' }),
+      policyId: uuid('policy_id')
+        .notNull()
+        .references(() => slaPolicies.id, { onDelete: 'restrict' }),
+      policyVersion: integer('policy_version').notNull(),
+      calendar: jsonb('calendar').$type<SlaCalendar>().notNull(),
+      responseMinutes: integer('response_minutes'),
+      resolutionMinutes: integer('resolution_minutes').notNull(),
+      pauseReasons: text('pause_reasons').array().notNull(),
+      escalationRules: jsonb('escalation_rules').$type<EscalationRule[]>().notNull(),
+      status: slaStatus('status').notNull().default('RUNNING'),
+      startedAt: tz('started_at').notNull(),
+      responseDueAt: tz('response_due_at'),
+      resolutionDueAt: tz('resolution_due_at').notNull(),
+      responseMetAt: tz('response_met_at'),
+      resolutionMetAt: tz('resolution_met_at'),
+      responseBreachedAt: tz('response_breached_at'),
+      resolutionBreachedAt: tz('resolution_breached_at'),
+      closedAt: tz('closed_at'),
+      nextCheckAt: tz('next_check_at'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('sla_instances_work_item_uq').on(t.workItemId),
+      index('sla_instances_due_idx')
+        .on(t.nextCheckAt)
+        .where(sql`${t.status} = 'RUNNING'`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    workItemId: 'INTERNAL',
+    policyId: 'INTERNAL',
+    policyVersion: 'INTERNAL',
+    calendar: 'INTERNAL',
+    responseMinutes: 'INTERNAL',
+    resolutionMinutes: 'INTERNAL',
+    pauseReasons: 'INTERNAL',
+    escalationRules: 'INTERNAL',
+    status: 'INTERNAL',
+    startedAt: 'INTERNAL',
+    responseDueAt: 'INTERNAL',
+    resolutionDueAt: 'INTERNAL',
+    responseMetAt: 'INTERNAL',
+    resolutionMetAt: 'INTERNAL',
+    responseBreachedAt: 'INTERNAL',
+    resolutionBreachedAt: 'INTERNAL',
+    closedAt: 'INTERNAL',
+    nextCheckAt: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Pause history of an SLA (CLAUDE.md rule 10): deadlines are recomputed from it. */
+export const slaPauses = classify(
+  ops.table(
+    'sla_pauses',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      slaInstanceId: uuid('sla_instance_id')
+        .notNull()
+        .references(() => slaInstances.id, { onDelete: 'cascade' }),
+      reason: varchar('reason', { length: 64 }).notNull(),
+      pausedAt: tz('paused_at').notNull(),
+      resumedAt: tz('resumed_at'),
+    },
+    (t) => [
+      index('sla_pauses_instance_idx').on(t.slaInstanceId, t.pausedAt),
+      uniqueIndex('sla_pauses_open_uq')
+        .on(t.slaInstanceId)
+        .where(sql`${t.resumedAt} IS NULL`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    slaInstanceId: 'INTERNAL',
+    reason: 'INTERNAL',
+    pausedAt: 'INTERNAL',
+    resumedAt: 'INTERNAL',
+  },
+);
+
+/**
+ * A condition needing attention (Spec §15) — not a notification. One active alert per `dedupe_key`: raising it again
+ * only counts and refreshes `last_seen_at`.
+ */
+export const alerts = classify(
+  ops.table(
+    'alerts',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      type: varchar('type', { length: 64 }).notNull(),
+      severity: alertSeverity('severity').notNull(),
+      dedupeKey: varchar('dedupe_key', { length: 200 }).notNull(),
+      status: alertStatus('status').notNull().default('OPEN'),
+      subjectType: varchar('subject_type', { length: 64 }),
+      subjectId: uuid('subject_id'),
+      evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull().default({}),
+      occurrences: integer('occurrences').notNull().default(1),
+      firstSeenAt: tz('first_seen_at').notNull(),
+      lastSeenAt: tz('last_seen_at').notNull(),
+      acknowledgedById: uuid('acknowledged_by_id'),
+      acknowledgedAt: tz('acknowledged_at'),
+      resolvedByType: varchar('resolved_by_type', { length: 16 }),
+      resolvedById: uuid('resolved_by_id'),
+      resolvedAt: tz('resolved_at'),
+      resolution: text('resolution'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('alerts_active_dedupe_uq')
+        .on(t.tenantId, t.dedupeKey)
+        .where(sql`${t.status} <> 'RESOLVED'`),
+      index('alerts_property_status_idx').on(t.propertyId, t.status, t.lastSeenAt),
+      index('alerts_subject_idx').on(t.subjectType, t.subjectId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    type: 'INTERNAL',
+    severity: 'INTERNAL',
+    dedupeKey: 'INTERNAL',
+    status: 'INTERNAL',
+    subjectType: 'INTERNAL',
+    subjectId: 'INTERNAL',
+    evidence: 'INTERNAL',
+    occurrences: 'INTERNAL',
+    firstSeenAt: 'INTERNAL',
+    lastSeenAt: 'INTERNAL',
+    acknowledgedById: 'INTERNAL',
+    acknowledgedAt: 'INTERNAL',
+    resolvedByType: 'INTERNAL',
+    resolvedById: 'INTERNAL',
+    resolvedAt: 'INTERNAL',
+    resolution: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Escalations fired for an SLA (one per ladder step), with the alert they raised. */
+export const escalations = classify(
+  ops.table(
+    'escalations',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      slaInstanceId: uuid('sla_instance_id')
+        .notNull()
+        .references(() => slaInstances.id, { onDelete: 'cascade' }),
+      trigger: varchar('trigger', { length: 32 }).notNull(),
+      level: integer('level').notNull(),
+      severity: alertSeverity('severity').notNull(),
+      notifyRoles: text('notify_roles').array().notNull(),
+      alertId: uuid('alert_id').references(() => alerts.id, { onDelete: 'restrict' }),
+      triggeredAt: tz('triggered_at').notNull(),
+    },
+    (t) => [uniqueIndex('escalations_step_uq').on(t.slaInstanceId, t.trigger, t.level)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    slaInstanceId: 'INTERNAL',
+    trigger: 'INTERNAL',
+    level: 'INTERNAL',
+    severity: 'INTERNAL',
+    notifyRoles: 'INTERNAL',
+    alertId: 'INTERNAL',
+    triggeredAt: 'INTERNAL',
+  },
+);
+
 export type WorkItemRow = typeof workItems.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type TaskAssignmentRow = typeof taskAssignments.$inferSelect;
 export type TaskEventRow = typeof taskEvents.$inferSelect;
+export type BusinessHoursRow = typeof businessHours.$inferSelect;
+export type SlaPolicyRow = typeof slaPolicies.$inferSelect;
+export type SlaInstanceRow = typeof slaInstances.$inferSelect;
+export type SlaPauseRow = typeof slaPauses.$inferSelect;
+export type AlertRow = typeof alerts.$inferSelect;
+export type EscalationRow = typeof escalations.$inferSelect;

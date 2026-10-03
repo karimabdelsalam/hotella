@@ -377,6 +377,9 @@ importers:
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../../packages/domain/integrations
+      '@hotella/domain-operations':
+        specifier: workspace:*
+        version: link:../../packages/domain/operations
       '@hotella/platform-audit':
         specifier: workspace:*
         version: link:../../packages/platform/audit
@@ -837,6 +840,9 @@ importers:
       '@hotella/platform-auth':
         specifier: workspace:*
         version: link:../../platform/auth
+      '@hotella/platform-config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@hotella/platform-database':
         specifier: workspace:*
         version: link:../../platform/database
@@ -855,6 +861,9 @@ importers:
       '@hotella/platform-queue':
         specifier: workspace:*
         version: link:../../platform/queue
+      '@hotella/platform-time':
+        specifier: workspace:*
+        version: link:../../platform/time
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -871,9 +880,6 @@ importers:
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../integrations
-      '@hotella/platform-config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@hotella/platform-flags':
         specifier: workspace:*
         version: link:../../platform/flags
@@ -1673,6 +1679,15 @@ importers:
       testcontainers:
         specifier: 12.2.0
         version: 12.2.0
+    devDependencies:
+      '@hotella/tooling':
+        specifier: workspace:*
+        version: link:../../../tooling
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.1)(vite@8.3.2(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/platform/time:
     devDependencies:
       '@hotella/tooling':
         specifier: workspace:*

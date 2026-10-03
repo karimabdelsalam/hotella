@@ -3,5 +3,8 @@
   "ops.permission.task_assign": "Assign, reassign and unassign tasks",
   "ops.permission.task_accept": "Take, start and pause own tasks",
   "ops.permission.task_complete": "Complete tasks",
-  "ops.permission.task_cancel": "Cancel tasks"
+  "ops.permission.task_cancel": "Cancel tasks",
+  "ops.permission.sla_manage": "Manage business hours and SLA policies",
+  "ops.permission.alert_read": "View operational alerts",
+  "ops.permission.alert_ack": "Acknowledge and resolve operational alerts"
 }
