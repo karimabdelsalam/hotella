@@ -165,7 +165,12 @@ export class AiRepositories {
     await this.x.insert(modelCalls).values(values);
   }
   /** External spend of the tenant since `from` (minor units). */
-  async externalSpendSince(scope: TenantScope, from: Date): Promise<number> {
+  /** External spend since a date: of one property when given, else of the whole tenant. */
+  async externalSpendSince(
+    scope: TenantScope,
+    from: Date,
+    propertyId: string | null = null,
+  ): Promise<number> {
     const [row] = await this.x
       .select({ n: sql<number>`coalesce(sum(${modelCalls.costMinor}), 0)::int` })
       .from(modelCalls)
@@ -175,6 +180,7 @@ export class AiRepositories {
           scope,
           eq(modelCalls.egress, 'EXTERNAL'),
           gte(modelCalls.createdAt, from),
+          ...(propertyId ? [eq(modelCalls.propertyId, propertyId)] : []),
         ),
       );
     return row?.n ?? 0;

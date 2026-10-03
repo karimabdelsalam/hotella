@@ -16,12 +16,15 @@ export const AI_EXTERNAL_PROVIDERS_ENABLED = defineSetting({
   default: false,
   descriptionKey: 'ai.setting.external_providers_enabled',
 });
-/** Monthly limit of external model spend in minor units of the models' currency (0: no external spend). */
+/**
+ * Monthly limit of external model spend per hotel, in minor units of the models' currency (0: no external spend). The
+ * product owner set 100 USD per hotel per month (ADR-0018, Q8); a tenant or a property may set its own.
+ */
 export const AI_BUDGET_MONTHLY_LIMIT_MINOR = defineSetting({
   key: 'ai.budget.monthly_limit_minor',
-  scopes: ['PLATFORM', 'TENANT'],
+  scopes: ['PLATFORM', 'TENANT', 'PROPERTY'],
   schema: z.number().int().min(0).max(100_000_000),
-  default: 0,
+  default: 10_000,
   descriptionKey: 'ai.setting.budget_monthly_limit_minor',
 });
 

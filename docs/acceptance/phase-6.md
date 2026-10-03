@@ -15,7 +15,7 @@ fully recorded, and no AI code path writes a business table outside a tool handl
 | 3 | CRITICAL refused | ✅ | `policy.spec.ts`, `scope.spec.ts` (the gate's AI policy stage refuses CRITICAL even when approved), `tools.integration.spec.ts` (a CRITICAL tool is refused by policy); the approval engine refuses AI requests for CRITICAL approvals (Phase 3). |
 | 4 | Every execution fully recorded | ✅ | `ai.executions` + append-only `ai.execution_steps` (CONTEXT, MODEL_CALL, TOOL_CALL, DECISION, RESPONSE, APPROVAL; codes and decisions only, never guest text), `ai.model_calls` (provider, model, tokens, latency, cost, fallback, outcome), proposals and feedback, readable at `GET /properties/:id/ai/executions[/:id]` (`ai.execution.read`); totals summed on close. Asserted step by step in `m2.integration.spec.ts` and `concierge.integration.spec.ts`; deployed: the smoke reads the execution (`COMPLETED`, tokens). |
 | 5 | No AI code path writes a business table | ✅ | `boundaries.spec.ts`: the AI package imports other contexts only through their `public` entry, declares only the `ai` schema, and only its repositories write; ESLint `no-restricted-imports` and dependency-cruiser enforce the same. Every business change goes through a tool handler → public API → ActionGate as `AI_AGENT` (authorized only for its tools' permissions, in its tenant and property, inside a cleared tool call); outside a tool call an AI actor is refused (`tools.integration.spec.ts`). |
-| 6 | Providers, data egress and budgets per ADR-0018 | ✅ (Q8 🟡) | `gateway.integration.spec.ts`: on-prem by default, external providers only with the platform allow-list, the tenant opt-in and budget; data-class filter, identifier masking, RESTRICTED never sent; fallback and kill switches. Which external providers and budgets to allow is the product owner's decision (Q8). |
+| 6 | Providers, data egress and budgets per ADR-0018 | ✅ (Q8 answered) | `gateway.integration.spec.ts`: on-prem by default, external providers only with the platform allow-list, the tenant opt-in and budget; data-class filter, identifier masking, RESTRICTED never sent; fallback and kill switches. Which external providers and budgets to allow is the product owner's decision (Q8). |
 
 ## Also verified
 - Agents and prompts are versioned and immutable once published (trigger); the Guest Concierge is now at v2 (adds `knowledge.search`), v1 kept as history.
@@ -33,7 +33,9 @@ fully recorded, and no AI code path writes a business table outside a tool handl
 - Exact vector search over scoped candidates instead of an HNSW index until the embedding model (and dimension) is chosen — §6.D.
 
 ## Open items carried forward
-- 🟡 **Q8 / ADR-0018 (product owner):** which external AI providers may receive data and the monthly budget caps. Until then: the `FAKE` provider in CI, and an on-prem model server (an `OPENAI_COMPATIBLE` provider) or AI off in pilots.
-- 🟡 Pilot: choose and deploy an on-prem model server for `REASONING_HIGH` and `EMBEDDING`, route them, and set `comms.ai_mode.default` per property (OFF by default).
+- ✅ **Q8 / ADR-0018** answered on 2026-10-03: Anthropic and OpenAI allowed, 100 USD per hotel per month (now the
+  default budget, enforced per property). 🟡 Pilot: create the two provider rows with their API keys in OpenBao, allow
+  them on the platform and switch the tenant's opt-in on.
+- 🟡 Pilot: route `REASONING_HIGH` and `EMBEDDING` to the chosen models and set `comms.ai_mode.default` per property (OFF by default).
 - Agent and prompt administration, tenant prompt layers, evaluation sets and canary publishing (Phase 12); durable guest memory; AI conversation summaries in the inbox; HNSW index per embedding model.
 - Carried from earlier phases: see `docs/acceptance/phase-5.md`.

@@ -313,6 +313,15 @@ describe.skipIf(needsInfra())(`Model Gateway against PostgreSQL (${infraSkipReas
         and type = 'AI_BUDGET_EXHAUSTED'`)
     ).rows as Array<{ n: number }>;
     expect(alerts[0]!.n).toBe(1);
+    // The budget is per hotel: another hotel of the same company still has its own.
+    const second = (
+      await http()
+        .post('/properties')
+        .set('X-Test-Actor', gm())
+        .send({ code: 'AIP2', name: 'AI Hotel 2', timezone: 'Africa/Cairo', currency: 'EGP' })
+        .expect(201)
+    ).body.id as string;
+    expect((await ask({ propertyId: second })).model).toBe(`cloud-${stamp}`);
   });
 
   it('a tenant routes a capability to its own choice; no route means unavailable; usage is reported', async () => {

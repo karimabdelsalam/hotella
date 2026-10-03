@@ -1820,7 +1820,7 @@ A module/phase is accepted only when all of the following are true:
 | Q5 | OPERA 5 interface | — | **Answered:** FIAS primary; OWS secondary where licensed; optional read-only DB views for reconciliation (ADR-0014). Pilot to confirm IFC8/OWS licenses |
 | Q6 | Hosting target | — | **Answered:** on-premises (ADR-0013): Compose → k3s/RKE2, OpenBao (Vault API), SeaweedFS, Grafana stack, pgBackRest |
 | Q7 | Data residency / region constraints | — | **Answered by Q6:** data stays within the on-prem installation; multi-region = multiple installations |
-| Q8 | First AI provider(s), data egress to them, and budget caps (ADR-0018) | Phase 6 | Anthropic + OpenAI behind gateway; until answered: `FAKE` in CI, on-prem model server or AI off in pilots |
+| Q8 | First AI provider(s), data egress to them, and budget caps (ADR-0018) | Phase 6 | **Answered 2026-10-03:** Anthropic (Claude) and OpenAI (ChatGPT) behind the gateway, masked and class-limited; cap 100 USD per hotel per month (`ai.budget.monthly_limit_minor` default, per property). CI keeps `FAKE` |
 | Q9 | Initial platform role catalog (GM, Duty Manager, HK Supervisor, Room Attendant, Engineer, Front Desk, Guest Relations, Platform Admin, Support) — confirm names and Arabic labels | Phase 1 | as listed |
 | Q10 | Pilot property: IFC8 interface license, OWS license status, read-only DB account possibility (ADR-0014) | before Phase 10 | FIAS available; OWS unknown |
 | Q11 | Concrete BSP and SMS aggregator for the pilot (ADR-0015) | Phase 4 end | Meta Cloud API adapter first; BSP/SMS adapters implemented against fakes until chosen |

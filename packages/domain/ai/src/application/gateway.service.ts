@@ -207,13 +207,21 @@ export class ModelGatewayService implements ModelGatewayApi {
     return out;
   }
 
-  /** External providers need the tenant's opt-in and budget left this month (ADR-0018). */
+  /**
+   * External providers need the tenant's opt-in and budget left this month (ADR-0018). The budget is per hotel: a call
+   * for a property counts that property's spend against its limit; a call without one counts the tenant's.
+   */
   private async externalAllowed(tenantId: string, propertyId: string | null): Promise<boolean> {
     if (!(await this.settings.value(AI_EXTERNAL_PROVIDERS_ENABLED, { tenantId }))) return false;
-    const limit = await this.settings.value(AI_BUDGET_MONTHLY_LIMIT_MINOR, { tenantId });
+    const limit = await this.settings.value(AI_BUDGET_MONTHLY_LIMIT_MINOR, {
+      tenantId,
+      propertyId,
+    });
     const now = new Date();
     const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const spent = await this.tx.read(() => this.repo.externalSpendSince({ tenantId }, month));
+    const spent = await this.tx.read(() =>
+      this.repo.externalSpendSince({ tenantId }, month, propertyId),
+    );
     if (spent < limit) return true;
     if (limit > 0 && propertyId)
       await this.ops
@@ -222,7 +230,7 @@ export class ModelGatewayService implements ModelGatewayApi {
           propertyId,
           type: 'AI_BUDGET_EXHAUSTED',
           severity: 'WARNING',
-          dedupeKey: `ai-budget:${tenantId}:${month.toISOString().slice(0, 7)}`,
+          dedupeKey: `ai-budget:${propertyId}:${month.toISOString().slice(0, 7)}`,
           evidence: { limit_minor: limit, spent_minor: spent },
         })
         .catch(() => undefined);

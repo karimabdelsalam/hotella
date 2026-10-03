@@ -1,8 +1,10 @@
 # ADR-0018: AI Model Gateway, provider adapters and data egress policy
 
-**Status:** Accepted for the engineering design — 2026-10-03. **Pending product-owner decision (BUILD_PLAN Q8):**
-which external provider(s) may be enabled for the pilot and the monthly budget caps. Until then installations run
-with AI providers disabled, or with an on-prem model server only.
+**Status:** Accepted — 2026-10-03. **Product-owner decision (BUILD_PLAN Q8), 2026-10-03:** external providers
+**Anthropic (Claude) and OpenAI (ChatGPT)** may be enabled, both behind the gateway (either can be the fallback of the
+other), with a spend cap of **100 USD per hotel per month**. The owner's framing: AI is a large part of the platform —
+making work easier for staff and guests and powering analytics — but not all of it; the operational core stays
+deterministic (rule 11) and keeps working when AI is off or over budget.
 
 ## Context
 Spec §27–§28 require a provider-independent AI layer: every model call passes one gateway that routes by capability
@@ -43,9 +45,10 @@ and paying for tokens is a spending decision — both belong to the product owne
   tenant's setting `ai.external_providers.enabled` is true. Both default to off.
 
 ### Budget and kill switches
-- Per-tenant monthly budget `ai.budget.monthly_limit_minor` (default 0 = no external spend allowed); when the
-  estimated cost of the month's calls reaches it, external calls stop (on-prem providers continue) and an operational
-  alert is raised once.
+- Monthly budget per hotel `ai.budget.monthly_limit_minor` (scopes platform → tenant → property; default 10 000 minor
+  units = 100 USD, the owner's cap); a call for a property counts that property's external spend of the month against
+  its limit (a call without a property counts the tenant's). When it is reached, external calls stop for that hotel
+  (on-prem providers continue, otherwise the AI hands over to staff) and an operational alert is raised once.
 - Kill switches (Spec §42) as feature flags evaluated by the gateway and the runtime: provider, model, agent, tool,
   auto-actions, guest AI. A switched-off guest AI hands every conversation to staff.
 
@@ -53,6 +56,8 @@ and paying for tokens is a spending decision — both belong to the product owne
 - The whole AI foundation (Phase 6) is built and tested with the `FAKE` provider; CI never calls a paid API.
 - A pilot can run AI fully on-prem by pointing `OPENAI_COMPATIBLE` at a local model server — no owner decision needed
   for that beyond hardware.
-- Enabling Anthropic or OpenAI is configuration (provider row + SecretRef + the two settings + a budget), done after
-  the product owner answers Q8.
+- Enabling Anthropic or OpenAI is configuration: a provider row per vendor (kinds `ANTHROPIC` and
+  `OPENAI_COMPATIBLE`, egress `EXTERNAL`) with its API key as a SecretRef in OpenBao, its codes in the platform setting
+  `ai.external_providers.allowed`, and the tenant's opt-in `ai.external_providers.enabled` (each hotel group switches
+  external AI on deliberately). The 100 USD per hotel cap applies by default.
 - Provider-specific features (prompt caching, batch APIs) are optimisations inside adapters, never visible to agents.
