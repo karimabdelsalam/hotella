@@ -221,3 +221,71 @@ export interface ArrivalRisk {
   readonly level: 'LOW' | 'MEDIUM' | 'HIGH';
   readonly reasons: readonly ArrivalRiskReason[];
 }
+
+// ---- inspections (see the inspection context's template and inspection services) ----
+
+export type ItemKind =
+  'PASS_FAIL' | 'YES_NO' | 'SCORE' | 'NUMBER' | 'TEXT' | 'PHOTO' | 'MULTI_SELECT';
+export type Severity = 'INFO' | 'MINOR' | 'MAJOR' | 'CRITICAL';
+
+export interface ChecklistItem {
+  readonly id: string;
+  readonly code: string;
+  readonly label: string;
+  readonly help: string | null;
+  readonly optionLabels: Readonly<Record<string, string>>;
+  readonly rule: {
+    readonly kind: ItemKind;
+    readonly required: boolean;
+    readonly scaleMax?: number;
+    readonly min?: number;
+    readonly max?: number;
+    readonly options?: readonly string[];
+    readonly failSeverity: Severity;
+  };
+}
+
+export interface InspectionTemplate {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly scope: 'ROOM' | 'AREA' | 'ASSET';
+  readonly publishedVersionNo: number | null;
+}
+
+export interface InspectionSummary {
+  readonly id: string;
+  readonly number: number;
+  readonly templateName: string | null;
+  readonly roomNumber: string | null;
+  readonly status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  readonly result: 'PASS' | 'FAIL' | null;
+  readonly score: number | null;
+  readonly startedAt: string;
+}
+
+export interface InspectionDetail extends InspectionSummary {
+  readonly checklist: {
+    readonly sections: ReadonlyArray<{
+      readonly id: string;
+      readonly code: string;
+      readonly title: string;
+      readonly items: readonly ChecklistItem[];
+    }>;
+  };
+  readonly answers: ReadonlyArray<{
+    readonly itemCode: string;
+    readonly answer: { readonly kind: ItemKind; readonly value: unknown };
+  }>;
+  readonly findings: ReadonlyArray<{
+    readonly id: string;
+    readonly itemCode: string;
+    readonly severity: Severity;
+    readonly status: 'OPEN' | 'LINKED' | 'RESOLVED';
+  }>;
+}
+
+export interface RoomRow {
+  readonly locationId: string;
+  readonly roomNumber: string;
+}

@@ -1896,11 +1896,36 @@ logbook.handovers               id, property_id, department_code, shift_date, sh
 
 | Sprint | Scope | Status |
 |---|---|---|
-| 9.1 | Inspection engine: templates/versions/sections/items, publish, inspections with responses, photos, deterministic scoring and findings, CRITICAL → urgent work, housekeeping bridge, staff web inspection runner | planned |
+| 9.1 | Inspection engine: templates/versions/sections/items, publish, inspections with responses, photos, deterministic scoring and findings, CRITICAL → urgent work, housekeeping bridge, staff web inspection runner | delivered |
 | 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | planned |
 | 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | planned |
 | 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | planned |
 | 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | planned |
+
+Reality notes for 9.1:
+- `@hotella/domain-inspection`, migration `0033_inspection_engine`: `templates` (+ translations, scope ROOM/AREA/ASSET,
+  the department its findings go to), `template_versions` (DRAFT/PUBLISHED), `template_sections` and `template_items`
+  (+ translations; item labels carry option labels per locale), `inspections` (number per property, pinned version,
+  location, optional asset, source, inspector, score, result), append-only `responses` (latest per item counts) and
+  `findings`. Triggers refuse any change to a published version or to its sections, items and their translations;
+  RLS on every tenant table. A draft is replaced as a whole (one per template); publishing checks every rule
+  (`ruleProblem`). The application role is granted the new schema (`APPLICATION_SCHEMAS`).
+- `evaluate()` is the only judge: PASS_FAIL, YES_NO (expected answer), SCORE (scale, pass-from), NUMBER (range),
+  MULTI_SELECT (failing options); TEXT and PHOTO are evidence. Completion needs every required item, then stores
+  score and result (FAIL on any MAJOR/CRITICAL) and one finding per failed item. CRITICAL → URGENT `INSPECTION_FINDING`
+  work for the template's department (unrouted when that department is not active) at the inspection's place; other
+  findings get work on request; the worker resolves a finding when its work is resolved (cancelled work reopens it).
+- Photos: `POST …/inspections/:id/photos` with the raw image (PNG/JPEG/WebP read from the bytes, 2 MB), stored under
+  `inspection/<tenant>/<inspection>/`; a PHOTO answer may only name photos of its own inspection; served to
+  `inspection.read`. Image sniffing moved to `platform-storage` (shared with hotel logos).
+- Housekeeping bridge: the supervisor's inspection of a clean may pass `inspectionId` (a completed checklist inspection
+  at the job's room) instead of a bare result; its result decides and `hk.inspections.checklist_inspection_id` keeps
+  the link (migration 0034; no cross-schema FK, the reference is checked through `INSPECTION_API`).
+- Roles: inspection.read/perform for housekeeping and engineering desks and engineers, template management for the
+  GM and the chief engineer, read for duty managers.
+- Staff web `/inspections`: start a published checklist on a room, phone-sized answer controls per kind (buttons,
+  numbers, text, photos from the camera, chips), complete, findings with "open work"; read-only for viewers.
+  Playwright English and Arabic.
 
 ### Phase 10 — Real OPERA 5 On-Premise Integration (M4a)
 `apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
