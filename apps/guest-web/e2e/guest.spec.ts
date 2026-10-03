@@ -248,23 +248,29 @@ test('the guest app in Arabic is right-to-left and fully translated', async ({ p
   await page.goto('/ar/chat');
   await expect(page.getByRole('heading', { name: 'تحدّث مع الفندق' })).toBeVisible();
   await thread;
-  // Polled as a value so a failure reports what the thread shows and any browser error raised while rendering it.
-  await expect
-    .poll(
-      async () => ({
-        thread: await page
-          .locator('main ol')
-          .innerText({ timeout: 1_000 })
-          .catch(() => '<no thread>'),
-        errors: [...errors],
-      }),
+  // On failure, report what the page shows and every browser error and API call since it loaded.
+  try {
+    await expect(page.getByText('نعمل على طلبك: مشكلة في التكييف.')).toHaveAttribute(
+      'data-sender',
+      'SYSTEM',
       { timeout: 10_000 },
-    )
-    .toMatchObject({ thread: expect.stringContaining('نعمل على طلبك: مشكلة في التكييف.') });
-  await expect(page.getByText('نعمل على طلبك: مشكلة في التكييف.')).toHaveAttribute(
-    'data-sender',
-    'SYSTEM',
-  );
+    );
+  } catch (e) {
+    const body = await page
+      .locator('body')
+      .innerText({ timeout: 1_000 })
+      .catch(() => '<no body>');
+    throw new Error(
+      [
+        (e as Error).message,
+        `url: ${page.url()}`,
+        `body: ${body}`,
+        `errors: ${errors.join(' | ') || 'none'}`,
+        `calls: ${backend.calls.map((c) => `${c.method} ${c.path}`).join(', ')}`,
+      ].join('\n'),
+      { cause: e },
+    );
+  }
   await expect(page.getByTestId('attribution')).toContainText('Powered by Planova');
 });
 
