@@ -85,6 +85,8 @@ async function main(): Promise<void> {
     });
     holder.pms = pms;
     link.start();
+    // Chaos steps act on a live link; start the scenario once the gateway welcomed the agent.
+    await link.ready();
     await runScenario(scenario, pms, link);
     await link.drained(60_000);
     out(`scenario "${scenario.name}" delivered (${JSON.stringify(link.stats)})`);

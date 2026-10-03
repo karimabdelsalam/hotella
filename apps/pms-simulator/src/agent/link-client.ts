@@ -106,9 +106,26 @@ export class AgentLinkClient {
     return m;
   }
 
+  /** Resolves once the link is up and welcomed (or throws after `timeoutMs`). */
+  async ready(timeoutMs = 30_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!this.connected) {
+      if (this.revoked) throw new Error('link revoked');
+      if (Date.now() > deadline) throw new Error('link not established');
+      await new Promise((r) => setTimeout(r, 25));
+    }
+  }
+
   /** Resolves when every queued message has been acknowledged. */
   async drained(timeoutMs = 15_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
+    // A message held back for the reorder chaos goes out now: nothing else may follow to release it.
+    if (this.held && this.connected) {
+      const held = this.held;
+      this.held = null;
+      this.chaos.reorderNext = false;
+      this.flush([held]);
+    }
     while (this.options.queue.depth > 0) {
       if (Date.now() > deadline)
         throw new Error(`link not drained: ${this.options.queue.depth} message(s) unacknowledged`);

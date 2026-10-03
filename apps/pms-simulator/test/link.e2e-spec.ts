@@ -323,6 +323,11 @@ describe.skipIf(needsInfra())(
       expect(
         stay.body.party.find((m: { role: string }) => m.role === 'PRIMARY').guest.primaryLocale,
       ).toBe('en');
+
+      // A message held back for the reorder chaos is not stranded when nothing follows it (pilot defect).
+      client.chaos.reorderNext = true;
+      pms.roomStatus('504', 1, '2026-10-06T09:00:00Z');
+      await client.drained(5_000);
     });
 
     it('heartbeats report liveness and backlog; rejected messages degrade health', async () => {
