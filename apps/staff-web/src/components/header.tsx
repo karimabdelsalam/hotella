@@ -15,6 +15,7 @@ const SECTIONS = [
   ['housekeeping', 'hk.board.read'],
   ['engineering', 'eng.work_order.read'],
   ['inspections', 'inspection.read'],
+  ['relations', 'complaint.read'],
   ['arrivals', 'hk.arrivals.read'],
   ['branding', 'branding.manage'],
 ] as const;

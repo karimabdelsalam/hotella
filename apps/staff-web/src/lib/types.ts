@@ -289,3 +289,69 @@ export interface RoomRow {
   readonly locationId: string;
   readonly roomNumber: string;
 }
+
+// ---- guest relations (see the relations context's complaint, candidate and recovery services) ----
+
+export type ComplaintSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type ComplaintStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type RecoveryKind =
+  'APOLOGY' | 'AMENITY' | 'MEAL' | 'DISCOUNT' | 'REFUND' | 'ROOM_MOVE' | 'OTHER';
+
+export interface ComplaintCategory {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly defaultSeverity: ComplaintSeverity;
+  readonly active: boolean;
+}
+
+export interface ComplaintSummary {
+  readonly id: string;
+  readonly number: number;
+  readonly categoryName: string;
+  readonly severity: ComplaintSeverity;
+  readonly status: ComplaintStatus;
+  readonly source: 'STAFF' | 'GUEST_WEB' | 'CHAT' | 'AI_CANDIDATE' | 'SURVEY';
+  readonly summary: string;
+  readonly openedAt: string;
+  readonly version: number;
+}
+
+export interface ComplaintDetail extends ComplaintSummary {
+  readonly description: string | null;
+  readonly roomNumber: string | null;
+  readonly stayId: string | null;
+  readonly evidence: ReadonlyArray<{
+    readonly id: string;
+    readonly kind: 'MESSAGE' | 'NOTE' | 'PHOTO' | 'AI_REASON';
+    readonly text: string | null;
+    readonly createdAt: string;
+  }>;
+  readonly history: ReadonlyArray<{
+    readonly id: string;
+    readonly fromStatus: ComplaintStatus | null;
+    readonly toStatus: ComplaintStatus;
+    readonly note: string | null;
+    readonly createdAt: string;
+  }>;
+  readonly recovery: ReadonlyArray<{
+    readonly id: string;
+    readonly kind: RecoveryKind;
+    readonly amountMinor: number | null;
+    readonly currency: string | null;
+    readonly note: string | null;
+    readonly status: 'DONE' | 'PENDING_APPROVAL' | 'REJECTED';
+  }>;
+}
+
+export interface ComplaintCandidate {
+  readonly id: string;
+  readonly categoryName: string;
+  readonly severity: ComplaintSeverity;
+  readonly confidence: number;
+  readonly summary: string;
+  readonly reason: string;
+  readonly guestWords: string | null;
+  readonly createdAt: string;
+  readonly version: number;
+}
