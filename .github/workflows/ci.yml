@@ -144,4 +144,4 @@ jobs:
         run: docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml logs --tail=200
       - name: Tear down
         if: always()
-        run: docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml down -v
+        run: docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml --profile tools down -v

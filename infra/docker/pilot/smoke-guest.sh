@@ -106,27 +106,39 @@ echo "M1 service request: OK"
 # Concierge on background-ai through the real OPENAI_COMPATIBLE adapter (a stand-in model on the backend network),
 # which creates AC_PROBLEM for Engineering and answers in Arabic; the execution is on record.
 compose() { docker compose -p hotella-pilot -f "$DIR/../compose.pilot.yml" "$@"; }
+# Like curl -fsS, but a refused call prints the problem details (curl -f hides them).
+call() {
+  local out code
+  out=$(curl -sS -w '\n%{http_code}' "$@") || return 1
+  code=${out##*$'\n'}
+  out=${out%$'\n'*}
+  if [ "$code" -ge 400 ]; then
+    echo "HTTP $code: $out" >&2
+    return 22
+  fi
+  printf '%s\n' "$out"
+}
 compose --profile tools up -d model-mock >/dev/null
-provider=$(curl -fsS "$API/ai/providers" -H "authorization: Bearer $admin" "${json[@]}" \
+provider=$(call "$API/ai/providers" -H "authorization: Bearer $admin" "${json[@]}" \
   -d '{"code":"PILOT_MODEL_MOCK","kind":"OPENAI_COMPATIBLE","baseUrl":"http://model-mock:8080/v1","egress":"ON_PREM","maxDataClass":"CONFIDENTIAL"}' | jq -r .id)
-model=$(curl -fsS "$API/ai/models" -H "authorization: Bearer $admin" "${json[@]}" \
+model=$(call "$API/ai/models" -H "authorization: Bearer $admin" "${json[@]}" \
   -d "{\"providerId\":\"$provider\",\"code\":\"concierge-mock\",\"capabilities\":[\"REASONING_HIGH\"]}" | jq -r .id)
-curl -fsS -X PUT "$API/ai/routing-rules" "${auth[@]}" -d "{\"capability\":\"REASONING_HIGH\",\"modelIds\":[\"$model\"]}" >/dev/null
-conversation=$(curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/conversation" | jq -r .conversation.id)
-curl -fsS "$API/properties/$property/conversations/$conversation/ai-mode" "${auth[@]}" -d '{"mode":"AUTO"}' |
+call -X PUT "$API/ai/routing-rules" "${auth[@]}" -d "{\"capability\":\"REASONING_HIGH\",\"modelIds\":[\"$model\"]}" >/dev/null
+conversation=$(call "${cookie[@]}" "$GUEST_WEB/hotella/guest/conversation" | jq -r .conversation.id)
+call "$API/properties/$property/conversations/$conversation/ai-mode" "${auth[@]}" -d '{"mode":"AUTO"}' |
   jq -e '.aiMode == "AUTO"' >/dev/null
-curl -fsS "${cookie[@]}" "${json[@]}" "$GUEST_WEB/hotella/guest/conversation/messages" -d '{"body":"الجو حر أوي هنا"}' >/dev/null
+call "${cookie[@]}" "${json[@]}" "$GUEST_WEB/hotella/guest/conversation/messages" -d '{"body":"الجو حر أوي هنا"}' >/dev/null
 answered=""
 for _ in $(seq 1 60); do
-  answered=$(curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/conversation" |
+  answered=$(call "${cookie[@]}" "$GUEST_WEB/hotella/guest/conversation" |
     jq -r '[.messages[] | select(.senderType == "AI") | .body] | last // ""')
   [ -n "$answered" ] && break
   sleep 1
 done
 echo "concierge answered: $answered"
 grep -q 'التكييف' <<<"$answered"
-curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/requests" | jq -e '[.[] | select(.serviceCode == "AC_PROBLEM")] | length == 1' >/dev/null
-execution=$(curl -fsS "$API/properties/$property/ai/executions?conversationId=$conversation&limit=1" "${auth[@]}" | jq '.[0]')
+call "${cookie[@]}" "$GUEST_WEB/hotella/guest/requests" | jq -e '[.[] | select(.serviceCode == "AC_PROBLEM")] | length == 1' >/dev/null
+execution=$(call "$API/properties/$property/ai/executions?conversationId=$conversation&limit=1" "${auth[@]}" | jq '.[0]')
 echo "execution: $(jq -c '{agentCode, status, tokensIn, trigger}' <<<"$execution")"
 jq -e '.status == "COMPLETED" and .agentCode == "GUEST_CONCIERGE" and .tokensIn == 360' <<<"$execution" >/dev/null
 [ "$(psql "select count(*) from audit.audit_log a join catalog.service_requests r on r.id = a.entity_id
