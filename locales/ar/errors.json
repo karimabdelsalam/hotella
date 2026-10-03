@@ -79,5 +79,12 @@
   "errors.integration.capability_unavailable": "يتطلب هذا الإجراء نظامًا مربوطًا يدعم {capability}.",
   "errors.guest.stay.not_found": "لم يتم العثور على الإقامة.",
   "errors.guest.stay.not_in_room": "لا يوجد نزيل مقيم في هذه الغرفة حاليًا.",
-  "errors.guest.guest.not_found": "لم يتم العثور على النزيل."
+  "errors.guest.guest.not_found": "لم يتم العثور على النزيل.",
+  "errors.integration.agent.enrollment_invalid": "رمز التسجيل غير صالح أو منتهي الصلاحية أو مستخدم من قبل.",
+  "errors.integration.agent.csr_rejected": "تم رفض طلب الشهادة.",
+  "errors.integration.agent.not_enrolled": "لا يوجد وكيل فندق مسجل لهذا الربط.",
+  "errors.integration.agent.connector_mismatch": "وكيل الفندق يعمل بموصل مختلف عن هذا الربط.",
+  "errors.integration.agent.unauthorized": "يلزم وجود شهادة صالحة لوكيل الفندق.",
+  "errors.integration.command.unknown": "الموصل لا يعرّف الأمر {command}.",
+  "errors.integration.command.invalid_payload": "بيانات الأمر غير صحيحة."
 }

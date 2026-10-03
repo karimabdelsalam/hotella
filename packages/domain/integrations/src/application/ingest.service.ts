@@ -6,14 +6,11 @@ import {
   type RawInboundMessageInput,
   RECORD_CAPABILITY,
 } from '@hotella/contracts-connectors';
-import { IntegrationExceptionOpened, IntegrationHealthChanged } from '@hotella/contracts-events';
+import { IntegrationExceptionOpened } from '@hotella/contracts-events';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
-import { AuditWriter } from '@hotella/platform-audit';
-import { ActionGate } from '@hotella/platform-auth';
 import {
   DATABASE,
   type Database,
-  type PropertyScope,
   type TenantScope,
   withTransaction,
 } from '@hotella/platform-database';
@@ -21,9 +18,10 @@ import { EventPublisher } from '@hotella/platform-events';
 import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { ConnectorRegistry } from '../connectors/registry';
-import { classifyHealth, effectiveCapabilities, recordOutcome } from '../domain/instance';
+import { effectiveCapabilities } from '../domain/instance';
 import { codesOf, toCanonical } from '../domain/mapping';
 import { IntegrationRepositories } from '../infrastructure/repositories';
+import { HealthService } from './health.service';
 import type { IntegrationInstanceRow, IntegrationMessageRow } from '../infrastructure/schema';
 
 export interface IngestResult {
@@ -31,14 +29,6 @@ export interface IngestResult {
   readonly messageId: string;
   readonly status: IntegrationMessageRow['status'];
 }
-
-const REPLAYABLE: ReadonlySet<IntegrationMessageRow['status']> = new Set([
-  'RECEIVED',
-  'PENDING_MAPPING',
-  'HELD',
-  'FAILED',
-  'REJECTED',
-]);
 
 /**
  * The inbound pipeline (Spec §50): raw vendor message → `integration_messages` → parser → mapper → canonical event
@@ -53,9 +43,8 @@ export class IngestService {
     private readonly repo: IntegrationRepositories,
     private readonly connectors: ConnectorRegistry,
     private readonly events: EventPublisher,
-    private readonly audit: AuditWriter,
-    private readonly gate: ActionGate,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
+    private readonly health: HealthService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -94,68 +83,12 @@ export class IngestService {
     return { outcome: 'accepted', messageId: stored.id, status };
   }
 
-  /** Re-runs a parked message after its cause was fixed (mapping confirmed, adapter fixed, capability enabled). */
-  async replay(scope: PropertyScope, instanceId: string, messageId: string) {
-    return this.gate.execute(
-      { action: 'integration.replay', tenantId: scope.tenantId, propertyId: scope.propertyId },
-      async () => {
-        const message = await this.loadMessage(scope, instanceId, messageId);
-        if (!REPLAYABLE.has(message.status))
-          throw AppError.conflict('integration.message.not_replayable', {
-            status: message.status,
-          });
-        const status = await this.processSafely(scope, message.id);
-        await withTransaction(
-          this.db,
-          () =>
-            this.audit.record({
-              action: 'integration.message.replay',
-              entityType: 'integration_message',
-              entityId: message.id,
-              tenantId: scope.tenantId,
-              propertyId: scope.propertyId,
-              before: { status: message.status },
-              after: { status },
-            }),
-          { tenantId: scope.tenantId },
-        );
-        return { messageId: message.id, status };
-      },
-    );
-  }
-
-  /** Replays every message waiting for a mapping, oldest first (after a batch of mappings was confirmed). */
-  async replayPending(scope: PropertyScope, instanceId: string) {
-    return this.gate.execute(
-      { action: 'integration.replay', tenantId: scope.tenantId, propertyId: scope.propertyId },
-      async () => {
-        await this.instanceInProperty(scope, instanceId);
-        const pending = await this.repo.pendingMappingMessages(scope, instanceId);
-        const outcome: Record<string, number> = {};
-        for (const m of pending) {
-          const status = await this.processSafely(scope, m.id);
-          outcome[status] = (outcome[status] ?? 0) + 1;
-        }
-        if (pending.length > 0)
-          await withTransaction(
-            this.db,
-            () =>
-              this.audit.record({
-                action: 'integration.message.replay_pending',
-                entityType: 'integration_instance',
-                entityId: instanceId,
-                tenantId: scope.tenantId,
-                propertyId: scope.propertyId,
-                after: { replayed: pending.length, outcome },
-              }),
-            { tenantId: scope.tenantId },
-          );
-        return { replayed: pending.length, outcome };
-      },
-    );
-  }
-
   /** Processing in its own transaction; an unexpected failure marks the message FAILED instead of losing it. */
+  /** Processes a stored message again (replay); same safety net as ingestion. */
+  async reprocess(scope: TenantScope, messageId: string): Promise<IntegrationMessageRow['status']> {
+    return this.processSafely(scope, messageId);
+  }
+
   private async processSafely(
     scope: TenantScope,
     messageId: string,
@@ -174,7 +107,7 @@ export class IngestService {
             status: 'FAILED',
             error,
           });
-          await this.touchHealth(scope, m.instanceId, true);
+          await this.health.recordMessage(scope, m.instanceId, true);
         },
         { tenantId: scope.tenantId },
       );
@@ -205,7 +138,7 @@ export class IngestService {
         kind: 'UNSUPPORTED_MESSAGE',
         detail: { message_type: m.messageType, requires: messageType?.requires ?? null },
       });
-      await this.touchHealth(scope, instance.id, true);
+      await this.health.recordMessage(scope, instance.id, true);
       return 'REJECTED';
     }
 
@@ -231,7 +164,7 @@ export class IngestService {
         kind: 'PARSE_ERROR',
         detail: { message_type: m.messageType, error: parsed.error },
       });
-      await this.touchHealth(scope, instance.id, true);
+      await this.health.recordMessage(scope, instance.id, true);
       return 'FAILED';
     }
 
@@ -269,7 +202,7 @@ export class IngestService {
         orderingKeys,
         error: `unmapped: ${blocking.map((n) => `${n.type} ${n.code}`).join(', ')}`,
       });
-      await this.touchHealth(scope, instance.id, false);
+      await this.health.recordMessage(scope, instance.id, false);
       return 'PENDING_MAPPING';
     }
 
@@ -323,7 +256,7 @@ export class IngestService {
       canonicalEventIds: eventIds,
       error: null,
     });
-    await this.touchHealth(scope, instance.id, false);
+    await this.health.recordMessage(scope, instance.id, false);
 
     // Messages that waited behind this one may proceed now, in order.
     for (const held of await this.repo.heldSuccessors(scope, instance.id, m.id, orderingKeys))
@@ -399,50 +332,6 @@ export class IngestService {
         external_code: externalCode,
       },
     });
-  }
-
-  /** Rolling success/failure counters and the derived health state (Spec §57). */
-  private async touchHealth(scope: TenantScope, instanceId: string, failed: boolean) {
-    const h = await this.repo.healthForUpdate(scope, instanceId);
-    if (!h) return;
-    const now = new Date();
-    const counters = recordOutcome(h, failed);
-    const lastSuccessAt = failed ? h.lastSuccessAt : now;
-    const status = classifyHealth({
-      now,
-      agentLastSeenAt: h.agentLastSeenAt,
-      lastSuccessAt,
-      errorRatePermille: counters.errorRatePermille,
-    });
-    await this.repo.updateHealth(scope, instanceId, {
-      ...counters,
-      status,
-      ...(failed ? { lastFailureAt: now } : { lastSuccessAt: now }),
-    });
-    if (status !== h.status)
-      await this.events.publish(IntegrationHealthChanged, {
-        tenantId: h.tenantId,
-        propertyId: h.propertyId,
-        source: 'integration',
-        aggregate: { type: 'integration_instance', id: instanceId },
-        payload: { instance_id: instanceId, from: h.status, to: status },
-      });
-  }
-
-  private async instanceInProperty(scope: PropertyScope, instanceId: string) {
-    const instance = await this.repo.instance(scope, instanceId);
-    if (!instance || instance.propertyId !== scope.propertyId)
-      throw AppError.notFound('integration.instance.not_found');
-    return instance;
-  }
-
-  private async loadMessage(scope: PropertyScope, instanceId: string, messageId: string) {
-    await this.instanceInProperty(scope, instanceId);
-    const m = await withTransaction(this.db, () => this.repo.messageForUpdate(scope, messageId), {
-      tenantId: scope.tenantId,
-    });
-    if (!m || m.instanceId !== instanceId) throw AppError.notFound('integration.message.not_found');
-    return m;
   }
 }
 

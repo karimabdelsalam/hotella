@@ -6,7 +6,8 @@
 #   pilot.sh vault-init           initialise (first time) or unseal OpenBao; configure KV, AppRole, app secrets
 #   pilot.sh unseal               unseal OpenBao after a restart
 #   pilot.sh migrate              create/refresh the application DB role, apply migrations, grant the role
-#   pilot.sh start                start api + worker and wait for readiness
+#   pilot.sh start                start api, worker and the agent gateway; wait for readiness
+#   pilot.sh simulate <token>     run the PMS simulator as a hotel agent: enroll, replay a scenario
 #   pilot.sh admin <email> <name> create a platform administrator (password: $HOTELLA_ADMIN_PASSWORD or prompt)
 #   pilot.sh backup [full|diff]   pgBackRest backup (creates the stanza on first use) + archive check
 #   pilot.sh restore-drill        restore the latest backup into a throwaway instance and verify it
@@ -66,7 +67,33 @@ PY
       -out "$SECRETS/tls/server.crt" 2>/dev/null
     chmod 0644 "$SECRETS/tls/server.key" "$SECRETS/tls/server.crt" "$SECRETS/tls/ca.crt"
   fi
+  init_agent_pki
   log "credentials ready in $SECRETS (back this directory up offline; never commit it)"
+}
+
+# Hotel-agent PKI (ADR-0017): agent CA (ECDSA P-256) that signs device certificates, the gateway's TLS certificate
+# (issued by the same CA, which agents pin) and the Ed25519 key that signs command frames. Private keys stay in the
+# unmounted 0700 ca/ directory until vault-init moves them into OpenBao; agent/ holds only the public CA certificate.
+init_agent_pki() {
+  mkdir -p "$SECRETS/agent"; chmod 0755 "$SECRETS/agent"
+  [ -s "$SECRETS/agent/ca.crt" ] && return 0
+  log "generating the hotel-agent CA, gateway certificate and command-signing key"
+  local host="${HOTELLA_AGENT_HOSTNAME:-localhost}"
+  openssl ecparam -name prime256v1 -genkey -noout 2>/dev/null |
+    openssl pkcs8 -topk8 -nocrypt -out "$SECRETS/ca/agent-ca.key"
+  openssl req -x509 -new -key "$SECRETS/ca/agent-ca.key" -days 3650 -subj "/CN=Hotella Agent CA/O=Planova" \
+    -addext "basicConstraints=critical,CA:TRUE,pathlen:0" -addext "keyUsage=critical,keyCertSign,cRLSign" \
+    -out "$SECRETS/agent/ca.crt" 2>/dev/null
+  openssl ecparam -name prime256v1 -genkey -noout 2>/dev/null |
+    openssl pkcs8 -topk8 -nocrypt -out "$SECRETS/ca/agent-tls.key"
+  openssl req -new -key "$SECRETS/ca/agent-tls.key" -subj "/CN=$host" -out "$SECRETS/ca/agent-tls.csr" 2>/dev/null
+  printf 'subjectAltName=DNS:%s,DNS:localhost,DNS:agent-gateway,IP:127.0.0.1\nextendedKeyUsage=serverAuth\nkeyUsage=critical,digitalSignature\nbasicConstraints=critical,CA:FALSE\n' \
+    "$host" >"$SECRETS/ca/agent-tls.cnf"
+  openssl x509 -req -in "$SECRETS/ca/agent-tls.csr" -CA "$SECRETS/agent/ca.crt" -CAkey "$SECRETS/ca/agent-ca.key" \
+    -CAcreateserial -CAserial "$SECRETS/ca/agent-ca.srl" -days 397 -extfile "$SECRETS/ca/agent-tls.cnf" \
+    -out "$SECRETS/ca/agent-tls.crt" 2>/dev/null
+  openssl genpkey -algorithm ed25519 -out "$SECRETS/ca/agent-command.key"
+  chmod 0644 "$SECRETS/agent/ca.crt"
 }
 
 wait_healthy() {
@@ -114,7 +141,10 @@ cmd_vault_init() {
   for _ in $(seq 1 30); do bao token lookup >/dev/null 2>&1 && break; sleep 1; done
   bao secrets list -format=json | grep -q '"kv/"' || bao secrets enable -path=kv kv-v2 >/dev/null
   bao auth list -format=json | grep -q '"approle/"' || bao auth enable approle >/dev/null
-  printf 'path "kv/data/hotella/*" { capabilities = ["read"] }\n' | bao policy write hotella-app - >/dev/null
+  # Least privilege: api/worker read only the application secrets; the agent gateway also reads the agent PKI.
+  printf 'path "kv/data/hotella/app" { capabilities = ["read"] }\n' | bao policy write hotella-app - >/dev/null
+  printf 'path "kv/data/hotella/app" { capabilities = ["read"] }\npath "kv/data/hotella/agent" { capabilities = ["read"] }\n' |
+    bao policy write hotella-agent - >/dev/null
   log "writing application secrets to kv/hotella/app"
   python3 - "$SECRETS" <<'PY' | bao write kv/data/hotella/app - >/dev/null
 import json, sys, pathlib
@@ -124,15 +154,25 @@ print(json.dumps({"data": {"db_password": r("db_app_password"), "valkey_password
   "s3_access_key": r("s3_access_key"), "s3_secret_key": r("s3_secret_key"), "mfa_key": r("mfa_key"),
   "jwt_private_key": r("jwt_private_key.pem")}}))
 PY
-  for role in api worker; do
-    bao write "auth/approle/role/hotella-$role" token_policies=hotella-app token_ttl=1h token_max_ttl=24h \
+  log "writing hotel-agent PKI to kv/hotella/agent"
+  python3 - "$SECRETS" <<'PY' | bao write kv/data/hotella/agent - >/dev/null
+import json, sys, pathlib
+d = pathlib.Path(sys.argv[1])
+print(json.dumps({"data": {"ca_cert": (d/"agent/ca.crt").read_text(), "ca_key": (d/"ca/agent-ca.key").read_text(),
+  "command_key": (d/"ca/agent-command.key").read_text(), "tls_cert": (d/"ca/agent-tls.crt").read_text(),
+  "tls_key": (d/"ca/agent-tls.key").read_text()}}))
+PY
+  for role in api worker agent-gateway; do
+    local policy=hotella-app; [ "$role" = agent-gateway ] && policy=hotella-agent
+    mkdir -p "$SECRETS/approle/$role"; chmod 0755 "$SECRETS/approle/$role"
+    bao write "auth/approle/role/hotella-$role" token_policies="$policy" token_ttl=1h token_max_ttl=24h \
       secret_id_ttl=0 secret_id_num_uses=0 >/dev/null
     bao read -field=role_id "auth/approle/role/hotella-$role/role-id" >"$SECRETS/approle/$role/role_id"
     [ -s "$SECRETS/approle/$role/secret_id" ] ||
       bao write -f -field=secret_id "auth/approle/role/hotella-$role/secret-id" >"$SECRETS/approle/$role/secret_id"
     chmod 0644 "$SECRETS/approle/$role/role_id" "$SECRETS/approle/$role/secret_id"
   done
-  log "OpenBao ready (AppRoles hotella-api, hotella-worker; policy hotella-app is read-only on kv/hotella/*)"
+  log "OpenBao ready (AppRoles hotella-api, hotella-worker, hotella-agent-gateway; read-only policies)"
 }
 
 cmd_migrate() {
@@ -154,7 +194,25 @@ wait_ready() {
   die "api not ready"
 }
 
-cmd_start() { compose up -d api worker; wait_ready; }
+wait_gateway() {
+  local url="https://127.0.0.1:${HOTELLA_AGENT_PORT:-8443}/agent/v1/health"
+  for _ in $(seq 1 60); do
+    curl -fsS -m 3 --cacert "$SECRETS/agent/ca.crt" "$url" >/dev/null 2>&1 && { log "agent gateway ready: $url"; return 0; }
+    sleep 2
+  done
+  compose logs --tail=80 agent-gateway >&2 || true
+  die "agent gateway not ready"
+}
+
+cmd_start() { compose up -d api worker agent-gateway; wait_ready; wait_gateway; }
+
+# Runs the PMS simulator as a hotel agent against the gateway: enroll with a token, replay a scenario.
+cmd_simulate() {
+  local token="${1:?enrollment token}" scenario="${2:-scenarios/basic-stay.yml}"
+  compose run --rm -T --entrypoint sh simulator -c "
+    node dist/main.js enroll --gateway https://agent-gateway:8443 --ca /run/agent-ca/ca.crt --token '$token' --state /tmp/sim &&
+    node dist/main.js run --gateway https://agent-gateway:8443 --state /tmp/sim --scenario '$scenario'"
+}
 
 cmd_admin() {
   local email="${1:?email}" name="${2:?given name}" pw="${HOTELLA_ADMIN_PASSWORD:-}"
@@ -193,6 +251,7 @@ case "${1:-}" in
   unseal) cmd_unseal ;;
   migrate) cmd_migrate ;;
   start) cmd_start ;;
+  simulate) shift; cmd_simulate "$@" ;;
   admin) shift; cmd_admin "$@" ;;
   backup) shift; cmd_backup "$@" ;;
   restore-drill) cmd_restore_drill ;;

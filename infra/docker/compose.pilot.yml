@@ -154,6 +154,39 @@ services:
       valkey: { condition: service_healthy }
     networks: [backend]
 
+  # Hotel agents connect OUT to this endpoint over the internet (ADR-0017): TLS 1.3 with client certificates
+  # terminates in the gateway itself, so it is published directly (not through the host reverse proxy).
+  agent-gateway:
+    image: hotella/agent-gateway:${HOTELLA_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: agent-gateway }
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      APP_NAME: hotella-agent-gateway
+      AGENT_GATEWAY_PORT: '8443'
+      AGENT_CA_CERT_REF: vault://kv/hotella/agent#ca_cert
+      AGENT_CA_KEY_REF: vault://kv/hotella/agent#ca_key
+      AGENT_COMMAND_SIGNING_KEY_REF: vault://kv/hotella/agent#command_key
+      AGENT_TLS_CERT_REF: vault://kv/hotella/agent#tls_cert
+      AGENT_TLS_KEY_REF: vault://kv/hotella/agent#tls_key
+    ports:
+      - '${HOTELLA_AGENT_BIND:-0.0.0.0}:${HOTELLA_AGENT_PORT:-8443}:8443'
+    volumes:
+      - ./pilot/.secrets/approle/agent-gateway:/run/approle:ro
+      - ./pilot/.secrets/tls/ca.crt:/run/pilot-ca/ca.crt:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [backend]
+
+  # Development/CI only: the PMS simulator acting as a hotel agent (pilot.sh simulate).
+  simulator:
+    image: hotella/pms-simulator:${HOTELLA_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: pms-simulator }
+    profiles: [tools]
+    volumes:
+      - ./pilot/.secrets/agent/ca.crt:/run/agent-ca/ca.crt:ro
+    networks: [backend]
+
   # Restore drill: restores the latest backup into a throwaway data directory (pilot.sh restore-drill).
   restore-drill:
     image: hotella/postgres:18-pgbackrest

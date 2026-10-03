@@ -1,0 +1,23 @@
+# A complete stay with link chaos. Replayed in CI against the agent gateway (apps/pms-simulator/test).
+name: basic stay with room move
+timezone: Africa/Cairo
+faces: [FIAS, OWS]
+steps:
+  - reserve:
+      id: SIM-R1
+      confirmation: SIM-C1
+      guest: { profileId: SIM-P1, first: Amira, last: Nile, language: ar, email: amira@example.com }
+      sharers: [{ first: Omar, last: Nile }]
+      arrival: '2026-10-03'
+      departure: '2026-10-06'
+      room: '504'
+  - checkin: { id: SIM-R1, room: '505', at: '2026-10-03T12:00:00Z' }
+  - chaos: { duplicate_next: true }
+  - move: { id: SIM-R1, to: '506', at: '2026-10-04T07:00:00Z' }
+  - chaos: { reorder_next: true }
+  - room_status: { room: '505', status: 1, at: '2026-10-04T07:05:00Z' }
+  - guest: { id: SIM-R1, language: en, at: '2026-10-04T08:00:00Z' }
+  - wait_acked: {}
+  - chaos: { drop_connection: true }
+  - checkout: { id: SIM-R1, at: '2026-10-06T08:30:00Z' }
+  - wait_acked: {}

@@ -1,0 +1,32 @@
+{
+  "name": "@hotella/platform-pki",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Planova agent PKI (ADR-0017): certificate authority for hotel-agent device certificates (CSR → X.509, ECDSA P-256), TLS server certificates for development, fingerprints and Ed25519 command signatures.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@peculiar/x509": "2.1.0",
+    "reflect-metadata": "0.2.2"
+  },
+  "devDependencies": {
+    "@hotella/tooling": "workspace:*",
+    "vitest": "4.1.11"
+  }
+}

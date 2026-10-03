@@ -2146,6 +2146,133 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/integrations/{instanceId}/enrollment-tokens": {
+      "post": {
+        "operationId": "IntegrationInstancesController_enrollmentToken",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instanceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "IntegrationInstances"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integrations/{instanceId}/agent": {
+      "get": {
+        "operationId": "IntegrationInstancesController_agent",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instanceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "IntegrationInstances"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integrations/{instanceId}/agent/revoke": {
+      "post": {
+        "operationId": "IntegrationInstancesController_revokeAgent",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instanceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeAgentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "IntegrationInstances"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/integrations/{instanceId}/messages": {
       "get": {
         "operationId": "IntegrationInstancesController_messages",
@@ -4355,6 +4482,19 @@
         },
         "required": [
           "version"
+        ]
+      },
+      "RevokeAgentDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "ConfirmMappingDto": {

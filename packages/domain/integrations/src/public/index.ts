@@ -67,6 +67,35 @@ export interface IntegrationsPublicApi {
     tenantId: string,
     propertyId: string,
   ): Promise<readonly IntegrationInstanceSummary[]>;
+  /**
+   * Queues a durable outbound command (Spec §53) for delivery over the agent link. The command type must be declared
+   * by the connector, its capability negotiated, and its payload valid; the same idempotency key returns the same
+   * command. Callers check permissions (ActionGate) and audit the business action that caused it.
+   */
+  requestCommand(input: CommandRequest): Promise<CommandSummary>;
+  getCommand(tenantId: string, commandId: string): Promise<CommandSummary | null>;
+}
+
+export interface CommandRequest {
+  readonly tenantId: string;
+  readonly integrationInstanceId: string;
+  readonly commandType: string;
+  readonly payload: unknown;
+  readonly idempotencyKey: string;
+  readonly expiresAt?: Date | null;
+  readonly requestedBy: { readonly type: string; readonly id: string | null };
+  readonly correlationId?: string | null;
+}
+
+export interface CommandSummary {
+  readonly id: string;
+  readonly integrationInstanceId: string;
+  readonly commandType: string;
+  readonly status: 'PENDING' | 'SENT' | 'ACKNOWLEDGED' | 'FAILED' | 'EXPIRED';
+  readonly attempts: number;
+  readonly error: string | null;
+  readonly createdAt: Date;
+  readonly acknowledgedAt: Date | null;
 }
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */

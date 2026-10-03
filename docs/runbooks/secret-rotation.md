@@ -21,3 +21,9 @@ bao() { $C exec -T -e BAO_TOKEN="$BAO_TOKEN" openbao bao "$@"; }
 | Pilot CA / OpenBao TLS certificate (825 days) | Re-issue `tls/server.crt` from the CA (pilot.sh init steps), `$C up -d openbao`, `pilot.sh unseal`, `pilot.sh start` | Minutes |
 
 After every rotation: record it in the change log, run `pilot.sh status`, sign in once, and check the audit log for the restart window.
+
+## Hotel-agent PKI (ADR-0017)
+- **Gateway TLS certificate** (397 days): re-issue it from the agent CA (`openssl x509 -req … -CA agent/ca.crt -CAkey <agent CA key>`), write it to `kv/hotella/agent` (`tls_cert`, `tls_key`) and restart `agent-gateway`. Agents keep working: they pin the CA, not the leaf.
+- **Command-signing key**: agents pin its public key at enrollment, so rotating it means re-enrolling every agent. Only on suspected compromise.
+- **Agent CA**: re-enroll every agent (new CA certificate shipped with the installer). Plan as a change window; revoke the old agents one by one (`agent-enrollment.md`).
+- **A single agent**: revoke it (`POST …/agent/revoke`) and re-enroll with a new token.

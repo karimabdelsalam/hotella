@@ -5,6 +5,10 @@ import { z } from 'zod';
  * Secrets are NOT configuration: they are `SecretRef`s resolved by @hotella/platform-secrets (ADR-0010).
  * Connection URLs may embed dev-only credentials; production injects them through the secret provider.
  */
+function secretRef(example: string) {
+  return z.string().regex(/^[a-z][a-z0-9+.-]*:\/\//i, `must be a SecretRef like ${example}`);
+}
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_NAME: z.string().min(1).default('hotella-api'),
@@ -102,6 +106,23 @@ export const envSchema = z.object({
   IAM_LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
   IAM_LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
   IAM_INVITE_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(72),
+
+  /**
+   * Hotel-agent gateway (ADR-0017). PEM material is referenced, never inlined: the agent CA certificate and its
+   * ECDSA P-256 key (signs device certificates), the Ed25519 key that signs command frames, and the gateway's TLS
+   * server certificate/key. Required in production by the gateway process; outside production an ephemeral CA and
+   * keys are generated at boot (enrolled agents must re-enroll after a restart).
+   */
+  AGENT_CA_CERT_REF: secretRef('vault://kv/hotella/agent#ca_cert').optional(),
+  AGENT_CA_KEY_REF: secretRef('vault://kv/hotella/agent#ca_key').optional(),
+  AGENT_COMMAND_SIGNING_KEY_REF: secretRef('vault://kv/hotella/agent#command_key').optional(),
+  AGENT_TLS_CERT_REF: secretRef('vault://kv/hotella/agent#tls_cert').optional(),
+  AGENT_TLS_KEY_REF: secretRef('vault://kv/hotella/agent#tls_key').optional(),
+  AGENT_GATEWAY_HOST: z.string().min(1).default('0.0.0.0'),
+  AGENT_GATEWAY_PORT: z.coerce.number().int().min(1).max(65535).default(8443),
+  AGENT_CERT_VALIDITY_DAYS: z.coerce.number().int().min(1).max(397).default(90),
+  AGENT_ENROLLMENT_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+  AGENT_HEARTBEAT_SECONDS: z.coerce.number().int().min(5).max(300).default(30),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -166,6 +187,18 @@ export interface AppConfig {
     readonly loginMaxAttempts: number;
     readonly loginLockMinutes: number;
     readonly inviteTtlHours: number;
+  };
+  readonly agent: {
+    readonly caCertRef: string | null;
+    readonly caKeyRef: string | null;
+    readonly commandSigningKeyRef: string | null;
+    readonly tlsCertRef: string | null;
+    readonly tlsKeyRef: string | null;
+    readonly host: string;
+    readonly port: number;
+    readonly certValidityDays: number;
+    readonly enrollmentTtlHours: number;
+    readonly heartbeatSeconds: number;
   };
 }
 
@@ -279,6 +312,18 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
       loginMaxAttempts: e.IAM_LOGIN_MAX_ATTEMPTS,
       loginLockMinutes: e.IAM_LOGIN_LOCK_MINUTES,
       inviteTtlHours: e.IAM_INVITE_TTL_HOURS,
+    },
+    agent: {
+      caCertRef: e.AGENT_CA_CERT_REF ?? null,
+      caKeyRef: e.AGENT_CA_KEY_REF ?? null,
+      commandSigningKeyRef: e.AGENT_COMMAND_SIGNING_KEY_REF ?? null,
+      tlsCertRef: e.AGENT_TLS_CERT_REF ?? null,
+      tlsKeyRef: e.AGENT_TLS_KEY_REF ?? null,
+      host: e.AGENT_GATEWAY_HOST,
+      port: e.AGENT_GATEWAY_PORT,
+      certValidityDays: e.AGENT_CERT_VALIDITY_DAYS,
+      enrollmentTtlHours: e.AGENT_ENROLLMENT_TTL_HOURS,
+      heartbeatSeconds: e.AGENT_HEARTBEAT_SECONDS,
     },
   };
 }

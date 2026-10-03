@@ -21,7 +21,8 @@ import {
   InstanceService,
   MappingService,
 } from '../application/admin.services';
-import { IngestService } from '../application/ingest.service';
+import { ReplayService } from '../application/replay.service';
+import { EnrollmentService } from '../link/enrollment.service';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '../public';
 
 class CreateInstanceDto extends createZodDto(createInstanceSchema) {}
@@ -31,6 +32,9 @@ class ListMessagesQueryDto extends createZodDto(listMessagesQuerySchema) {}
 class ListExceptionsQueryDto extends createZodDto(listExceptionsQuerySchema) {}
 class CloseExceptionDto extends createZodDto(closeExceptionSchema) {}
 class MappingQueryDto extends createZodDto(z.object({ type: z.enum(MAPPING_TYPES).optional() })) {}
+class RevokeAgentDto extends createZodDto(
+  z.object({ reason: z.string().trim().min(3).max(500) }),
+) {}
 class ReferenceQueryDto extends createZodDto(
   z.object({ entityType: z.string().regex(/^[a-z]+\.[a-z_]+$/), entityId: z.uuid() }),
 ) {}
@@ -49,7 +53,8 @@ export class IntegrationInstancesController {
     private readonly catalog: ConnectorCatalogService,
     private readonly instances: InstanceService,
     private readonly mappings: MappingService,
-    private readonly ingest: IngestService,
+    private readonly replays: ReplayService,
+    private readonly enrollment: EnrollmentService,
     private readonly ctx: RequestContext,
     private readonly actors: ActorStore,
   ) {}
@@ -92,6 +97,40 @@ export class IntegrationInstancesController {
     );
   }
 
+  /** ADR-0017 §2: a single-use, time-limited token the installer pastes into the hotel agent. Shown once. */
+  @Post(':instanceId/enrollment-tokens')
+  @RequirePermission('integration.configure')
+  enrollmentToken(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+  ) {
+    return this.enrollment.createToken(
+      propertyScope(this.ctx, this.actors, propertyId),
+      instanceId,
+    );
+  }
+
+  @Get(':instanceId/agent')
+  @RequirePermission('integration.read')
+  agent(@Param('propertyId') propertyId: string, @Param('instanceId') instanceId: string) {
+    return this.enrollment.status(propertyScope(this.ctx, this.actors, propertyId), instanceId);
+  }
+
+  @Post(':instanceId/agent/revoke')
+  @HttpCode(200)
+  @RequirePermission('integration.configure')
+  revokeAgent(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+    @Body() body: RevokeAgentDto,
+  ) {
+    return this.enrollment.revoke(
+      propertyScope(this.ctx, this.actors, propertyId),
+      instanceId,
+      body.reason,
+    );
+  }
+
   @Get(':instanceId/messages')
   @RequirePermission('integration.read')
   messages(
@@ -110,7 +149,7 @@ export class IntegrationInstancesController {
   @HttpCode(200)
   @RequirePermission('integration.replay')
   replayPending(@Param('propertyId') propertyId: string, @Param('instanceId') instanceId: string) {
-    return this.ingest.replayPending(propertyScope(this.ctx, this.actors, propertyId), instanceId);
+    return this.replays.replayPending(propertyScope(this.ctx, this.actors, propertyId), instanceId);
   }
 
   @Post(':instanceId/messages/:messageId/replay')
@@ -121,7 +160,7 @@ export class IntegrationInstancesController {
     @Param('instanceId') instanceId: string,
     @Param('messageId') messageId: string,
   ) {
-    return this.ingest.replay(
+    return this.replays.replay(
       propertyScope(this.ctx, this.actors, propertyId),
       instanceId,
       messageId,

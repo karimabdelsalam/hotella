@@ -464,3 +464,91 @@ export type IntegrationMappingRow = typeof integrationMappings.$inferSelect;
 export type IntegrationExceptionRow = typeof integrationExceptions.$inferSelect;
 export type IntegrationCommandRow = typeof integrationCommands.$inferSelect;
 export type IntegrationHealthRow = typeof integrationHealth.$inferSelect;
+
+/**
+ * The hotel agent behind an instance (ADR-0017): its current device certificate, link ordering state and
+ * connection status. One row per instance; re-enrollment replaces the certificate (the old one stops working).
+ */
+export const agentLinks = classify(
+  integration.table(
+    'agent_links',
+    {
+      instanceId: uuid('instance_id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      /** Highest sequence number durably received (cumulative acknowledgement). */
+      lastSequenceNo: bigint('last_sequence_no', { mode: 'number' }).notNull().default(0),
+      certFingerprint: varchar('cert_fingerprint', { length: 64 }),
+      certSerial: varchar('cert_serial', { length: 64 }),
+      certNotAfter: tz('cert_not_after'),
+      enrolledAt: tz('enrolled_at'),
+      revokedAt: tz('revoked_at'),
+      agentVersion: varchar('agent_version', { length: 64 }),
+      sessionId: uuid('session_id'),
+      lastConnectedAt: tz('last_connected_at'),
+      lastDisconnectedAt: tz('last_disconnected_at'),
+      updatedAt: tz('updated_at').notNull().defaultNow(),
+      ...versioned(),
+    },
+    (t) => [
+      foreignKey({
+        name: 'agent_links_instance_fk',
+        columns: [t.instanceId],
+        foreignColumns: [integrationInstances.id],
+      }).onDelete('cascade'),
+      uniqueIndex('agent_links_fingerprint_uq').on(t.certFingerprint),
+    ],
+  ),
+  {
+    instanceId: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    lastSequenceNo: 'INTERNAL',
+    certFingerprint: 'INTERNAL',
+    certSerial: 'INTERNAL',
+    certNotAfter: 'INTERNAL',
+    enrolledAt: 'INTERNAL',
+    revokedAt: 'INTERNAL',
+    agentVersion: 'INTERNAL',
+    sessionId: 'INTERNAL',
+    lastConnectedAt: 'INTERNAL',
+    lastDisconnectedAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Single-use enrollment tokens (ADR-0017 §2): only the SHA-256 hash is stored; valid 24 h by default. */
+export const enrollmentTokens = classify(
+  integration.table(
+    'enrollment_tokens',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => integrationInstances.id),
+      tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+      expiresAt: tz('expires_at').notNull(),
+      usedAt: tz('used_at'),
+      createdBy: uuid('created_by'),
+    },
+    (t) => [unique('enrollment_tokens_hash_uq').on(t.tokenHash)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    tokenHash: 'RESTRICTED',
+    expiresAt: 'INTERNAL',
+    usedAt: 'INTERNAL',
+    createdBy: 'INTERNAL',
+  },
+);
+
+export type AgentLinkRow = typeof agentLinks.$inferSelect;
+export type EnrollmentTokenRow = typeof enrollmentTokens.$inferSelect;

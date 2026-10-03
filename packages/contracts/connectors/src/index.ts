@@ -43,3 +43,31 @@ export type {
   InboundRecordKind,
 } from './records';
 export { localDateTimeToUtc, offsetMs } from './time';
+export {
+  agentFrameSchema,
+  BATCH_PATH,
+  batchRequestSchema,
+  batchResponseSchema,
+  commandFrameBodySchema,
+  ENROLL_PATH,
+  enrollRequestSchema,
+  enrollResponseSchema,
+  LINK_PATH,
+  LINK_PROTOCOL_VERSION,
+  linkMessageSchema,
+  MAX_BATCH_MESSAGES,
+  platformFrameSchema,
+  RENEW_PATH,
+  renewRequestSchema,
+} from './link';
+export type {
+  AgentFrame,
+  AgentFrameInput,
+  BatchRequest,
+  BatchResponse,
+  CommandFrameBody,
+  EnrollRequest,
+  EnrollResponse,
+  LinkMessage,
+  PlatformFrame,
+} from './link';

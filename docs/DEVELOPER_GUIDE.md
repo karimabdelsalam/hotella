@@ -56,9 +56,11 @@ Everything above is a `package.json` script; if a script name changes, this sect
 ## 3. Map of the repository
 
 ```text
-apps/          things you run        → api (:3000), worker (:3001), later realtime, guest-web, staff-web, pms-simulator, hotel-agent (.NET)
+apps/          things you run        → api (:3000), worker (:3001), agent-gateway (:8443, TLS + client certificates),
+                                       pms-simulator (reference hotel agent + simulated PMS); later realtime, guest-web,
+                                       staff-web, hotel-agent (.NET)
 packages/
-  platform/    infrastructure        → config, secrets, observability (logs, request context, tracing), database, events (outbox/inbox),
+  platform/    infrastructure        → config, secrets, pki (agent CA, device certificates, command signatures), observability (logs, request context, tracing), database, events (outbox/inbox),
                                        queue (BullMQ on Valkey), http (Problem Details, idempotency, rate limit, OpenAPI), i18n,
                                        flags, manifest, storage (S3), testing (Testcontainers),
                                        auth (request actor, permission guard, ActionGate), audit (append-only audit log),
@@ -121,6 +123,8 @@ agent / simulator → IngestService.ingest(instance, raw)   stored in integratio
 ```
 
 A core context never sees vendor formats or vendor ids: it resolves and links opaque references through `INTEGRATIONS_API` (`resolveReference` / `linkReference`). The guest context's `StayProjector` runs in the worker (`GuestEventsModule`), one transaction per event with the inbox row, and publishes `guest.stay.*` events with internal ids for everyone downstream. Contexts expose a `<Ctx>CoreModule` without HTTP routes for background processes and a full module for the API.
+
+Trying the agent link locally: `pnpm --filter @hotella/agent-gateway dev` (outside production it creates an ephemeral agent CA and logs a warning), create an instance and an enrollment token through the staff API, then `node apps/pms-simulator/dist/main.js enroll --gateway https://localhost:8443 --ca <ca.pem> --token <token>` and `… run --gateway https://localhost:8443 --scenario apps/pms-simulator/scenarios/basic-stay.yml`. The quickest full loop is the test `pnpm --filter @hotella/pms-simulator test`, which starts both sides over real mutual TLS.
 
 Dependency direction (enforced by dependency-cruiser; see the graph in `docs/architecture/dependency-graph.svg`):
 

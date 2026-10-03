@@ -48,7 +48,15 @@ export const SIM_PMS_MANIFEST = defineConnector({
       requires: 'GUEST_READ',
     },
   ],
-  commands: [],
+  commands: [
+    {
+      code: 'RESYNC_IN_HOUSE',
+      description:
+        'Replay the in-house list as FIAS database-sync records (DS/DR/DE), e.g. before a reconciliation run.',
+      requires: 'RECONCILIATION_READ',
+      payload: z.object({}).strict(),
+    },
+  ],
   configSchema: z.object({
     /** Free text shown to staff, e.g. which simulator container serves the instance. */
     label: z.string().max(200).optional(),

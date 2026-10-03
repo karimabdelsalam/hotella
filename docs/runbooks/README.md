@@ -9,10 +9,11 @@ The pilot runs on one hardened Linux host with Docker Compose (`infra/docker/com
 | [rollback.md](rollback.md) | A release misbehaves |
 | [backup-restore.md](backup-restore.md) | Backup schedule, restore drill, real restore, point-in-time recovery |
 | [secret-rotation.md](secret-rotation.md) | Rotating any credential or key; OpenBao unseal and root token handling |
+| [agent-enrollment.md](agent-enrollment.md) | Installing, renewing or revoking a hotel agent; testing with the simulator |
 
 Ground rules that apply to every procedure:
 
 - Every change starts with `pilot.sh backup diff` (or `full` before upgrades) and is written down in the change log with who, when and why.
-- Credentials live in OpenBao (`kv/hotella/app`) and in `infra/docker/pilot/.secrets` on the host (0700). Neither is ever copied into tickets, chat or e-mail.
+- Credentials live in OpenBao (`kv/hotella/app`; the hotel-agent PKI in `kv/hotella/agent`) and in `infra/docker/pilot/.secrets` on the host (0700). Neither is ever copied into tickets, chat or e-mail.
 - The application connects to PostgreSQL as `hotella_app`, an ordinary role bound by row-level security. Never point it at `hotella_admin` (a superuser bypasses RLS).
 - CI runs the same scripts on every push (job "pilot deployment smoke"): a procedure that is not exercised there is marked **manual** below.

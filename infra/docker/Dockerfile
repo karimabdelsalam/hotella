@@ -2,6 +2,8 @@
 # Hotella application images (ADR-0013). Build context: repository root.
 #   docker build -f infra/docker/Dockerfile --target api    -t hotella/api:<version>    .
 #   docker build -f infra/docker/Dockerfile --target worker -t hotella/worker:<version> .
+#   docker build -f infra/docker/Dockerfile --target agent-gateway -t hotella/agent-gateway:<version> .
+#   docker build -f infra/docker/Dockerfile --target pms-simulator -t hotella/pms-simulator:<version> .
 ARG NODE_IMAGE=node:24-bookworm-slim
 
 FROM ${NODE_IMAGE} AS build
@@ -13,14 +15,19 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc* ./
 COPY tooling ./tooling
 COPY apps/api/package.json apps/api/package.json
 COPY apps/worker/package.json apps/worker/package.json
+COPY apps/agent-gateway/package.json apps/agent-gateway/package.json
+COPY apps/pms-simulator/package.json apps/pms-simulator/package.json
 COPY packages ./packages
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm turbo run build --filter=@hotella/api... --filter=@hotella/worker...
+RUN pnpm turbo run build --filter=@hotella/api... --filter=@hotella/worker... \
+  --filter=@hotella/agent-gateway... --filter=@hotella/pms-simulator...
 # Self-contained production bundles: dist + production dependencies, workspace packages copied in.
 RUN pnpm --filter @hotella/api deploy --prod --legacy /out/api \
  && pnpm --filter @hotella/worker deploy --prod --legacy /out/worker \
- && cp -r locales /out/api/locales && cp -r locales /out/worker/locales
+ && pnpm --filter @hotella/agent-gateway deploy --prod --legacy /out/agent-gateway \
+ && pnpm --filter @hotella/pms-simulator deploy --prod --legacy /out/pms-simulator \
+ && for app in api worker agent-gateway; do cp -r locales /out/$app/locales; done
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production LOCALES_DIR=/app/locales
@@ -41,3 +48,15 @@ EXPOSE 3001
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.WORKER_PORT||3001)+'/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 CMD ["node", "dist/main.js"]
+
+FROM runtime AS agent-gateway
+COPY --from=build --chown=node:node /out/agent-gateway /app
+EXPOSE 8443
+HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
+  CMD node -e "require('https').get({host:'127.0.0.1',port:process.env.AGENT_GATEWAY_PORT||8443,path:'/agent/v1/health',rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+CMD ["node", "dist/main.js"]
+
+# Development/CI tool: a reference hotel agent with a simulated PMS (BUILD_PLAN §6.3). Never deployed at hotels.
+FROM runtime AS pms-simulator
+COPY --from=build --chown=node:node /out/pms-simulator /app
+ENTRYPOINT ["node", "dist/main.js"]

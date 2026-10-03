@@ -1,9 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import type { ConnectorCapability } from '@hotella/contracts-connectors';
 import { newId } from '@hotella/platform-database';
+import { AppError } from '@hotella/platform-i18n';
+import { ConnectorRegistry } from './connectors/registry';
 import { effectiveCapabilities } from './domain/instance';
+import { LinkRepositories } from './infrastructure/link-repositories';
 import { IntegrationRepositories } from './infrastructure/repositories';
+import type { IntegrationCommandRow } from './infrastructure/schema';
 import type {
+  CommandRequest,
+  CommandSummary,
   ExternalReferenceSummary,
   IntegrationInstanceSummary,
   IntegrationsPublicApi,
@@ -12,7 +18,53 @@ import type {
 
 @Injectable()
 export class IntegrationsPublicApiService implements IntegrationsPublicApi {
-  constructor(private readonly repo: IntegrationRepositories) {}
+  constructor(
+    private readonly repo: IntegrationRepositories,
+    private readonly links: LinkRepositories,
+    private readonly connectors: ConnectorRegistry,
+  ) {}
+
+  async requestCommand(input: CommandRequest): Promise<CommandSummary> {
+    const scope = { tenantId: input.tenantId };
+    const instance = await this.repo.instance(scope, input.integrationInstanceId);
+    if (!instance) throw AppError.notFound('integration.instance.not_found');
+    const existing = await this.repo.commandByKey(scope, instance.id, input.idempotencyKey);
+    if (existing) return toCommandSummary(existing);
+    const command = this.connectors
+      .get(instance.connectorCode)
+      ?.manifest.commands.find((c) => c.code === input.commandType);
+    if (!command)
+      throw new AppError('integration.command.unknown', HttpStatus.UNPROCESSABLE_ENTITY, {
+        command: input.commandType,
+      });
+    if (!effectiveCapabilities(instance).includes(command.requires))
+      throw new AppError('integration.capability_unavailable', HttpStatus.CONFLICT, {
+        capability: command.requires,
+      });
+    const payload = command.payload.safeParse(input.payload);
+    if (!payload.success)
+      throw new AppError('integration.command.invalid_payload', HttpStatus.UNPROCESSABLE_ENTITY);
+    const row =
+      (await this.repo.insertCommand({
+        id: newId(),
+        tenantId: instance.tenantId,
+        propertyId: instance.propertyId,
+        instanceId: instance.id,
+        commandType: command.code,
+        payload: payload.data ?? {},
+        idempotencyKey: input.idempotencyKey,
+        expiresAt: input.expiresAt ?? null,
+        correlationId: input.correlationId ?? null,
+        requestedByType: input.requestedBy.type,
+        requestedById: input.requestedBy.id,
+      })) ?? (await this.repo.commandByKey(scope, instance.id, input.idempotencyKey))!;
+    return toCommandSummary(row);
+  }
+
+  async getCommand(tenantId: string, commandId: string): Promise<CommandSummary | null> {
+    const row = await this.links.command({ tenantId }, commandId);
+    return row ? toCommandSummary(row) : null;
+  }
 
   async resolveReference(
     tenantId: string,
@@ -91,4 +143,17 @@ export class IntegrationsPublicApiService implements IntegrationsPublicApi {
       effectiveCapabilities: effectiveCapabilities(i),
     }));
   }
+}
+
+function toCommandSummary(c: IntegrationCommandRow): CommandSummary {
+  return {
+    id: c.id,
+    integrationInstanceId: c.instanceId,
+    commandType: c.commandType,
+    status: c.status,
+    attempts: c.attempts,
+    error: c.error,
+    createdAt: c.createdAt,
+    acknowledgedAt: c.acknowledgedAt,
+  };
 }

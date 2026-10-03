@@ -79,5 +79,12 @@
   "errors.integration.capability_unavailable": "This action needs a connected system that supports {capability}.",
   "errors.guest.stay.not_found": "Stay not found.",
   "errors.guest.stay.not_in_room": "No guest is staying in this room right now.",
-  "errors.guest.guest.not_found": "Guest not found."
+  "errors.guest.guest.not_found": "Guest not found.",
+  "errors.integration.agent.enrollment_invalid": "The enrollment token is invalid, expired or already used.",
+  "errors.integration.agent.csr_rejected": "The certificate request was rejected.",
+  "errors.integration.agent.not_enrolled": "No hotel agent is enrolled for this integration.",
+  "errors.integration.agent.connector_mismatch": "The hotel agent runs a different connector than this integration.",
+  "errors.integration.agent.unauthorized": "A valid hotel-agent certificate is required.",
+  "errors.integration.command.unknown": "The connector does not define the command {command}.",
+  "errors.integration.command.invalid_payload": "The command payload is invalid."
 }
