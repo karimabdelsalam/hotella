@@ -19,7 +19,9 @@
             "description": ""
           }
         },
-        "tags": ["Health"]
+        "tags": [
+          "Health"
+        ]
       }
     },
     "/api/v1/ready": {
@@ -56,7 +58,9 @@
                       },
                       "additionalProperties": {
                         "type": "object",
-                        "required": ["status"],
+                        "required": [
+                          "status"
+                        ],
                         "properties": {
                           "status": {
                             "type": "string"
@@ -71,7 +75,9 @@
                       "example": {},
                       "additionalProperties": {
                         "type": "object",
-                        "required": ["status"],
+                        "required": [
+                          "status"
+                        ],
                         "properties": {
                           "status": {
                             "type": "string"
@@ -90,7 +96,9 @@
                       },
                       "additionalProperties": {
                         "type": "object",
-                        "required": ["status"],
+                        "required": [
+                          "status"
+                        ],
                         "properties": {
                           "status": {
                             "type": "string"
@@ -124,7 +132,9 @@
                       },
                       "additionalProperties": {
                         "type": "object",
-                        "required": ["status"],
+                        "required": [
+                          "status"
+                        ],
                         "properties": {
                           "status": {
                             "type": "string"
@@ -144,7 +154,9 @@
                       },
                       "additionalProperties": {
                         "type": "object",
-                        "required": ["status"],
+                        "required": [
+                          "status"
+                        ],
                         "properties": {
                           "status": {
                             "type": "string"
@@ -167,7 +179,9 @@
                       },
                       "additionalProperties": {
                         "type": "object",
-                        "required": ["status"],
+                        "required": [
+                          "status"
+                        ],
                         "properties": {
                           "status": {
                             "type": "string"
@@ -182,7 +196,9 @@
             }
           }
         },
-        "tags": ["Health"]
+        "tags": [
+          "Health"
+        ]
       }
     },
     "/api/v1/meta/version": {
@@ -203,7 +219,9 @@
             "description": ""
           }
         },
-        "tags": ["Meta"]
+        "tags": [
+          "Meta"
+        ]
       }
     },
     "/api/v1/meta/fail": {
@@ -224,7 +242,9 @@
             "description": ""
           }
         },
-        "tags": ["Meta"]
+        "tags": [
+          "Meta"
+        ]
       }
     },
     "/api/v1/meta/echo": {
@@ -255,7 +275,9 @@
             "description": ""
           }
         },
-        "tags": ["Meta"]
+        "tags": [
+          "Meta"
+        ]
       }
     }
   },
@@ -287,10 +309,15 @@
           "locale": {
             "default": "en",
             "type": "string",
-            "enum": ["en", "ar"]
+            "enum": [
+              "en",
+              "ar"
+            ]
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       }
     }
   }

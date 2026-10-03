@@ -5,3 +5,4 @@ node_modules
 pnpm-lock.yaml
 docs/spec/HOTELLA_MASTER_SPEC.md
 docs/
+**/__snapshots__/
