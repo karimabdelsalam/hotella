@@ -5,6 +5,7 @@ import { IdentityDirectoryModule } from '@hotella/domain-identity';
 import { AiModule, AiWorkerModule } from '@hotella/domain-ai';
 import { EngineeringWorkerModule } from '@hotella/domain-engineering';
 import { InspectionWorkerModule } from '@hotella/domain-inspection';
+import { RelationsWorkerModule } from '@hotella/domain-relations';
 import { HousekeepingWorkerModule } from '@hotella/domain-housekeeping';
 import { KnowledgeWorkerModule } from '@hotella/domain-knowledge';
 import { CatalogServicesModule, CatalogWorkerModule } from '@hotella/domain-catalog';
@@ -68,6 +69,8 @@ const WORKER_MODULES = [
   HousekeepingWorkerModule,
   EngineeringWorkerModule,
   InspectionWorkerModule,
+  // Recovery whose approval was rejected or expired; the concierge's complaint-candidate tool.
+  RelationsWorkerModule,
   WorkerRuntimeModule,
 ];
 

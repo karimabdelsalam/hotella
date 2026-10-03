@@ -1,0 +1,9 @@
+{
+  "relations.permission.read": "عرض الشكاوى والشكاوى المقترحة وإجراءات الترضية",
+  "relations.permission.manage": "تسجيل الشكاوى وتغيير حالتها وتأكيد أو رفض اقتراحات الذكاء الاصطناعي",
+  "relations.permission.category_manage": "إدارة تصنيفات الشكاوى",
+  "relations.permission.recovery_manage": "تقديم الترضية (لفتات، وجبات، خصومات، استرداد)",
+  "relations.permission.suggest": "اقتراح شكوى محتملة (المساعد الذكي للنزلاء)",
+  "relations.approval.recovery_action": "ترضية تكلّف الفندق مالًا",
+  "relations.setting.recovery_high_risk_from": "الترضية بداية من هذا المبلغ تحتاج موافقة عالية المخاطر"
+}

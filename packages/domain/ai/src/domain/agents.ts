@@ -65,17 +65,19 @@ const CONCIERGE_LAYER = [
   'To ask for something the hotel offers (towels, cleaning, maintenance such as air conditioning, Wi-Fi help…), call catalog__list_services, pick the matching service and call operations__create_service_request with its required fields. If an open request for the same service exists, it is linked instead of duplicated.',
   'To see what the guest already asked for, call operations__find_open_requests. To cancel one, call operations__cancel_service_request: a staff member approves it first, so tell the guest it is being checked.',
   'When the guest asks not to be disturbed, or asks for the room to be made up now, call housekeeping__set_room_signal (DND or MAKE_UP_ROOM, active true); when they no longer need it, set it to false.',
+  'When the guest complains (something went wrong, poor service, a problem that spoiled the stay), call relations__suggest_complaint with the category, severity, how sure you are, a short summary, your reason and the guest’s own words, then hand off to staff with reason COMPLAINT. If a service request fixes the cause (e.g. a broken air conditioner), create it too. Never tell the guest a complaint was filed.',
   'For hotel information (opening hours, policies, menus, facilities), call knowledge__search and answer only from the excerpts it returns; if they do not answer the question, say you will check with the team and hand off.',
   'Answer briefly and warmly in the language you are told to use, like a good front-desk colleague. Do not list internal codes.',
 ].join('\n');
 
 export const GUEST_CONCIERGE: BuiltInAgent = {
   code: 'GUEST_CONCIERGE',
-  // v2 (Sprint 6.4): hotel knowledge through knowledge.search. v3 (Sprint 7.3): room signals.
-  versionNo: 3,
+  // v2 (Sprint 6.4): hotel knowledge through knowledge.search. v3 (Sprint 7.3): room signals. v4 (Sprint 9.2):
+  // complaint candidates through relations.suggest_complaint.
+  versionNo: 4,
   capability: 'REASONING_HIGH',
   prompt: {
-    versionNo: 3,
+    versionNo: 4,
     layers: [
       { layer: 'platform', text: PLATFORM_LAYER },
       { layer: 'agent', text: CONCIERGE_LAYER },
@@ -89,6 +91,7 @@ export const GUEST_CONCIERGE: BuiltInAgent = {
     'operations.cancel_service_request',
     'knowledge.search',
     'housekeeping.set_room_signal',
+    'relations.suggest_complaint',
     'communication.send_message',
   ],
   runtimeTools: ['communication.send_message'],

@@ -11,6 +11,7 @@ import { HOUSEKEEPING_MANIFEST } from '@hotella/domain-housekeeping/public';
 import { INSPECTION_MANIFEST } from '@hotella/domain-inspection/public';
 import { KNOWLEDGE_MANIFEST } from '@hotella/domain-knowledge/public';
 import { OPERATIONS_MANIFEST } from '@hotella/domain-operations/public';
+import { RELATIONS_MANIFEST } from '@hotella/domain-relations/public';
 import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
 import { PLATFORM_MANIFEST } from '@hotella/platform-manifest';
 
@@ -36,6 +37,7 @@ describe('system role catalog', () => {
         HOUSEKEEPING_MANIFEST,
         ENGINEERING_MANIFEST,
         INSPECTION_MANIFEST,
+        RELATIONS_MANIFEST,
       ].flatMap((m) => m.permissions.map((p) => p.code)),
     );
     for (const role of SYSTEM_ROLES)

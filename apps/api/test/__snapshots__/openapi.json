@@ -10428,6 +10428,1053 @@
         ]
       }
     },
+    "/api/v1/inspection/templates": {
+      "get": {
+        "operationId": "TemplatesController_list",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Templates"
+        ]
+      },
+      "post": {
+        "operationId": "TemplatesController_create",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/inspection/templates/{templateId}": {
+      "get": {
+        "operationId": "TemplatesController_get",
+        "parameters": [
+          {
+            "name": "templateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/inspection/templates/{templateId}/versions": {
+      "post": {
+        "operationId": "TemplatesController_draft",
+        "parameters": [
+          {
+            "name": "templateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/inspection/templates/versions/{versionId}/publish": {
+      "post": {
+        "operationId": "TemplatesController_publish",
+        "parameters": [
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspections": {
+      "get": {
+        "operationId": "InspectionsController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locationId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      },
+      "post": {
+        "operationId": "InspectionsController_start",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartInspectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspections/{inspectionId}": {
+      "get": {
+        "operationId": "InspectionsController_get",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inspectionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspections/{inspectionId}/answers": {
+      "put": {
+        "operationId": "InspectionsController_answer",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inspectionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspections/{inspectionId}/photos": {
+      "post": {
+        "operationId": "InspectionsController_addPhoto",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inspectionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspections/{inspectionId}/photos/{name}": {
+      "get": {
+        "operationId": "InspectionsController_photo",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inspectionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspections/{inspectionId}/complete": {
+      "post": {
+        "operationId": "InspectionsController_complete",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inspectionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspections/{inspectionId}/cancel": {
+      "post": {
+        "operationId": "InspectionsController_cancel",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inspectionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspection-findings": {
+      "get": {
+        "operationId": "InspectionsController_findings",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/inspection-findings/{findingId}/work": {
+      "post": {
+        "operationId": "InspectionsController_work",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "findingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/v1/relations/categories": {
+      "get": {
+        "operationId": "CategoriesController_list",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Categories"
+        ]
+      },
+      "post": {
+        "operationId": "CategoriesController_create",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Categories"
+        ]
+      }
+    },
+    "/api/v1/relations/categories/starter": {
+      "post": {
+        "operationId": "CategoriesController_starter",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Categories"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaints": {
+      "get": {
+        "operationId": "ComplaintsController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      },
+      "post": {
+        "operationId": "ComplaintsController_open",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenComplaintDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaints/{complaintId}": {
+      "get": {
+        "operationId": "ComplaintsController_get",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaints/{complaintId}/status": {
+      "post": {
+        "operationId": "ComplaintsController_move",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveComplaintDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaints/{complaintId}/notes": {
+      "post": {
+        "operationId": "ComplaintsController_note",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaints/{complaintId}/recovery": {
+      "post": {
+        "operationId": "ComplaintsController_addRecovery",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddRecoveryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaint-candidates": {
+      "get": {
+        "operationId": "ComplaintsController_candidatesList",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaint-candidates/{candidateId}/confirm": {
+      "post": {
+        "operationId": "ComplaintsController_confirm",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "candidateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmCandidateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaint-candidates/{candidateId}/dismiss": {
+      "post": {
+        "operationId": "ComplaintsController_dismiss",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "candidateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissCandidateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "HealthController_liveness",
@@ -13200,53 +14247,40 @@
       "CreateCategoryDto": {
         "type": "object",
         "properties": {
-          "propertyId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-            "nullable": true
-          },
           "code": {
             "type": "string",
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+            "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
           },
-          "parentId": {
+          "defaultSeverity": {
+            "default": "MEDIUM",
             "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "departmentCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$",
             "nullable": true
           },
-          "sortOrder": {
-            "default": 0,
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 10000
-          },
-          "icon": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9-]{0,39}$",
-            "nullable": true
-          },
-          "translations": {
+          "names": {
             "minItems": 1,
-            "maxItems": 20,
+            "maxItems": 10,
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
                 "locale": {
                   "type": "string",
-                  "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+                  "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
                 },
                 "name": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 120
-                },
-                "description": {
-                  "type": "string",
-                  "maxLength": 2000,
-                  "nullable": true
                 }
               },
               "required": [
@@ -13258,7 +14292,7 @@
         },
         "required": [
           "code",
-          "translations"
+          "names"
         ]
       },
       "UpdateCategoryDto": {
@@ -16076,6 +17110,799 @@
           "roomId",
           "kind",
           "reason"
+        ]
+      },
+      "CreateTemplateDto": {
+        "type": "object",
+        "properties": {
+          "sections": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+                },
+                "titles": {
+                  "minItems": 1,
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "locale": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "locale",
+                      "title"
+                    ]
+                  }
+                },
+                "items": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+                      },
+                      "rule": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "PASS_FAIL",
+                              "YES_NO",
+                              "SCORE",
+                              "NUMBER",
+                              "TEXT",
+                              "PHOTO",
+                              "MULTI_SELECT"
+                            ]
+                          },
+                          "required": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "expected": {
+                            "type": "string",
+                            "enum": [
+                              "YES",
+                              "NO"
+                            ]
+                          },
+                          "scaleMax": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "passFrom": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "min": {
+                            "type": "number"
+                          },
+                          "max": {
+                            "type": "number"
+                          },
+                          "options": {
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+                            }
+                          },
+                          "failOptions": {
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+                            }
+                          },
+                          "failSeverity": {
+                            "default": "MINOR",
+                            "type": "string",
+                            "enum": [
+                              "INFO",
+                              "MINOR",
+                              "MAJOR",
+                              "CRITICAL"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      "labels": {
+                        "minItems": 1,
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "locale": {
+                              "type": "string",
+                              "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            "help": {
+                              "type": "string",
+                              "maxLength": 1000,
+                              "nullable": true
+                            },
+                            "optionLabels": {
+                              "default": {},
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              }
+                            }
+                          },
+                          "required": [
+                            "locale",
+                            "label"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "rule",
+                      "labels"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "code",
+                "titles",
+                "items"
+              ]
+            }
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "ROOM",
+              "AREA",
+              "ASSET"
+            ]
+          },
+          "departmentCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "names": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locale": {
+                  "type": "string",
+                  "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "locale",
+                "name"
+              ]
+            }
+          }
+        },
+        "required": [
+          "sections",
+          "code",
+          "scope",
+          "departmentCode",
+          "names"
+        ]
+      },
+      "VersionContentDto": {
+        "type": "object",
+        "properties": {
+          "sections": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+                },
+                "titles": {
+                  "minItems": 1,
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "locale": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "locale",
+                      "title"
+                    ]
+                  }
+                },
+                "items": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+                      },
+                      "rule": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "PASS_FAIL",
+                              "YES_NO",
+                              "SCORE",
+                              "NUMBER",
+                              "TEXT",
+                              "PHOTO",
+                              "MULTI_SELECT"
+                            ]
+                          },
+                          "required": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "expected": {
+                            "type": "string",
+                            "enum": [
+                              "YES",
+                              "NO"
+                            ]
+                          },
+                          "scaleMax": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "passFrom": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "min": {
+                            "type": "number"
+                          },
+                          "max": {
+                            "type": "number"
+                          },
+                          "options": {
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+                            }
+                          },
+                          "failOptions": {
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{1,39}$"
+                            }
+                          },
+                          "failSeverity": {
+                            "default": "MINOR",
+                            "type": "string",
+                            "enum": [
+                              "INFO",
+                              "MINOR",
+                              "MAJOR",
+                              "CRITICAL"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      "labels": {
+                        "minItems": 1,
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "locale": {
+                              "type": "string",
+                              "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            "help": {
+                              "type": "string",
+                              "maxLength": 1000,
+                              "nullable": true
+                            },
+                            "optionLabels": {
+                              "default": {},
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              }
+                            }
+                          },
+                          "required": [
+                            "locale",
+                            "label"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "rule",
+                      "labels"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "code",
+                "titles",
+                "items"
+              ]
+            }
+          }
+        },
+        "required": [
+          "sections"
+        ]
+      },
+      "StartInspectionDto": {
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "assetId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "default": "STAFF",
+            "type": "string",
+            "enum": [
+              "STAFF",
+              "SCHEDULE",
+              "HK_JOB",
+              "WORK_ORDER"
+            ]
+          },
+          "sourceRef": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "templateId"
+        ]
+      },
+      "AnswerItemDto": {
+        "type": "object",
+        "properties": {
+          "itemCode": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "answer": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "PASS_FAIL"
+                    ]
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "PASS",
+                      "FAIL"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "YES_NO"
+                    ]
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "YES",
+                      "NO"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "SCORE"
+                    ]
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "NUMBER"
+                    ]
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "TEXT"
+                    ]
+                  },
+                  "value": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "PHOTO"
+                    ]
+                  },
+                  "value": {
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 200
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "MULTI_SELECT"
+                    ]
+                  },
+                  "value": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ]
+              }
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "itemCode",
+          "answer"
+        ]
+      },
+      "OpenComplaintDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "stayId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "roomId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "links": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "SERVICE_REQUEST",
+                    "TASK",
+                    "ASSET",
+                    "WORK_ORDER",
+                    "USER"
+                  ]
+                },
+                "ref": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "kind",
+                "ref"
+              ]
+            }
+          }
+        },
+        "required": [
+          "categoryId",
+          "summary"
+        ]
+      },
+      "MoveComplaintDto": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "enum": [
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "to",
+          "version"
+        ]
+      },
+      "NoteDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "AddRecoveryDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "APOLOGY",
+              "AMENITY",
+              "MEAL",
+              "DISCOUNT",
+              "REFUND",
+              "ROOM_MOVE",
+              "OTHER"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000000
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "ConfirmCandidateDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "DismissCandidateDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "version"
         ]
       },
       "EchoDto": {

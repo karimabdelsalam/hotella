@@ -1,0 +1,9 @@
+{
+  "relations.permission.read": "See complaints, complaint candidates and service recovery",
+  "relations.permission.manage": "Record complaints, change their status and confirm or dismiss AI candidates",
+  "relations.permission.category_manage": "Manage complaint categories",
+  "relations.permission.recovery_manage": "Offer service recovery (gestures, meals, discounts, refunds)",
+  "relations.permission.suggest": "Suggest a complaint candidate (AI concierge)",
+  "relations.approval.recovery_action": "Service recovery that costs the hotel money",
+  "relations.setting.recovery_high_risk_from": "Service recovery from this amount needs a high-risk approval"
+}

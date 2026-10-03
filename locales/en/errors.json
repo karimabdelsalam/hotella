@@ -288,5 +288,15 @@
   "errors.inspection.photo.not_found": "This photo was not found.",
   "errors.inspection.finding.not_found": "This finding does not exist.",
   "errors.inspection.finding.not_open": "Work was already opened for this finding.",
-  "errors.hk.inspection.checklist_not_completed": "The checklist inspection is not completed yet."
+  "errors.hk.inspection.checklist_not_completed": "The checklist inspection is not completed yet.",
+  "errors.relations.category.code_taken": "A complaint category with this code already exists.",
+  "errors.relations.category.not_found": "This complaint category does not exist.",
+  "errors.relations.complaint.not_found": "This complaint does not exist.",
+  "errors.relations.complaint.version_conflict": "Someone else changed this complaint. Refresh and try again.",
+  "errors.relations.complaint.invalid_move": "A complaint cannot go from {from} to {to}.",
+  "errors.relations.complaint.closed": "This complaint is closed.",
+  "errors.relations.candidate.not_found": "This suggestion does not exist.",
+  "errors.relations.candidate.version_conflict": "Someone else changed this suggestion. Refresh and try again.",
+  "errors.relations.candidate.already_decided": "This suggestion was already confirmed or dismissed.",
+  "errors.relations.recovery.amount_required": "Enter the amount for this {kind, select, DISCOUNT {discount} REFUND {refund} other {recovery}}."
 }

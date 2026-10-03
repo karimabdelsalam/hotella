@@ -13,6 +13,8 @@ import { IntegrationsModule } from '@hotella/domain-integrations';
 import { AiModule } from '@hotella/domain-ai';
 import { EngineeringModule } from '@hotella/domain-engineering';
 import { HousekeepingModule } from '@hotella/domain-housekeeping';
+import { InspectionModule } from '@hotella/domain-inspection';
+import { RelationsModule } from '@hotella/domain-relations';
 import { KnowledgeModule } from '@hotella/domain-knowledge';
 import { CatalogModule } from '@hotella/domain-catalog';
 import { CommunicationsModule } from '@hotella/domain-communications';
@@ -87,6 +89,8 @@ describe('api skeleton (e2e)', () => {
         KnowledgeModule,
         HousekeepingModule,
         EngineeringModule,
+        InspectionModule,
+        RelationsModule,
         HealthModule,
         MetaModule,
       ],
@@ -182,12 +186,15 @@ describe('api skeleton (e2e)', () => {
       'guest',
       'hk',
       'iam',
+      'inspection',
       'integration',
       'knowledge',
       'ops',
       'org',
       'platform',
+      'relations',
     ]);
+    expect(byCode.get('relations')?.events).toContain('relations.complaint.opened.v1');
     expect(byCode.get('integration')?.events).toContain('hotel.guest.checked_in.v1');
     expect(byCode.get('iam')?.events).toContain('iam.session.revoked.v1');
     expect(byCode.get('platform')?.events).toContain('platform.feature_flag.changed.v1');

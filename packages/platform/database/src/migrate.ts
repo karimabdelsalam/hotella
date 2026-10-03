@@ -69,6 +69,7 @@ export const APPLICATION_SCHEMAS = [
   'hk',
   'eng',
   'inspection',
+  'relations',
 ] as const;
 const ROLE_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 

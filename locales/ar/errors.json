@@ -288,5 +288,15 @@
   "errors.inspection.photo.not_found": "هذه الصورة غير موجودة.",
   "errors.inspection.finding.not_found": "هذه الملاحظة غير موجودة.",
   "errors.inspection.finding.not_open": "تم فتح عمل لهذه الملاحظة بالفعل.",
-  "errors.hk.inspection.checklist_not_completed": "لم تكتمل عملية الفحص بقائمة الفحص بعد."
+  "errors.hk.inspection.checklist_not_completed": "لم تكتمل عملية الفحص بقائمة الفحص بعد.",
+  "errors.relations.category.code_taken": "يوجد تصنيف شكاوى بهذا الرمز بالفعل.",
+  "errors.relations.category.not_found": "تصنيف الشكوى هذا غير موجود.",
+  "errors.relations.complaint.not_found": "هذه الشكوى غير موجودة.",
+  "errors.relations.complaint.version_conflict": "قام شخص آخر بتعديل هذه الشكوى. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.relations.complaint.invalid_move": "لا يمكن نقل الشكوى من {from} إلى {to}.",
+  "errors.relations.complaint.closed": "هذه الشكوى مغلقة.",
+  "errors.relations.candidate.not_found": "هذا الاقتراح غير موجود.",
+  "errors.relations.candidate.version_conflict": "قام شخص آخر بتعديل هذا الاقتراح. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.relations.candidate.already_decided": "تم تأكيد هذا الاقتراح أو رفضه بالفعل.",
+  "errors.relations.recovery.amount_required": "أدخل مبلغ {kind, select, DISCOUNT {الخصم} REFUND {الاسترداد} other {الترضية}}."
 }

@@ -56,6 +56,7 @@ export {
   InspectionCompleted,
   InspectionFindingRaised,
 } from './inspection-events';
+export { ComplaintOpened, ComplaintResolved } from './relations-events';
 export {
   ConversationOpened,
   DeliveryUpdated,

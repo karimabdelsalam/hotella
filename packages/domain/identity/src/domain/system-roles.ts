@@ -41,6 +41,8 @@ const TASK_SUPERVISOR = [...TASK_WORKER, 'task.assign', 'task.cancel', 'request.
 const ALERT_DESK = ['alert.read', 'alert.ack'] as const;
 /** Housekeeping supervision (Spec §9): the board, room states and signals, jobs and inspections. */
 const INSPECTOR = ['inspection.read', 'inspection.perform'] as const;
+/** Guest relations (Spec §12): complaints, AI candidates and service recovery. */
+const COMPLAINT_DESK = ['complaint.read', 'complaint.manage', 'complaint.recovery.manage'] as const;
 const HK_DESK = [
   'hk.board.read',
   'hk.room.manage',
@@ -136,6 +138,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...ENG_DESK,
       'eng.config.manage',
       'inspection.template.manage',
+      ...COMPLAINT_DESK,
+      'complaint.category.manage',
     ],
   },
   {
@@ -154,6 +158,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'hk.board.read',
       'hk.arrivals.read',
       'inspection.read',
+      ...COMPLAINT_DESK,
     ],
   },
   {
@@ -200,12 +205,21 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...TASK_WORKER,
       'hk.board.read',
       'hk.arrivals.read',
+      // The desk hears complaints first and records them; recovery stays with guest relations.
+      'complaint.read',
+      'complaint.manage',
     ],
   },
   {
     code: 'GUEST_RELATIONS',
     audience: 'TENANT',
-    permissions: [...PROPERTY_READ, ...GUEST_DESK, ...TASK_WORKER],
+    permissions: [
+      ...PROPERTY_READ,
+      ...GUEST_DESK,
+      ...TASK_WORKER,
+      ...COMPLAINT_DESK,
+      'approval.read',
+    ],
   },
 ];
 
