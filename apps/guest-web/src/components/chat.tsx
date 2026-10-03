@@ -38,7 +38,10 @@ export function Chat() {
     return () => clearInterval(id);
   }, [me, load]);
 
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [thread?.messages.length]);
+  // A block body: newer browsers return a promise from scrollIntoView, which React would take for a cleanup function.
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' });
+  }, [thread?.messages.length]);
 
   if (me === 'signed-out') return <SignedOut />;
   return (
