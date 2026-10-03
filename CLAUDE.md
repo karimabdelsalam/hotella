@@ -6,16 +6,17 @@ concrete technology decisions are in `docs/BUILD_PLAN.md` and `docs/adr/`; `docs
 Read all three before changing anything structural. Work phase by phase; never build ahead of the current phase.
 
 ## Stack (locked by ADRs, do not change without a new ADR)
-Pure ESM · TypeScript 7 strict (`tsgo` type-check, SWC emit) · Node 26 · NestJS 12 modular monolith · pnpm 11 + Turborepo
-· PostgreSQL 18 (+pgvector) · Drizzle ORM 1.0 (restricted surface until final) with reviewed SQL migrations · Valkey 9 + BullMQ
-· S3-compatible storage · Zod 4 contracts (Standard Schema) · pino + OpenTelemetry SDK 2 · Vitest 4 + Testcontainers
-· oxlint + Prettier + dependency-cruiser · ICU MessageFormat catalog shared with the frontend · Next.js 16 LTS + next-intl + Tailwind 4
-· .NET 10 LTS for the on-prem hotel agent (Phase 10) · Version policy: latest GA/LTS, never pre-release in the foundation — ADR-0016
+TypeScript 6 strict (ESM-style source, CommonJS output until the planned NestJS 12 move) · Node 24 LTS · NestJS 11 modular monolith
+· pnpm 11 + Turborepo · PostgreSQL 18 (+pgvector) · Drizzle ORM 0.45 (core query builder) with reviewed SQL migrations · Valkey 9 + BullMQ
+· S3-compatible storage · Zod 4 contracts (+ nestjs-zod) · pino + OpenTelemetry SDK 2 · Vitest 4 + Testcontainers
+· ESLint 10 + eslint-plugin-boundaries + Prettier 3 + dependency-cruiser · ICU MessageFormat catalog shared with the frontend
+· Next.js 16 LTS + next-intl + Tailwind 4 · .NET 10 LTS for the on-prem hotel agent (Phase 10)
+· Version policy: **Maturity Gate** (GA ≥ 6 months, ecosystem + tooling ready, exit path, no node-gyp); HOLD list with dates for NestJS 12 / TS 7 / Node 26 / Drizzle 1.0 / oxlint — ADR-0016
 · Hosted **on-premises** (Compose → k3s/RKE2, Vault, MinIO, Valkey, Grafana stack) — ADR-0013 · OPERA 5 via FIAS + OWS adapters — ADR-0014 · WhatsApp via Meta Cloud API or BSP adapters with SMS OTP fallback — ADR-0015.
 
 ## Repository shape
 - `apps/*` compose; `packages/platform/*` are infrastructure; `packages/domain/*` are bounded contexts; `packages/contracts/*` are zod schemas (events, api, connectors, ai-tools).
-- A domain package exposes other domains **only** `src/public`. Never import another domain's `infrastructure`, `schema` or repositories. dependency-cruiser enforces this and forbids cycles.
+- A domain package exposes other domains **only** `src/public`. Never import another domain's `infrastructure`, `schema` or repositories. ESLint boundaries enforces this; dependency-cruiser forbids cycles.
 - Each bounded context owns its PostgreSQL schema (`org`, `iam`, `guest`, `catalog`, `ops`, `hk`, `eng`, `inspection`, `relations`, `lostfound`, `logbook`, `comms`, `knowledge`, `ai`, `integration`, `license`, `audit`, `platform`). No domain writes another domain's tables; use its application service or an event.
 
 ## Hard rules (from Spec §82–§84; violating any of these is a bug)
@@ -47,6 +48,7 @@ Pure ESM · TypeScript 7 strict (`tsgo` type-check, SWC emit) · Node 26 · Nest
 ## Working conventions
 - Read `docs/DEVELOPER_GUIDE.md` first; it is the onboarding path and must stay accurate (update it in the same PR as any command or layout change).
 - Conventional Commits (`feat(ops): …`, `fix(guest): …`, `docs: …`); scope = package or context code.
+- Write ESM-ready source: `import` only, no `require`, no `__dirname`, no CommonJS-only idioms; no TypeScript options deprecated in 6.x; no dependency that compiles native code at install (`node-gyp`).
 - Before coding a phase or module, make sure its section in `docs/BUILD_PLAN.md` has scope, domain model, migrations, APIs, events, permissions, tests and acceptance criteria. Update it if reality differs.
 - Migrations: `pnpm db:generate` then hand-review the SQL; expand/deploy/migrate/contract for destructive changes; `pnpm db:check` must pass.
 - Tests: unit for domain rules, integration against real Postgres/Redis (Testcontainers), a tenant-leak test for every tenant-scoped module, an e2e scenario for each phase acceptance.

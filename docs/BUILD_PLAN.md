@@ -1,7 +1,7 @@
 # HOTELLA — Build Plan
 
 **Status:** Active execution plan (derived from `docs/spec/HOTELLA_MASTER_SPEC.md` v1.0)
-**Version:** 1.3 (stack baseline re-verified against primary sources on 2026-10-03 — ADR-0016; developer onboarding docs added)
+**Version:** 1.4 (ADR-0016 revised with a Maturity Gate: adopt only GA ≥ 6 months with ecosystem support; HOLD list for NestJS 12 / TS 7 / Node 26 / Drizzle 1.0 / oxlint)
 **Date:** 2026-10-03
 **Audience:** Implementation team / Claude engineering agents
 
@@ -21,7 +21,7 @@
    - *Gate B — Spec review:* reviewer walks the Module Definition of Done (§12) and the relevant TRACEABILITY rows; any invariant in `CLAUDE.md` touched by the change is cited in the PR description with how it is honoured.
    - *Gate C — Docs sync:* BUILD_PLAN section, ADRs, TRACEABILITY and CLAUDE.md updated in the same PR if anything deviated.
    - *Gate D — Acceptance:* the sprint's acceptance checklist is executed and its result recorded in the PR.
-7. **Versions:** the rule is *latest generally-available major, LTS where offered, never pre-release in the foundation* (ADR-0016). Baseline: Node 26, TypeScript 7, NestJS 12, Zod 4, PostgreSQL 18, Valkey 9, pnpm 11, Next.js 16 LTS, Tailwind 4, Vitest 4, OTel SDK 2, .NET 10 LTS. Exact versions are pinned by `pnpm-lock.yaml`; Renovate proposes, CI proves, a human merges; majors change only with an ADR-0016 update.
+7. **Versions:** the **Maturity Gate** of ADR-0016 decides (GA ≥ 6 months with ≥ 2 patches, ecosystem and tooling ready, documented exit path, no node-gyp). Baseline: Node 24 LTS, TypeScript 6, NestJS 11, Zod 4 + nestjs-zod, PostgreSQL 18, Drizzle 0.45, Valkey 9, pnpm 11, ESLint 10 + Prettier 3, Vitest 4, OTel SDK 2, Next.js 16 LTS, Tailwind 4, .NET 10 LTS. HOLD with dates: NestJS 12/ESM, TypeScript 7, Node 26, Drizzle 1.0, oxlint. Exact versions are pinned by `pnpm-lock.yaml`; Renovate proposes, CI proves, a human merges; majors change only with an ADR-0016 update.
 8. **Naming conventions (binding):**
    - Events: `<context>.<entity>.<past_tense_event>.v<N>` for platform events (e.g. `ops.task.assigned.v1`); `hotel.<entity>.<event>.v<N>` is reserved for canonical PMS/hotel events produced by the Integration Platform (Spec §51).
    - Permissions: `<domain>.<resource>.<action>` or `<resource>.<action>` as in Spec §5 (e.g. `engineering.work_order.create`, `task.assign`).
@@ -115,11 +115,11 @@ All of these are recorded as ADRs in `docs/adr/`. "Locked" means: do not re-open
 
 | # | Decision | Choice | Rejected alternatives | ADR |
 |---|---|---|---|---|
-| 1 | Repository | pnpm 11 workspaces + Turborepo 2.6 monorepo, **pure ESM**, Node 26, TypeScript 7 (`tsgo` type-check, SWC emit) strict | Nx (heavier), multi-repo (kills bounded-context refactors) | ADR-0001, ADR-0016 |
-| 2 | Database access & migrations | **PostgreSQL 18** + pgvector; **Drizzle ORM 1.0** (RC pinned, restricted to the surface identical to stable: pg-core schema, SQL migrations, core query builder) per bounded context, SQL migration files (generated then hand-reviewed), one migration journal, PostgreSQL schemas per context | Prisma (weak multi-schema, poor control over RLS/raw SQL), TypeORM (migration drift) | ADR-0002, ADR-0016 |
+| 1 | Repository | pnpm 11 workspaces + Turborepo 2 monorepo, Node 24 LTS, TypeScript 6 strict, ESM-style source compiled to CommonJS (NestJS 11 supported path; ESM flip planned with NestJS 12) | Nx (heavier), multi-repo (kills bounded-context refactors); Node 26 / TS 7 / Nest 12 held by the Maturity Gate | ADR-0001, ADR-0016 |
+| 2 | Database access & migrations | **PostgreSQL 18** + pgvector; **Drizzle ORM 0.45.x** (stable line; core query builder, no relational-query API so the 1.0 move stays mechanical) per bounded context, SQL migration files (generated then hand-reviewed), one migration journal, PostgreSQL schemas per context | Prisma (weak multi-schema, poor control over RLS/raw SQL), TypeORM (migration drift) | ADR-0002, ADR-0016 |
 | 3 | Identifiers | Application-generated UUIDv7 (`uuidv7` package), `uuid` columns | DB-generated `gen_random_uuid()` (v4, poor index locality), bigserial (leaks counts, not multi-tenant friendly) | ADR-0003 |
 | 4 | Events & async | Transactional **outbox** table → relay worker → **BullMQ** on **Valkey 9** (BSD-licensed RESP store; Redis 8 rejected for licence reasons in an on-prem product) with the 5 spec priority queues; synchronous in-process domain event dispatch inside the same transaction where needed; **inbox** table for idempotent consumers | Kafka/NATS now (new infra dep, Spec §84.17), EventEmitter only (not durable) | ADR-0004 |
-| 5 | Validation & contracts | **Zod 4** schemas in `packages/contracts` shared by API DTOs (NestJS 12 Standard Schema, no adapter), event payloads, AI tool I/O, connector manifests; OpenAPI 3.1 generated via `z.toJSONSchema()` | class-validator (not reusable for events/tools), nestjs-zod (unnecessary with Nest 12) | ADR-0005 |
+| 5 | Validation & contracts | **Zod 4** schemas in `packages/contracts` shared by API DTOs (via `nestjs-zod` on NestJS 11; native Standard Schema once on Nest 12), event payloads, AI tool I/O, connector manifests; OpenAPI generated from the same schemas | class-validator (not reusable for events/tools) | ADR-0005 |
 | 6 | Observability | **pino** structured logs, **OpenTelemetry JS SDK 2.x** traces/metrics, request context via AsyncLocalStorage (`nestjs-cls`) carrying `correlation_id`, `trace_id`, `tenant_id`, `property_id`, `actor` | winston, custom middleware | ADR-0006 |
 | 7 | Multi-tenancy model | Shared database, shared schema, explicit `tenant_id` columns, repository layer enforces tenant filter, PostgreSQL RLS added as defense-in-depth (Phase 1.3) | schema-per-tenant (migration fan-out), DB-per-tenant (ops cost) | ADR-0007 |
 | 8 | Testing | **Vitest 4** unit tests; integration tests with **Testcontainers** (real PostgreSQL 18 + Valkey 9); contract tests for events/connectors; e2e via supertest | Jest (slower), mocking the DB (hides tenant leaks) | ADR-0008 |
@@ -127,7 +127,7 @@ All of these are recorded as ADRs in `docs/adr/`. "Locked" means: do not re-open
 | 10 | Secrets | `SecretProvider` interface; `EnvSecretProvider` for dev/test, Vault/AWS SM/… adapter for production; secrets never in `settings`/config tables | Reading `process.env` directly in modules | ADR-0010 |
 | 11 | Auth tokens | Staff: JWT access (≤15 min) + opaque rotating refresh token (hashed in DB, device-bound, revocable). Guest: passwordless opaque session token (hashed). Passwords: argon2id | Long-lived JWTs, sessions in Redis only | ADR-0011 |
 | 12 | API style | REST `/api/v1`, RFC 9457 Problem Details errors with localized `detail`, `Idempotency-Key` on retriable creates, cursor pagination | GraphQL first | ADR-0012 |
-| 13 | Lint, format, boundaries | **oxlint 1.x** (+ type-aware `oxlint-tsgolint`) for code rules, **Prettier 3** for formatting (oxfmt when 1.0), **dependency-cruiser** for architecture: a domain package imports only `@hotella/platform-*`, `@hotella/contracts-*`, and other domains' **`/public`** entrypoint; never another domain's schema/repositories; no cycles; graph rendered into docs | ESLint 10 (slower, same rules), Biome (no boundary rules), code review only | ADR-0001, ADR-0016 |
+| 13 | Lint, format, boundaries | **ESLint 10 + typescript-eslint 8 + eslint-plugin-boundaries** for code and layer rules, **Prettier 3** for formatting, **dependency-cruiser** in CI for repo-wide cycles and the documentation graph: a domain package imports only `@hotella/platform-*`, `@hotella/contracts-*`, and other domains' **`/public`** entrypoint; never another domain's schema/repositories | oxlint (plugins alpha), Biome (no boundary rules), code review only | ADR-0001, ADR-0016 |
 | 14 | Hosting | **On-premises**: Docker Compose (pilot) → Kubernetes k3s/RKE2 (production); self-managed PostgreSQL 18 + pgBackRest PITR; Valkey 9; MinIO; HashiCorp Vault as secrets adapter; Grafana/Prometheus/Loki/Tempo via OTel collector; hotel agent still connects outbound | Public cloud managed services | ADR-0013 |
 | 15 | OPERA 5 interfaces | **FIAS over IFC8** primary (real-time GI/GO/GC/RE, DB sync), **OWS (SOAP)** secondary for reservations/profiles/pre-arrival where licensed, optional **read-only DB views** for reconciliation only | OXI (CRS-oriented, extra licensing) | ADR-0014 |
 | 17 | i18n engine | **ICU MessageFormat** (`intl-messageformat`) behind our own `I18nService` on the backend, `next-intl` on the frontend → one shared `/locales/{en,ar}` catalog, one parity check; no dependency on third-party Nest i18n modules | nestjs-i18n (lags Nest majors, different format from frontend) | ADR-0016 |
@@ -207,7 +207,7 @@ hotella/
 │   ├── workflows/ci.yml
 │   ├── pull_request_template.md  # Gates A–D checklist
 │   └── CODEOWNERS
-├── renovate.json  .nvmrc  .editorconfig  .dependency-cruiser.cjs  .oxlintrc.json  .prettierrc
+├── renovate.json  .nvmrc  .editorconfig  .dependency-cruiser.cjs  eslint.config.mjs  .prettierrc
 ├── CLAUDE.md                     # non-negotiable rules for agents working in this repo
 └── package.json  pnpm-workspace.yaml  turbo.json  tsconfig.base.json
 ```
@@ -239,9 +239,9 @@ packages/domain/<ctx>/src/
 
 | # | Task | Done when |
 |---|---|---|
-| 0.1.1 | `.nvmrc` (Node 26), Corepack-pinned pnpm 11, pnpm workspace, Turborepo pipeline (`build`, `lint`, `format:check`, `typecheck`, `test`, `depcruise`), `tsconfig.base.json` (`strict`, `NodeNext`, `"type": "module"` everywhere), `typecheck` runs `tsgo --noEmit`, emit via SWC | `pnpm -r build && pnpm typecheck` pass on empty packages |
-| 0.1.2 | oxlint config (recommended + type-aware; `no-console`, `no-restricted-globals` for `process.env`, `no-restricted-imports` for provider SDKs outside the gateway), Prettier 3, dependency-cruiser with the layer allow-rules from §2.13 and `no-circular`; `pnpm depcruise:graph` renders `docs/architecture/dependency-graph.svg` | `depcruise` fails on a deliberate cross-domain import in a test fixture; lint fails on `console.log` and `process.env` |
-| 0.1.3 | `apps/api`: NestJS 12 app (ESM), `/health` (liveness) and `/ready` (checks PostgreSQL + Valkey), global prefix `/api/v1`, graceful shutdown, Standard Schema validation wired with a zod 4 sample DTO | `curl /api/v1/health` returns 200; invalid body returns Problem Details 400 |
+| 0.1.1 | `.nvmrc` (Node 24 LTS), Corepack-pinned pnpm 11, pnpm workspace, Turborepo pipeline (`build`, `lint`, `format:check`, `typecheck`, `test`, `depcruise`), `tsconfig.base.json` (TypeScript 6, `strict`, `verbatimModuleSyntax`, `isolatedModules`, `module: Node16`/CommonJS output, no deprecated options so TS 7 is a no-op later), `typecheck` runs `tsc --noEmit`, emit via SWC (`nest build` with the SWC builder) | `pnpm -r build && pnpm typecheck` pass on empty packages |
+| 0.1.2 | ESLint 10 flat config: typescript-eslint (type-aware), `eslint-plugin-boundaries` with the layer allow-rules from §2.13, `no-console`, `no-restricted-globals` for `process.env`, `no-restricted-imports` for provider SDKs outside the gateway; Prettier 3; dependency-cruiser (`no-circular`, graph) — `pnpm depcruise:graph` renders `docs/architecture/dependency-graph.svg` | lint fails on a deliberate cross-domain import, on `console.log` and on `process.env` in a test fixture; depcruise fails on an injected cycle |
+| 0.1.3 | `apps/api`: NestJS 11 app, `/health` (liveness) and `/ready` (checks PostgreSQL + Valkey), global prefix `/api/v1`, graceful shutdown, `nestjs-zod` validation pipe wired with a zod 4 sample DTO | `curl /api/v1/health` returns 200; invalid body returns Problem Details 400 |
 | 0.1.4 | `infra/docker/docker-compose.dev.yml`: `pgvector/pgvector:pg18`, `valkey/valkey:9`, `minio/minio`, `axllent/mailpit`, `grafana/otel-lgtm` (all-in-one Grafana/Tempo/Loki/Prometheus for dev); `pnpm dev:infra` script | `/ready` green against compose |
 | 0.1.5 | `@hotella/platform-config`: zod-validated env schema, typed `AppConfig`, fail-fast on invalid env | app refuses to boot with a missing var and prints the field name |
 | 0.1.6 | `@hotella/platform-observability`: pino JSON logs, redaction list (authorization headers, tokens, phone, otp), log level from config | log line contains `correlation_id` placeholder field |
@@ -252,7 +252,7 @@ packages/domain/<ctx>/src/
 
 | # | Task | Done when |
 |---|---|---|
-| 0.2.1 | `@hotella/platform-database`: Drizzle 1.0 client (restricted surface, ADR-0016), `withTransaction()` helper propagating the tx through CLS, base column helpers `baseColumns()` (`id uuid pk`, `created_at`, `updated_at` TIMESTAMPTZ) and `tenantScoped()` (`tenant_id`), `versioned()` (`version int` for optimistic locking) | unit-tested helpers |
+| 0.2.1 | `@hotella/platform-database`: Drizzle 0.45 client (core query builder only, ADR-0016), `withTransaction()` helper propagating the tx through CLS, base column helpers `baseColumns()` (`id uuid pk`, `created_at`, `updated_at` TIMESTAMPTZ) and `tenantScoped()` (`tenant_id`), `versioned()` (`version int` for optimistic locking) | unit-tested helpers |
 | 0.2.2 | UUIDv7 generator `newId()`; lint rule banning `gen_random_uuid()` defaults in schema | tests assert monotonic ordering |
 | 0.2.3 | Migration framework: drizzle-kit generates SQL into `packages/platform/database/migrations/<ts>_<ctx>_<name>.sql`; `pnpm db:migrate`, `pnpm db:generate`, `pnpm db:check` (fails CI if schema and migrations drift); each bounded context lives in its own PostgreSQL schema | CI fails when a schema change has no migration |
 | 0.2.4 | Request context (`nestjs-cls`): middleware generates/propagates `X-Correlation-Id`, stores `correlation_id`, `trace_id`, `tenant_id`, `property_id`, `actor` (empty until Phase 1); pino mixin injects them into every log line | integration test asserts the header is echoed and logged |
@@ -273,7 +273,7 @@ packages/domain/<ctx>/src/
 | 0.3.6 | In-process `DomainEventBus` for same-transaction side effects (used only within a bounded context) | documented when to use which (ADR-0004) |
 | 0.3.7 | `@hotella/platform-i18n`: own `I18nService` on ICU MessageFormat (`intl-messageformat`) loading `/locales/{en,ar}/*.json` (the same files `next-intl` will load on the frontend); `LocaleResolver` implementing the chain *explicit → user/guest preference → detected → property default → platform default (en)*; `Accept-Language` + `?lang=` + per-actor preference hooks (Phase 1 wires the preference); `translationTable()` schema helper producing `<entity>_translations(entity_id, locale, …)` with unique `(entity_id, locale)` | test: same key resolves differently per locale; CI check that `ar` and `en` key sets are identical |
 | 0.3.8 | Error model: `AppError(code, params)` → RFC 9457 Problem Details with `code` (stable, e.g. `guest.activation.token_expired`) and localized `detail`; error codes documented in `locales/*/errors.json` | unknown code fails tests |
-| 0.3.9 | API conventions: versioned routes, `IdempotencyInterceptor` (`Idempotency-Key` header, Valkey-backed, 24h, replays stored response), Valkey rate limiting (per IP now; per actor/tenant in Phase 1), cursor pagination helper, OpenAPI 3.1 from zod 4 (`z.toJSONSchema()` + `@nestjs/swagger` 12) served at `/api/docs` in non-prod and snapshot-tested | replayed POST returns identical body and `Idempotent-Replayed: true` |
+| 0.3.9 | API conventions: versioned routes, `IdempotencyInterceptor` (`Idempotency-Key` header, Valkey-backed, 24h, replays stored response), Valkey rate limiting (per IP now; per actor/tenant in Phase 1), cursor pagination helper, OpenAPI from zod 4 (`nestjs-zod` + `@nestjs/swagger` 11) served at `/api/docs` in non-prod and snapshot-tested | replayed POST returns identical body and `Idempotent-Replayed: true` |
 | 0.3.10 | Scheduler base in `apps/worker` (BullMQ repeatable jobs) for later SLA timers, reconciliation, PM | a heartbeat job runs every minute in dev |
 | 0.3.11 | Feature flags v0 in `platform-config`: `FeatureFlagService.isEnabled(flag, {tenant, property})` reading a table `platform.feature_flags` with scope columns; explicitly *not* licensing | test shows flag ≠ entitlement call sites |
 | 0.3.12 | **Module manifest** (Spec §76 brought forward as an enforcement tool): every domain module exports a `ModuleManifest { code, schema, permissions[], events[], entitlements[], aiTools[], localeNamespaces[], integrationCapabilities[], dataClasses[] }`; a `ManifestRegistry` collects them at boot; tests assert that every permission used in a decorator, every event published, every locale namespace loaded and every table's data class is declared in exactly one manifest | a permission used but not declared fails the test suite |
@@ -282,11 +282,11 @@ packages/domain/<ctx>/src/
 ### Phase 0 acceptance criteria
 
 - [ ] `pnpm install && pnpm dev:infra && pnpm db:migrate && pnpm dev` boots API + worker locally; `/api/v1/ready` is green.
-- [ ] CI runs oxlint, Prettier check, dependency-cruiser, `tsgo` typecheck, build, unit + integration tests (real PostgreSQL 18 / Valkey 9), the migration drift check and the OpenAPI snapshot.
+- [ ] CI runs ESLint, Prettier check, dependency-cruiser, `tsc --noEmit`, build, unit + integration tests (real PostgreSQL 18 / Valkey 9), the migration drift check and the OpenAPI snapshot.
 - [ ] Every log line carries `correlation_id`; a request's correlation id appears in the outbox row and in the job the relay enqueues.
 - [ ] A sample `ping.requested.v1` event published inside a transaction is delivered to a worker consumer exactly once across a forced duplicate delivery.
 - [ ] Switching `Accept-Language: ar` changes the error `detail` of a Problem Details response; the `ar`/`en` key-parity check passes.
-- [ ] A deliberate cross-domain import fails dependency-cruiser; a deliberate `process.env` read outside the config package fails oxlint; the repository is pure ESM (no `require` anywhere outside tooling).
+- [ ] A deliberate cross-domain import fails ESLint boundaries; a deliberate `process.env` read outside the config package fails ESLint; no `require`/`__dirname` in source (ESM-ready rule) and no node-gyp dependency in the lockfile.
 - [ ] No secret value appears in any config table, log line or test fixture.
 - [ ] ADR-0001…0016 exist and `CLAUDE.md` reflects them; `docs/DEVELOPER_GUIDE.md` has been followed end-to-end by someone other than its author.
 

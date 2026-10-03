@@ -12,11 +12,11 @@ A white-label, multi-tenant **Hotel Intelligence Platform**. Hotels (tenants/pro
 
 ## 2. Setup (target: under 30 minutes)
 
-Prerequisites: Git, Docker (with Compose), Node 26 (`nvm use` reads `.nvmrc`), Corepack enabled (`corepack enable` → pnpm 11 is picked from `package.json#packageManager`).
+Prerequisites: Git, Docker (with Compose), Node 24 LTS (`nvm use` reads `.nvmrc`), Corepack enabled (`corepack enable` → pnpm 11 is picked from `package.json#packageManager`). No C/C++ toolchain is needed: the foundation has no native modules that compile at install.
 
 ```bash
 git clone <repo> hotella && cd hotella
-nvm use                      # Node 26
+nvm use                      # Node 24 LTS
 corepack enable              # pnpm 11, exact version pinned
 pnpm install                 # frozen lockfile
 cp .env.example .env         # dev defaults only; no secrets needed locally
@@ -77,7 +77,7 @@ Full list in `CLAUDE.md`; these are the ones that bite newcomers:
 5. Cross-context side effects are events through the outbox (`EventPublisher.publish()` inside the transaction), not direct calls into another context's repository.
 6. Mutating endpoints declare a permission and run through `ActionGate`.
 7. Important mutations write an audit row. If you ask "is this important?", it is.
-8. Never read `process.env` outside `platform-config`/`platform-secrets`. Never `console.log`.
+8. Never read `process.env` outside `platform-config`/`platform-secrets`. Never `console.log`. Never `require` or `__dirname` (source is ESM-ready even though it compiles to CommonJS today).
 9. Published definitions (service versions, workflow versions, prompts…) are immutable; edits create a new version.
 10. AI code never touches a provider SDK or a business table directly; it goes through the Model Gateway and registered tools.
 
@@ -126,7 +126,7 @@ Every request has an `X-Correlation-Id` (generated if absent). Grep your logs fo
 
 ## 10. Upgrading dependencies
 
-Renovate opens grouped PRs weekly. Patch/minor: merge when CI is green. Major: requires updating `docs/adr/0016-technology-currency-and-longevity.md` (why, risks, trigger) in the same PR. Never upgrade a major "while you are at it" inside a feature PR.
+Renovate opens grouped PRs weekly. Patch/minor: merge when CI is green. Major: must pass the Maturity Gate in `docs/adr/0016-technology-currency-and-longevity.md` (GA ≥ 6 months, ecosystem and tooling ready, exit path, no node-gyp) and update that ADR in the same PR. The HOLD list there says when NestJS 12, TypeScript 7, Node 26 and Drizzle 1.0 are due for re-evaluation. Never upgrade a major "while you are at it" inside a feature PR.
 
 ## 11. Where to ask / how to decide
 

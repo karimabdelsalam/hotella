@@ -18,7 +18,7 @@ Phase 0 (Repository & Engineering Foundation) — starting. See `docs/BUILD_PLAN
 
 ## Stack
 
-Pure ESM TypeScript 7 · Node 26 · NestJS 12 (modular monolith) · PostgreSQL 18 + pgvector · Valkey 9 + BullMQ · Drizzle ORM 1.0 · Zod 4 · pino + OpenTelemetry 2 · pnpm 11 + Turborepo · oxlint + Prettier + dependency-cruiser · Vitest 4 + Testcontainers · Next.js 16 LTS + next-intl + Tailwind 4 · .NET 10 LTS on-prem hotel agent (later phase). Version policy: [ADR-0016](docs/adr/0016-technology-currency-and-longevity.md).
+TypeScript 6 · Node 24 LTS · NestJS 11 (modular monolith) · PostgreSQL 18 + pgvector · Valkey 9 + BullMQ · Drizzle ORM 0.45 · Zod 4 · pino + OpenTelemetry 2 · pnpm 11 + Turborepo · ESLint 10 + Prettier 3 + dependency-cruiser · Vitest 4 + Testcontainers · Next.js 16 LTS + next-intl + Tailwind 4 · .NET 10 LTS on-prem hotel agent (later phase). Version policy and HOLD list: [ADR-0016](docs/adr/0016-technology-currency-and-longevity.md).
 
 ## Getting started
 
