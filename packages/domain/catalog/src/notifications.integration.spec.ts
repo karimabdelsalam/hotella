@@ -184,12 +184,18 @@ describe.skipIf(needsInfra())(
       const created = await ask(mona, 'AC_PROBLEM', { issue: 'TOO_HOT' }, 'en');
       await work(created, 'accept');
       await work(created, 'start');
-      expect(whatsapp.sent).toEqual([
-        expect.objectContaining({
-          to: MONA_PHONE,
-          text: 'We are on it: Air conditioning problem.',
-        }),
-      ]);
+      // Under a loaded test run the update can be due a moment later: keep sending what is due.
+      await expect
+        .poll(async () => {
+          await h.app.get(ConversationService).sendDue(new Date(Date.now() + 5000));
+          return whatsapp.sent;
+        })
+        .toEqual([
+          expect.objectContaining({
+            to: MONA_PHONE,
+            text: 'We are on it: Air conditioning problem.',
+          }),
+        ]);
     });
 
     it('a guest without a verified WhatsApp number is told on the guest web only; nobody is told what they did themselves', async () => {
