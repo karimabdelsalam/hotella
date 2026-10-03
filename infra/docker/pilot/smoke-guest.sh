@@ -58,6 +58,49 @@ jq -e 'has("sessionToken") | not' <<<"$done_body" >/dev/null
 me=$(curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/me")
 echo "guest me: $(jq -c '{guest: .guest.givenName, stay: .stay.status, room: .stay.room.number, scopes: (.scopes | length)}' <<<"$me")"
 jq -e '.stay.status == "IN_HOUSE" and .stay.room.number == "504" and (.scopes | index("CHAT"))' <<<"$me" >/dev/null
+
+# M1 (BUILD_PLAN §9.4) on the deployed stack: the starter catalog, an Arabic request through the guest web, the
+# housekeeping task done by staff, the worker completing the request and telling the guest in Arabic.
+for dept in HK:Housekeeping ENG:Engineering FO:Front\ office; do
+  curl -fsS "$API/properties/$property/departments" "${auth[@]}" \
+    -d "{\"code\":\"${dept%%:*}\",\"translations\":[{\"locale\":\"en\",\"name\":\"${dept#*:}\"}]}" >/dev/null
+done
+curl -fsS "$API/properties/$property/catalog/starter" "${auth[@]}" -d '{}' | jq -e '.created | index("EXTRA_TOWELS")' >/dev/null
+ar=(-H 'accept-language: ar')
+curl -fsS "${cookie[@]}" "${ar[@]}" "$GUEST_WEB/hotella/guest/services" | grep -q 'مناشف إضافية'
+ask() { curl -fsS "${cookie[@]}" "${ar[@]}" "${json[@]}" "$GUEST_WEB/hotella/guest/requests" -d '{"serviceCode":"EXTRA_TOWELS","fields":{"quantity":2}}'; }
+first=$(ask)
+jq -e '.related == false' <<<"$first" >/dev/null
+request_id=$(jq -r .request.id <<<"$first")
+work_item=$(jq -r .request.workItemId <<<"$first")
+ask | jq -e --arg id "$request_id" '.related == true and .request.id == $id' >/dev/null
+work=$(curl -fsS "$API/properties/$property/work-items/$work_item" "${auth[@]}")
+jq -e '.departmentCode == "HK" and .serviceCode == "EXTRA_TOWELS"' <<<"$work" >/dev/null
+task=$(jq -r '.tasks[0].id' <<<"$work")
+for action in accept start complete; do
+  curl -fsS "$API/properties/$property/tasks/$task/$action" "${auth[@]}" -d '{}' >/dev/null
+done
+status=""
+for _ in $(seq 1 30); do
+  status=$(curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/requests/$request_id" | jq -r .status)
+  [ "$status" = COMPLETED ] && break
+  sleep 1
+done
+echo "request: $status"
+[ "$status" = COMPLETED ]
+told=""
+for _ in $(seq 1 15); do
+  told=$(curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/conversation" |
+    jq -r '[.messages[] | select(.senderType == "SYSTEM") | .body] | join(" | ")')
+  grep -q 'تم: مناشف إضافية' <<<"$told" && break
+  sleep 1
+done
+echo "guest told: $told"
+grep -q 'تم: مناشف إضافية' <<<"$told"
+# Every step is audited with a correlation id (the guest's ask, then the worker following the work).
+[ "$(psql "select count(*) from audit.audit_log where entity_id = '$request_id' and correlation_id is not null
+  and ((action = 'catalog.request.create' and actor_type = 'GUEST') or (action = 'catalog.request.status' and actor_type = 'SYSTEM'))")" -ge 2 ]
+echo "M1 service request: OK"
 # The link was single use.
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$API/guest/activation/start" "${json[@]}" -d "{\"token\":\"$token\"}")" = 410 ]
 

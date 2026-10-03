@@ -8,6 +8,7 @@ import {
 } from '@hotella/contracts-events';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { isUuid, newId, type TenantScope, TransactionRunner } from '@hotella/platform-database';
+import { AuditWriter } from '@hotella/platform-audit';
 import { EventPublisher } from '@hotella/platform-events';
 import { isTerminal, statusForWorkItem } from '../domain/requests';
 import { freeTextFieldCodes, type FieldDefinition } from '../domain/rules';
@@ -33,6 +34,7 @@ export class RequestLifecycle {
     private readonly catalog: CatalogRepositories,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly audit: AuditWriter,
     private readonly notifier: RequestNotifier,
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
   ) {}
@@ -61,6 +63,7 @@ export class RequestLifecycle {
         const to = statusForWorkItem(work.status);
         if (to === request.status) return;
         await this.move(request, to, { type: 'SYSTEM', id: null }, null);
+        await this.recordFollow(request, to, 'WORK_ITEM');
       });
     } else if (envelope.event_type === StayStatusChanged.type) {
       // The stay left the house (PMS check-out, cancellation, no-show): asks nobody started are withdrawn.
@@ -71,6 +74,7 @@ export class RequestLifecycle {
           const request = (await this.repo.getForUpdate(scope, r.id))!;
           if (request.status !== 'OPEN') continue;
           await this.move(request, 'CANCELLED', { type: 'SYSTEM', id: null }, 'STAY_ENDED');
+          await this.recordFollow(request, 'CANCELLED', 'STAY_ENDED');
           if (request.workItemId)
             await this.ops.cancelWorkItem(request.tenantId, request.workItemId, 'STAY_ENDED');
         }
@@ -116,6 +120,20 @@ export class RequestLifecycle {
       const codes = parent ? await codesOf(parent.serviceVersionId) : [];
       await this.repo.setEventText(scope, ev.id, { fields: strip(ev.fields, codes) });
     }
+  }
+
+  /** Automatic moves are audited as SYSTEM actions, under the correlation id of the event that caused them. */
+  private recordFollow(request: RequestRow, to: ServiceRequestStatus, cause: string) {
+    return this.audit.record({
+      action: 'catalog.request.status',
+      entityType: SERVICE_REQUEST_ENTITY,
+      entityId: request.id,
+      tenantId: request.tenantId,
+      propertyId: request.propertyId,
+      actor: { type: 'SYSTEM', id: null },
+      before: { status: request.status },
+      after: { status: to, cause },
+    });
   }
 
   /** Records a status change, publishes it and tells the listener (inside the caller's transaction). */

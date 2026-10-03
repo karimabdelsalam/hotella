@@ -427,7 +427,8 @@ Reality notes for 1.2 (details in ADR-0011 "Implementation notes"):
 - `mfa_secret_ref` became `mfa_secret_enc`: per-user TOTP seeds are sealed with AES-256-GCM under a SecretRef key (`IAM_MFA_KEY_REF`), because secret providers are read-only; `mfa_last_step` blocks code replay.
 - Organization-scoped memberships are reserved (column and FK exist, the API grants tenant-wide or per-property only) until a customer needs a group/brand level; the resolver ignores them.
 - Platform administrators get exactly the `PLATFORM_ADMIN` role's permissions; staff below tenant-wide level cannot list properties (`GET /properties` is tenant-level) — they see their properties through `GET /me`.
-- Invitation tokens are returned once to the inviting administrator until the comms context (Phase 5) delivers them.
+- Invitation tokens are returned once to the inviting administrator until invitations are e-mailed through the
+  notification service (moved from Phase 5 to the Phase 7 staff screens; see `docs/acceptance/phase-5.md`).
 - Support-access grants: table only in 1.2; request/approve/revoke endpoints land in 1.3 with the audit log they depend on.
 
 Reality notes for 1.3:
@@ -737,7 +738,7 @@ Reality notes for 3.1:
 - `tasks.current_assignee_user_id` became `assignee_type` + `assignee_id`: a task can wait in a department's queue
   (`TEAM` = the department) and any member claims it (`CLAIM` in the history, the team assignment closes with `CLAIMED`).
   `AI` and `ROBOT` are reserved. Department membership of staff is not modelled yet: anyone with `task.accept` at the
-  property may claim; it arrives with the staff app (Phase 5) if hotels need it.
+  property may claim; it arrives with the Phase 7 staff screens if hotels need it (not needed for M1).
 - Supervisors (`task.assign`) may act for an assignee; such actions are audited with `onBehalf`. Assignments, unassignments
   and cancellations are audited; every transition is in `ops.task_events`, append-only at the database level (only a
   free-text reason may be cleared, for anonymization).
@@ -864,7 +865,7 @@ Events: `comms.conversation.opened.v1`, `comms.message.received.v1`, `comms.mess
 - **Channel health** is the communications context's (`comms.channels.health`: HEALTHY/DEGRADED/OFFLINE/AUTH_FAILED,
   from send outcomes); OFFLINE/AUTH_FAILED pre-empts OTP to the fallback and raises one deduplicated operations alert
   through `OPERATIONS_API.raiseAlert`. The ops notification dispatcher gets `WHATSAPP`/`SMS` delivery through the same
-  adapters once staff phone numbers exist (Phase 5); until then they stay skipped.
+  adapters once staff phone numbers exist (Phase 7, see §9.2 "Not in Phase 5"); until then they stay skipped.
 - **Inbox read model** is a query over conversations joined through public APIs (guest, stay, room, open work items,
   SLA risk) at pilot scale; a materialized projection is introduced only if profiling shows the need.
 
@@ -964,7 +965,8 @@ Reality notes for 4.3:
   off; anonymization clears message texts and media references of the guest's conversations. Messages are append-only
   at the database level except delivery fields and that anonymization clearing.
 - Not yet: inbound media download into the asset registry (references are kept), staff WhatsApp/SMS notifications
-  (Phase 5, needs staff phone numbers), templated messages outside the window.
+  (Phase 7, needs staff phone numbers), templated messages outside the window (guest notifications use the
+  `service_update` template since 5.3).
 
 Reality notes for 4.2:
 - The OTP is **derived, not stored**: `code = HMAC-SHA256(key, session id ‖ random seed)` truncated to 6 digits, under
@@ -1029,6 +1031,8 @@ Reality notes for 4.1:
 ---
 
 ## 9. Phase 5 — Guest Service Catalog (detailed)
+
+> **Status: accepted on 2026-10-03; M1 reached** — evidence in `docs/acceptance/phase-5.md`.
 
 **Goal / acceptance (Spec §85, closes M1):** a verified guest opens the property's localized catalog, requests a service,
 the right department gets the work with its SLA, and the guest is told on their verified channel when it is done.
@@ -1141,7 +1145,17 @@ End-to-end CI scenario: simulator check-in → activation → request EXTRA_TOWE
 | 5.2 | Service requests: `createServiceRequest` entrypoint and `CATALOG_API`, fields validation, duplicate detection with locking, work item via `OPERATIONS_API` (SLA/workflow by code), status follow from ops events, guest and staff routes, requests board, history, anonymization (catalog fields; ops quoted titles), tenant-leak tests | delivered |
 | 5.3 | Guest notifications: `COMMUNICATIONS_API.notifyGuest`, `SYSTEM` messages in the stay conversation, WhatsApp text or `service_update` template by window, realtime push, `catalog.notify.statuses` | delivered |
 | 5.4 | `apps/guest-web` PWA: BFF guest session cookie, activation (link, room QR), catalog, request form, my requests, chat; branding + attribution; Playwright in English (LTR) and Arabic (RTL); Docker target and pilot service | delivered |
-| 5.5 | M1 end-to-end scenario in CI, pilot smoke extended to a service request, Phase 5 / M1 acceptance (`docs/acceptance/phase-5.md`) | planned |
+| 5.5 | M1 end-to-end scenario in CI, pilot smoke extended to a service request, Phase 5 / M1 acceptance (`docs/acceptance/phase-5.md`) | delivered |
+
+Reality notes for 5.5:
+- `m1.integration.spec.ts` runs the whole milestone in CI against PostgreSQL: simulator connector messages (OWS
+  reservation, FIAS check-in) → canonical events → stay projector → activation link → WhatsApp OTP (fake provider) →
+  Arabic request → housekeeping work with SLA → staff accept/start/complete → worker steps run in the context the
+  queue gives them (the event's correlation id) → `service_update` template in Arabic → audit and outbox checked by
+  correlation id. Automatic request moves are audited as SYSTEM (`catalog.request.status`).
+- The pilot smoke repeats it on the deployed stack (real simulator, worker, relay, guest web BFF and proxy): starter
+  catalog, an Arabic request and its related repeat, the HK task done by the manager, the worker completing the
+  request and the Arabic message in the guest's conversation, audit rows with correlation ids.
 
 Reality notes for 5.4:
 - `apps/guest-web` (Next.js 16, next-intl on `locales/{en,ar}/portal.json`, Tailwind 4 logical properties, `@hotella/ui`):
