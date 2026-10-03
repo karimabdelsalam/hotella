@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform-auth';
 import type { PropertyScope } from '@hotella/platform-database';
@@ -9,6 +19,17 @@ import {
   listAlertsQuerySchema,
   resolveAlertSchema,
 } from '../application/alert.service';
+import {
+  ApprovalAdminService,
+  decideApprovalSchema,
+  listApprovalsQuerySchema,
+} from '../application/approval.service';
+import {
+  addWorkflowVersionSchema,
+  createWorkflowSchema,
+  manualTriggerSchema,
+  WorkflowAdminService,
+} from '../application/workflow.service';
 import {
   createBusinessHoursSchema,
   createSlaPolicySchema,
@@ -286,6 +307,109 @@ export class AlertsController {
       propertyScope(this.ctx, this.actors, propertyId),
       alertId,
       body.resolution,
+    );
+  }
+}
+
+class CreateWorkflowDto extends createZodDto(createWorkflowSchema) {}
+class AddWorkflowVersionDto extends createZodDto(addWorkflowVersionSchema) {}
+class ManualTriggerDto extends createZodDto(manualTriggerSchema) {}
+class ListApprovalsQueryDto extends createZodDto(listApprovalsQuerySchema) {}
+class DecideApprovalDto extends createZodDto(decideApprovalSchema) {}
+
+/** Workflow definitions (drafts, immutable publication) and staff actions on running workflows. */
+@Controller('properties/:propertyId')
+@PropertyScoped({ from: 'param' })
+export class WorkflowsController {
+  constructor(
+    private readonly workflows: WorkflowAdminService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope(propertyId: string) {
+    return propertyScope(this.ctx, this.actors, propertyId);
+  }
+
+  @Get('workflows')
+  @RequirePermission('workflow.manage')
+  list(@Param('propertyId') propertyId: string) {
+    return this.workflows.list(this.scope(propertyId));
+  }
+
+  @Post('workflows')
+  @RequirePermission('workflow.manage')
+  create(@Param('propertyId') propertyId: string, @Body() body: CreateWorkflowDto) {
+    return this.workflows.create(this.scope(propertyId), body);
+  }
+
+  @Post('workflows/:code/versions')
+  @RequirePermission('workflow.manage')
+  addVersion(
+    @Param('propertyId') propertyId: string,
+    @Param('code') code: string,
+    @Body() body: AddWorkflowVersionDto,
+  ) {
+    return this.workflows.addVersion(this.scope(propertyId), code, body);
+  }
+
+  @Post('workflows/:code/versions/:version/publish')
+  @HttpCode(200)
+  @RequirePermission('workflow.manage')
+  publish(
+    @Param('propertyId') propertyId: string,
+    @Param('code') code: string,
+    @Param('version', ParseIntPipe) version: number,
+  ) {
+    return this.workflows.publish(this.scope(propertyId), code, version);
+  }
+
+  @Post('work-items/:workItemId/workflow/actions')
+  @HttpCode(200)
+  @RequirePermission('task.assign')
+  manual(
+    @Param('propertyId') propertyId: string,
+    @Param('workItemId') workItemId: string,
+    @Body() body: ManualTriggerDto,
+  ) {
+    return this.workflows.manual(this.scope(propertyId), workItemId, body.action);
+  }
+}
+
+/** The approvals inbox (Spec §8.4): pending sensitive actions and human decisions. */
+@Controller('properties/:propertyId/approvals')
+@PropertyScoped({ from: 'param' })
+export class ApprovalsController {
+  constructor(
+    private readonly approvals: ApprovalAdminService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get()
+  @RequirePermission('approval.read')
+  list(@Param('propertyId') propertyId: string, @Query() query: ListApprovalsQueryDto) {
+    return this.approvals.list(propertyScope(this.ctx, this.actors, propertyId), query);
+  }
+
+  @Get(':approvalId')
+  @RequirePermission('approval.read')
+  get(@Param('propertyId') propertyId: string, @Param('approvalId') approvalId: string) {
+    return this.approvals.get(propertyScope(this.ctx, this.actors, propertyId), approvalId);
+  }
+
+  @Post(':approvalId/decision')
+  @HttpCode(200)
+  @RequirePermission('approval.decide')
+  decide(
+    @Param('propertyId') propertyId: string,
+    @Param('approvalId') approvalId: string,
+    @Body() body: DecideApprovalDto,
+  ) {
+    return this.approvals.decide(
+      propertyScope(this.ctx, this.actors, propertyId),
+      approvalId,
+      body,
     );
   }
 }

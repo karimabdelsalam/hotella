@@ -374,12 +374,18 @@ importers:
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../../packages/domain/guest
+      '@hotella/domain-identity':
+        specifier: workspace:*
+        version: link:../../packages/domain/identity
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../../packages/domain/integrations
       '@hotella/domain-operations':
         specifier: workspace:*
         version: link:../../packages/domain/operations
+      '@hotella/domain-organization':
+        specifier: workspace:*
+        version: link:../../packages/domain/organization
       '@hotella/platform-audit':
         specifier: workspace:*
         version: link:../../packages/platform/audit
@@ -913,6 +919,9 @@ importers:
       '@types/supertest':
         specifier: 7.2.1
         version: 7.2.1
+      nestjs-cls:
+        specifier: 6.3.1
+        version: 6.3.1(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       pg:
         specifier: 8.23.1
         version: 8.23.1

@@ -6,7 +6,9 @@ import { ActionGate, ActorStore } from '@hotella/platform-auth';
 import { isUuid, type PropertyScope, TransactionRunner } from '@hotella/platform-database';
 import { AppError, CurrentLocale, I18nService } from '@hotella/platform-i18n';
 import { OperationsRepositories } from '../infrastructure/repositories';
+import { approvalSummary } from './approval.service';
 import { SlaRepositories } from '../infrastructure/sla-repositories';
+import { WorkflowRepositories } from '../infrastructure/workflow-repositories';
 import type {
   SlaInstanceRow,
   TaskAssignmentRow,
@@ -52,6 +54,7 @@ export class OperationsQueryService {
   constructor(
     private readonly repo: OperationsRepositories,
     private readonly sla: SlaRepositories,
+    private readonly workflows: WorkflowRepositories,
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly actors: ActorStore,
@@ -137,14 +140,18 @@ export class OperationsQueryService {
         throw AppError.notFound('ops.work_item.not_found');
       const taskRows = await this.repo.tasksOfWorkItems(scope, [item.id]);
       const ids = taskRows.map((t) => t.id);
-      const [assignments, events, sla] = await Promise.all([
+      const [assignments, events, sla, workflow, approvals] = await Promise.all([
         this.repo.assignments(scope, ids),
         this.repo.taskEvents(scope, ids),
         this.sla.instanceOfWorkItem(scope, item.id),
+        this.workflowView(scope, item.id),
+        this.workflows.approvalsOfWorkItem(scope, item.id),
       ]);
       return {
         ...this.workItemView(item),
         sla: slaView(sla),
+        workflow,
+        approvals: approvals.map(approvalSummary),
         tasks: taskRows.map((t) => ({
           ...this.taskView(t),
           assignments: assignments.filter((a) => a.taskId === t.id).map(assignmentView),
@@ -152,6 +159,28 @@ export class OperationsQueryService {
         })),
       };
     });
+  }
+
+  /** The workflow run of a work item: definition/version, current state and its history. */
+  private async workflowView(scope: PropertyScope, workItemId: string) {
+    const instance = await this.workflows.instanceOfWorkItem(scope, workItemId);
+    if (!instance) return null;
+    const [version, transitions] = await Promise.all([
+      this.workflows.versionById(scope, instance.versionId),
+      this.workflows.transitions(scope, instance.id),
+    ]);
+    return {
+      version: version?.version ?? null,
+      state: instance.currentState,
+      status: instance.status,
+      history: transitions.map((t) => ({
+        from: t.fromState,
+        to: t.toState,
+        trigger: t.trigger,
+        actor: { type: t.actorType, id: t.actorId },
+        occurredAt: t.occurredAt,
+      })),
+    };
   }
 
   private read<T>(scope: PropertyScope, fn: () => Promise<T>): Promise<T> {

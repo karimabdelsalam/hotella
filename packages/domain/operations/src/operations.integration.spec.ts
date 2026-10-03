@@ -11,7 +11,9 @@ import { IDENTITY_API, type IdentityPublicApi } from '@hotella/domain-identity/p
 import { IntegrationsCoreModule } from '@hotella/domain-integrations';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule, auditSchema } from '@hotella/platform-audit';
+import { ClsService } from 'nestjs-cls';
 import {
+  ActorStore,
   AUTHENTICATION_STRATEGY,
   AuthModule,
   HeaderActorStrategy,
@@ -38,13 +40,17 @@ import { LOGGER, ObservabilityModule } from '@hotella/platform-observability';
 import { SettingsModule } from '@hotella/platform-settings';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { AlertService } from './application/alert.service';
+import { ApprovalService } from './application/approval.service';
 import { SlaMonitor } from './application/sla.service';
+import { workflowDefinitionSchema } from './domain/workflow';
 import {
   alerts,
+  approvalRequests,
   escalations,
   slaInstances,
   taskEvents,
   tasks,
+  workflowVersions,
   workItems,
 } from './infrastructure/schema';
 import { SlaRepositories } from './infrastructure/sla-repositories';
@@ -73,8 +79,11 @@ const grants: Record<string, string[]> = {
     'sla.manage',
     'alert.read',
     'alert.ack',
+    'workflow.manage',
+    'approval.read',
+    'approval.decide',
   ],
-  [ids.sup]: [...SUPERVISOR, 'alert.read', 'alert.ack'],
+  [ids.sup]: [...SUPERVISOR, 'alert.read', 'alert.ack', 'approval.read', 'approval.decide'],
   [ids.w1]: WORKER,
   [ids.w2]: WORKER,
   [ids.viewer]: ['task.read'],
@@ -119,6 +128,17 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
   const actor = (id: string, tenantId: string | null = tenantA) =>
     JSON.stringify({ type: 'USER', id, tenantId, isPlatformAdmin: id === 'root' });
   const base = () => `/properties/${propertyA}`;
+  /** Runs a direct OPERATIONS_API call as a given staff member (what an HTTP request or a job context provides). */
+  const withActor = <T>(id: string, fn: () => Promise<T>): Promise<T> =>
+    app.get(ClsService).run(async () => {
+      app.get(ActorStore, { strict: false }).set({
+        type: 'USER',
+        id,
+        tenantId: tenantA,
+        isPlatformAdmin: false,
+      });
+      return fn();
+    });
   const outbox = (type: string, aggregateId?: string) =>
     db
       .select()
@@ -890,6 +910,292 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
         .post(`/properties/${propertyB}/alerts/${alert!.id}/acknowledge`)
         .set('X-Test-Actor', actor(ids.other, tenantB))
         .expect(403);
+    });
+  });
+
+  describe('workflows and approvals', () => {
+    const refunds: Array<{ id: string; payload: Record<string, unknown> }> = [];
+    const gmPost = (path: string, body: object = {}) =>
+      http().post(`${base()}${path}`).set('X-Test-Actor', actor(ids.gm)).send(body);
+    const COMPENSATION = {
+      initial: 'OPEN',
+      states: {
+        OPEN: {
+          onEnter: [
+            {
+              type: 'create_task',
+              params: { title: 'Check the complaint', assignToDepartment: 'HK' },
+            },
+          ],
+        },
+        AWAITING_APPROVAL: {
+          onEnter: [
+            { type: 'request_approval', params: { kind: 'TEST_REFUND', riskLevel: 'HIGH' } },
+          ],
+        },
+        GRANTED: {
+          terminal: true,
+          onEnter: [{ type: 'create_task', params: { title: 'Hand over the voucher' } }],
+        },
+        DECLINED: { terminal: true },
+        WITHDRAWN: {
+          terminal: true,
+          onEnter: [{ type: 'cancel_open_tasks', params: { reason: 'withdrawn' } }],
+        },
+      },
+      transitions: [
+        { from: 'OPEN', to: 'AWAITING_APPROVAL', on: 'TASK_COMPLETED', guards: ['all_tasks_done'] },
+        { from: 'OPEN', to: 'WITHDRAWN', on: 'MANUAL:WITHDRAW' },
+        { from: 'AWAITING_APPROVAL', to: 'GRANTED', on: 'APPROVAL_APPROVED' },
+        { from: 'AWAITING_APPROVAL', to: 'DECLINED', on: 'APPROVAL_REJECTED' },
+        { from: 'AWAITING_APPROVAL', to: 'DECLINED', on: 'APPROVAL_EXPIRED' },
+      ],
+    };
+    const view = async (workItemId: string) =>
+      (
+        await http()
+          .get(`${base()}/work-items/${workItemId}`)
+          .set('X-Test-Actor', actor(ids.sup))
+          .expect(200)
+      ).body;
+    const finishFirstTask = async (workItemId: string) => {
+      const taskId = (await view(workItemId)).tasks[0].id;
+      await act(taskId, 'start', ids.w1).expect(200);
+      await act(taskId, 'complete', ids.w1).expect(200);
+    };
+    const pendingApproval = async (workItemId: string) =>
+      (await view(workItemId)).approvals.find((a: { status: string }) => a.status === 'PENDING');
+
+    beforeAll(() => {
+      ops.registerApprovalKind({
+        code: 'TEST_REFUND',
+        module: 'testb',
+        descriptionKey: 'x',
+        handler: async (a) => {
+          refunds.push({ id: a.id, payload: a.payload });
+        },
+      });
+    });
+
+    it('workflow versions are validated against registered guards and actions, published once and then frozen', async () => {
+      await gmPost('/workflows', { code: 'compensation' }).expect(201);
+      await gmPost('/workflows', { code: 'COMPENSATION' }).expect(409);
+      await http().get(`${base()}/workflows`).set('X-Test-Actor', actor(ids.sup)).expect(403);
+      const bad = await gmPost('/workflows/COMPENSATION/versions', {
+        definition: {
+          ...COMPENSATION,
+          transitions: [
+            { from: 'OPEN', to: 'DECLINED', on: 'TASK_COMPLETED', guards: ['moon_is_full'] },
+          ],
+        },
+      }).expect(201);
+      expect(bad.body).toMatchObject({ version: 1, status: 'DRAFT' });
+      const refused = await gmPost('/workflows/COMPENSATION/versions/1/publish').expect(422);
+      expect(refused.body).toMatchObject({ code: 'ops.workflow.invalid' });
+      await gmPost('/workflows/COMPENSATION/versions', { definition: { initial: 'x' } }).expect(
+        400,
+      );
+      await expect(work('TEST_B_ORDER', { workflowCode: 'COMPENSATION' })).rejects.toMatchObject({
+        code: 'ops.workflow.not_published',
+      });
+
+      const good = await gmPost('/workflows/COMPENSATION/versions', {
+        definition: COMPENSATION,
+      }).expect(201);
+      expect(good.body.version).toBe(2);
+      const published = await gmPost('/workflows/COMPENSATION/versions/2/publish').expect(200);
+      expect(published.body).toMatchObject({ status: 'PUBLISHED', publishedById: ids.gm });
+      expect(
+        (await gmPost('/workflows/COMPENSATION/versions/2/publish').expect(409)).body.code,
+      ).toBe('ops.workflow.version_published');
+      // The database refuses to rewrite or delete a published version (CLAUDE.md rule 9).
+      await expect(
+        db
+          .update(workflowVersions)
+          .set({
+            definition: workflowDefinitionSchema.parse({ ...COMPENSATION, initial: 'DECLINED' }),
+          })
+          .where(eq(workflowVersions.id, good.body.id)),
+      ).rejects.toMatchObject({ cause: { message: expect.stringContaining('immutable') } });
+      await expect(
+        db.delete(workflowVersions).where(eq(workflowVersions.id, good.body.id)),
+      ).rejects.toMatchObject({
+        cause: { message: expect.stringContaining('immutable') },
+      });
+    });
+
+    it('drives the work: tasks, a HIGH-risk approval whose handler runs only once approved, then the follow-up', async () => {
+      const item = await work('TEST_B_ORDER', { workflowCode: 'COMPENSATION' });
+      expect(item.tasks.map((t) => [t.departmentCode, t.assignee?.type])).toEqual([['HK', 'TEAM']]);
+      expect((await view(item.id)).workflow).toMatchObject({
+        version: 2,
+        state: 'OPEN',
+        status: 'RUNNING',
+      });
+
+      await finishFirstTask(item.id);
+      let v = await view(item.id);
+      // The tasks are done, but the workflow is not: the work item stays in progress.
+      expect(v).toMatchObject({ status: 'IN_PROGRESS', workflow: { state: 'AWAITING_APPROVAL' } });
+      const approval = await pendingApproval(item.id);
+      expect(approval).toMatchObject({
+        kind: 'TEST_REFUND',
+        riskLevel: 'HIGH',
+        requestedBy: { type: 'USER', id: ids.w1 },
+      });
+      expect(refunds.find((r) => r.id === approval.id)).toBeUndefined();
+
+      const inbox = await http()
+        .get(`${base()}/approvals?status=PENDING`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .expect(200);
+      expect(inbox.body.map((a: { id: string }) => a.id)).toContain(approval.id);
+      await http()
+        .post(`${base()}/approvals/${approval.id}/decision`)
+        .set('X-Test-Actor', actor(ids.w1))
+        .send({ decision: 'APPROVE' })
+        .expect(403);
+      const decided = await http()
+        .post(`${base()}/approvals/${approval.id}/decision`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .send({ decision: 'APPROVE', reason: 'Long wait at check-in' })
+        .expect(200);
+      expect(decided.body).toMatchObject({
+        status: 'APPROVED',
+        decidedBy: { type: 'USER', id: ids.sup },
+      });
+      expect(decided.body.executedAt).not.toBeNull();
+      expect(refunds.filter((r) => r.id === approval.id)).toHaveLength(1);
+      await http()
+        .post(`${base()}/approvals/${approval.id}/decision`)
+        .set('X-Test-Actor', actor(ids.gm))
+        .send({ decision: 'REJECT' })
+        .expect(409);
+
+      v = await view(item.id);
+      expect(v.workflow).toMatchObject({ state: 'GRANTED', status: 'COMPLETED' });
+      expect(
+        v.workflow.history.map((h: { trigger: string; to: string }) => `${h.trigger}→${h.to}`),
+      ).toEqual(['START→OPEN', 'TASK_COMPLETED→AWAITING_APPROVAL', 'APPROVAL_APPROVED→GRANTED']);
+      expect(v.tasks.map((t: { title: string; status: string }) => [t.title, t.status])).toEqual([
+        ['Check the complaint', 'DONE'],
+        ['Hand over the voucher', 'NEW'],
+      ]);
+      expect(v.status).toBe('IN_PROGRESS');
+      await act(v.tasks[1].id, 'assign', ids.sup, {
+        assignee: { type: 'USER', userId: ids.w2 },
+      }).expect(200);
+      await act(v.tasks[1].id, 'complete', ids.w2).expect(200);
+      expect((await view(item.id)).status).toBe('RESOLVED');
+      expect(
+        (await outbox('ops.approval.decided', approval.id)).map(
+          (e) => (e.envelope as { payload: { outcome: string } }).payload.outcome,
+        ),
+      ).toEqual(['APPROVED']);
+    });
+
+    it('a rejected request never runs its handler; four eyes; a staff action withdraws the work', async () => {
+      const rejected = await work('TEST_B_ORDER', { workflowCode: 'COMPENSATION' });
+      await finishFirstTask(rejected.id);
+      const approval = await pendingApproval(rejected.id);
+      await http()
+        .post(`${base()}/approvals/${approval.id}/decision`)
+        .set('X-Test-Actor', actor(ids.gm))
+        .send({ decision: 'REJECT', reason: 'Not eligible' })
+        .expect(200);
+      expect(refunds.find((r) => r.id === approval.id)).toBeUndefined();
+      expect(await view(rejected.id)).toMatchObject({
+        status: 'RESOLVED',
+        workflow: { state: 'DECLINED' },
+      });
+
+      // Requested by a supervisor (through a direct request), decided by the same person: refused.
+      const own = await withActor(ids.sup, () =>
+        ops.requestApproval({
+          tenantId: tenantA,
+          propertyId: propertyA,
+          kind: 'TEST_REFUND',
+          riskLevel: 'HIGH',
+          subject: { type: 'guest', id: partyGuest },
+          payload: { amount: 500, currency: 'EGP' },
+        }),
+      );
+      expect(
+        (
+          await http()
+            .post(`${base()}/approvals/${own.id}/decision`)
+            .set('X-Test-Actor', actor(ids.sup))
+            .send({ decision: 'APPROVE' })
+            .expect(403)
+        ).body.code,
+      ).toBe('ops.approval.four_eyes');
+      await http()
+        .post(`${base()}/approvals/${own.id}/decision`)
+        .set('X-Test-Actor', actor(ids.gm))
+        .send({ decision: 'APPROVE' })
+        .expect(200);
+      expect(refunds.find((r) => r.id === own.id)?.payload).toEqual({
+        amount: 500,
+        currency: 'EGP',
+      });
+
+      const withdrawn = await work('TEST_B_ORDER', { workflowCode: 'COMPENSATION' });
+      await http()
+        .post(`${base()}/work-items/${withdrawn.id}/workflow/actions`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .send({ action: 'withdraw' })
+        .expect(200);
+      expect(await view(withdrawn.id)).toMatchObject({
+        status: 'CANCELLED',
+        workflow: { state: 'WITHDRAWN' },
+      });
+      expect(
+        (
+          await http()
+            .post(`${base()}/work-items/${withdrawn.id}/workflow/actions`)
+            .set('X-Test-Actor', actor(ids.sup))
+            .send({ action: 'withdraw' })
+            .expect(409)
+        ).body.code,
+      ).toBe('ops.workflow.transition_not_allowed');
+    });
+
+    it('an undecided request expires, closes and moves the workflow on', async () => {
+      const item = await work('TEST_B_ORDER', { workflowCode: 'COMPENSATION' });
+      await finishFirstTask(item.id);
+      const approval = await pendingApproval(item.id);
+      const expiries = app.get(ApprovalService);
+      expect(await expiries.expireDue(new Date())).toBe(0);
+      expect(
+        await expiries.expireDue(new Date(Date.parse(approval.expiresAt) + 1_000)),
+      ).toBeGreaterThanOrEqual(1);
+      const [row] = await db
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.id, approval.id));
+      expect(row).toMatchObject({ status: 'EXPIRED', executedAt: null });
+      expect(await view(item.id)).toMatchObject({
+        status: 'RESOLVED',
+        workflow: { state: 'DECLINED' },
+      });
+      expect(
+        (
+          await http()
+            .post(`${base()}/approvals/${approval.id}/decision`)
+            .set('X-Test-Actor', actor(ids.gm))
+            .send({ decision: 'APPROVE' })
+            .expect(409)
+        ).body.code,
+      ).toBe('ops.approval.not_pending');
+      await expect(
+        ops.requestApproval({
+          tenantId: tenantA,
+          propertyId: propertyA,
+          kind: 'NOT_A_KIND',
+          riskLevel: 'LOW',
+          subject: { type: 'x' },
+        }),
+      ).rejects.toMatchObject({ code: 'ops.approval.kind_unknown' });
     });
   });
 });

@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { TransactionRunner } from '@hotella/platform-database';
 import { AlertService } from './application/alert.service';
+import { ApprovalService, approvalSummary } from './application/approval.service';
+import { WorkflowEngine } from './application/workflow.service';
 import { WorkItemKindRegistry, WorkService } from './application/work.service';
 import type {
   CreateWorkItemInput,
+  ApprovalKindDefinition,
+  ApprovalSummary,
   NewTaskInput,
   OperationsPublicApi,
   RaiseAlertInput,
+  RequestApprovalInput,
   TaskSummary,
   WorkItemKindDefinition,
   WorkItemSummary,
@@ -18,6 +23,8 @@ export class OperationsPublicApiService implements OperationsPublicApi {
     private readonly kinds: WorkItemKindRegistry,
     private readonly work: WorkService,
     private readonly alerts: AlertService,
+    private readonly approvals: ApprovalService,
+    private readonly workflows: WorkflowEngine,
     private readonly tx: TransactionRunner,
   ) {}
 
@@ -25,7 +32,16 @@ export class OperationsPublicApiService implements OperationsPublicApi {
     this.kinds.register(kind);
   }
   createWorkItem(input: CreateWorkItemInput): Promise<WorkItemSummary> {
-    return this.work.createWorkItem(input);
+    return this.tx.run(async () => {
+      const created = await this.work.createWorkItem(input);
+      if (!input.workflowCode) return created;
+      await this.workflows.start(
+        { tenantId: input.tenantId, propertyId: input.propertyId },
+        created.id,
+        input.workflowCode.toUpperCase(),
+      );
+      return (await this.work.getWorkItem({ tenantId: input.tenantId }, created.id))!;
+    });
   }
   addTask(tenantId: string, workItemId: string, input: NewTaskInput): Promise<TaskSummary> {
     return this.work.addTask(tenantId, workItemId, input);
@@ -48,5 +64,15 @@ export class OperationsPublicApiService implements OperationsPublicApi {
       const { alert, created } = await this.alerts.raise(input);
       return { alertId: alert.id, created };
     });
+  }
+  registerApprovalKind(kind: ApprovalKindDefinition): void {
+    this.approvals.registerKind(kind);
+  }
+  async requestApproval(input: RequestApprovalInput): Promise<ApprovalSummary> {
+    return approvalSummary(await this.approvals.request(input));
+  }
+  async getApproval(tenantId: string, approvalId: string): Promise<ApprovalSummary | null> {
+    const a = await this.approvals.find({ tenantId }, approvalId);
+    return a ? approvalSummary(a) : null;
   }
 }

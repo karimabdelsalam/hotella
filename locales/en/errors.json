@@ -112,5 +112,19 @@
   "errors.ops.sla_policy.code_taken": "An SLA policy with the code {code} already exists at this property.",
   "errors.ops.sla_policy.not_found": "The SLA policy was not found.",
   "errors.ops.alert.not_found": "The alert was not found.",
-  "errors.ops.alert.transition_not_allowed": "The alert is already {status}."
+  "errors.ops.alert.transition_not_allowed": "The alert is already {status}.",
+  "errors.ops.workflow.code_taken": "A workflow with the code {code} already exists at this property.",
+  "errors.ops.workflow.not_found": "The workflow {code} was not found at this property.",
+  "errors.ops.workflow.not_published": "The workflow {code} has no published version yet.",
+  "errors.ops.workflow.version_not_found": "Version {version} of the workflow was not found.",
+  "errors.ops.workflow.version_published": "Version {version} is already published and cannot change.",
+  "errors.ops.workflow.invalid": "The workflow cannot be published: {problem}.",
+  "errors.ops.workflow.transition_not_allowed": "The workflow does not allow {action} now.",
+  "errors.ops.approval.kind_unknown": "No module handles approvals of kind {kind}.",
+  "errors.ops.approval.not_found": "The approval request was not found.",
+  "errors.ops.approval.not_pending": "The approval request was already decided.",
+  "errors.ops.approval.expired": "The approval request expired before a decision.",
+  "errors.ops.approval.human_required": "Only a person can decide an approval request.",
+  "errors.ops.approval.four_eyes": "You cannot decide your own request; another person must.",
+  "errors.ops.approval.critical_not_for_ai": "An AI agent cannot request a critical action."
 }

@@ -6,5 +6,8 @@
   "ops.permission.task_cancel": "Cancel tasks",
   "ops.permission.sla_manage": "Manage business hours and SLA policies",
   "ops.permission.alert_read": "View operational alerts",
-  "ops.permission.alert_ack": "Acknowledge and resolve operational alerts"
+  "ops.permission.alert_ack": "Acknowledge and resolve operational alerts",
+  "ops.permission.workflow_manage": "Design and publish workflows",
+  "ops.permission.approval_read": "View approval requests",
+  "ops.permission.approval_decide": "Approve or reject sensitive actions"
 }

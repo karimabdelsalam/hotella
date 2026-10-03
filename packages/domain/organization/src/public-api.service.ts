@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { isUuid } from '@hotella/platform-database';
 import { BrandingService } from './application/services';
 import { OrganizationRepositories } from './infrastructure/repositories';
@@ -31,7 +31,8 @@ function toRoomSummary(r: RoomRow): RoomSummary {
 export class OrganizationPublicApiService implements OrganizationPublicApi {
   constructor(
     private readonly repo: OrganizationRepositories,
-    private readonly branding: BrandingService,
+    // Absent in background processes (OrganizationCoreModule); explicit token, see AgentKeys.
+    @Optional() @Inject(BrandingService) private readonly branding?: BrandingService,
   ) {}
   async findTenantByCode(code: string): Promise<TenantSummary | null> {
     let normalized: string;
@@ -120,6 +121,7 @@ export class OrganizationPublicApiService implements OrganizationPublicApi {
     channel: string | null,
     locale: string | null,
   ): Promise<ResolvedBrand> {
+    if (!this.branding) throw new Error('Branding resolution needs OrganizationModule');
     return this.branding.resolve(propertyId, channel, locale);
   }
 }

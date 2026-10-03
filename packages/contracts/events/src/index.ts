@@ -36,6 +36,8 @@ export {
 } from './integration-events';
 export {
   AlertRaised,
+  ApprovalDecided,
+  ApprovalRequested,
   EscalationTriggered,
   PRIORITIES,
   SlaBreached,

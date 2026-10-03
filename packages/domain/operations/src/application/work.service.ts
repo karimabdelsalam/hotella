@@ -27,6 +27,7 @@ import {
   type TaskStatus,
 } from '../domain/task-lifecycle';
 import { OperationsRepositories } from '../infrastructure/repositories';
+import { WorkflowRepositories } from '../infrastructure/workflow-repositories';
 import { OPS_SOURCE } from './constants';
 import { SlaService } from './sla.service';
 import type { TaskRow, WorkItemRow } from '../infrastructure/schema';
@@ -129,6 +130,7 @@ export class WorkService {
     @Inject(IDENTITY_API) private readonly identity: IdentityPublicApi,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     private readonly sla: SlaService,
+    private readonly workflows: WorkflowRepositories,
   ) {}
 
   createWorkItem(input: CreateWorkItemInput): Promise<WorkItemSummary> {
@@ -162,7 +164,8 @@ export class WorkService {
         createdById: actor?.id ?? null,
         correlationId: this.ctx.correlationId ?? null,
       });
-      const specs = input.tasks?.length ? input.tasks : [{}];
+      // A workflow creates its own tasks; otherwise the work starts with one task like the work item.
+      const specs = input.tasks?.length ? input.tasks : input.workflowCode ? [] : [{}];
       const created: TaskRow[] = [];
       for (const spec of specs) created.push(await this.insertTask(scope, item, spec));
       await this.events.publish(WorkItemCreated, {
@@ -302,7 +305,12 @@ export class WorkService {
     const statuses: TaskStatus[] = (await this.repo.tasksOfWorkItems(scope, [item.id])).map(
       (t) => t.status,
     );
-    const next = deriveWorkItemStatus(statuses);
+    let next = deriveWorkItemStatus(statuses);
+    // A running workflow still has steps to take (an approval, a follow-up task): the work is not over yet.
+    if (next === 'RESOLVED' || next === 'CANCELLED') {
+      const flow = await this.workflows.instanceOfWorkItem(scope, item.id);
+      if (flow?.status === 'RUNNING') next = 'IN_PROGRESS';
+    }
     if (next === item.status) {
       await this.sla.sync(scope, item.id);
       return item;

@@ -18,6 +18,21 @@ import { ORGANIZATION_MANIFEST } from './manifest';
 import { ORGANIZATION_API, type OrganizationPublicApi } from './public';
 import { OrganizationPublicApiService } from './public-api.service';
 
+/**
+ * Lookups of other contexts in background processes (the worker): ORGANIZATION_API without HTTP routes. Branding
+ * resolution needs the full module and is not available here. Never import both modules in one application.
+ */
+@Global()
+@Module({
+  providers: [
+    OrganizationRepositories,
+    OrganizationPublicApiService,
+    { provide: ORGANIZATION_API, useExisting: OrganizationPublicApiService },
+  ],
+  exports: [ORGANIZATION_API],
+})
+export class OrganizationCoreModule {}
+
 /** Global so other contexts can inject ORGANIZATION_API (its only export) without importing this module. */
 @Global()
 @Module({

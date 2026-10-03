@@ -6,5 +6,8 @@
   "ops.permission.task_cancel": "إلغاء المهام",
   "ops.permission.sla_manage": "إدارة ساعات العمل وسياسات مستوى الخدمة",
   "ops.permission.alert_read": "عرض التنبيهات التشغيلية",
-  "ops.permission.alert_ack": "الإقرار بالتنبيهات التشغيلية وحلها"
+  "ops.permission.alert_ack": "الإقرار بالتنبيهات التشغيلية وحلها",
+  "ops.permission.workflow_manage": "تصميم مسارات العمل ونشرها",
+  "ops.permission.approval_read": "عرض طلبات الموافقة",
+  "ops.permission.approval_decide": "الموافقة على الإجراءات الحساسة أو رفضها"
 }

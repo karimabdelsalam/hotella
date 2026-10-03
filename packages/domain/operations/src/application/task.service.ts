@@ -23,6 +23,7 @@ import {
 import { OperationsRepositories } from '../infrastructure/repositories';
 import type { TaskRow } from '../infrastructure/schema';
 import { taskSummary } from './work.service';
+import { WorkflowEngine } from './workflow.service';
 import { OPS_SOURCE } from './constants';
 import { type ResolvedAssignee, WorkService } from './work.service';
 
@@ -46,6 +47,14 @@ export type AssignTaskInput = z.infer<typeof assignTaskSchema>;
 export const taskActionSchema = z.object({ reason: reason.optional(), expectedVersion });
 export const reasonRequiredSchema = z.object({ reason, expectedVersion });
 export type TaskActionInput = z.infer<typeof taskActionSchema>;
+
+/** Task lifecycle facts that may move the work item's workflow. */
+const WORKFLOW_TRIGGER: Partial<Record<TaskAction, string>> = {
+  ACCEPT: 'TASK_ACCEPTED',
+  START: 'TASK_STARTED',
+  COMPLETE: 'TASK_COMPLETED',
+  CANCEL: 'TASK_CANCELLED',
+};
 
 /** Why an assignment ended (kept in the history). */
 const END_REASON: Partial<Record<TaskAction, string>> = {
@@ -72,6 +81,7 @@ export class TaskService {
     private readonly audit: AuditWriter,
     private readonly actors: ActorStore,
     @Inject(PERMISSION_RESOLVER) private readonly permissions: PermissionResolver,
+    private readonly workflows: WorkflowEngine,
   ) {}
 
   assign(scope: PropertyScope, taskId: string, input: AssignTaskInput) {
@@ -204,7 +214,9 @@ export class TaskService {
               });
           }
           await this.work.recomputeStatus(scope, task.workItemId);
-          return taskSummary(task);
+          const trigger = WORKFLOW_TRIGGER[action];
+          if (trigger) await this.workflows.fire(scope, task.workItemId, trigger);
+          return taskSummary((await this.repo.task(scope, task.id)) ?? task);
         }),
     );
   }

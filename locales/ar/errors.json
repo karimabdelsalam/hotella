@@ -112,5 +112,19 @@
   "errors.ops.sla_policy.code_taken": "توجد سياسة مستوى خدمة بالرمز {code} بالفعل في هذا الفندق.",
   "errors.ops.sla_policy.not_found": "لم يتم العثور على سياسة مستوى الخدمة.",
   "errors.ops.alert.not_found": "لم يتم العثور على التنبيه.",
-  "errors.ops.alert.transition_not_allowed": "التنبيه في حالة {status} بالفعل."
+  "errors.ops.alert.transition_not_allowed": "التنبيه في حالة {status} بالفعل.",
+  "errors.ops.workflow.code_taken": "يوجد مسار عمل بالرمز {code} بالفعل في هذا الفندق.",
+  "errors.ops.workflow.not_found": "لم يتم العثور على مسار العمل {code} في هذا الفندق.",
+  "errors.ops.workflow.not_published": "لا توجد نسخة منشورة من مسار العمل {code} بعد.",
+  "errors.ops.workflow.version_not_found": "لم يتم العثور على النسخة {version} من مسار العمل.",
+  "errors.ops.workflow.version_published": "النسخة {version} منشورة بالفعل ولا يمكن تعديلها.",
+  "errors.ops.workflow.invalid": "لا يمكن نشر مسار العمل: {problem}.",
+  "errors.ops.workflow.transition_not_allowed": "مسار العمل لا يسمح بالإجراء {action} الآن.",
+  "errors.ops.approval.kind_unknown": "لا توجد وحدة تتولى طلبات الموافقة من نوع {kind}.",
+  "errors.ops.approval.not_found": "لم يتم العثور على طلب الموافقة.",
+  "errors.ops.approval.not_pending": "تم البت في طلب الموافقة بالفعل.",
+  "errors.ops.approval.expired": "انتهت صلاحية طلب الموافقة قبل البت فيه.",
+  "errors.ops.approval.human_required": "لا يبت في طلب الموافقة إلا شخص.",
+  "errors.ops.approval.four_eyes": "لا يمكنك البت في طلبك؛ يجب أن يقرر شخص آخر.",
+  "errors.ops.approval.critical_not_for_ai": "لا يمكن لوكيل الذكاء الاصطناعي طلب إجراء حرج."
 }

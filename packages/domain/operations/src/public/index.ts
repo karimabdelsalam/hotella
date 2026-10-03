@@ -54,6 +54,8 @@ export interface CreateWorkItemInput {
   readonly guestId?: string | null;
   /** Defaults to one task inheriting the work item's title, department and location. */
   readonly tasks?: readonly NewTaskInput[];
+  /** Published workflow of the property that drives this work (BUILD_PLAN §7.2). */
+  readonly workflowCode?: string | null;
 }
 
 export interface TaskSummary {
@@ -106,6 +108,11 @@ export interface OperationsPublicApi {
   ): Promise<readonly WorkItemSummary[]>;
   /** The source module withdrew the work (e.g. the guest cancelled the request): open tasks are cancelled. */
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary>;
+  /** Declares an approval kind and the handler that runs once a person approves (Spec §8.4). */
+  registerApprovalKind(kind: ApprovalKindDefinition): void;
+  /** Asks for a decision; the requester is the current actor (an AI agent may not request CRITICAL actions). */
+  requestApproval(input: RequestApprovalInput): Promise<ApprovalSummary>;
+  getApproval(tenantId: string, approvalId: string): Promise<ApprovalSummary | null>;
   /** Raises (or refreshes) a deduplicated operational alert (Spec §15). */
   raiseAlert(
     input: RaiseAlertInput,
@@ -122,6 +129,49 @@ export interface RaiseAlertInput {
   readonly dedupeKey: string;
   readonly subject?: { readonly type: string; readonly id: string } | null;
   readonly evidence?: Record<string, unknown>;
+}
+
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface ApprovalSummary {
+  readonly id: string;
+  readonly propertyId: string;
+  readonly kind: string;
+  readonly status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+  readonly riskLevel: RiskLevel;
+  readonly subject: { readonly type: string; readonly id: string | null };
+  readonly workItemId: string | null;
+  readonly payload: Record<string, unknown>;
+  readonly reason: string | null;
+  readonly requestedBy: { readonly type: string; readonly id: string | null };
+  readonly expiresAt: string;
+  readonly decidedBy: { readonly type: string; readonly id: string | null } | null;
+  readonly decidedAt: string | null;
+  readonly decisionReason: string | null;
+  readonly executedAt: string | null;
+}
+
+/** A sensitive action that needs a person's approval (compensation, refund, OOO, an AI proposal…). */
+export interface ApprovalKindDefinition {
+  readonly code: string;
+  readonly module: string;
+  readonly descriptionKey: string;
+  /** Performs the action once approved, inside the approving transaction (throwing rolls the approval back). */
+  readonly handler?: (approval: ApprovalSummary) => Promise<void>;
+}
+
+export interface RequestApprovalInput {
+  readonly tenantId: string;
+  readonly propertyId: string;
+  readonly kind: string;
+  readonly riskLevel: RiskLevel;
+  readonly subject: { readonly type: string; readonly id?: string | null };
+  readonly workItemId?: string | null;
+  /** What exactly would be done (amount, room, AI proposal…), shown to the decider. */
+  readonly payload?: Record<string, unknown>;
+  readonly reason?: string | null;
+  /** Default by risk: CRITICAL 1 h, HIGH 4 h, otherwise 24 h. */
+  readonly ttlMinutes?: number;
 }
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */

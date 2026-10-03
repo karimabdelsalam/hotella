@@ -1,5 +1,5 @@
 export { IDENTITY_MANIFEST } from './manifest';
-export { IdentityCoreModule } from './identity-core.module';
+export { IdentityCoreModule, IdentityDirectoryModule } from './identity-core.module';
 export { IdentityModule, identityAuthOptions, identityLocalePreferences } from './identity.module';
 export { IdentityBootstrapService } from './application/bootstrap.service';
 export { IdentityCatalogService } from './application/catalog.service';

@@ -661,8 +661,30 @@ tasks terminal, at least one DONE) or CANCELLED (all cancelled). Every transitio
 |---|---|---|
 | 3.1 | `org.departments` (+ translations, API, `ORGANIZATION_API.getDepartment`); `@hotella/domain-operations`: work items, tasks, assignment history, task events; kind registry; `OPERATIONS_API.createWorkItem/addTask`; task lifecycle API (assign/unassign/accept/reject/start/pause/resume/complete/cancel); `my tasks`/department/property lists; events `ops.work_item.created.v1`, `ops.work_item.status_changed.v1`, `ops.task.assigned.v1`, `ops.task.status_changed.v1`; permissions; role grants | delivered |
 | 3.2 | `@hotella/platform-time` (IANA wall clock ↔ UTC); business hours; SLA policies with property/department/service overrides; `computeSlaDeadlines`; SLA instances started by work items, paused/resumed by task pauses with policy pause rules; timers on `critical-operational` + a sweep; breach → escalation ladder → deduplicated alert; `ops.sla.breached.v1`, `ops.escalation.triggered.v1`, `ops.alert.raised.v1` | delivered |
-| 3.3 | Workflow definitions/versions (immutable once published), deterministic interpreter with code-registered guards and actions (create task, start SLA, notify, request approval); generic approval engine (risk level, expiry job, audited decisions, handler registry); `ops.approval.requested.v1`, `ops.approval.decided.v1` | planned |
+| 3.3 | Workflow definitions/versions (immutable once published), deterministic interpreter with code-registered guards and actions (create task, start SLA, notify, request approval); generic approval engine (risk level, expiry job, audited decisions, handler registry); `ops.approval.requested.v1`, `ops.approval.decided.v1` | delivered |
 | 3.4 | Notification intents (from escalations and alerts) and deliveries; `IN_APP` inbox and `EMAIL` (SMTP, Mailpit locally) adapters; preferences with critical-policy override; outbox retention purge; Phase 3 acceptance (`docs/acceptance/phase-3.md`) | planned |
+
+Reality notes for 3.3:
+- Workflow definitions and versions are property-scoped (like SLA policies). A version is a draft until published;
+  publishing validates it against the registered guards and actions, retires the previous published version and freezes
+  it — a database trigger refuses any later change except retiring, and any deletion (CLAUDE.md rule 9). Running
+  workflows stay on the version they started with.
+- Triggers are the task lifecycle (`TASK_ACCEPTED/STARTED/COMPLETED/CANCELLED`), approval outcomes
+  (`APPROVAL_APPROVED/REJECTED/EXPIRED`) and named staff actions (`MANUAL:<ACTION>`, permission `task.assign`). SLA
+  breaches do not drive workflows yet (escalation covers them). Built-in guards: `all_tasks_done`, `no_open_tasks`,
+  `has_open_tasks`, `last_approval_approved`; actions: `create_task`, `request_approval`, `cancel_open_tasks` — modules
+  add theirs through the registry. Actions never fire triggers, so a move cannot recurse.
+- While a workflow runs, a work item does not become RESOLVED/CANCELLED just because its current tasks are finished: it
+  stays IN_PROGRESS until the workflow reaches a terminal state, then follows its tasks again. A work item started with a
+  workflow gets its tasks from the workflow (no default task).
+- Approvals: kinds are registered with an optional handler that runs inside the approving transaction (a failing handler
+  rolls the approval back). Only a person may decide, never the requester (four eyes); an AI agent cannot request a
+  CRITICAL action; undecided requests expire (default 1 h CRITICAL, 4 h HIGH, 24 h otherwise) through
+  `ops.approval.expire` (every minute on `critical-operational`). Every request and decision is audited with
+  `approvalRef`.
+- The worker now runs the full engine (approval expiry moves workflows): it composes route-free modules of the contexts
+  the engine looks up — `OrganizationCoreModule` (branding resolution is not available there) and
+  `IdentityDirectoryModule` — next to `GuestCoreModule`. This is the pattern later phases use to create work from events.
 
 Reality notes for 3.2:
 - Timers are one repeatable job, `ops.sla.sweep` every 15 s on `critical-operational`, over an indexed `next_check_at`

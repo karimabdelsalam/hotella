@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { baseColumns, classify, propertyScoped, versioned } from '@hotella/platform-database';
 import type { EscalationRule, SlaCalendar, WeeklySchedule } from '../domain/sla';
+import type { WorkflowDefinition } from '../domain/workflow';
 
 /**
  * Operations engine (Spec §8, schema `ops`). One set of tables for every module's work: a module creates a work item
@@ -548,6 +549,217 @@ export const escalations = classify(
   },
 );
 
+export const workflowVersionStatus = ops.enum('workflow_version_status', [
+  'DRAFT',
+  'PUBLISHED',
+  'RETIRED',
+]);
+export const workflowInstanceStatus = ops.enum('workflow_instance_status', [
+  'RUNNING',
+  'COMPLETED',
+]);
+export const riskLevel = ops.enum('risk_level', ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
+export const approvalStatus = ops.enum('approval_status', [
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+  'EXPIRED',
+  'CANCELLED',
+]);
+
+/** A named workflow of a property (Spec §8); its behaviour lives in immutable published versions. */
+export const workflowDefinitions = classify(
+  ops.table(
+    'workflow_definitions',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      code: varchar('code', { length: 32 }).notNull(),
+      status: activeStatus('status').notNull().default('ACTIVE'),
+      ...versioned(),
+    },
+    (t) => [uniqueIndex('workflow_definitions_property_code_uq').on(t.propertyId, t.code)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    code: 'INTERNAL',
+    status: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** A version of a workflow; immutable once published (CLAUDE.md rule 9, enforced by a trigger). */
+export const workflowVersions = classify(
+  ops.table(
+    'workflow_versions',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      definitionId: uuid('definition_id')
+        .notNull()
+        .references(() => workflowDefinitions.id, { onDelete: 'restrict' }),
+      version: integer('version').notNull(),
+      definition: jsonb('definition').$type<WorkflowDefinition>().notNull(),
+      status: workflowVersionStatus('status').notNull().default('DRAFT'),
+      createdById: uuid('created_by_id'),
+      publishedAt: tz('published_at'),
+      publishedById: uuid('published_by_id'),
+    },
+    (t) => [uniqueIndex('workflow_versions_definition_version_uq').on(t.definitionId, t.version)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    definitionId: 'INTERNAL',
+    version: 'INTERNAL',
+    definition: 'INTERNAL',
+    status: 'INTERNAL',
+    createdById: 'INTERNAL',
+    publishedAt: 'INTERNAL',
+    publishedById: 'INTERNAL',
+  },
+);
+
+/** The workflow run of one work item, pinned to the version it started with. */
+export const workflowInstances = classify(
+  ops.table(
+    'workflow_instances',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      versionId: uuid('version_id')
+        .notNull()
+        .references(() => workflowVersions.id, { onDelete: 'restrict' }),
+      workItemId: uuid('work_item_id')
+        .notNull()
+        .references(() => workItems.id, { onDelete: 'cascade' }),
+      currentState: varchar('current_state', { length: 64 }).notNull(),
+      status: workflowInstanceStatus('status').notNull().default('RUNNING'),
+      completedAt: tz('completed_at'),
+      ...versioned(),
+    },
+    (t) => [uniqueIndex('workflow_instances_work_item_uq').on(t.workItemId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    versionId: 'INTERNAL',
+    workItemId: 'INTERNAL',
+    currentState: 'INTERNAL',
+    status: 'INTERNAL',
+    completedAt: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Every state change of a workflow run (append-only history, CLAUDE.md rule 10). */
+export const workflowTransitions = classify(
+  ops.table(
+    'workflow_transitions',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => workflowInstances.id, { onDelete: 'cascade' }),
+      fromState: varchar('from_state', { length: 64 }),
+      toState: varchar('to_state', { length: 64 }).notNull(),
+      trigger: varchar('trigger', { length: 80 }).notNull(),
+      actorType: varchar('actor_type', { length: 16 }).notNull(),
+      actorId: uuid('actor_id'),
+      occurredAt: tz('occurred_at').notNull(),
+    },
+    (t) => [index('workflow_transitions_instance_idx').on(t.instanceId, t.occurredAt)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    fromState: 'INTERNAL',
+    toState: 'INTERNAL',
+    trigger: 'INTERNAL',
+    actorType: 'INTERNAL',
+    actorId: 'INTERNAL',
+    occurredAt: 'INTERNAL',
+  },
+);
+
+/**
+ * A decision a person must take before a sensitive action runs (Spec §8.4): compensation, refunds, OOO/OOS, selected
+ * AI actions. The registered handler of the kind runs only after approval, in the deciding transaction.
+ */
+export const approvalRequests = classify(
+  ops.table(
+    'approval_requests',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      kind: varchar('kind', { length: 64 }).notNull(),
+      subjectType: varchar('subject_type', { length: 64 }).notNull(),
+      subjectId: uuid('subject_id'),
+      workItemId: uuid('work_item_id').references(() => workItems.id, { onDelete: 'restrict' }),
+      payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+      riskLevel: riskLevel('risk_level').notNull(),
+      status: approvalStatus('status').notNull().default('PENDING'),
+      requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
+      requestedById: uuid('requested_by_id'),
+      reason: text('reason'),
+      expiresAt: tz('expires_at').notNull(),
+      decidedByType: varchar('decided_by_type', { length: 16 }),
+      decidedById: uuid('decided_by_id'),
+      decidedAt: tz('decided_at'),
+      decisionReason: text('decision_reason'),
+      executedAt: tz('executed_at'),
+      ...versioned(),
+    },
+    (t) => [
+      index('approval_requests_property_status_idx').on(t.propertyId, t.status, t.createdAt),
+      index('approval_requests_pending_expiry_idx')
+        .on(t.expiresAt)
+        .where(sql`${t.status} = 'PENDING'`),
+      index('approval_requests_work_item_idx').on(t.workItemId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    kind: 'INTERNAL',
+    subjectType: 'INTERNAL',
+    subjectId: 'INTERNAL',
+    workItemId: 'INTERNAL',
+    // Amounts, reasons and AI proposals may describe a guest's situation.
+    payload: 'CONFIDENTIAL',
+    riskLevel: 'INTERNAL',
+    status: 'INTERNAL',
+    requestedByType: 'INTERNAL',
+    requestedById: 'INTERNAL',
+    reason: 'CONFIDENTIAL',
+    expiresAt: 'INTERNAL',
+    decidedByType: 'INTERNAL',
+    decidedById: 'INTERNAL',
+    decidedAt: 'INTERNAL',
+    decisionReason: 'CONFIDENTIAL',
+    executedAt: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
 export type WorkItemRow = typeof workItems.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type TaskAssignmentRow = typeof taskAssignments.$inferSelect;
@@ -558,3 +770,8 @@ export type SlaInstanceRow = typeof slaInstances.$inferSelect;
 export type SlaPauseRow = typeof slaPauses.$inferSelect;
 export type AlertRow = typeof alerts.$inferSelect;
 export type EscalationRow = typeof escalations.$inferSelect;
+export type WorkflowDefinitionRow = typeof workflowDefinitions.$inferSelect;
+export type WorkflowVersionRow = typeof workflowVersions.$inferSelect;
+export type WorkflowInstanceRow = typeof workflowInstances.$inferSelect;
+export type WorkflowTransitionRow = typeof workflowTransitions.$inferSelect;
+export type ApprovalRequestRow = typeof approvalRequests.$inferSelect;

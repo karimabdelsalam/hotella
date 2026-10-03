@@ -77,6 +77,9 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...TASK_SUPERVISOR,
       'sla.manage',
       ...ALERT_DESK,
+      'workflow.manage',
+      'approval.read',
+      'approval.decide',
     ],
   },
   {
@@ -89,6 +92,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...GUEST_DESK,
       ...TASK_SUPERVISOR,
       ...ALERT_DESK,
+      'approval.read',
+      'approval.decide',
     ],
   },
   {

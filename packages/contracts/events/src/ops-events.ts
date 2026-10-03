@@ -133,3 +133,37 @@ export const AlertRaised = defineEvent({
     subject_id: z.uuid().nullable(),
   }),
 });
+
+const risk = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
+
+export const ApprovalRequested = defineEvent({
+  type: 'ops.approval.requested',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A sensitive action waits for a human decision (Spec §8.4): compensation, refund, OOO/OOS, an AI proposal…',
+  payload: z.object({
+    approval_id: z.uuid(),
+    kind: z.string(),
+    risk_level: risk,
+    subject_type: z.string(),
+    subject_id: z.uuid().nullable(),
+    work_item_id: z.uuid().nullable(),
+    requested_by_type: z.string(),
+    expires_at: z.iso.datetime({ offset: true }),
+  }),
+});
+
+export const ApprovalDecided = defineEvent({
+  type: 'ops.approval.decided',
+  version: 1,
+  description:
+    'An approval request was approved (its handler ran in the same transaction), rejected, or expired undecided.',
+  payload: z.object({
+    approval_id: z.uuid(),
+    kind: z.string(),
+    outcome: z.enum(['APPROVED', 'REJECTED', 'EXPIRED']),
+    work_item_id: z.uuid().nullable(),
+    decided_by_type: z.string().nullable(),
+  }),
+});

@@ -1,5 +1,7 @@
 import {
   AlertRaised,
+  ApprovalDecided,
+  ApprovalRequested,
   EscalationTriggered,
   SlaBreached,
   TaskAssigned,
@@ -23,6 +25,9 @@ export const OPERATIONS_MANIFEST = defineManifest({
     { code: 'sla.manage', descriptionKey: 'ops.permission.sla_manage', risk: 'MEDIUM' },
     { code: 'alert.read', descriptionKey: 'ops.permission.alert_read', risk: 'READ' },
     { code: 'alert.ack', descriptionKey: 'ops.permission.alert_ack', risk: 'LOW' },
+    { code: 'workflow.manage', descriptionKey: 'ops.permission.workflow_manage', risk: 'HIGH' },
+    { code: 'approval.read', descriptionKey: 'ops.permission.approval_read', risk: 'READ' },
+    { code: 'approval.decide', descriptionKey: 'ops.permission.approval_decide', risk: 'HIGH' },
   ],
   events: [
     WorkItemCreated.name,
@@ -32,6 +37,8 @@ export const OPERATIONS_MANIFEST = defineManifest({
     SlaBreached.name,
     EscalationTriggered.name,
     AlertRaised.name,
+    ApprovalRequested.name,
+    ApprovalDecided.name,
   ],
   localeNamespaces: ['ops'],
 });
