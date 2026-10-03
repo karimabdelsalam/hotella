@@ -128,7 +128,7 @@ All of these are recorded as ADRs in `docs/adr/`. "Locked" means: do not re-open
 | 11 | Auth tokens | Staff: JWT access (≤15 min) + opaque rotating refresh token (hashed in DB, device-bound, revocable). Guest: passwordless opaque session token (hashed). Passwords: argon2id | Long-lived JWTs, sessions in Redis only | ADR-0011 |
 | 12 | API style | REST `/api/v1`, RFC 9457 Problem Details errors with localized `detail`, `Idempotency-Key` on retriable creates, cursor pagination | GraphQL first | ADR-0012 |
 | 13 | Lint, format, boundaries | **ESLint 10 + typescript-eslint 8** (type-aware) with core `no-restricted-imports` per layer folder, **package `exports` maps** (runtime + compile-time enforcement), **Prettier 3**, **dependency-cruiser** in CI for cycles, layer rules on resolved paths and the documentation graph: a domain package imports only `@hotella/platform-*`, `@hotella/contracts-*`, and other domains' **`/public`** entrypoint; never another domain's schema/repositories | oxlint (plugins alpha), Biome (no boundary rules), code review only | ADR-0001, ADR-0016 |
-| 14 | Hosting | **On-premises**: Docker Compose (pilot) → Kubernetes k3s/RKE2 (production); self-managed PostgreSQL 18 + pgBackRest PITR; Valkey 9; SeaweedFS; HashiCorp Vault as secrets adapter; Grafana/Prometheus/Loki/Tempo via OTel collector; hotel agent still connects outbound | Public cloud managed services | ADR-0013 |
+| 14 | Hosting | **On-premises**: Docker Compose (pilot) → Kubernetes k3s/RKE2 (production); self-managed PostgreSQL 18 + pgBackRest PITR; Valkey 9; SeaweedFS; OpenBao (Vault KV v2 API; HashiCorp Vault interchangeable) as secrets store; Grafana/Prometheus/Loki/Tempo via OTel collector; hotel agent still connects outbound | Public cloud managed services | ADR-0013 |
 | 19 | Hotel ↔ platform link | Outbound-only from the hotel on TCP 443: single-use enrollment token → locally generated key pair → mTLS device certificate; persistent WSS for events/commands + HTTPS for batches; SQLite durable ordered queue with acks; predefined signed commands only; signed offline licence; signed auto-updates with rollback | VPN per site, inbound ports, edge message broker | ADR-0017 |
 | 15 | OPERA 5 interfaces | **FIAS over IFC8** primary (real-time GI/GO/GC/RE, DB sync), **OWS (SOAP)** secondary for reservations/profiles/pre-arrival where licensed, optional **read-only DB views** for reconciliation only | OXI (CRS-oriented, extra licensing) | ADR-0014 |
 | 17 | i18n engine | **ICU MessageFormat** (`intl-messageformat`) behind our own `I18nService` on the backend, `next-intl` on the frontend → one shared `/locales/{en,ar}` catalog, one parity check; no dependency on third-party Nest i18n modules | nestjs-i18n (lags Nest majors, different format from frontend) | ADR-0016 |
@@ -297,6 +297,8 @@ packages/domain/<ctx>/src/
 
 ## 5. Phase 1 — Organization, IAM & Property (detailed)
 
+> **Status: accepted on 2026-10-03** — evidence per item in `docs/acceptance/phase-1.md` (installing on the target host and the secret-store licence confirmation are owner/operator steps).
+
 **Goal / acceptance (Spec §85):** one user can have different permissions across different properties without data leakage; guest-facing branding resolves dynamically with the Planova attribution preserved.
 
 ### 5.1 Scope
@@ -407,7 +409,7 @@ support.access.request  support.access.approve
 
 ### 5.8 Deployment deliverable at end of Phase 1 (ADR-0013)
 
-First staging environment on the on-prem target: `infra/docker/compose.pilot.yml` (api, worker, scheduler, realtime placeholder, PostgreSQL 18 + pgvector, Valkey 9, SeaweedFS, Vault dev-mode replaced by a real Vault, OTel collector + Grafana stack), pgBackRest backup job with a documented restore drill, and operations runbooks (deploy, rollback, backup/restore, secret rotation). Helm charts for Kubernetes follow when the second property/tenant is onboarded.
+First staging environment on the on-prem target: `infra/docker/compose.pilot.yml` (api, worker, scheduler, realtime placeholder, PostgreSQL 18 + pgvector, Valkey 9, SeaweedFS, a real (non-dev) OpenBao secret store, OTel collector + Grafana stack), pgBackRest backup job with a documented restore drill, and operations runbooks (deploy, rollback, backup/restore, secret rotation). Helm charts for Kubernetes follow when the second property/tenant is onboarded.
 
 ### 5.9 Sprints and progress
 
@@ -416,7 +418,7 @@ First staging environment on the on-prem target: `infra/docker/compose.pilot.yml
 | 1.1 | `@hotella/platform-auth` (RequestActor in CLS, `@Public`/`@RequirePermission`/`@PropertyScoped`/`@TenantScoped`, global `AuthGuard`, `ActionGate` with pluggable stages, test strategy/resolver); `@hotella/domain-organization` (schema `org`, migration `0002_org_phase1` incl. `ltree`, tenant/property foreign keys on every scoped table, services, controllers, public API, manifest, branding resolver with non-removable attribution); `runMigrations` serialized by a PostgreSQL advisory lock | delivered |
 | 1.2 | `@hotella/domain-identity` (schema `iam`, migration `0003_iam_phase1` with hand-reviewed FKs to `org`): persons, users, invitations, roles + translations, permission catalog synced from manifests, system roles (Platform admin, Support, General manager, Duty manager, HK supervisor, Room attendant, Engineer, Front desk, Guest relations — en/ar), memberships (tenant-wide or per property), sessions + refresh-token chain with reuse detection, TOTP MFA, lockout, real `AuthenticationStrategy` + `PermissionResolver`, anti-escalation, `pnpm iam:bootstrap-admin`; platform-auth: property-scope verifier (foreign property → 404), `checkedBy: 'gate'`, optional property scope | delivered |
 | 1.3 | `@hotella/platform-audit` (append-only `audit.audit_log`, migration 0004, triggers reject UPDATE/DELETE/TRUNCATE; `AuditWriter` with data-class redaction; `GET /audit`) retrofitted into every org/iam mutation and security event; `@hotella/platform-settings` (migration 0005: typed hierarchical configuration + append-only history, retention policies, attribution policy with CHECK constraint; `/config`, `/retention-policies`); support-access request/approve/revoke with SUPPORT actor, grant-based permissions and per-request audit; RLS (migration 0006) with `FORCE` and transaction-local `app.tenant_id` | delivered |
-| 1.4 | Pilot deployment (§5.8): API/worker images, `compose.pilot.yml`, Vault secret provider, application database role (non-superuser, RLS-bound), pgBackRest backup + restore drill, runbooks; CI image build + pilot smoke; Phase 1 acceptance (`docs/acceptance/phase-1.md`) | next |
+| 1.4 | Pilot deployment (§5.8): `infra/docker/Dockerfile` (api/worker), `compose.pilot.yml` + `pilot/pilot.sh`, OpenBao (Vault API) secret provider with AppRole, application database role (non-superuser, RLS-bound) + `hotella-db grant`, PostgreSQL+pgBackRest image with restore drill, runbooks (`docs/runbooks/`), CI job "pilot deployment smoke"; Valkey-outage resilience fixes; Phase 1 acceptance (`docs/acceptance/phase-1.md`) | delivered |
 
 Reality notes for 1.1: brand assets are stored as object-storage keys (`logo_asset_key`, `cover_asset_keys`, …) because the asset registry arrives with the knowledge/storage work; the public branding endpoint takes `property` (+ optional `channel`) and resolves platform → tenant → organization → property → channel.
 
@@ -762,7 +764,7 @@ A module/phase is accepted only when all of the following are true:
 | Q3 | OTP fallback | — | **Answered:** WhatsApp → SMS (auto + manual) → optional voice → staff-assisted (ADR-0015). Concrete SMS aggregator picked at pilot |
 | Q4 | Guest-web domain model: `*.hotella.app` subdomain per property vs custom property domains (affects activation URLs & branding resolution). With on-prem hosting, DNS for `*.guest.hotella.app` must point at the on-prem ingress, or properties use their own domains | Phase 4 | `{property-code}.guest.hotella.app` + optional custom domain |
 | Q5 | OPERA 5 interface | — | **Answered:** FIAS primary; OWS secondary where licensed; optional read-only DB views for reconciliation (ADR-0014). Pilot to confirm IFC8/OWS licenses |
-| Q6 | Hosting target | — | **Answered:** on-premises (ADR-0013): Compose → k3s/RKE2, Vault, SeaweedFS, Grafana stack, pgBackRest |
+| Q6 | Hosting target | — | **Answered:** on-premises (ADR-0013): Compose → k3s/RKE2, OpenBao (Vault API), SeaweedFS, Grafana stack, pgBackRest |
 | Q7 | Data residency / region constraints | — | **Answered by Q6:** data stays within the on-prem installation; multi-region = multiple installations |
 | Q8 | First AI provider(s) and budget caps | Phase 6 | Anthropic + OpenAI behind gateway |
 | Q9 | Initial platform role catalog (GM, Duty Manager, HK Supervisor, Room Attendant, Engineer, Front Desk, Guest Relations, Platform Admin, Support) — confirm names and Arabic labels | Phase 1 | as listed |

@@ -87,7 +87,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 69 | Consent history, export, correction, retention, anonymization, deletion; integrity preserved; configurable retention | BP §5.2 `platform.retention_policies` → `RetentionPolicyService` (framework ✔ 1.3); §6.1 `guest_data_requests`, §6.6; DoD §12.15; CM 21 | P1 (framework ✔), P2 |
 | 70 | Logs/metrics/traces; correlation by correlation_id/trace_id/tenant/property; no PII in logs | ADR-0006; BP §4 0.2.4–0.2.5; CM 17 | P0 |
 | 71 | Deployables; isolated worker pools; five queue priorities; guest realtime isolation; stateless | ADR-0004/0013; BP §3 worker mapping; §4 0.3.5 | P0, P1 |
-| 72 | Backups, PITR, replicas, restore tests, RPO/RTO, DR; expand/contract migrations | ADR-0013 pgBackRest; ADR-0002; BP §5.8 | P1 |
+| 72 | Backups, PITR, replicas, restore tests, RPO/RTO, DR; expand/contract migrations | ADR-0013 pgBackRest → `infra/docker/postgres` (WAL archiving, retention, `restore-drill`), `docs/runbooks/backup-restore.md`, CI pilot job (backup + drill); ADR-0002; BP §5.8 | P1 ✔ (1.4) |
 | 73 | Config inheritance; audited/versioned critical config; flags ≠ licensing | BP §5.2 `platform.configuration(+history)` → `@hotella/platform-settings` (typed keys, property → tenant → platform → default, history, event, audit); §4 0.3.11 | P0, P1 ✔ (1.3) |
 | 74 | Versioned APIs; idempotency keys; signed webhooks with retry/DLQ/replay; rate limiting dimensions | ADR-0012; BP §4 0.3.9; §10 P11 webhooks | P0, P11 |
 | 75 | Developer platform later; no untrusted plugins; contract-based extension | BP §10 P11 developer platform v1 | P11 |

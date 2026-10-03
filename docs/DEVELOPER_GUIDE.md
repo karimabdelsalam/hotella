@@ -68,8 +68,8 @@ packages/
                                      → identity (schema `iam`: staff users, memberships, roles/permissions, sessions, MFA)
   contracts/   zod schemas shared by everything → events, api, later connectors, ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
-docs/          spec, plan, ADRs, traceability, this guide, architecture diagrams
-infra/         docker compose, k8s charts, CI pieces
+docs/          spec, plan, ADRs, traceability, this guide, architecture diagrams, runbooks, acceptance records
+infra/         docker: dev compose, application Dockerfile, pilot compose + pilot.sh, postgres+pgBackRest image
 ```
 
 A **bounded context** (`packages/domain/<ctx>`) always looks like this:
@@ -175,7 +175,11 @@ Every request has an `X-Correlation-Id` (echoed when the caller sends a well-for
 
 Renovate opens grouped PRs weekly. Patch/minor: merge when CI is green. Major: must pass the Maturity Gate in `docs/adr/0016-technology-currency-and-longevity.md` (GA ≥ 6 months, ecosystem and tooling ready, exit path, no node-gyp) and update that ADR in the same PR. The HOLD list there says when NestJS 12, TypeScript 7, Node 26 and Drizzle 1.0 are due for re-evaluation. Never upgrade a major "while you are at it" inside a feature PR.
 
-## 11. Where to ask / how to decide
+## 11. Deploying (pilot)
+
+The pilot runs on one Linux host with `infra/docker/compose.pilot.yml`, driven by `infra/docker/pilot/pilot.sh` (`init → up → vault-init → migrate → start → admin`, plus `backup`, `restore-drill`, `status`). Images come from `infra/docker/Dockerfile` (targets `api`, `worker`); credentials live in OpenBao and reach the services through AppRole; the application uses the ordinary database role `hotella_app`. CI's "pilot deployment smoke" job runs exactly these commands on every push. Operations procedures: `docs/runbooks/`.
+
+## 12. Where to ask / how to decide
 
 - "Is this allowed?" → `CLAUDE.md`. If the rule is unclear, the spec section it cites decides.
 - "Why was it done this way?" → `docs/adr/`.

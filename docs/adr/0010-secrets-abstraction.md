@@ -7,7 +7,7 @@ Spec §67 and §82.30: production secrets must not be stored as ordinary plainte
 
 ## Decision
 - `@hotella/platform-secrets` exposes `SecretProvider { get(ref: SecretRef): Promise<string>; }` and the `SecretRef` type (`provider://path#key`).
-- Adapters: `EnvSecretProvider` (dev/test), then a production adapter chosen by hosting target (HashiCorp Vault, AWS Secrets Manager, GCP Secret Manager — see open question Q6).
+- Adapters: `EnvSecretProvider` (dev/test), then a production adapter chosen by hosting target (HashiCorp Vault, AWS Secrets Manager, GCP Secret Manager — see open question Q6). *Implemented (Sprint 1.4):* `VaultKvSecretProvider` for the Vault KV v2 API (`vault://<mount>/<path>#<key>`), used with OpenBao by default (ADR-0013 revision); AppRole/token credentials are read from mounted files. Connection passwords are SecretRefs too (`DATABASE_PASSWORD_REF`, `VALKEY_PASSWORD_REF`).
 - Database rows store **only** `SecretRef` values (e.g. `credential_ref`), never secret material. Config tables and `settings` JSONB are validated to reject keys that look like secrets.
 - Only `platform-config` and `platform-secrets` may read `process.env` (lint rule).
 - Encryption-at-rest for the few secrets that must live in the database (e.g. OTP hashes are hashes, not secrets; refresh tokens are hashed) uses envelope encryption with a key from the provider.
