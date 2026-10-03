@@ -74,10 +74,13 @@ export class AuthGuard implements CanActivate {
     let tenantId = actor.tenantId;
     if (tenantSource) {
       const named = readId(req, tenantSource);
-      if (!named)
+      if (named) {
+        if (actor.tenantId && actor.tenantId !== named) throw AppError.notFound(); // never confirm another tenant exists
+        tenantId = named;
+      } else if (!tenantSource.optional || !actor.tenantId) {
+        // Optional only for tenant users (their own tenant is implied); platform staff must always name it.
         throw new AppError('platform.validation_failed', HttpStatus.BAD_REQUEST, { count: 1 });
-      if (actor.tenantId && actor.tenantId !== named) throw AppError.notFound(); // never confirm another tenant exists
-      tenantId = named;
+      }
     }
     const propertyId = propertySource ? readId(req, propertySource) : null;
     if (propertySource && !propertyId && !propertySource.optional)

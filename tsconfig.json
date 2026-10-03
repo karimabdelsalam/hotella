@@ -57,6 +57,9 @@
       "path": "packages/platform/auth"
     },
     {
+      "path": "packages/platform/audit"
+    },
+    {
       "path": "packages/domain/organization"
     },
     {

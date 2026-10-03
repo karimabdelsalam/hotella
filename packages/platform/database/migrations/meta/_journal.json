@@ -29,6 +29,13 @@
       "when": 1791002317564,
       "tag": "0003_iam_phase1",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791003271261,
+      "tag": "0004_audit_log",
+      "breakpoints": true
     }
   ]
 }

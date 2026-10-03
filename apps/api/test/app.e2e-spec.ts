@@ -9,6 +9,7 @@ import {
   identityLocalePreferences,
 } from '@hotella/domain-identity';
 import { OrganizationModule } from '@hotella/domain-organization';
+import { AuditModule } from '@hotella/platform-audit';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
@@ -56,6 +57,7 @@ describe('api skeleton (e2e)', () => {
         EventsModule.forRoot(),
         FeatureFlagsModule,
         ManifestModule.forRoot(),
+        AuditModule,
         StorageModule.forRoot(),
         IdentityCoreModule,
         AuthModule.forRoot({
@@ -150,7 +152,7 @@ describe('api skeleton (e2e)', () => {
     const byCode = new Map(
       (res.body as { code: string; events: string[] }[]).map((m) => [m.code, m]),
     );
-    expect([...byCode.keys()].sort()).toEqual(['iam', 'org', 'platform']);
+    expect([...byCode.keys()].sort()).toEqual(['audit', 'iam', 'org', 'platform']);
     expect(byCode.get('iam')?.events).toContain('iam.session.revoked.v1');
     expect(byCode.get('platform')?.events).toContain('platform.feature_flag.changed.v1');
     expect(byCode.get('org')?.events).toContain('org.property.created.v1');

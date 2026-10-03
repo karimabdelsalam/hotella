@@ -9,6 +9,7 @@ export default defineConfig({
   schema: [
     './src/schema/*.ts',
     '../events/src/schema/*.ts',
+    '../audit/src/schema/*.ts',
     '../../domain/*/src/infrastructure/schema.ts',
   ],
   out: './migrations',

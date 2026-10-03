@@ -55,3 +55,11 @@ export function missingForDelegation(
 ): string[] {
   return [...new Set(requested)].filter((p) => !actorPermissions.has(p)).sort();
 }
+
+/** Platform staff without the administrator flag act as SUPPORT (Spec §64); everyone else is a USER. */
+export function staffActorType(user: {
+  readonly tenantId: string | null;
+  readonly isPlatformAdmin: boolean;
+}): 'USER' | 'SUPPORT' {
+  return user.tenantId === null && !user.isPlatformAdmin ? 'SUPPORT' : 'USER';
+}

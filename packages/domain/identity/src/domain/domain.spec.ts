@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
+import { AUDIT_MANIFEST } from '@hotella/platform-audit';
 import { findLocalesDir } from '@hotella/platform-i18n';
 import { IDENTITY_MANIFEST } from '../manifest';
 import {
@@ -163,7 +164,11 @@ describe('effective permissions (Membership → Role → Permission)', () => {
 
 describe('system role catalog', () => {
   const declared = new Set(
-    [...ORGANIZATION_MANIFEST.permissions, ...IDENTITY_MANIFEST.permissions].map((p) => p.code),
+    [
+      ...ORGANIZATION_MANIFEST.permissions,
+      ...IDENTITY_MANIFEST.permissions,
+      ...AUDIT_MANIFEST.permissions,
+    ].map((p) => p.code),
   );
   const locales = ['en', 'ar'].map(
     (l) =>

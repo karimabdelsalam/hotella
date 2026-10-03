@@ -34,7 +34,10 @@ export interface ScopeSource {
   /** Where to read the id: route param, query string or body field. Checked in that order when `from` is omitted. */
   readonly from?: 'param' | 'query' | 'body';
   readonly key?: string;
-  /** Property scope only: when the id is absent the check falls back to tenant scope instead of failing with 400. */
+  /**
+   * When the id is absent: property scope falls back to tenant scope; tenant scope falls back to the actor's own
+   * tenant (tenant users only). Without `optional` a missing id is a 400.
+   */
   readonly optional?: boolean;
 }
 

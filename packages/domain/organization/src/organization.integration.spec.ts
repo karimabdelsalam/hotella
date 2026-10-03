@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuditModule } from '@hotella/platform-audit';
 import {
   AUTHENTICATION_STRATEGY,
   AuthModule,
@@ -56,6 +57,7 @@ describe.skipIf(needsInfra())(
           EventsModule.forRoot(),
           FeatureFlagsModule,
           ManifestModule.forRoot(),
+          AuditModule,
           AuthModule.forRoot({
             strategy: { provide: AUTHENTICATION_STRATEGY, useClass: HeaderActorStrategy },
             resolver: {

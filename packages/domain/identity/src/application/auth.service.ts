@@ -4,6 +4,7 @@ import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-or
 import type { RequestActor } from '@hotella/platform-auth';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import { TransactionRunner } from '@hotella/platform-database';
+import { AuditWriter } from '@hotella/platform-audit';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError } from '@hotella/platform-i18n';
 import {
@@ -14,6 +15,7 @@ import {
   PASSWORD_MIN_LENGTH,
   verifyPassword,
 } from '../domain/passwords';
+import { staffActorType } from '../domain/access';
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../domain/totp';
 import { seal, sha256Hex, unseal } from '../domain/tokens';
 import { IdentityKeys } from '../infrastructure/keys';
@@ -45,6 +47,7 @@ export class AuthService {
     private readonly keys: IdentityKeys,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly audit: AuditWriter,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
@@ -146,6 +149,15 @@ export class AuthService {
         failedLoginCount: 0,
         lockedUntil: null,
       });
+      await this.audit.record({
+        action: 'iam.invitation.accept',
+        entityType: 'user',
+        entityId: user.id,
+        tenantId: user.tenantId,
+        actor: { type: staffActorType(user), id: user.id },
+        before: { status: user.status },
+        after: { status: 'ACTIVE' },
+      });
       return { userId: user.id };
     });
   }
@@ -155,9 +167,17 @@ export class AuthService {
     const user = await this.requireSelf(actor);
     if (user.mfaEnabled) throw AppError.conflict('iam.auth.mfa_already_enabled');
     const secret = generateTotpSecret();
-    await this.repo.updateUser(user.id, {
-      mfaSecretEnc: seal(secret, this.keys.mfaSealingKey),
-      mfaLastStep: null,
+    await this.tx.run(async () => {
+      await this.repo.updateUser(user.id, {
+        mfaSecretEnc: seal(secret, this.keys.mfaSealingKey),
+        mfaLastStep: null,
+      });
+      await this.audit.record({
+        action: 'iam.mfa.enroll',
+        entityType: 'user',
+        entityId: user.id,
+        tenantId: user.tenantId,
+      });
     });
     return { secret, otpauthUri: otpauthUri(secret, this.config.iam.issuer, user.email) };
   }
@@ -170,7 +190,17 @@ export class AuthService {
     const step = verifyTotp(secret, code, Date.now(), user.mfaLastStep);
     if (step === null || !(await this.repo.claimMfaStep(user.id, step)))
       throw new AppError('iam.auth.invalid_mfa_code', HttpStatus.UNPROCESSABLE_ENTITY);
-    await this.repo.updateUser(user.id, { mfaEnabled: true });
+    await this.tx.run(async () => {
+      await this.repo.updateUser(user.id, { mfaEnabled: true });
+      await this.audit.record({
+        action: 'iam.mfa.activate',
+        entityType: 'user',
+        entityId: user.id,
+        tenantId: user.tenantId,
+        before: { mfaEnabled: false },
+        after: { mfaEnabled: true },
+      });
+    });
     return { mfaEnabled: true };
   }
 
@@ -193,6 +223,15 @@ export class AuthService {
       aggregate: { type: 'session', id: sessionId },
       payload: { session_id: sessionId, user_id: userId, reason },
     });
+    await this.audit.record({
+      action: 'iam.session.revoke',
+      entityType: 'session',
+      entityId: sessionId,
+      tenantId: session?.tenantId ?? null,
+      propertyId: null,
+      reason,
+      after: { userId },
+    });
   }
 
   private async openSession(
@@ -208,7 +247,17 @@ export class AuthService {
         lockedUntil: null,
         lastLoginAt: now,
       });
-      return this.tokens.startSession(user, { ...meta, mfaVerified }, now);
+      const started = await this.tokens.startSession(user, { ...meta, mfaVerified }, now);
+      await this.audit.record({
+        action: 'iam.session.create',
+        entityType: 'session',
+        entityId: started.session.id,
+        tenantId: user.tenantId,
+        propertyId: null,
+        actor: { type: staffActorType(user), id: user.id },
+        after: { userId: user.id, mfaVerified, ip: meta.ip, userAgent: meta.userAgent },
+      });
+      return started;
     });
     const access = await this.tokens.signAccess({
       userId: user.id,
@@ -231,9 +280,18 @@ export class AuthService {
   private async recordFailure(user: UserRow, now: Date): Promise<void> {
     const count = await this.repo.recordLoginFailure(user.id);
     if (count >= this.config.iam.loginMaxAttempts) {
-      await this.repo.updateUser(user.id, {
-        failedLoginCount: 0,
-        lockedUntil: new Date(now.getTime() + this.config.iam.loginLockMinutes * 60_000),
+      const lockedUntil = new Date(now.getTime() + this.config.iam.loginLockMinutes * 60_000);
+      await this.repo.updateUser(user.id, { failedLoginCount: 0, lockedUntil });
+      await this.audit.record({
+        action: 'iam.user.lock',
+        entityType: 'user',
+        entityId: user.id,
+        tenantId: user.tenantId,
+        propertyId: null,
+        actor: { type: 'SYSTEM', id: null },
+        reason: 'too_many_failed_attempts',
+        after: { lockedUntil },
+        allowAutocommit: true,
       });
     }
   }

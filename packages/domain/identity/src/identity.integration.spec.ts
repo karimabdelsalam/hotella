@@ -5,6 +5,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OrganizationModule } from '@hotella/domain-organization';
+import { AuditModule } from '@hotella/platform-audit';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule, runMigrations } from '@hotella/platform-database';
@@ -73,6 +74,7 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
         EventsModule.forRoot(),
         FeatureFlagsModule,
         ManifestModule.forRoot(),
+        AuditModule,
         IdentityCoreModule,
         AuthModule.forRoot({
           ...identityAuthOptions(),
@@ -294,6 +296,47 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
       .set(bearer(adminToken))
       .send({ permissions: ['org.property.read'] })
       .expect(422);
+  });
+
+  it('mutations leave an audit trail with actor, correlation id and no secrets (Spec §68)', async () => {
+    await api()
+      .patch(`/properties/${propA}`)
+      .set(bearer(gm.access))
+      .set('X-Correlation-Id', `corr-audit-${stamp}`)
+      .send({ version: 2, name: 'Nile Palace' })
+      .expect(200);
+    // GENERAL_MANAGER at A may read A's audit trail, not the whole tenant's
+    const trail = await api()
+      .get(`/audit?propertyId=${propA}&limit=100`)
+      .set(bearer(gm.access))
+      .expect(200);
+    const update = trail.body.data.find(
+      (e: { correlationId: string }) => e.correlationId === `corr-audit-${stamp}`,
+    );
+    expect(update).toMatchObject({
+      action: 'org.property.update',
+      entityType: 'property',
+      entityId: propA,
+      tenantId,
+      propertyId: propA,
+      actorType: 'USER',
+      actorId: gm.userId,
+      before: { name: 'Nile Palace Cairo' },
+      after: { name: 'Nile Palace' },
+    });
+    const actions = trail.body.data.map((e: { action: string }) => e.action);
+    expect(actions).toEqual(
+      expect.arrayContaining(['iam.membership.grant', 'org.property.update']),
+    );
+    await api().get('/audit').set(bearer(gm.access)).expect(403);
+    // platform administrators have no standing access to the hotel's audit trail
+    await api().get(`/audit?tenantId=${tenantId}`).set(bearer(adminToken)).expect(403);
+    // the full tenant trail (read as the database would) never contains credential material
+    const all = await api()
+      .get(`/audit?propertyId=${propA}&action=iam.&limit=100`)
+      .set(bearer(gm.access))
+      .expect(200);
+    expect(JSON.stringify(all.body)).not.toMatch(/argon2|inv_|rt_/);
   });
 
   it('refresh tokens rotate; reusing a rotated token revokes the whole session', async () => {

@@ -45,6 +45,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'iam.role.manage',
       'iam.membership.manage',
       'support.access.approve',
+      'audit.read',
     ],
   },
   { code: 'DUTY_MANAGER', audience: 'TENANT', permissions: [...PROPERTY_READ, 'iam.user.read'] },

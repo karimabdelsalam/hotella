@@ -4,6 +4,7 @@ import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-or
 import { ActionGate, ActorStore, type RequestActor } from '@hotella/platform-auth';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import { newId, type TenantScope, TransactionRunner } from '@hotella/platform-database';
+import { AuditWriter } from '@hotella/platform-audit';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError, CurrentLocale, I18nService } from '@hotella/platform-i18n';
 import { missingForDelegation } from '../domain/access';
@@ -91,6 +92,7 @@ export class IdentityAdminService {
     private readonly auth: AuthService,
     private readonly locale: CurrentLocale,
     private readonly i18n: I18nService,
+    private readonly audit: AuditWriter,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
@@ -146,6 +148,13 @@ export class IdentityAdminService {
             is_platform_admin: false,
           },
         });
+        await this.audit.record({
+          action: 'iam.user.create',
+          entityType: 'user',
+          entityId: user.id,
+          tenantId: scope.tenantId,
+          after: { ...toUserView(user, person), invitationExpiresAt: expiresAt },
+        });
         const memberships: MembershipView[] = [];
         for (const grant of input.memberships)
           memberships.push(await this.applyGrant(scope, user.id, grant, actor));
@@ -191,6 +200,14 @@ export class IdentityAdminService {
           for (const sid of await this.repo.liveSessionIds(user.id))
             await this.auth.revoke(sid, user.id, 'USER_DISABLED', now);
         }
+        await this.audit.record({
+          action: 'iam.user.status_change',
+          entityType: 'user',
+          entityId: user.id,
+          tenantId: scope.tenantId,
+          before: { status: user.status },
+          after: { status: next },
+        });
         const person = await this.repo.personById(user.personId);
         return toUserView(updated, person!);
       }),
@@ -235,6 +252,8 @@ export class IdentityAdminService {
         this.tx.run(async () => {
           const actor = this.actors.require();
           const roles = await this.assignableRoles(scope, roleCodes, membership.propertyId, actor);
+          const previous =
+            (await this.repo.roleCodesByMembership([membership.id])).get(membership.id) ?? [];
           await this.repo.replaceMembershipRoles(
             membership.id,
             roles.map((r) => r.id),
@@ -244,6 +263,15 @@ export class IdentityAdminService {
             status: 'ACTIVE',
           });
           await this.publishMembership(updated, roles);
+          await this.audit.record({
+            action: 'iam.membership.roles_change',
+            entityType: 'membership',
+            entityId: membership.id,
+            tenantId: scope.tenantId,
+            propertyId: membership.propertyId,
+            before: { status: membership.status, roles: previous.map((r) => r.code).sort() },
+            after: { status: updated.status, roles: roles.map((r) => r.code).sort() },
+          });
           return this.membershipView(updated, roles);
         }),
     );
@@ -267,6 +295,15 @@ export class IdentityAdminService {
           const roles =
             (await this.repo.roleCodesByMembership([membership.id])).get(membership.id) ?? [];
           await this.publishMembership(updated, roles);
+          await this.audit.record({
+            action: 'iam.membership.deactivate',
+            entityType: 'membership',
+            entityId: membership.id,
+            tenantId: scope.tenantId,
+            propertyId: membership.propertyId,
+            before: { status: membership.status },
+            after: { status: updated.status },
+          });
           return this.membershipView(updated, roles);
         }),
     );
@@ -317,6 +354,17 @@ export class IdentityAdminService {
             removed: [],
           },
         });
+        await this.audit.record({
+          action: 'iam.role.create',
+          entityType: 'role',
+          entityId: role.id,
+          tenantId: scope.tenantId,
+          after: {
+            code: role.code,
+            permissions: [...input.permissions].sort(),
+            translations: input.translations,
+          },
+        });
         return (await this.listRoles(scope)).find((r) => r.id === role.id)!;
       }),
     );
@@ -340,6 +388,14 @@ export class IdentityAdminService {
           source: 'iam',
           aggregate: { type: 'role', id: role.id },
           payload: { role_id: role.id, tenant_id: scope.tenantId, code: role.code, added, removed },
+        });
+        await this.audit.record({
+          action: 'iam.role.permissions_change',
+          entityType: 'role',
+          entityId: role.id,
+          tenantId: scope.tenantId,
+          before: { removed },
+          after: { added },
         });
         return (await this.listRoles(scope)).find((r) => r.id === role.id)!;
       }),
@@ -414,6 +470,14 @@ export class IdentityAdminService {
       actor.id,
     );
     await this.publishMembership(membership, roles);
+    await this.audit.record({
+      action: 'iam.membership.grant',
+      entityType: 'membership',
+      entityId: membership.id,
+      tenantId: scope.tenantId,
+      propertyId,
+      after: { userId, propertyId, roles: roles.map((r) => r.code).sort() },
+    });
     return this.membershipView(membership, roles);
   }
 

@@ -6,6 +6,7 @@ import {
   identityLocalePreferences,
 } from '@hotella/domain-identity';
 import { OrganizationModule } from '@hotella/domain-organization';
+import { AuditModule } from '@hotella/platform-audit';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
@@ -33,6 +34,7 @@ import { MetaModule } from './meta/meta.module';
     EventsModule.forRoot(),
     FeatureFlagsModule,
     ManifestModule.forRoot(),
+    AuditModule,
     StorageModule.forRoot(),
     // Staff identity (ADR-0011): JWT access tokens + live-session check, Membership → Role → Permission resolution.
     IdentityCoreModule,

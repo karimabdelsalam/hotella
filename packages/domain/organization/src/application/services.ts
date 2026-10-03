@@ -15,6 +15,7 @@ import {
   type TenantScope,
   TransactionRunner,
 } from '@hotella/platform-database';
+import { AuditWriter } from '@hotella/platform-audit';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError, CurrentLocale } from '@hotella/platform-i18n';
 import { mergeBrand, type BrandLayer, type ResolvedBrand } from '../domain/branding';
@@ -75,6 +76,7 @@ export class TenantService {
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly audit: AuditWriter,
   ) {}
 
   create(input: CreateTenantInput): Promise<TenantRow> {
@@ -103,6 +105,13 @@ export class TenantService {
             default_locale: row.defaultLocale,
           },
         });
+        await this.audit.record({
+          action: 'org.tenant.create',
+          entityType: 'tenant',
+          entityId: row.id,
+          tenantId: row.id,
+          after: row,
+        });
         return row;
       }),
     );
@@ -123,6 +132,7 @@ export class OrganizationService {
     private readonly repo: OrganizationRepositories,
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
+    private readonly audit: AuditWriter,
   ) {}
   create(scope: TenantScope, input: CreateOrganizationInput) {
     return this.gate.execute({ action: 'org.tenant.manage', tenantId: scope.tenantId }, () =>
@@ -132,7 +142,7 @@ export class OrganizationService {
           throw AppError.conflict('org.tenant.code_taken', { code });
         if (input.parentId && !(await this.repo.organizationById(scope, input.parentId)))
           throw AppError.notFound('org.organization.not_found');
-        return this.repo.insertOrganization({
+        const row = await this.repo.insertOrganization({
           id: newId(),
           tenantId: scope.tenantId,
           parentId: input.parentId ?? null,
@@ -142,6 +152,14 @@ export class OrganizationService {
           type: input.type,
           settings: input.settings,
         });
+        await this.audit.record({
+          action: 'org.organization.create',
+          entityType: 'organization',
+          entityId: row.id,
+          tenantId: scope.tenantId,
+          after: row,
+        });
+        return row;
       }),
     );
   }
@@ -157,6 +175,7 @@ export class PropertyService {
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly audit: AuditWriter,
   ) {}
 
   create(scope: TenantScope, input: CreatePropertyInput): Promise<PropertyRow> {
@@ -220,6 +239,14 @@ export class PropertyService {
             default_locale: row.defaultLocale,
           },
         });
+        await this.audit.record({
+          action: 'org.property.create',
+          entityType: 'property',
+          entityId: row.id,
+          tenantId: scope.tenantId,
+          propertyId: row.id,
+          after: row,
+        });
         return row;
       }),
     );
@@ -264,6 +291,15 @@ export class PropertyService {
             aggregate: { type: 'property', id },
             payload: { property_id: id, changed },
           });
+          await this.audit.record({
+            action: 'org.property.update',
+            entityType: 'property',
+            entityId: id,
+            tenantId: scope.tenantId,
+            propertyId: id,
+            before: current,
+            after: updated,
+          });
           return updated;
         }),
     );
@@ -277,6 +313,7 @@ export class LocationService {
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly audit: AuditWriter,
     private readonly locale: CurrentLocale,
   ) {}
 
@@ -314,6 +351,14 @@ export class LocationService {
               code: row.code,
               path: row.path,
             },
+          });
+          await this.audit.record({
+            action: 'org.location.create',
+            entityType: 'location',
+            entityId: row.id,
+            tenantId: scope.tenantId,
+            propertyId: scope.propertyId,
+            after: { ...row, translations: input.translations },
           });
           return row;
         }),
@@ -410,6 +455,7 @@ export class RoomService {
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly audit: AuditWriter,
     private readonly locations: LocationService,
   ) {}
 
@@ -430,6 +476,14 @@ export class RoomService {
             attributes: input.attributes,
           });
           await this.repo.upsertRoomTypeTranslations(row.id, input.translations);
+          await this.audit.record({
+            action: 'org.room_type.create',
+            entityType: 'room_type',
+            entityId: row.id,
+            tenantId: scope.tenantId,
+            propertyId: scope.propertyId,
+            after: { ...row, translations: input.translations },
+          });
           return row;
         }),
     );
@@ -491,6 +545,14 @@ export class RoomService {
               room_type_id: room.roomTypeId,
             },
           });
+          await this.audit.record({
+            action: 'org.room.create',
+            entityType: 'room',
+            entityId: room.locationId,
+            tenantId: scope.tenantId,
+            propertyId: scope.propertyId,
+            after: room,
+          });
           return room;
         }),
     );
@@ -507,6 +569,7 @@ export class BrandingService {
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly audit: AuditWriter,
     private readonly actors: ActorStore,
   ) {}
 
@@ -565,6 +628,14 @@ export class BrandingService {
               scope_id: row.scopeId,
               channel: row.channel,
             },
+          });
+          await this.audit.record({
+            action: 'org.brand_profile.upsert',
+            entityType: 'brand_profile',
+            entityId: row.id,
+            tenantId: scope.tenantId,
+            propertyId,
+            after: { ...row, translations: input.translations },
           });
           return row;
         }),

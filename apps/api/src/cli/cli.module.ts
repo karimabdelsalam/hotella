@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { IdentityCoreModule, IdentityModule, identityAuthOptions } from '@hotella/domain-identity';
 import { OrganizationModule } from '@hotella/domain-organization';
+import { AuditModule } from '@hotella/platform-audit';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
@@ -22,6 +23,7 @@ import { SecretsModule } from '@hotella/platform-secrets';
     EventsModule.forRoot(),
     FeatureFlagsModule,
     ManifestModule.forRoot(),
+    AuditModule,
     IdentityCoreModule,
     AuthModule.forRoot(identityAuthOptions()),
     OrganizationModule,

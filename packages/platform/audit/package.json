@@ -1,18 +1,14 @@
 {
-  "name": "@hotella/domain-organization",
+  "name": "@hotella/platform-audit",
   "version": "0.0.0",
   "private": true,
-  "description": "Organization & Property bounded context (Spec \u00a74, Product Identity): tenants, organizations, properties, location tree with rooms, brand profiles and the guest-facing branding resolver.",
+  "description": "Append-only audit log (Spec §68, CLAUDE.md rule 5): AuditWriter records important mutations in the same transaction with actor, reason, approval/policy refs and correlation id; sensitive fields are redacted by data class.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./public": {
-      "types": "./dist/public/index.d.ts",
-      "default": "./dist/public/index.js"
     }
   },
   "files": [
@@ -27,11 +23,8 @@
   },
   "dependencies": {
     "@hotella/contracts-api": "workspace:*",
-    "@hotella/contracts-events": "workspace:*",
-    "@hotella/platform-audit": "workspace:*",
     "@hotella/platform-auth": "workspace:*",
     "@hotella/platform-database": "workspace:*",
-    "@hotella/platform-events": "workspace:*",
     "@hotella/platform-i18n": "workspace:*",
     "@hotella/platform-manifest": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
@@ -42,18 +35,12 @@
   },
   "devDependencies": {
     "@hotella/platform-config": "workspace:*",
-    "@hotella/platform-flags": "workspace:*",
-    "@hotella/platform-http": "workspace:*",
     "@hotella/platform-testing": "workspace:*",
     "@hotella/tooling": "workspace:*",
     "@nestjs/core": "11.2.7",
-    "@nestjs/platform-express": "11.2.7",
     "@nestjs/testing": "11.2.7",
-    "@types/express": "5.0.6",
-    "@types/supertest": "7.2.1",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "supertest": "7.3.1",
     "vitest": "4.1.11"
   }
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UserCreated } from '@hotella/contracts-events';
 import { newId, TransactionRunner } from '@hotella/platform-database';
+import { AuditWriter } from '@hotella/platform-audit';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError } from '@hotella/platform-i18n';
 import { hashPassword } from '../domain/passwords';
@@ -18,6 +19,7 @@ export class IdentityBootstrapService {
     private readonly auth: AuthService,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly audit: AuditWriter,
   ) {}
 
   async createPlatformAdmin(input: {
@@ -55,6 +57,16 @@ export class IdentityBootstrapService {
         source: 'iam',
         aggregate: { type: 'user', id: user.id },
         payload: { user_id: user.id, tenant_id: null, status: 'ACTIVE', is_platform_admin: true },
+      });
+      await this.audit.record({
+        action: 'iam.user.create',
+        entityType: 'user',
+        entityId: user.id,
+        tenantId: null,
+        propertyId: null,
+        actor: { type: 'SYSTEM', id: null },
+        reason: 'bootstrap-admin CLI',
+        after: { email, isPlatformAdmin: true, status: 'ACTIVE' },
       });
       return { userId: user.id };
     });
