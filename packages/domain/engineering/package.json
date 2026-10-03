@@ -27,11 +27,13 @@
   },
   "dependencies": {
     "@hotella/contracts-events": "workspace:*",
+    "@hotella/domain-integrations": "workspace:*",
     "@hotella/domain-knowledge": "workspace:*",
     "@hotella/domain-operations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-audit": "workspace:*",
     "@hotella/platform-auth": "workspace:*",
+    "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",
     "@hotella/platform-events": "workspace:*",
     "@hotella/platform-i18n": "workspace:*",
@@ -46,8 +48,6 @@
   "devDependencies": {
     "@hotella/domain-guest": "workspace:*",
     "@hotella/domain-identity": "workspace:*",
-    "@hotella/domain-integrations": "workspace:*",
-    "@hotella/platform-config": "workspace:*",
     "@hotella/platform-flags": "workspace:*",
     "@hotella/platform-http": "workspace:*",
     "@hotella/platform-secrets": "workspace:*",

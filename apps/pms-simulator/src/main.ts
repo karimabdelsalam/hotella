@@ -16,6 +16,7 @@ const ALL_CAPABILITIES = [
   'PROFILE_EVENT',
   'ROOM_STATUS_READ',
   'ROOM_STATUS_WRITE',
+  'OOO_WRITE',
   'RESERVATION_READ',
   'GUEST_READ',
   'RECONCILIATION_READ',
@@ -79,6 +80,16 @@ async function main(): Promise<void> {
           const { room_number, status } = cmd.payload as { room_number: string; status: string };
           holder.pms!.acceptRoomStatus(room_number, status);
           out(`command SET_ROOM_STATUS: room ${room_number} ${status}`);
+          return { status: 'ACKNOWLEDGED' };
+        }
+        if (cmd.command_type === 'SET_ROOM_RESTRICTION') {
+          const { room_number, kind, active } = cmd.payload as {
+            room_number: string;
+            kind: string;
+            active: boolean;
+          };
+          holder.pms!.acceptRoomRestriction(room_number, active ? kind : null);
+          out(`command SET_ROOM_RESTRICTION: room ${room_number} ${active ? kind : 'released'}`);
           return { status: 'ACKNOWLEDGED' };
         }
         return { status: 'FAILED', error: `unsupported command ${cmd.command_type}` };

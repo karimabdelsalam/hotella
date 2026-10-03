@@ -47,6 +47,8 @@ const ENG_DESK = [
   'eng.work_order.read',
   'eng.work_order.manage',
   'eng.parts.manage',
+  'eng.pm.manage',
+  'eng.restriction.manage',
 ] as const;
 
 export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [

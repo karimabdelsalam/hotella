@@ -28,6 +28,7 @@ export const SIM_PMS_MANIFEST = defineConnector({
     'PROFILE_EVENT',
     'ROOM_STATUS_READ',
     'ROOM_STATUS_WRITE',
+    'OOO_WRITE',
     'RESERVATION_READ',
     'GUEST_READ',
     'RECONCILIATION_READ',
@@ -66,6 +67,19 @@ export const SIM_PMS_MANIFEST = defineConnector({
         .object({
           room_number: z.string().min(1).max(16),
           status: z.enum(['DIRTY', 'CLEAN', 'INSPECTED']),
+        })
+        .strict(),
+    },
+    {
+      code: 'SET_ROOM_RESTRICTION',
+      description:
+        'Put a room out of order / out of service (or back) in the PMS when engineering restricts or releases it.',
+      requires: 'OOO_WRITE',
+      payload: z
+        .object({
+          room_number: z.string().min(1).max(16),
+          kind: z.enum(['OOO', 'OOS', 'BLOCKED_OPERATIONALLY']),
+          active: z.boolean(),
         })
         .strict(),
     },

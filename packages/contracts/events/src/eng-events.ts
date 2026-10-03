@@ -46,3 +46,46 @@ export const WorkOrderClosed = defineEvent({
     downtime_minutes: z.number().int().min(0).nullable(),
   }),
 });
+
+export const MeterReadingRecorded = defineEvent({
+  type: 'eng.meter.reading_recorded',
+  version: 1,
+  description:
+    'A meter of an asset was read (runtime hours, cycles, energy, temperature, pressure).',
+  payload: z.object({
+    meter_id: z.uuid(),
+    asset_id: z.uuid(),
+    kind: z.enum(['RUNTIME_HOURS', 'CYCLES', 'ENERGY_KWH', 'TEMPERATURE', 'PRESSURE']),
+    value: z.number(),
+    reset: z.boolean(),
+    source: z.enum(['STAFF', 'IOT', 'BMS', 'API']),
+  }),
+});
+
+export const PmDue = defineEvent({
+  type: 'eng.pm.due',
+  version: 1,
+  description:
+    'A preventive maintenance plan came due and its work order was created with the pinned procedure.',
+  payload: z.object({
+    plan_id: z.uuid(),
+    asset_id: z.uuid(),
+    work_order_id: z.uuid(),
+    procedure_version_id: z.uuid(),
+    trigger: z.enum(['CALENDAR', 'METER', 'CONDITION']),
+  }),
+});
+
+export const RoomRestrictionChanged = defineEvent({
+  type: 'eng.room_restriction.changed',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A room was restricted (out of order, out of service, blocked) or released by the platform.',
+  payload: z.object({
+    restriction_id: z.uuid(),
+    room_id: z.uuid(),
+    kind: z.enum(['OOO', 'OOS', 'BLOCKED_OPERATIONALLY']),
+    active: z.boolean(),
+  }),
+});

@@ -22,6 +22,16 @@ import {
   type FailureCodeRow,
   failureCodes,
   failureCodeTranslations,
+  meterReadings,
+  type MeterRow,
+  meters,
+  type PmPlanRow,
+  pmPlans,
+  pmProcedures,
+  type PmProcedureVersionRow,
+  pmProcedureVersions,
+  type RoomRestrictionRow,
+  roomRestrictions,
   partMovements,
   type PartRow,
   parts,
@@ -487,6 +497,259 @@ export class EngineeringRepositories {
         ),
       )
       .orderBy(asc(warrantyCases.createdAt));
+  }
+
+  // ---- meters ----
+  async insertMeter(values: typeof meters.$inferInsert): Promise<MeterRow | undefined> {
+    const [row] = await this.x.insert(meters).values(values).onConflictDoNothing().returning();
+    return row;
+  }
+  async meterForUpdate(scope: PropertyScope, id: string): Promise<MeterRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(meters)
+      .where(propertyWhere(meters, scope, eq(meters.id, id)))
+      .for('update');
+    return row;
+  }
+  async meter(scope: TenantScope, id: string): Promise<MeterRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(meters)
+      .where(tenantWhere(meters, scope, eq(meters.id, id)));
+    return row;
+  }
+  metersOf(scope: PropertyScope, assetId?: string): Promise<MeterRow[]> {
+    return this.x
+      .select()
+      .from(meters)
+      .where(propertyWhere(meters, scope, ...(assetId ? [eq(meters.assetId, assetId)] : [])))
+      .orderBy(asc(meters.id));
+  }
+  async recordReading(
+    scope: PropertyScope,
+    meterId: string,
+    reading: Omit<typeof meterReadings.$inferInsert, 'tenantId' | 'propertyId' | 'meterId'>,
+  ): Promise<MeterRow> {
+    await this.x
+      .insert(meterReadings)
+      .values({ ...reading, tenantId: scope.tenantId, propertyId: scope.propertyId, meterId });
+    const [row] = await this.x
+      .update(meters)
+      .set({ lastValue: reading.value, lastReadAt: reading.readAt })
+      .where(propertyWhere(meters, scope, eq(meters.id, meterId)))
+      .returning();
+    return row!;
+  }
+
+  // ---- procedures ----
+  async insertProcedure(values: typeof pmProcedures.$inferInsert) {
+    const [row] = await this.x
+      .insert(pmProcedures)
+      .values(values)
+      .onConflictDoNothing()
+      .returning();
+    return row;
+  }
+  async procedure(scope: TenantScope, id: string) {
+    const [row] = await this.x
+      .select()
+      .from(pmProcedures)
+      .where(tenantWhere(pmProcedures, scope, eq(pmProcedures.id, id)));
+    return row;
+  }
+  procedures(scope: TenantScope) {
+    return this.x
+      .select()
+      .from(pmProcedures)
+      .where(tenantWhere(pmProcedures, scope))
+      .orderBy(asc(pmProcedures.code));
+  }
+  async insertProcedureVersion(
+    values: typeof pmProcedureVersions.$inferInsert,
+  ): Promise<PmProcedureVersionRow> {
+    const [row] = await this.x.insert(pmProcedureVersions).values(values).returning();
+    return row!;
+  }
+  procedureVersions(scope: TenantScope, procedureId: string): Promise<PmProcedureVersionRow[]> {
+    return this.x
+      .select()
+      .from(pmProcedureVersions)
+      .where(
+        tenantWhere(pmProcedureVersions, scope, eq(pmProcedureVersions.procedureId, procedureId)),
+      )
+      .orderBy(asc(pmProcedureVersions.versionNo));
+  }
+  async procedureVersionForUpdate(
+    scope: TenantScope,
+    id: string,
+  ): Promise<PmProcedureVersionRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(pmProcedureVersions)
+      .where(tenantWhere(pmProcedureVersions, scope, eq(pmProcedureVersions.id, id)))
+      .for('update');
+    return row;
+  }
+  async updateProcedureVersion(
+    scope: TenantScope,
+    id: string,
+    patch: Partial<
+      Pick<PmProcedureVersionRow, 'steps' | 'estimatedMinutes' | 'status' | 'publishedAt'>
+    >,
+  ): Promise<PmProcedureVersionRow> {
+    const [row] = await this.x
+      .update(pmProcedureVersions)
+      .set(patch)
+      .where(tenantWhere(pmProcedureVersions, scope, eq(pmProcedureVersions.id, id)))
+      .returning();
+    return row!;
+  }
+  /** The latest published version of a procedure (what new preventive work follows). */
+  async publishedVersion(
+    scope: TenantScope,
+    procedureId: string,
+  ): Promise<PmProcedureVersionRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(pmProcedureVersions)
+      .where(
+        tenantWhere(
+          pmProcedureVersions,
+          scope,
+          eq(pmProcedureVersions.procedureId, procedureId),
+          eq(pmProcedureVersions.status, 'PUBLISHED'),
+        ),
+      )
+      .orderBy(sql`${pmProcedureVersions.versionNo} desc`)
+      .limit(1);
+    return row;
+  }
+  async procedureVersion(
+    scope: TenantScope,
+    id: string,
+  ): Promise<PmProcedureVersionRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(pmProcedureVersions)
+      .where(tenantWhere(pmProcedureVersions, scope, eq(pmProcedureVersions.id, id)));
+    return row;
+  }
+
+  // ---- plans ----
+  async insertPlan(values: typeof pmPlans.$inferInsert): Promise<PmPlanRow> {
+    const [row] = await this.x.insert(pmPlans).values(values).returning();
+    return row!;
+  }
+  async planForUpdate(scope: TenantScope, id: string): Promise<PmPlanRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(pmPlans)
+      .where(tenantWhere(pmPlans, scope, eq(pmPlans.id, id)))
+      .for('update');
+    return row;
+  }
+  async updatePlan(
+    scope: TenantScope,
+    id: string,
+    patch: Partial<
+      Pick<
+        PmPlanRow,
+        'lastDoneOn' | 'lastDoneValue' | 'openWorkOrderId' | 'active' | 'leadDays' | 'trigger'
+      >
+    >,
+  ): Promise<PmPlanRow> {
+    const [row] = await this.x
+      .update(pmPlans)
+      .set({ ...patch, version: sql`${pmPlans.version} + 1` })
+      .where(tenantWhere(pmPlans, scope, eq(pmPlans.id, id)))
+      .returning();
+    return row!;
+  }
+  plansOf(scope: PropertyScope): Promise<PmPlanRow[]> {
+    return this.x
+      .select()
+      .from(pmPlans)
+      .where(propertyWhere(pmPlans, scope))
+      .orderBy(asc(pmPlans.id));
+  }
+  /** Active plans without open work, across tenants (the worker's due sweep). */
+  plansToCheck(): Promise<PmPlanRow[]> {
+    return this.x
+      .select()
+      .from(pmPlans)
+      .where(and(eq(pmPlans.active, true), isNull(pmPlans.openWorkOrderId)))
+      .orderBy(asc(pmPlans.tenantId), asc(pmPlans.propertyId), asc(pmPlans.id));
+  }
+
+  // ---- room restrictions ----
+  async insertRestriction(
+    values: typeof roomRestrictions.$inferInsert,
+  ): Promise<RoomRestrictionRow | undefined> {
+    const [row] = await this.x
+      .insert(roomRestrictions)
+      .values(values)
+      .onConflictDoNothing()
+      .returning();
+    return row;
+  }
+  async restrictionForUpdate(
+    scope: PropertyScope,
+    id: string,
+  ): Promise<RoomRestrictionRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(roomRestrictions)
+      .where(propertyWhere(roomRestrictions, scope, eq(roomRestrictions.id, id)))
+      .for('update');
+    return row;
+  }
+  async updateRestriction(
+    scope: PropertyScope,
+    id: string,
+    patch: Partial<
+      Pick<
+        RoomRestrictionRow,
+        'releasedAt' | 'releasedByType' | 'releasedById' | 'pmsSync' | 'endsAt'
+      >
+    >,
+  ): Promise<RoomRestrictionRow> {
+    const [row] = await this.x
+      .update(roomRestrictions)
+      .set({ ...patch, version: sql`${roomRestrictions.version} + 1` })
+      .where(propertyWhere(roomRestrictions, scope, eq(roomRestrictions.id, id)))
+      .returning();
+    return row!;
+  }
+  restrictionsOf(scope: PropertyScope, openOnly: boolean): Promise<RoomRestrictionRow[]> {
+    return this.x
+      .select()
+      .from(roomRestrictions)
+      .where(
+        propertyWhere(
+          roomRestrictions,
+          scope,
+          ...(openOnly ? [isNull(roomRestrictions.releasedAt)] : []),
+        ),
+      )
+      .orderBy(sql`${roomRestrictions.startsAt} desc`);
+  }
+  async openRestriction(
+    scope: PropertyScope,
+    roomId: string,
+  ): Promise<RoomRestrictionRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(roomRestrictions)
+      .where(
+        propertyWhere(
+          roomRestrictions,
+          scope,
+          eq(roomRestrictions.roomId, roomId),
+          isNull(roomRestrictions.releasedAt),
+        ),
+      );
+    return row;
   }
 }
 

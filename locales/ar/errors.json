@@ -251,5 +251,18 @@
   "errors.eng.part.number_taken": "توجد قطعة أخرى في هذا الفندق بنفس الرقم.",
   "errors.eng.part.insufficient_stock": "الكمية المتوفرة من هذه القطعة غير كافية ({onHand}).",
   "errors.eng.warranty.not_found": "حالة الضمان هذه غير موجودة.",
-  "errors.eng.warranty.version_conflict": "قام شخص آخر بتعديل حالة الضمان هذه. أعد التحميل وحاول مرة أخرى."
+  "errors.eng.warranty.version_conflict": "قام شخص آخر بتعديل حالة الضمان هذه. أعد التحميل وحاول مرة أخرى.",
+  "errors.eng.meter.exists": "لهذه المعدة عداد من هذا النوع بالفعل.",
+  "errors.eng.meter.not_found": "هذا العداد غير موجود.",
+  "errors.eng.meter.reading_lower": "لا يمكن أن تكون القراءة أقل من السابقة ({last}) إلا إذا تم تغيير العداد.",
+  "errors.eng.procedure.code_taken": "يوجد إجراء بهذا الكود بالفعل.",
+  "errors.eng.procedure.not_found": "هذا الإجراء غير موجود.",
+  "errors.eng.procedure.draft_exists": "لهذا الإجراء مسودة بالفعل؛ انشرها أو عدّلها أولًا.",
+  "errors.eng.procedure.not_draft": "لا يمكن نشر إلا المسودة؛ الإصدارات المنشورة لا تتغير.",
+  "errors.eng.pm_plan.not_found": "خطة الصيانة هذه غير موجودة.",
+  "errors.eng.pm_plan.version_conflict": "قام شخص آخر بتعديل خطة الصيانة هذه. أعد التحميل وحاول مرة أخرى.",
+  "errors.eng.restriction.not_found": "هذا القيد غير موجود.",
+  "errors.eng.restriction.already_restricted": "هذه الغرفة خارج الخدمة بالفعل.",
+  "errors.eng.restriction.released": "تم رفع هذا القيد بالفعل.",
+  "errors.eng.restriction.period": "يجب أن ينتهي القيد بعد أن يبدأ."
 }

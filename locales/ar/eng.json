@@ -6,5 +6,7 @@
   "eng.permission.work_order_manage": "فتح أعمال الصيانة وتسجيلها وإنهاؤها",
   "eng.permission.parts_manage": "إدارة مخزون قطع الغيار",
   "eng.work_kind.work_order": "أمر عمل صيانة",
-  "eng.work_order.title": "{type, select, CORRECTIVE {إصلاح} PREVENTIVE {صيانة وقائية} PREDICTIVE {صيانة تنبؤية} INSPECTION {فحص هندسي} EMERGENCY {إصلاح طارئ} PROJECT {مشروع} other {أعمال صيانة}} · WO-{number}"
+  "eng.work_order.title": "{type, select, CORRECTIVE {إصلاح} PREVENTIVE {صيانة وقائية} PREDICTIVE {صيانة تنبؤية} INSPECTION {فحص هندسي} EMERGENCY {إصلاح طارئ} PROJECT {مشروع} other {أعمال صيانة}} · WO-{number}",
+  "eng.permission.pm_manage": "تخطيط الصيانة الوقائية",
+  "eng.permission.restriction_manage": "إخراج الغرف من الخدمة وإعادتها"
 }

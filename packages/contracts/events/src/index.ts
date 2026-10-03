@@ -43,7 +43,14 @@ export {
   RoomSignalChanged,
   RoomStateChanged,
 } from './hk-events';
-export { WORK_ORDER_TYPES, WorkOrderClosed, WorkOrderCreated } from './eng-events';
+export {
+  MeterReadingRecorded,
+  PmDue,
+  RoomRestrictionChanged,
+  WORK_ORDER_TYPES,
+  WorkOrderClosed,
+  WorkOrderCreated,
+} from './eng-events';
 export {
   ConversationOpened,
   DeliveryUpdated,

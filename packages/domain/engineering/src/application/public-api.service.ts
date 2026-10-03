@@ -33,6 +33,15 @@ export class EngineeringPublicApiService implements EngineeringPublicApi {
     });
   }
 
+  activeRestriction(tenantId: string, propertyId: string, roomId: string) {
+    return this.tx.read(async () => {
+      const r = isUuid(roomId)
+        ? await this.repo.openRestriction({ tenantId, propertyId }, roomId)
+        : undefined;
+      return r ? { id: r.id, kind: r.kind } : null;
+    });
+  }
+
   assetsAtLocation(
     tenantId: string,
     propertyId: string,

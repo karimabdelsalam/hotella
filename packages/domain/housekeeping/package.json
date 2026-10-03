@@ -28,6 +28,7 @@
   "dependencies": {
     "@hotella/contracts-events": "workspace:*",
     "@hotella/domain-ai": "workspace:*",
+    "@hotella/domain-engineering": "workspace:*",
     "@hotella/domain-guest": "workspace:*",
     "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",

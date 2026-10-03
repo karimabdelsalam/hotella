@@ -1693,7 +1693,7 @@ eng.warranty_cases        id, tenant_id, work_order_id, asset_id, vendor, status
 |---|---|---|
 | 8.1 | `@hotella/domain-engineering`: asset types (schema, translations), models, assets with hierarchy and location, asset documents linked to Knowledge, failure code lists with starter set, APIs, events, permissions, tenant-leak tests | delivered |
 | 8.2 | Work orders on the operations engine (`ENG_WORK_ORDER`), types, taxonomy and downtime on close, guest request → work order, parts usage and stock, warranty suggestion | delivered |
-| 8.3 | Meters and readings, PM procedures (versioned) and plans (CALENDAR/METER/CONDITION), due sweep creating PREVENTIVE work, room restrictions with PMS sync (`SET_ROOM_RESTRICTION`) | planned |
+| 8.3 | Meters and readings, PM procedures (versioned) and plans (CALENDAR/METER/CONDITION), due sweep creating PREVENTIVE work, room restrictions with PMS sync (`SET_ROOM_RESTRICTION`) | delivered |
 | 8.4 | Engineering knowledge tool `engineering.search_manuals`, Engineering Copilot v1 (ASSIST), arrival-risk v1 (rules + explanation), staff web: work orders and asset pages (English/Arabic, Playwright), pilot smoke | planned |
 | 8.5 | Phase 8 acceptance (`docs/acceptance/phase-8.md`) | planned |
 
@@ -1730,6 +1730,25 @@ Reality notes for 8.2:
   the generic task screen still closes the order (worker consumer `eng.work-orders`); it then shows `codingMissing`.
 - A CORRECTIVE/EMERGENCY order on an asset under warranty on the reported day creates a SUGGESTED warranty case; a
   supervisor opens, closes or dismisses it. Nothing is sent to a vendor automatically.
+
+Reality notes for 8.3:
+- Migration `0032_engineering_maintenance`: `eng.meters` (one per asset and kind, last value cached),
+  append-only `eng.meter_readings` (a lower reading of a cumulative meter is refused unless it is a `reset`, i.e. the
+  meter was replaced), `eng.pm_procedures` + `eng.pm_procedure_versions` (a trigger refuses any change to a published
+  version, rule 9; one draft at a time), `eng.pm_plans` (per asset; trigger CALENDAR every N days, METER every N units
+  of one of the asset's meters, CONDITION above/below a reading; `lead_days`; `open_work_order_id` so a plan never has
+  two open orders), `eng.room_restrictions` (one open per room, history kept); `work_orders.pm_plan_id` and
+  `procedure_version_id`; RLS on all.
+- Due rules are pure functions (`domain/pm.ts`). The worker job `eng.pm.sweep` (hourly, `normal`) opens a PREVENTIVE
+  work order (priority LOW, department ENG) for each due plan with the latest published procedure version pinned and
+  publishes `eng.pm.due.v1`; a plan without a published version is skipped with a warning. Completing the work moves
+  the plan to today (property calendar) and, for meter plans, to the meter's value; cancelling frees it.
+- Room restrictions (`eng.restriction.manage`): `eng.room_restriction.changed.v1`; housekeeping's NO_OOO readiness
+  dimension now also fails on an open platform restriction (`ENGINEERING_API.activeRestriction`) and its readiness
+  consumer refreshes the room on the event. With an ACTIVE instance holding `OOO_WRITE` (the existing capability,
+  used instead of the planned `ROOM_RESTRICTION_WRITE`), `SET_ROOM_RESTRICTION` goes to the PMS on restrict and on
+  release (idempotent per restriction and direction; outcome kept in `pms_sync`). `SIM_PMS` and the simulator accept
+  it. PMS-reported out-of-order statuses stay PMS-owned (housekeeping front-office state).
 
 ### Phase 9 — Inspections, Guest Relations, Lost & Found, Logbook
 Generic inspection engine first (`inspection` schema per Spec §11, critical finding ⇒ work item via rules). Then `relations` (complaints, categories, evidence, `complaint_candidates` from AI with confidence, service recovery actions through approvals), `lostfound` (items, vision-derived metadata kept separate from staff description, match candidates with score/reasons, audited claims), `logbook` entries + AI shift summary with human acknowledgement.

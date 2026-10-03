@@ -1034,6 +1034,9 @@ importers:
       '@hotella/contracts-events':
         specifier: workspace:*
         version: link:../../contracts/events
+      '@hotella/domain-integrations':
+        specifier: workspace:*
+        version: link:../integrations
       '@hotella/domain-knowledge':
         specifier: workspace:*
         version: link:../knowledge
@@ -1049,6 +1052,9 @@ importers:
       '@hotella/platform-auth':
         specifier: workspace:*
         version: link:../../platform/auth
+      '@hotella/platform-config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@hotella/platform-database':
         specifier: workspace:*
         version: link:../../platform/database
@@ -1086,12 +1092,6 @@ importers:
       '@hotella/domain-identity':
         specifier: workspace:*
         version: link:../identity
-      '@hotella/domain-integrations':
-        specifier: workspace:*
-        version: link:../integrations
-      '@hotella/platform-config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@hotella/platform-flags':
         specifier: workspace:*
         version: link:../../platform/flags
@@ -1252,6 +1252,9 @@ importers:
       '@hotella/domain-ai':
         specifier: workspace:*
         version: link:../ai
+      '@hotella/domain-engineering':
+        specifier: workspace:*
+        version: link:../engineering
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../guest

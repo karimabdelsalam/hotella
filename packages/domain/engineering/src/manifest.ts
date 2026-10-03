@@ -1,4 +1,10 @@
-import { WorkOrderClosed, WorkOrderCreated } from '@hotella/contracts-events';
+import {
+  MeterReadingRecorded,
+  PmDue,
+  RoomRestrictionChanged,
+  WorkOrderClosed,
+  WorkOrderCreated,
+} from '@hotella/contracts-events';
 import { defineManifest } from '@hotella/platform-manifest';
 
 export const ENGINEERING_MANIFEST = defineManifest({
@@ -17,8 +23,21 @@ export const ENGINEERING_MANIFEST = defineManifest({
       risk: 'LOW',
     },
     { code: 'eng.parts.manage', descriptionKey: 'eng.permission.parts_manage', risk: 'LOW' },
+    { code: 'eng.pm.manage', descriptionKey: 'eng.permission.pm_manage', risk: 'LOW' },
+    {
+      code: 'eng.restriction.manage',
+      descriptionKey: 'eng.permission.restriction_manage',
+      risk: 'MEDIUM',
+    },
   ],
-  events: [WorkOrderCreated.name, WorkOrderClosed.name],
+  events: [
+    WorkOrderCreated.name,
+    WorkOrderClosed.name,
+    MeterReadingRecorded.name,
+    PmDue.name,
+    RoomRestrictionChanged.name,
+  ],
+  integrationCapabilities: ['OOO_WRITE'],
   entitlements: ['ENGINEERING'],
   localeNamespaces: ['eng'],
 });

@@ -178,6 +178,26 @@ export class WorkOrderService {
     });
   }
 
+  /** The due sweep opens a plan's PREVENTIVE work with the procedure version it must follow (system actor). */
+  openPreventive(
+    scope: PropertyScope,
+    plan: { id: string; assetId: string; locationId: string },
+    procedureVersionId: string,
+  ): Promise<WorkOrderRow> {
+    return this.open(scope, {
+      type: 'PREVENTIVE',
+      source: 'PM',
+      assetId: plan.assetId,
+      locationId: plan.locationId,
+      symptomCode: null,
+      diagnosis: null,
+      priority: defaultPriority('PREVENTIVE', 'PM'),
+      workItemId: null,
+      pmPlanId: plan.id,
+      procedureVersionId,
+    });
+  }
+
   private async open(
     scope: PropertyScope,
     o: {
@@ -189,6 +209,8 @@ export class WorkOrderService {
       diagnosis: string | null;
       priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
       workItemId: string | null;
+      pmPlanId?: string | null;
+      procedureVersionId?: string | null;
     },
   ): Promise<WorkOrderRow> {
     const id = newId();
@@ -226,6 +248,8 @@ export class WorkOrderService {
       reportedAt: now,
       symptomCode: o.symptomCode,
       diagnosis: o.diagnosis,
+      pmPlanId: o.pmPlanId ?? null,
+      procedureVersionId: o.procedureVersionId ?? null,
     }))!;
     await this.events.publish(WorkOrderCreated, {
       tenantId: scope.tenantId,
@@ -384,6 +408,7 @@ export class WorkOrderService {
       ...(next === 'DONE' || next === 'CANCELLED' ? { completedAt: new Date() } : {}),
     });
     if (next === 'DONE' || next === 'CANCELLED') {
+      if (row.pmPlanId) await this.planDone(scope, row, next === 'DONE');
       if (next === 'DONE' && missingCoding(row.type, row).length > 0)
         this.logger.warn(
           { work_order_id: row.id },
@@ -408,6 +433,31 @@ export class WorkOrderService {
       });
     }
     return row;
+  }
+
+  /** Finished preventive work moves its plan forward from today (and the meter's value); cancelled work frees it. */
+  private async planDone(scope: PropertyScope, order: WorkOrderRow, done: boolean) {
+    const plan = await this.repo.planForUpdate(scope, order.pmPlanId!);
+    if (!plan || plan.openWorkOrderId !== order.id) return;
+    if (!done) {
+      await this.repo.updatePlan(scope, plan.id, { openWorkOrderId: null });
+      return;
+    }
+    const property = await this.org.getProperty(scope.tenantId, scope.propertyId);
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: property?.timezone ?? 'UTC',
+    }).format(new Date());
+    const meter =
+      plan.trigger.kind === 'METER'
+        ? await this.repo.meter(scope, plan.trigger.meterId)
+        : undefined;
+    await this.repo.updatePlan(scope, plan.id, {
+      openWorkOrderId: null,
+      lastDoneOn: today,
+      ...(meter?.lastValue !== undefined && meter?.lastValue !== null
+        ? { lastDoneValue: meter.lastValue }
+        : {}),
+    });
   }
 
   // ---- reading ----

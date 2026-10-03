@@ -22,6 +22,15 @@ export interface EngineeringPublicApi {
     propertyId: string,
     locationId: string,
   ): Promise<readonly AssetSummary[]>;
+  /** The room's open platform restriction (OOO/OOS/BLOCKED), or null; readiness and front desk read it. */
+  activeRestriction(
+    tenantId: string,
+    propertyId: string,
+    roomId: string,
+  ): Promise<{
+    readonly id: string;
+    readonly kind: 'OOO' | 'OOS' | 'BLOCKED_OPERATIONALLY';
+  } | null>;
 }
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */

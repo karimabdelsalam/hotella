@@ -6,5 +6,7 @@
   "eng.permission.work_order_manage": "Open, record and complete engineering work",
   "eng.permission.parts_manage": "Manage spare parts stock",
   "eng.work_kind.work_order": "Engineering work order",
-  "eng.work_order.title": "{type, select, CORRECTIVE {Repair} PREVENTIVE {Preventive maintenance} PREDICTIVE {Predictive maintenance} INSPECTION {Engineering inspection} EMERGENCY {Emergency repair} PROJECT {Project} other {Engineering work}} · WO-{number}"
+  "eng.work_order.title": "{type, select, CORRECTIVE {Repair} PREVENTIVE {Preventive maintenance} PREDICTIVE {Predictive maintenance} INSPECTION {Engineering inspection} EMERGENCY {Emergency repair} PROJECT {Project} other {Engineering work}} · WO-{number}",
+  "eng.permission.pm_manage": "Plan preventive maintenance",
+  "eng.permission.restriction_manage": "Take rooms out of order and back in service"
 }

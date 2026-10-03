@@ -20,6 +20,7 @@ import {
   translationUnique,
   versioned,
 } from '@hotella/platform-database';
+import type { PmTrigger } from '../domain/pm';
 import type { PropertyField } from '../domain/properties';
 
 /**
@@ -303,6 +304,9 @@ export const workOrders = classify(
       downtimeEndedAt: timestamp('downtime_ended_at', { withTimezone: true, mode: 'date' }),
       status: workOrderStatus('status').notNull().default('OPEN'),
       completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+      /** Preventive work: the plan that created it and the published procedure version it follows. */
+      pmPlanId: uuid('pm_plan_id'),
+      procedureVersionId: uuid('procedure_version_id'),
       ...versioned(),
     },
     (t) => [
@@ -334,6 +338,8 @@ export const workOrders = classify(
     downtimeEndedAt: 'INTERNAL',
     status: 'INTERNAL',
     completedAt: 'INTERNAL',
+    pmPlanId: 'INTERNAL',
+    procedureVersionId: 'INTERNAL',
     version: 'INTERNAL',
   },
 );
@@ -453,5 +459,254 @@ export const warrantyCases = classify(
 );
 
 export type WorkOrderRow = typeof workOrders.$inferSelect;
+
+// ---- meters and preventive maintenance (Spec §10.6–§10.7, BUILD_PLAN 8.3) ----
+
+export const meterKind = eng.enum('meter_kind', [
+  'RUNTIME_HOURS',
+  'CYCLES',
+  'ENERGY_KWH',
+  'TEMPERATURE',
+  'PRESSURE',
+]);
+export const readingSource = eng.enum('reading_source', ['STAFF', 'IOT', 'BMS', 'API']);
+
+export const meters = classify(
+  eng.table(
+    'meters',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      assetId: uuid('asset_id')
+        .notNull()
+        .references(() => assets.id, { onDelete: 'restrict' }),
+      kind: meterKind('kind').notNull(),
+      unit: varchar('unit', { length: 16 }).notNull(),
+      lastValue: numeric('last_value', { precision: 14, scale: 3, mode: 'number' }),
+      lastReadAt: timestamp('last_read_at', { withTimezone: true, mode: 'date' }),
+    },
+    (t) => [uniqueIndex('meters_asset_kind_uq').on(t.assetId, t.kind)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    assetId: 'INTERNAL',
+    kind: 'INTERNAL',
+    unit: 'INTERNAL',
+    lastValue: 'INTERNAL',
+    lastReadAt: 'INTERNAL',
+  },
+);
+
+/** Every reading as it came (append-only); a meter replacement is a reading with `reset`. */
+export const meterReadings = classify(
+  eng.table(
+    'meter_readings',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      meterId: uuid('meter_id')
+        .notNull()
+        .references(() => meters.id, { onDelete: 'restrict' }),
+      value: numeric('value', { precision: 14, scale: 3, mode: 'number' }).notNull(),
+      reset: boolean('reset').notNull().default(false),
+      source: readingSource('source').notNull(),
+      actorType: varchar('actor_type', { length: 16 }).notNull(),
+      actorId: uuid('actor_id'),
+      readAt: timestamp('read_at', { withTimezone: true, mode: 'date' }).notNull(),
+    },
+    (t) => [index('meter_readings_meter_idx').on(t.meterId, t.readAt)],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    meterId: 'INTERNAL',
+    value: 'INTERNAL',
+    reset: 'INTERNAL',
+    source: 'INTERNAL',
+    actorType: 'INTERNAL',
+    actorId: 'INTERNAL',
+    readAt: 'INTERNAL',
+  },
+);
+
+export const procedureStatus = eng.enum('procedure_status', ['DRAFT', 'PUBLISHED']);
+
+/** A maintenance procedure (checklist) of the tenant; its published versions never change (rule 9). */
+export const pmProcedures = classify(
+  eng.table(
+    'pm_procedures',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      code: varchar('code', { length: 40 }).notNull(),
+      title: varchar('title', { length: 200 }).notNull(),
+    },
+    (t) => [uniqueIndex('pm_procedures_code_uq').on(t.tenantId, t.code)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    code: 'INTERNAL',
+    title: 'INTERNAL',
+  },
+);
+
+export interface ProcedureStep {
+  readonly text: string;
+  readonly requiresReading?: boolean;
+}
+
+export const pmProcedureVersions = classify(
+  eng.table(
+    'pm_procedure_versions',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      procedureId: uuid('procedure_id')
+        .notNull()
+        .references(() => pmProcedures.id, { onDelete: 'restrict' }),
+      versionNo: integer('version_no').notNull(),
+      status: procedureStatus('status').notNull().default('DRAFT'),
+      steps: jsonb('steps').$type<ProcedureStep[]>().notNull(),
+      estimatedMinutes: integer('estimated_minutes'),
+      publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }),
+    },
+    (t) => [uniqueIndex('pm_procedure_versions_uq').on(t.procedureId, t.versionNo)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    procedureId: 'INTERNAL',
+    versionNo: 'INTERNAL',
+    status: 'INTERNAL',
+    steps: 'INTERNAL',
+    estimatedMinutes: 'INTERNAL',
+    publishedAt: 'INTERNAL',
+  },
+);
+
+/** When an asset gets preventive work and by which procedure (Spec §10.7). */
+export const pmPlans = classify(
+  eng.table(
+    'pm_plans',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      assetId: uuid('asset_id')
+        .notNull()
+        .references(() => assets.id, { onDelete: 'restrict' }),
+      procedureId: uuid('procedure_id')
+        .notNull()
+        .references(() => pmProcedures.id, { onDelete: 'restrict' }),
+      trigger: jsonb('trigger').$type<PmTrigger>().notNull(),
+      leadDays: integer('lead_days').notNull().default(0),
+      lastDoneOn: date('last_done_on', { mode: 'string' }).notNull(),
+      lastDoneValue: numeric('last_done_value', { precision: 14, scale: 3, mode: 'number' }),
+      /** The open preventive work order, so a plan never has two at once. */
+      openWorkOrderId: uuid('open_work_order_id'),
+      active: boolean('active').notNull().default(true),
+      ...versioned(),
+    },
+    (t) => [index('pm_plans_property_idx').on(t.tenantId, t.propertyId, t.active)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    assetId: 'INTERNAL',
+    procedureId: 'INTERNAL',
+    trigger: 'INTERNAL',
+    leadDays: 'INTERNAL',
+    lastDoneOn: 'INTERNAL',
+    lastDoneValue: 'INTERNAL',
+    openWorkOrderId: 'INTERNAL',
+    active: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+// ---- room restrictions (Spec §10.10) ----
+
+export const restrictionKind = eng.enum('restriction_kind', [
+  'OOO',
+  'OOS',
+  'BLOCKED_OPERATIONALLY',
+]);
+export const pmsSyncStatus = eng.enum('pms_sync_status', [
+  'NOT_REQUIRED',
+  'PENDING',
+  'SENT',
+  'FAILED',
+]);
+
+/** A room that must not be sold or used, with history (released rows stay). */
+export const roomRestrictions = classify(
+  eng.table(
+    'room_restrictions',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      roomId: uuid('room_id').notNull(),
+      kind: restrictionKind('kind').notNull(),
+      reason: varchar('reason', { length: 300 }).notNull(),
+      startsAt: timestamp('starts_at', { withTimezone: true, mode: 'date' }).notNull(),
+      endsAt: timestamp('ends_at', { withTimezone: true, mode: 'date' }),
+      workOrderId: uuid('work_order_id').references(() => workOrders.id, { onDelete: 'restrict' }),
+      pmsSync: pmsSyncStatus('pms_sync').notNull().default('NOT_REQUIRED'),
+      createdByType: varchar('created_by_type', { length: 16 }).notNull(),
+      createdById: uuid('created_by_id'),
+      releasedAt: timestamp('released_at', { withTimezone: true, mode: 'date' }),
+      releasedByType: varchar('released_by_type', { length: 16 }),
+      releasedById: uuid('released_by_id'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('room_restrictions_open_uq')
+        .on(t.roomId)
+        .where(sql`${t.releasedAt} is null`),
+      index('room_restrictions_property_idx').on(t.tenantId, t.propertyId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    roomId: 'INTERNAL',
+    kind: 'INTERNAL',
+    reason: 'INTERNAL',
+    startsAt: 'INTERNAL',
+    endsAt: 'INTERNAL',
+    workOrderId: 'INTERNAL',
+    pmsSync: 'INTERNAL',
+    createdByType: 'INTERNAL',
+    createdById: 'INTERNAL',
+    releasedAt: 'INTERNAL',
+    releasedByType: 'INTERNAL',
+    releasedById: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+export type MeterRow = typeof meters.$inferSelect;
+export type PmProcedureVersionRow = typeof pmProcedureVersions.$inferSelect;
+export type PmPlanRow = typeof pmPlans.$inferSelect;
+export type RoomRestrictionRow = typeof roomRestrictions.$inferSelect;
 export type PartRow = typeof parts.$inferSelect;
 export type WarrantyCaseRow = typeof warrantyCases.$inferSelect;

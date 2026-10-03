@@ -43,6 +43,8 @@ export class SimulatedPms {
   readonly reservations = new Map<string, SimReservation>();
   /** Room statuses the platform wrote back (SET_ROOM_STATUS), by room number. */
   readonly roomStatuses = new Map<string, string>();
+  /** Out-of-order / out-of-service restrictions the platform wrote (SET_ROOM_RESTRICTION), by room number. */
+  readonly restrictions = new Map<string, string>();
   private counter = 0;
 
   constructor(
@@ -136,6 +138,12 @@ export class SimulatedPms {
    */
   acceptRoomStatus(room: string, status: string): void {
     this.roomStatuses.set(room, status);
+  }
+
+  /** A restriction written by the platform (or lifted, with null); recorded without an echo event. */
+  acceptRoomRestriction(room: string, kind: string | null): void {
+    if (kind) this.restrictions.set(room, kind);
+    else this.restrictions.delete(room);
   }
 
   /** Database sync of the in-house list (FIAS DS/DR/DE), e.g. on a RESYNC_IN_HOUSE command. */

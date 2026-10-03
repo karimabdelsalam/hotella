@@ -27,6 +27,20 @@ import {
   warrantyDecisionSchema,
   WorkOrderService,
 } from '../application/work-order.service';
+import {
+  createMeterSchema,
+  createPlanSchema,
+  createProcedureSchema,
+  draftVersionSchema,
+  MaintenanceService,
+  readingSchema,
+  updatePlanSchema,
+} from '../application/maintenance.service';
+import {
+  createRestrictionSchema,
+  listRestrictionsSchema,
+  RestrictionService,
+} from '../application/restriction.service';
 
 class CreateAssetTypeDto extends createZodDto(createAssetTypeSchema) {}
 class UpdateAssetTypeDto extends createZodDto(updateAssetTypeSchema) {}
@@ -271,5 +285,136 @@ export class WorkOrdersController {
     @Body() body: WarrantyDecisionDto,
   ) {
     return this.orders.decideWarranty(this.scope(propertyId), id, body);
+  }
+}
+
+class CreateMeterDto extends createZodDto(createMeterSchema) {}
+class ReadingDto extends createZodDto(readingSchema) {}
+class CreateProcedureDto extends createZodDto(createProcedureSchema) {}
+class DraftVersionDto extends createZodDto(draftVersionSchema) {}
+class CreatePlanDto extends createZodDto(createPlanSchema) {}
+class UpdatePlanDto extends createZodDto(updatePlanSchema) {}
+class CreateRestrictionDto extends createZodDto(createRestrictionSchema) {}
+class ListRestrictionsDto extends createZodDto(listRestrictionsSchema) {}
+
+/** Tenant-wide maintenance procedures, versioned (Spec §10.7). */
+@Controller('eng/pm-procedures')
+export class ProceduresController {
+  constructor(
+    private readonly maintenance: MaintenanceService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope() {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.tenant.not_found');
+    return { tenantId };
+  }
+
+  @Get()
+  @RequirePermission('eng.asset.read', { checkedBy: 'gate' })
+  list() {
+    return this.maintenance.listProcedures(this.scope());
+  }
+
+  @Post()
+  @RequirePermission('eng.config.manage', { checkedBy: 'gate' })
+  create(@Body() body: CreateProcedureDto) {
+    return this.maintenance.createProcedure(this.scope(), body);
+  }
+
+  @Post(':procedureId/versions')
+  @RequirePermission('eng.config.manage', { checkedBy: 'gate' })
+  draft(@Param('procedureId') id: string, @Body() body: DraftVersionDto) {
+    return this.maintenance.newDraft(this.scope(), id, body);
+  }
+
+  @Post('versions/:versionId/publish')
+  @HttpCode(200)
+  @RequirePermission('eng.config.manage', { checkedBy: 'gate' })
+  publish(@Param('versionId') id: string) {
+    return this.maintenance.publish(this.scope(), id);
+  }
+}
+
+/** Meters, preventive maintenance plans and room restrictions of a property (Spec §10.6, §10.7, §10.10). */
+@Controller('properties/:propertyId/eng')
+@PropertyScoped({ from: 'param' })
+export class MaintenanceController {
+  constructor(
+    private readonly maintenance: MaintenanceService,
+    private readonly restrictions: RestrictionService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope(propertyId: string) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return { tenantId, propertyId };
+  }
+
+  @Get('meters')
+  @RequirePermission('eng.asset.read', { checkedBy: 'gate' })
+  meters(@Param('propertyId') propertyId: string, @Query('assetId') assetId?: string) {
+    return this.maintenance.listMeters(this.scope(propertyId), assetId);
+  }
+
+  @Post('meters')
+  @RequirePermission('eng.asset.manage', { checkedBy: 'gate' })
+  createMeter(@Param('propertyId') propertyId: string, @Body() body: CreateMeterDto) {
+    return this.maintenance.createMeter(this.scope(propertyId), body);
+  }
+
+  @Post('meters/:meterId/readings')
+  @RequirePermission('eng.work_order.manage', { checkedBy: 'gate' })
+  reading(
+    @Param('propertyId') propertyId: string,
+    @Param('meterId') meterId: string,
+    @Body() body: ReadingDto,
+  ) {
+    return this.maintenance.recordReading(this.scope(propertyId), meterId, body);
+  }
+
+  @Get('pm-plans')
+  @RequirePermission('eng.work_order.read', { checkedBy: 'gate' })
+  plans(@Param('propertyId') propertyId: string) {
+    return this.maintenance.listPlans(this.scope(propertyId));
+  }
+
+  @Post('pm-plans')
+  @RequirePermission('eng.pm.manage', { checkedBy: 'gate' })
+  createPlan(@Param('propertyId') propertyId: string, @Body() body: CreatePlanDto) {
+    return this.maintenance.createPlan(this.scope(propertyId), body);
+  }
+
+  @Patch('pm-plans/:planId')
+  @RequirePermission('eng.pm.manage', { checkedBy: 'gate' })
+  updatePlan(
+    @Param('propertyId') propertyId: string,
+    @Param('planId') planId: string,
+    @Body() body: UpdatePlanDto,
+  ) {
+    return this.maintenance.updatePlan(this.scope(propertyId), planId, body);
+  }
+
+  @Get('room-restrictions')
+  @RequirePermission('eng.work_order.read', { checkedBy: 'gate' })
+  restrictionsList(@Param('propertyId') propertyId: string, @Query() query: ListRestrictionsDto) {
+    return this.restrictions.list(this.scope(propertyId), query);
+  }
+
+  @Post('room-restrictions')
+  @RequirePermission('eng.restriction.manage', { checkedBy: 'gate' })
+  restrict(@Param('propertyId') propertyId: string, @Body() body: CreateRestrictionDto) {
+    return this.restrictions.restrict(this.scope(propertyId), body);
+  }
+
+  @Post('room-restrictions/:restrictionId/release')
+  @HttpCode(200)
+  @RequirePermission('eng.restriction.manage', { checkedBy: 'gate' })
+  release(@Param('propertyId') propertyId: string, @Param('restrictionId') id: string) {
+    return this.restrictions.release(this.scope(propertyId), id);
   }
 }

@@ -1,10 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   type EventEnvelope,
   RoomReady,
+  RoomRestrictionChanged,
   WorkItemCreated,
   WorkItemStatusChanged,
 } from '@hotella/contracts-events';
+import { ENGINEERING_API, type EngineeringPublicApi } from '@hotella/domain-engineering/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { type PropertyScope, TransactionRunner } from '@hotella/platform-database';
 import { EventPublisher } from '@hotella/platform-events';
@@ -23,7 +25,7 @@ const ENGINEERING = 'ENG';
 @Injectable()
 export class ReadinessService {
   /** Engineering work at a room changes its readiness (worker consumer). */
-  static readonly consumes = [WorkItemCreated, WorkItemStatusChanged];
+  static readonly consumes = [WorkItemCreated, WorkItemStatusChanged, RoomRestrictionChanged];
 
   constructor(
     private readonly repo: HousekeepingRepositories,
@@ -31,6 +33,7 @@ export class ReadinessService {
     private readonly events: EventPublisher,
     private readonly settings: SettingsReader,
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
+    @Optional() @Inject(ENGINEERING_API) private readonly engineering?: EngineeringPublicApi,
   ) {}
 
   /** The room's readiness right now, dimension by dimension. */
@@ -46,10 +49,15 @@ export class ReadinessService {
         openEngineeringWork = null;
       }
     }
+    // A platform restriction (engineering took the room out of use) counts like a PMS out-of-order status.
+    const restriction =
+      dimensions.includes('NO_OOO') && !state.frontOffice
+        ? await this.engineering?.activeRestriction(scope.tenantId, scope.propertyId, state.roomId)
+        : null;
     return evaluateReadiness(dimensions, {
       occupancy: state.occupancy,
       housekeeping: state.housekeeping,
-      frontOffice: state.frontOffice,
+      frontOffice: state.frontOffice ?? restriction?.kind ?? null,
       openEngineeringWork,
     });
   }
@@ -76,17 +84,22 @@ export class ReadinessService {
     return updated;
   }
 
-  /** Engineering work opened or closed at a room the platform tracks. */
+  /** Engineering work opened or closed, or a restriction set or lifted, at a room the platform tracks. */
   async apply(envelope: EventEnvelope): Promise<void> {
     const tenantId = envelope.tenant_id;
     const propertyId = envelope.property_id;
     if (!tenantId || !propertyId) return;
-    const workItemId = (envelope.payload as { work_item_id?: string }).work_item_id;
-    if (!workItemId) return;
-    const work = await this.ops.getWorkItem(tenantId, workItemId);
-    if (!work || work.departmentCode !== ENGINEERING || !work.locationId) return;
     const scope = { tenantId, propertyId };
-    const roomId = work.locationId;
+    let roomId: string;
+    if (envelope.event_type === RoomRestrictionChanged.type) {
+      roomId = RoomRestrictionChanged.parse(envelope).payload.room_id;
+    } else {
+      const workItemId = (envelope.payload as { work_item_id?: string }).work_item_id;
+      if (!workItemId) return;
+      const work = await this.ops.getWorkItem(tenantId, workItemId);
+      if (!work || work.departmentCode !== ENGINEERING || !work.locationId) return;
+      roomId = work.locationId;
+    }
     await this.tx.run(async () => {
       if (!(await this.repo.state({ tenantId }, roomId))) return;
       await this.refresh(scope, await this.repo.stateForUpdate(scope, roomId), new Date());

@@ -251,5 +251,18 @@
   "errors.eng.part.number_taken": "Another part at this property has this number.",
   "errors.eng.part.insufficient_stock": "Not enough of this part on hand ({onHand}).",
   "errors.eng.warranty.not_found": "This warranty case does not exist.",
-  "errors.eng.warranty.version_conflict": "This warranty case was changed by someone else. Reload and try again."
+  "errors.eng.warranty.version_conflict": "This warranty case was changed by someone else. Reload and try again.",
+  "errors.eng.meter.exists": "This equipment already has a meter of this kind.",
+  "errors.eng.meter.not_found": "This meter does not exist.",
+  "errors.eng.meter.reading_lower": "A reading cannot be lower than the last one ({last}) unless the meter was replaced.",
+  "errors.eng.procedure.code_taken": "A procedure with this code already exists.",
+  "errors.eng.procedure.not_found": "This procedure does not exist.",
+  "errors.eng.procedure.draft_exists": "This procedure already has a draft; publish or change it first.",
+  "errors.eng.procedure.not_draft": "Only a draft can be published; published versions never change.",
+  "errors.eng.pm_plan.not_found": "This maintenance plan does not exist.",
+  "errors.eng.pm_plan.version_conflict": "This maintenance plan was changed by someone else. Reload and try again.",
+  "errors.eng.restriction.not_found": "This restriction does not exist.",
+  "errors.eng.restriction.already_restricted": "This room is already out of order or out of service.",
+  "errors.eng.restriction.released": "This restriction was already lifted.",
+  "errors.eng.restriction.period": "A restriction must end after it starts."
 }
