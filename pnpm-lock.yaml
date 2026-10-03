@@ -620,6 +620,9 @@ importers:
       '@hotella/platform-observability':
         specifier: workspace:*
         version: link:../observability
+      '@hotella/platform-secrets':
+        specifier: workspace:*
+        version: link:../secrets
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -978,6 +981,9 @@ importers:
       '@hotella/platform-observability':
         specifier: workspace:*
         version: link:../observability
+      '@hotella/platform-secrets':
+        specifier: workspace:*
+        version: link:../secrets
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -1003,6 +1009,9 @@ importers:
 
   packages/platform/secrets:
     dependencies:
+      '@hotella/platform-config':
+        specifier: workspace:*
+        version: link:../config
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)

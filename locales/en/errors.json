@@ -62,5 +62,6 @@
   "errors.iam.support.requester_not_support": "Only platform support engineers can request support access.",
   "errors.iam.support.scope_not_read_only": "A read-only request may include only viewing permissions.",
   "errors.iam.support.not_pending": "This support access request is no longer waiting for approval.",
-  "errors.iam.support.not_found": "Support access request not found."
+  "errors.iam.support.not_found": "Support access request not found.",
+  "errors.platform.dependency_unavailable": "A required service is temporarily unavailable. Please try again shortly."
 }

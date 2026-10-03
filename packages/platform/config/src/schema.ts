@@ -69,6 +69,34 @@ export const envSchema = z.object({
     .regex(/^[a-z][a-z0-9+.-]*:\/\//i, 'must be a SecretRef like vault://iam/mfa#key')
     .optional(),
   IAM_JWT_ISSUER: z.string().min(1).default('hotella'),
+
+  /**
+   * Credentials inside connection URLs are for local development only. Deployed environments give a URL without a
+   * password and a SecretRef for it (CLAUDE.md rule 13).
+   */
+  DATABASE_PASSWORD_REF: z
+    .string()
+    .regex(
+      /^[a-z][a-z0-9+.-]*:\/\//i,
+      'must be a SecretRef like vault://kv/hotella/api#db_password',
+    )
+    .optional(),
+  VALKEY_PASSWORD_REF: z
+    .string()
+    .regex(
+      /^[a-z][a-z0-9+.-]*:\/\//i,
+      'must be a SecretRef like vault://kv/hotella/api#valkey_password',
+    )
+    .optional(),
+
+  /** KV v2 secret store (OpenBao or HashiCorp Vault; ADR-0010/0013). Credentials are files, never values. */
+  SECRETS_VAULT_ADDR: z.url().optional(),
+  SECRETS_VAULT_AUTH: z.enum(['approle', 'token']).default('approle'),
+  SECRETS_VAULT_APPROLE_MOUNT: z.string().min(1).default('approle'),
+  SECRETS_VAULT_ROLE_ID_FILE: z.string().min(1).optional(),
+  SECRETS_VAULT_SECRET_ID_FILE: z.string().min(1).optional(),
+  SECRETS_VAULT_TOKEN_FILE: z.string().min(1).optional(),
+  SECRETS_VAULT_NAMESPACE: z.string().min(1).optional(),
   IAM_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(900),
   IAM_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   IAM_LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
@@ -90,8 +118,19 @@ export interface AppConfig {
   };
   readonly logging: { readonly level: Env['LOG_LEVEL'] };
   readonly shutdown: { readonly timeoutMs: number };
-  readonly database: { readonly url: string };
-  readonly valkey: { readonly url: string };
+  readonly database: { readonly url: string; readonly passwordRef: string | null };
+  readonly valkey: { readonly url: string; readonly passwordRef: string | null };
+  readonly secrets: {
+    readonly vault: {
+      readonly address: string;
+      readonly auth: 'approle' | 'token';
+      readonly approleMount: string;
+      readonly roleIdFile: string | null;
+      readonly secretIdFile: string | null;
+      readonly tokenFile: string | null;
+      readonly namespace: string | null;
+    } | null;
+  };
   readonly http: { readonly rateLimitPerMinute: number; readonly openApiEnabled: boolean };
   readonly worker: {
     readonly queues: 'all' | readonly string[];
@@ -148,6 +187,20 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
     );
   }
   const e = parsed.data;
+  if (e.SECRETS_VAULT_ADDR) {
+    const needs: Array<[string, string | undefined]> =
+      e.SECRETS_VAULT_AUTH === 'token'
+        ? [['SECRETS_VAULT_TOKEN_FILE', e.SECRETS_VAULT_TOKEN_FILE]]
+        : [
+            ['SECRETS_VAULT_ROLE_ID_FILE', e.SECRETS_VAULT_ROLE_ID_FILE],
+            ['SECRETS_VAULT_SECRET_ID_FILE', e.SECRETS_VAULT_SECRET_ID_FILE],
+          ];
+    const missing = needs.filter(([, v]) => !v);
+    if (missing.length > 0)
+      throw new ConfigValidationError(
+        missing.map(([path]) => ({ path, message: `required when SECRETS_VAULT_ADDR is set` })),
+      );
+  }
   if (e.NODE_ENV === 'production') {
     const missing = (
       [
@@ -166,8 +219,21 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
     app: { name: e.APP_NAME, host: e.HOST, port: e.PORT, publicBaseUrl: e.PUBLIC_BASE_URL },
     logging: { level: e.LOG_LEVEL },
     shutdown: { timeoutMs: e.SHUTDOWN_TIMEOUT_MS },
-    database: { url: e.DATABASE_URL },
-    valkey: { url: e.VALKEY_URL },
+    database: { url: e.DATABASE_URL, passwordRef: e.DATABASE_PASSWORD_REF ?? null },
+    valkey: { url: e.VALKEY_URL, passwordRef: e.VALKEY_PASSWORD_REF ?? null },
+    secrets: {
+      vault: e.SECRETS_VAULT_ADDR
+        ? {
+            address: e.SECRETS_VAULT_ADDR,
+            auth: e.SECRETS_VAULT_AUTH,
+            approleMount: e.SECRETS_VAULT_APPROLE_MOUNT,
+            roleIdFile: e.SECRETS_VAULT_ROLE_ID_FILE ?? null,
+            secretIdFile: e.SECRETS_VAULT_SECRET_ID_FILE ?? null,
+            tokenFile: e.SECRETS_VAULT_TOKEN_FILE ?? null,
+            namespace: e.SECRETS_VAULT_NAMESPACE ?? null,
+          }
+        : null,
+    },
     http: {
       rateLimitPerMinute: e.RATE_LIMIT_PER_MINUTE,
       openApiEnabled: e.OPENAPI_ENABLED && e.NODE_ENV !== 'production',

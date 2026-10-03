@@ -8,6 +8,7 @@ import {
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import { RequestContext } from '@hotella/platform-observability';
 import type { Redis } from 'ioredis';
+import { SecretResolver, urlWithSecretPassword } from '@hotella/platform-secrets';
 import { createValkeyConnection } from './connection';
 import { QueueRegistry } from './registry';
 import { BullmqEventTransport } from './transport';
@@ -33,8 +34,11 @@ export class QueueModule implements OnApplicationShutdown {
       providers: [
         {
           provide: VALKEY,
-          inject: [APP_CONFIG],
-          useFactory: (config: AppConfig): Redis => createValkeyConnection(config.valkey.url),
+          inject: [APP_CONFIG, { token: SecretResolver, optional: true }],
+          useFactory: async (config: AppConfig, secrets?: SecretResolver): Promise<Redis> =>
+            createValkeyConnection(
+              await urlWithSecretPassword(config.valkey.url, config.valkey.passwordRef, secrets),
+            ),
         },
         {
           provide: QueueRegistry,

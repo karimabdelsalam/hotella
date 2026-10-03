@@ -2,6 +2,7 @@
 /**
  * hotella-db <command>
  *   migrate            apply pending migrations to DATABASE_URL
+ *   grant <role>       grant the application's ordinary DB role access to the application schemas (after migrate)
  *   generate [name]    drizzle-kit generate (writes SQL to ./migrations; REVIEW IT before committing)
  *   check              fail if the schema code has changes not captured by a migration (drift)
  *   studio             drizzle-kit studio
@@ -73,12 +74,24 @@ switch (cmd) {
     console.log('db:check OK — schema and migrations are in sync');
     break;
   }
+  case 'grant': {
+    const { grantApplicationRole } = require(join(pkgDir, 'dist', 'migrate.js'));
+    const url = process.env.DATABASE_URL;
+    const role = rest[0];
+    if (!url || !role) {
+      console.error('usage: DATABASE_URL=<admin url> hotella-db grant <role>');
+      process.exit(1);
+    }
+    await grantApplicationRole(url, role);
+    console.log(`grants applied to ${role}`);
+    break;
+  }
   case 'studio': {
     const r = drizzleKit(['studio', '--config', 'drizzle.config.ts']);
     process.exit(r.status ?? 1);
     break;
   }
   default:
-    console.error('usage: hotella-db <migrate|generate [name]|check|studio>');
+    console.error('usage: hotella-db <migrate|grant <role>|generate [name]|check|studio>');
     process.exit(1);
 }

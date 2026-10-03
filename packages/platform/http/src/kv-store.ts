@@ -12,6 +12,8 @@ export interface KeyValueStore {
     windowSeconds: number,
   ): Promise<{ count: number; resetInSeconds: number }>;
   delete(key: string): Promise<void>;
+  /** Releases connections at shutdown (stores that own one). */
+  close?(): Promise<void>;
 }
 export const KV_STORE = Symbol('KV_STORE');
 
@@ -41,6 +43,9 @@ export class ValkeyKeyValueStore implements KeyValueStore {
   }
   async delete(key: string): Promise<void> {
     await this.client.del(key);
+  }
+  async close(): Promise<void> {
+    await this.client.quit().catch(() => this.client.disconnect());
   }
 }
 

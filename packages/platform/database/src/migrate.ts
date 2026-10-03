@@ -51,3 +51,40 @@ export async function runMigrations(url: string): Promise<void> {
     await lock.end();
   }
 }
+
+/** Schemas the application reads and writes. The migration journal schema is deliberately not granted. */
+export const APPLICATION_SCHEMAS = ['org', 'iam', 'audit', 'platform'] as const;
+const ROLE_RE = /^[a-z_][a-z0-9_]{0,62}$/;
+
+/**
+ * Grants the application's ordinary (non-superuser, RLS-bound) role what it needs after migrations: USAGE on the
+ * application schemas and DML on their tables, including tables future migrations create (default privileges).
+ * Append-only tables stay append-only because their triggers reject UPDATE/DELETE regardless of grants.
+ */
+export async function grantApplicationRole(url: string, role: string): Promise<void> {
+  if (!ROLE_RE.test(role)) throw new Error(`Invalid role name "${role}"`);
+  const client = new Client({ connectionString: url, application_name: 'hotella-grant' });
+  await client.connect();
+  try {
+    const { rows } = await client.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+      'select rolsuper, rolbypassrls from pg_roles where rolname = $1',
+      [role],
+    );
+    if (rows.length === 0) throw new Error(`Role "${role}" does not exist`);
+    if (rows[0]!.rolsuper || rows[0]!.rolbypassrls)
+      throw new Error(
+        `Role "${role}" bypasses row-level security; the application must use an ordinary role`,
+      );
+    for (const schema of APPLICATION_SCHEMAS) {
+      await client.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${role}"`);
+      await client.query(
+        `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${schema}" TO "${role}"`,
+      );
+      await client.query(
+        `ALTER DEFAULT PRIVILEGES IN SCHEMA "${schema}" GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "${role}"`,
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}

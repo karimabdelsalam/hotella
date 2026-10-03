@@ -62,5 +62,6 @@
   "errors.iam.support.requester_not_support": "يمكن لمهندسي الدعم الفني بالمنصة فقط طلب وصول الدعم.",
   "errors.iam.support.scope_not_read_only": "طلب القراءة فقط يجب أن يتضمن صلاحيات العرض فقط.",
   "errors.iam.support.not_pending": "طلب وصول الدعم هذا لم يعد بانتظار الموافقة.",
-  "errors.iam.support.not_found": "طلب وصول الدعم غير موجود."
+  "errors.iam.support.not_found": "طلب وصول الدعم غير موجود.",
+  "errors.platform.dependency_unavailable": "إحدى الخدمات المطلوبة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل."
 }

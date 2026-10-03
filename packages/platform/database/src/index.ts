@@ -24,6 +24,8 @@ export {
   MIGRATION_LOCK_KEY,
   MIGRATIONS_SCHEMA,
   MIGRATIONS_TABLE,
+  APPLICATION_SCHEMAS,
+  grantApplicationRole,
   migrationsFolder,
   runMigrations,
 } from './migrate';

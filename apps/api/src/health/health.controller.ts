@@ -1,10 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { Public } from '@hotella/platform-auth';
+import { SkipRateLimit } from '@hotella/platform-http';
 import { HealthCheck, HealthCheckService, type HealthCheckResult } from '@nestjs/terminus';
 import { PostgresHealthIndicator } from './postgres.health';
 import { ValkeyHealthIndicator } from './valkey.health';
 
+/** Probes are never rate limited: an orchestrator polling them must not depend on the limiter store. */
 @Public()
+@SkipRateLimit()
 @Controller()
 export class HealthController {
   constructor(

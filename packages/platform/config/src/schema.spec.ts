@@ -83,6 +83,23 @@ describe('loadConfig', () => {
     expect(prod.iam.mfaKeyRef).toBe('vault://iam/mfa#key');
   });
 
+  it('secret store and password refs: files for credentials, refs for passwords', () => {
+    expect(loadConfig(valid).secrets.vault).toBeNull();
+    expect(() => loadConfig({ ...valid, SECRETS_VAULT_ADDR: 'https://bao:8200' })).toThrow(
+      /SECRETS_VAULT_ROLE_ID_FILE/,
+    );
+    const cfg = loadConfig({
+      ...valid,
+      SECRETS_VAULT_ADDR: 'https://bao:8200',
+      SECRETS_VAULT_ROLE_ID_FILE: '/run/secrets/role_id',
+      SECRETS_VAULT_SECRET_ID_FILE: '/run/secrets/secret_id',
+      DATABASE_PASSWORD_REF: 'vault://kv/hotella/api#db_password',
+    });
+    expect(cfg.secrets.vault).toMatchObject({ auth: 'approle', approleMount: 'approle' });
+    expect(cfg.database.passwordRef).toBe('vault://kv/hotella/api#db_password');
+    expect(() => loadConfig({ ...valid, VALKEY_PASSWORD_REF: 'plaintext' })).toThrow();
+  });
+
   it('rejects unknown log levels and environments', () => {
     expect(() => loadConfig({ ...valid, LOG_LEVEL: 'verbose' })).toThrow();
     expect(() => loadConfig({ ...valid, NODE_ENV: 'staging' })).toThrow();

@@ -10,7 +10,7 @@ import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import { AppError } from '@hotella/platform-i18n';
-import { RequestContext } from '@hotella/platform-observability';
+import { InjectLogger, type Logger, RequestContext } from '@hotella/platform-observability';
 import { KV_STORE, type KeyValueStore } from './kv-store';
 
 export interface RateLimitPolicy {
@@ -40,7 +40,9 @@ export class RateLimitGuard implements CanActivate {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly ctx: RequestContext,
     private readonly reflector: Reflector,
+    @InjectLogger() private readonly logger: Logger,
   ) {}
+  private lastWarnAt = 0;
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const meta = this.reflector.getAllAndOverride<
@@ -59,7 +61,22 @@ export class RateLimitGuard implements CanActivate {
     const subject =
       policy.keyBy === 'ip' ? (req.ip ?? 'unknown') : (this.ctx.actor?.id ?? req.ip ?? 'unknown');
     const key = `hotella:rl:${policy.name}:${subject}`;
-    const { count, resetInSeconds } = await this.store.incrementWindow(key, policy.windowSeconds);
+    let window: { count: number; resetInSeconds: number };
+    try {
+      window = await this.store.incrementWindow(key, policy.windowSeconds);
+    } catch (err) {
+      // Fail open: an unavailable limiter store must not take the API down (credential endpoints keep their
+      // per-account lockout). Logged at most every 30 s.
+      if (Date.now() - this.lastWarnAt > 30_000) {
+        this.lastWarnAt = Date.now();
+        this.logger.warn(
+          { err, policy: policy.name },
+          'rate limiter store unavailable; allowing requests',
+        );
+      }
+      return true;
+    }
+    const { count, resetInSeconds } = window;
     res.setHeader('RateLimit-Limit', String(policy.limit));
     res.setHeader('RateLimit-Remaining', String(Math.max(0, policy.limit - count)));
     res.setHeader('RateLimit-Reset', String(resetInSeconds));

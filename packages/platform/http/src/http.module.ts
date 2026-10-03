@@ -1,4 +1,11 @@
-import { type DynamicModule, Global, Module, type Provider } from '@nestjs/common';
+import {
+  type DynamicModule,
+  Global,
+  Inject,
+  Module,
+  type OnApplicationShutdown,
+  type Provider,
+} from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { VALKEY } from '@hotella/platform-queue';
 import type { Redis } from 'ioredis';
@@ -15,7 +22,13 @@ export interface HttpModuleOptions {
 /** Installs the HTTP conventions globally: Problem Details, rate limiting, idempotency keys (ADR-0012). */
 @Global()
 @Module({})
-export class HttpConventionsModule {
+export class HttpConventionsModule implements OnApplicationShutdown {
+  constructor(@Inject(KV_STORE) private readonly store: KeyValueStore) {}
+
+  async onApplicationShutdown(): Promise<void> {
+    await this.store.close?.();
+  }
+
   static forRoot(options: HttpModuleOptions = {}): DynamicModule {
     const store: Provider =
       options.store === 'memory'
@@ -23,7 +36,17 @@ export class HttpConventionsModule {
         : {
             provide: KV_STORE,
             inject: [VALKEY],
-            useFactory: (v: Redis): KeyValueStore => new ValkeyKeyValueStore(v),
+            // Its own connection that fails fast: the shared BullMQ connection retries forever, which would make every
+            // rate-limited request (and the health probes) hang while Valkey is down.
+            useFactory: (v: Redis): KeyValueStore => {
+              const client = v.duplicate({
+                maxRetriesPerRequest: 1,
+                enableOfflineQueue: false,
+                commandTimeout: 500,
+              });
+              client.on('error', () => undefined); // surfaced by readiness and the limiter's fail-open warning
+              return new ValkeyKeyValueStore(client);
+            },
           };
     return {
       module: HttpConventionsModule,

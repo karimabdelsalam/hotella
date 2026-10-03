@@ -55,7 +55,11 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const scopeKey = `hotella:idem:${hash(`${actor}|${req.method}|${req.baseUrl}${req.path}|${parsed.data}`)}`;
     const bodyHash = hash(JSON.stringify(req.body ?? null));
 
-    return from(this.store.get(scopeKey)).pipe(
+    // The store guards against double execution: when it is unavailable the request is refused (retryable 503)
+    // rather than processed without protection.
+    const unavailable = () =>
+      new AppError('platform.dependency_unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    return from(this.store.get(scopeKey).catch(() => Promise.reject(unavailable()))).pipe(
       switchMap((existing) => {
         if (existing) {
           if (existing === 'IN_FLIGHT')
@@ -66,7 +70,11 @@ export class IdempotencyInterceptor implements NestInterceptor {
           res.status(stored.status).setHeader(IDEMPOTENT_REPLAYED_HEADER, 'true');
           return of(stored.body);
         }
-        return from(this.store.setIfAbsent(scopeKey, 'IN_FLIGHT', IN_FLIGHT_TTL_SECONDS)).pipe(
+        return from(
+          this.store
+            .setIfAbsent(scopeKey, 'IN_FLIGHT', IN_FLIGHT_TTL_SECONDS)
+            .catch(() => Promise.reject(unavailable())),
+        ).pipe(
           switchMap((claimed) => {
             if (!claimed)
               throw new AppError('platform.idempotency_in_progress', HttpStatus.CONFLICT);
@@ -74,10 +82,12 @@ export class IdempotencyInterceptor implements NestInterceptor {
               tap({
                 next: (body) => {
                   const record: StoredResponse = { status: res.statusCode, body, bodyHash };
-                  void this.store.set(scopeKey, JSON.stringify(record), IDEMPOTENCY_TTL_SECONDS);
+                  void this.store
+                    .set(scopeKey, JSON.stringify(record), IDEMPOTENCY_TTL_SECONDS)
+                    .catch(() => undefined); // the in-flight marker expires; a retry then re-executes
                 },
                 error: () => {
-                  void this.store.delete(scopeKey); // a failed attempt may be retried with the same key
+                  void this.store.delete(scopeKey).catch(() => undefined); // a failed attempt may be retried
                 },
               }),
             );

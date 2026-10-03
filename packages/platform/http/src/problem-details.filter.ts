@@ -95,7 +95,10 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       }
     }
 
-    if (status >= 500) {
+    if (code === 'platform.not_ready' || code === 'platform.dependency_unavailable') {
+      // Expected while a dependency is down; probes and retries make this frequent, so it is not an error.
+      this.logger.warn({ code, details }, 'dependency unavailable');
+    } else if (status >= 500) {
       this.logger.error(
         {
           err:

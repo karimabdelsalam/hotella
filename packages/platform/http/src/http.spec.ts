@@ -15,6 +15,7 @@ import { ObservabilityModule } from '@hotella/platform-observability';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HttpConventionsModule } from './http.module';
+import { KV_STORE, type KeyValueStore } from './kv-store';
 import { RateLimit } from './rate-limit.guard';
 
 let counter = 0;
@@ -133,5 +134,50 @@ describe('HTTP conventions (memory store)', () => {
     const res = await request(app.getHttpServer()).post('/things/fail').send({}).expect(500);
     expect(res.body.code).toBe('platform.internal_error');
     expect(JSON.stringify(res.body)).not.toContain('boom');
+  });
+});
+
+/** A limiter/idempotency store that is down (Valkey outage). */
+const downStore: KeyValueStore = {
+  get: () => Promise.reject(new Error('Connection is closed.')),
+  setIfAbsent: () => Promise.reject(new Error('Connection is closed.')),
+  set: () => Promise.reject(new Error('Connection is closed.')),
+  incrementWindow: () => Promise.reject(new Error('Connection is closed.')),
+  delete: () => Promise.reject(new Error('Connection is closed.')),
+};
+
+describe('HTTP conventions when the store is unavailable', () => {
+  let app: INestApplication;
+  beforeAll(async () => {
+    const ref = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ env }),
+        ObservabilityModule.forRoot(),
+        I18nModule.forRoot(),
+        HttpConventionsModule.forRoot({ store: 'memory' }),
+        ThingsModule,
+      ],
+    })
+      .overrideProvider(KV_STORE)
+      .useValue(downStore)
+      .compile();
+    app = ref.createNestApplication({ logger: false });
+    await app.init();
+  });
+  afterAll(() => app.close());
+
+  it('rate limiting fails open instead of hanging or failing the request', async () => {
+    for (let i = 0; i < 4; i++)
+      await request(app.getHttpServer()).get('/things/limited').expect(200);
+  });
+
+  it('requests with an Idempotency-Key get a retryable 503; requests without one proceed', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/things')
+      .set('Idempotency-Key', 'order-0099-abcdef')
+      .send({ name: 'soap' })
+      .expect(503);
+    expect(res.body).toMatchObject({ status: 503, code: 'platform.dependency_unavailable' });
+    await request(app.getHttpServer()).post('/things').send({ name: 'soap' }).expect(201);
   });
 });

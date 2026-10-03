@@ -7,6 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { RequestContext } from '@hotella/platform-observability';
+import { SecretResolver, urlWithSecretPassword } from '@hotella/platform-secrets';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import type { Pool } from 'pg';
 import { createDatabase, type Database, type DatabaseHandle } from './client';
@@ -45,10 +46,17 @@ export class DatabaseModule implements OnApplicationShutdown {
       providers: [
         {
           provide: DATABASE_HANDLE,
-          inject: [APP_CONFIG],
-          useFactory: (config: AppConfig): DatabaseHandle =>
+          inject: [APP_CONFIG, { token: SecretResolver, optional: true }],
+          useFactory: async (
+            config: AppConfig,
+            secrets?: SecretResolver,
+          ): Promise<DatabaseHandle> =>
             createDatabase({
-              url: config.database.url,
+              url: await urlWithSecretPassword(
+                config.database.url,
+                config.database.passwordRef,
+                secrets,
+              ),
               schemas: options.schemas,
               applicationName: config.app.name,
             }),
