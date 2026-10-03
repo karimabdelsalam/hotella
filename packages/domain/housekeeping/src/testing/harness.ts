@@ -48,6 +48,9 @@ export const ADMIN = JSON.stringify({
 export const staff = (id: string, tenantId: string): string =>
   JSON.stringify({ type: 'USER', id, tenantId, isPlatformAdmin: false });
 
+/** Staff a test makes assignable (operations asks identity who holds `task.accept` at the property). */
+export const ASSIGNABLE = new Set<string>();
+
 /** Operations looks staff up through identity; nobody is notified in these tests. */
 @Global()
 @Module({
@@ -56,7 +59,7 @@ export const staff = (id: string, tenantId: string): string =>
       provide: IDENTITY_API,
       useValue: {
         getStaffMember: async () => null,
-        usersWithPermission: async () => [],
+        usersWithPermission: async () => [...ASSIGNABLE],
         usersWithRole: async () => [],
         getStaffContact: async () => null,
       },

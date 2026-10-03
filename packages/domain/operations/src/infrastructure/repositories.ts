@@ -93,6 +93,21 @@ export class OperationsRepositories {
       .limit(filter.limit);
   }
   /** Work items of a stay that are not finished (the staff inbox shows them next to the conversation). */
+  openWorkItemsAtLocation(scope: PropertyScope, locationId: string): Promise<WorkItemRow[]> {
+    return this.x
+      .select()
+      .from(workItems)
+      .where(
+        tenantWhere(
+          workItems,
+          scope,
+          eq(workItems.propertyId, scope.propertyId),
+          eq(workItems.locationId, locationId),
+          inArray(workItems.status, ['OPEN', 'IN_PROGRESS']),
+        ),
+      )
+      .orderBy(asc(workItems.id));
+  }
   openWorkItemsOfStay(scope: TenantScope, stayId: string): Promise<WorkItemRow[]> {
     return this.x
       .select()

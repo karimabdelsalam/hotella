@@ -37,6 +37,25 @@ export const RoomSignalChanged = defineEvent({
   }),
 });
 
+export const READINESS_DIMENSIONS = [
+  'HOUSEKEEPING',
+  'INSPECTION',
+  'ENGINEERING',
+  'NO_OOO',
+] as const;
+
+export const RoomReady = defineEvent({
+  type: 'hk.room.ready',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A vacant room became ready: every readiness dimension the property checks passes (front desk can give it to an arrival).',
+  payload: z.object({
+    room_id: z.uuid(),
+    dimensions: z.array(z.enum(READINESS_DIMENSIONS)),
+  }),
+});
+
 export const CLEANING_TYPES = [
   'STAYOVER',
   'CHECKOUT',

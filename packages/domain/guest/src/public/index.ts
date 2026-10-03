@@ -77,6 +77,13 @@ export interface GuestPublicApi {
     roomId: string,
   ): Promise<readonly StaySummary[]>;
 
+  /** Expected (not yet arrived) stays of a property for a day, YYYY-MM-DD; a pre-assigned room is `currentRoomId`. */
+  expectedArrivals(
+    tenantId: string,
+    propertyId: string,
+    day: string,
+  ): Promise<readonly StaySummary[]>;
+
   /** Current party of a stay (primary first); empty for an unknown stay. */
   stayParty(tenantId: string, stayId: string): Promise<readonly StayPartyMember[]>;
 

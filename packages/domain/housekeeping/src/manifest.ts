@@ -1,6 +1,7 @@
 import {
   HkJobCreated,
   HkJobStatusChanged,
+  RoomReady,
   RoomSignalChanged,
   RoomStateChanged,
 } from '@hotella/contracts-events';
@@ -23,6 +24,10 @@ export const HOUSEKEEPING_MANIFEST = defineManifest({
     RoomSignalChanged.name,
     HkJobCreated.name,
     HkJobStatusChanged.name,
+    RoomReady.name,
+  ],
+  aiTools: [
+    { code: 'housekeeping.set_room_signal', risk: 'LOW', requiredPermission: 'hk.room.manage' },
   ],
   entitlements: ['HOUSEKEEPING'],
   localeNamespaces: ['hk'],

@@ -8085,6 +8085,45 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/housekeeping/rooms/{roomId}/readiness": {
+      "get": {
+        "operationId": "HousekeepingController_readiness",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Housekeeping"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/housekeeping/rooms/{roomId}/state": {
       "post": {
         "operationId": "HousekeepingController_setState",
@@ -8369,6 +8408,88 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/housekeeping/assignments/proposal": {
+      "post": {
+        "operationId": "HousekeepingJobsController_propose",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HousekeepingJobs"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/housekeeping/assignments": {
+      "post": {
+        "operationId": "HousekeepingJobsController_applyAssignments",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyAssignmentsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HousekeepingJobs"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/housekeeping/credit-rules": {
       "get": {
         "operationId": "HousekeepingJobsController_creditRules",
@@ -8440,6 +8561,27 @@
       }
     },
     "/api/v1/guest/room-signals": {
+      "get": {
+        "operationId": "GuestRoomSignalsController_get",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GuestRoomSignals"
+        ]
+      },
       "post": {
         "operationId": "GuestRoomSignalsController_set",
         "parameters": [
@@ -12792,6 +12934,61 @@
         },
         "required": [
           "result"
+        ]
+      },
+      "ProposalDto": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "attendantIds": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": [
+          "attendantIds"
+        ]
+      },
+      "ApplyAssignmentsDto": {
+        "type": "object",
+        "properties": {
+          "assignments": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jobId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "userId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "jobId",
+                "userId"
+              ]
+            }
+          }
+        },
+        "required": [
+          "assignments"
         ]
       },
       "CreditRuleDto": {

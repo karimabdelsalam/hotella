@@ -24,11 +24,13 @@ import { ActorStore, PropertyScoped, Public, RequirePermission } from '@hotella/
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import {
+  applyAssignmentsSchema,
   createJobSchema,
   creditRuleSchema,
   inspectSchema,
   JobService,
   listJobsSchema,
+  proposalSchema,
   skipSchema,
 } from '../application/job.service';
 import { RoomStateService, setStateSchema, signalSchema } from '../application/room-state.service';
@@ -45,6 +47,8 @@ class ListJobsDto extends createZodDto(listJobsSchema) {}
 class SkipDto extends createZodDto(skipSchema) {}
 class InspectDto extends createZodDto(inspectSchema) {}
 class CreditRuleDto extends createZodDto(creditRuleSchema) {}
+class ProposalDto extends createZodDto(proposalSchema) {}
+class ApplyAssignmentsDto extends createZodDto(applyAssignmentsSchema) {}
 
 /** The housekeeping board of a property (Spec §9): rooms, states, signals, history. */
 @Controller('properties/:propertyId/housekeeping')
@@ -76,6 +80,12 @@ export class HousekeepingController {
   @RequirePermission('hk.board.read')
   history(@Param('propertyId') propertyId: string, @Param('roomId') roomId: string) {
     return this.rooms.history(this.scope(propertyId), roomId);
+  }
+
+  @Get('rooms/:roomId/readiness')
+  @RequirePermission('hk.board.read')
+  readiness(@Param('propertyId') propertyId: string, @Param('roomId') roomId: string) {
+    return this.rooms.roomReadiness(this.scope(propertyId), roomId);
   }
 
   @Post('rooms/:roomId/state')
@@ -154,6 +164,20 @@ export class HousekeepingJobsController {
     return this.jobs.inspect(this.scope(propertyId), jobId, body, this.actor());
   }
 
+  @Post('assignments/proposal')
+  @HttpCode(200)
+  @RequirePermission('hk.job.manage', { checkedBy: 'gate' })
+  propose(@Param('propertyId') propertyId: string, @Body() body: ProposalDto) {
+    return this.jobs.propose(this.scope(propertyId), body);
+  }
+
+  @Post('assignments')
+  @HttpCode(200)
+  @RequirePermission('hk.job.manage', { checkedBy: 'gate' })
+  applyAssignments(@Param('propertyId') propertyId: string, @Body() body: ApplyAssignmentsDto) {
+    return this.jobs.applyAssignments(this.scope(propertyId), body);
+  }
+
   @Get('credit-rules')
   @RequirePermission('hk.board.read', { checkedBy: 'gate' })
   creditRules(@Param('propertyId') propertyId: string) {
@@ -178,18 +202,35 @@ export class GuestRoomSignalsController {
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
   ) {}
 
+  /** The guest's room signals that are on now (DND, make up room). */
+  @Get()
+  async get(@CurrentGuest() guest: GuestPrincipal) {
+    const stay = await this.room(guest);
+    const active = await this.rooms.activeSignals(
+      { tenantId: guest.tenantId, propertyId: stay.propertyId },
+      stay.roomId,
+    );
+    return { active: active.filter((s) => s === 'DND' || s === 'MAKE_UP_ROOM') };
+  }
+
   @Post()
   @HttpCode(200)
   async set(@CurrentGuest() guest: GuestPrincipal, @Body() body: GuestSignalDto) {
-    const stay = guest.stayId ? await this.guests.getStay(guest.tenantId, guest.stayId) : null;
-    if (!stay || stay.status !== 'IN_HOUSE' || !stay.currentRoomId)
-      throw AppError.conflict('hk.signal.no_room');
+    const stay = await this.room(guest);
     return this.rooms.signal(
       { tenantId: guest.tenantId, propertyId: stay.propertyId },
-      stay.currentRoomId,
+      stay.roomId,
       body,
       'GUEST_PORTAL',
       { type: 'GUEST', id: guest.guestId },
     );
+  }
+
+  /** The guest's current room: only an in-house stay has one. */
+  private async room(guest: GuestPrincipal) {
+    const stay = guest.stayId ? await this.guests.getStay(guest.tenantId, guest.stayId) : null;
+    if (!stay || stay.status !== 'IN_HOUSE' || !stay.currentRoomId)
+      throw AppError.conflict('hk.signal.no_room');
+    return { propertyId: stay.propertyId, roomId: stay.currentRoomId };
   }
 }

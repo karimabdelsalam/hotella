@@ -270,6 +270,17 @@ export class GuestRepositories {
       .then((r) => r.map((x) => x.stay));
   }
 
+  /** Expected stays of the property arriving on a day (housekeeping prepares their rooms). */
+  expectedArrivals(scope: PropertyScope, day: string): Promise<StayRow[]> {
+    return this.x
+      .select()
+      .from(stays)
+      .where(
+        propertyWhere(stays, scope, eq(stays.status, 'EXPECTED'), eq(stays.expectedArrival, day)),
+      )
+      .orderBy(asc(stays.id));
+  }
+
   /** Every in-house stay of the property (reconciliation, dashboards). */
   inHouseStays(scope: PropertyScope): Promise<StayRow[]> {
     return this.x

@@ -60,6 +60,7 @@ async function mockBackend(page: Page, opts: { signedIn: boolean; locale?: 'en' 
     [];
   let signedIn = opts.signedIn;
   const ar = opts.locale === 'ar';
+  let signals: string[] = [];
   await page.route('**/bff/verify', async (r) => {
     calls.push({
       method: 'POST',
@@ -113,6 +114,13 @@ async function mockBackend(page: Page, opts: { signedIn: boolean; locale?: 'en' 
     if (!signedIn) return r.fulfill({ status: 401, json: { code: 'platform.unauthorized' } });
     if (path === 'guest/me') return r.fulfill({ json: me(opts.locale ?? 'en') });
     if (path === 'guest/services') return r.fulfill({ json: catalog(ar) });
+    if (path === 'guest/room-signals' && method === 'POST') {
+      const { signal, active } = r.request().postDataJSON() as { signal: string; active: boolean };
+      // DND and make-up-room exclude each other, as on the server.
+      signals = active ? [signal] : signals.filter((x) => x !== signal);
+      return r.fulfill({ json: { active: signals } });
+    }
+    if (path === 'guest/room-signals') return r.fulfill({ json: { active: signals } });
     if (path === 'guest/services/EXTRA_TOWELS') return r.fulfill({ json: towels(ar) });
     if (path === 'guest/requests' && method === 'POST')
       return r.fulfill({
@@ -200,6 +208,24 @@ test('activates by link and asks for towels in English (left-to-right)', async (
 
   await expect(page.getByRole('heading', { name: 'Welcome, Mona' })).toBeVisible();
   await expect(page.getByText('Room 504')).toBeVisible();
+  // Do not disturb, then make up the room instead: one turns the other off.
+  const dnd = page.getByRole('button', { name: 'Do not disturb' });
+  const makeUp = page.getByRole('button', { name: 'Please make up my room' });
+  await expect(dnd).toHaveAttribute('aria-pressed', 'false');
+  await dnd.click();
+  await expect(dnd).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('We will not disturb you until you turn this off.')).toBeVisible();
+  await makeUp.click();
+  await expect(makeUp).toHaveAttribute('aria-pressed', 'true');
+  await expect(dnd).toHaveAttribute('aria-pressed', 'false');
+  expect(
+    backend.calls
+      .filter((c) => c.path === 'guest/room-signals' && c.method === 'POST')
+      .map((c) => c.body),
+  ).toEqual([
+    { signal: 'DND', active: true },
+    { signal: 'MAKE_UP_ROOM', active: true },
+  ]);
   await page.getByRole('link', { name: /Extra towels/ }).click();
   await expect(page.getByRole('heading', { name: 'Extra towels' })).toBeVisible();
   await page.getByLabel('How many').fill('2');
@@ -229,6 +255,8 @@ test('the guest app in Arabic is right-to-left and fully translated', async ({ p
   await expect(page.getByRole('heading', { name: 'أهلًا منى' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'التدبير الفندقي' })).toBeVisible();
   await expect(page.getByRole('link', { name: /مناشف إضافية/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'غرفتك' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'عدم الإزعاج' })).toBeVisible();
   expect(backend.calls.find((c) => c.path === 'guest/services')?.lang).toBe('ar');
 
   await page.getByRole('link', { name: 'طلباتي' }).click();

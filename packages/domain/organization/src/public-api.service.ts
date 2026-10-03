@@ -24,6 +24,7 @@ function toRoomSummary(r: RoomRow): RoomSummary {
     propertyId: r.propertyId,
     roomNumber: r.roomNumber,
     roomTypeId: r.roomTypeId,
+    floorLabel: r.floorLabel ?? null,
   };
 }
 

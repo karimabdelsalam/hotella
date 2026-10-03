@@ -21,6 +21,8 @@ export interface RoomSummary {
   readonly propertyId: string;
   readonly roomNumber: string;
   readonly roomTypeId: string | null;
+  /** The floor as the hotel names it ("3", "Mezzanine"), when set. */
+  readonly floorLabel: string | null;
 }
 
 export interface LocationSummary {

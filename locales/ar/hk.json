@@ -7,5 +7,16 @@
   "hk.job.title": "{type, select, STAYOVER {تنظيف غرفة مقيم} CHECKOUT {تنظيف بعد المغادرة} ARRIVAL {تجهيز للوصول} DEEP_CLEAN {تنظيف عميق} TURNDOWN {تجهيز مسائي} TOUCH_UP {تنظيف سريع} VIP {تجهيز كبار الزوار} other {تنظيف}} · غرفة {room}",
   "hk.work_kind.job": "تنظيف غرفة",
   "hk.setting.inspection_required": "الغرف المنظفة تنتظر فحص المشرف قبل أن تصبح جاهزة",
-  "hk.setting.stayover_hour": "الساعة (بتوقيت الفندق) التي تُنشأ منها مهام تنظيف غرف المقيمين"
+  "hk.setting.stayover_hour": "الساعة (بتوقيت الفندق) التي تُنشأ منها مهام تنظيف غرف المقيمين",
+  "hk.setting.readiness_dimensions": "ما يجب أن تجتازه الغرفة الشاغرة لتكون جاهزة",
+  "hk.setting.arrival_clean": "فحص نهائي للغرفة النظيفة يوم وصول النزيل",
+  "hk.readiness.dimension.HOUSEKEEPING": "تم التنظيف",
+  "hk.readiness.dimension.INSPECTION": "تم الفحص",
+  "hk.readiness.dimension.ENGINEERING": "لا صيانة مفتوحة",
+  "hk.readiness.dimension.NO_OOO": "ليست خارج الخدمة",
+  "hk.readiness.reason.NOT_CLEAN": "لم يتم تنظيف الغرفة بعد.",
+  "hk.readiness.reason.NOT_INSPECTED": "لم يتم فحص الغرفة بعد.",
+  "hk.readiness.reason.OPEN_ENGINEERING_WORK": "ما زالت هناك أعمال صيانة مفتوحة في هذه الغرفة.",
+  "hk.readiness.reason.ENGINEERING_UNKNOWN": "تعذر التحقق من أعمال الصيانة المفتوحة.",
+  "hk.readiness.reason.OUT_OF_ORDER": "الغرفة خارج الخدمة."
 }

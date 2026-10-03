@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   date,
   index,
   numeric,
@@ -61,6 +62,9 @@ export const roomStates = classify(
       lastInspectedAt: tz('last_inspected_at'),
       /** Time of the last PMS event applied (older ones are ignored). */
       lastPmsEventAt: tz('last_pms_event_at'),
+      /** Readiness v0 (Spec §16): vacant and every configured dimension passes; recomputed on each change. */
+      ready: boolean('ready').notNull().default(false),
+      readySince: tz('ready_since'),
       createdAt: tz('created_at').notNull().defaultNow(),
       updatedAt: tz('updated_at').notNull().defaultNow(),
       ...versioned(),
@@ -77,6 +81,8 @@ export const roomStates = classify(
     lastCleanedAt: 'INTERNAL',
     lastInspectedAt: 'INTERNAL',
     lastPmsEventAt: 'INTERNAL',
+    ready: 'INTERNAL',
+    readySince: 'INTERNAL',
     createdAt: 'INTERNAL',
     updatedAt: 'INTERNAL',
     version: 'INTERNAL',

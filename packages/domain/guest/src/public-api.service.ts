@@ -35,6 +35,17 @@ export class GuestPublicApiService implements GuestPublicApi {
     return out;
   }
 
+  async expectedArrivals(
+    tenantId: string,
+    propertyId: string,
+    day: string,
+  ): Promise<readonly StaySummary[]> {
+    const stays = await this.repo.expectedArrivals({ tenantId, propertyId }, day);
+    const out: StaySummary[] = [];
+    for (const s of stays) out.push(await this.summary(tenantId, s));
+    return out;
+  }
+
   async stayParty(tenantId: string, stayId: string): Promise<readonly StayPartyMember[]> {
     const scope = { tenantId };
     const party = await this.repo.activeParty(scope, stayId);

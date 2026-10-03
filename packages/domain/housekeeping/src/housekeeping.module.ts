@@ -1,4 +1,6 @@
-import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
+import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
+import { AI_TOOL_REGISTRY, type AiToolRegistrar } from '@hotella/domain-ai/public';
+import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import { ManifestRegistry } from '@hotella/platform-manifest';
@@ -12,14 +14,18 @@ import {
 } from './api/controllers';
 import { HK_JOB_KIND, JobService } from './application/job.service';
 import { HousekeepingPublicApiService } from './application/public-api.service';
+import { ReadinessService } from './application/readiness.service';
 import { RoomStateService } from './application/room-state.service';
+import { setRoomSignalTool } from './application/signal-tool';
 import { HOUSEKEEPING_SETTINGS } from './domain/settings';
 import { HousekeepingRepositories } from './infrastructure/repositories';
 import { HOUSEKEEPING_MANIFEST } from './manifest';
-import { HOUSEKEEPING_API } from './public';
+import { HOUSEKEEPING_API, type HousekeepingPublicApi } from './public';
 
 /** Inbox consumer of the worker: the room projection follows the PMS (exactly once per event). */
 export const ROOM_STATE_CONSUMER = 'hk.room-states';
+/** Inbox consumer of the worker: engineering work at a room changes its readiness. */
+export const READINESS_CONSUMER = 'hk.readiness';
 /** Inbox consumer of the worker: cleaning jobs are created by check-outs and follow their work items. */
 export const JOB_CONSUMER = 'hk.jobs';
 /** Hourly job: each property's stayover cleans once its configured local hour has passed (idempotent per day). */
@@ -28,27 +34,42 @@ const STAYOVER_EVERY_MS = 60 * 60 * 1000;
 
 /**
  * Housekeeping without HTTP routes (API and worker): repositories, the room projection, cleaning jobs and
- * `HOUSEKEEPING_API`. Registers the `HK_JOB` work kind with the operations engine.
+ * `HOUSEKEEPING_API`. Registers the `HK_JOB` work kind with the operations engine and the concierge's
+ * `housekeeping.set_room_signal` tool.
  */
 @Global()
 @Module({
   providers: [
     HousekeepingRepositories,
+    ReadinessService,
     RoomStateService,
     JobService,
     HousekeepingPublicApiService,
     { provide: HOUSEKEEPING_API, useExisting: HousekeepingPublicApiService },
   ],
-  exports: [HousekeepingRepositories, RoomStateService, JobService, HOUSEKEEPING_API],
+  exports: [
+    HousekeepingRepositories,
+    ReadinessService,
+    RoomStateService,
+    JobService,
+    HOUSEKEEPING_API,
+  ],
 })
 export class HousekeepingCoreModule implements OnModuleInit {
-  constructor(@Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi) {}
+  constructor(
+    @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
+    @Inject(HOUSEKEEPING_API) private readonly housekeeping: HousekeepingPublicApi,
+    @Inject(GUEST_API) private readonly guests: GuestPublicApi,
+    @Optional() @Inject(AI_TOOL_REGISTRY) private readonly tools?: AiToolRegistrar,
+  ) {}
   onModuleInit(): void {
     this.ops.registerWorkItemKind({
       code: HK_JOB_KIND,
       module: 'hk',
       descriptionKey: 'hk.work_kind.job',
     });
+    // The concierge's tool, when the AI tools are composed (API and worker).
+    this.tools?.register(setRoomSignalTool(this.housekeeping, this.guests));
   }
 }
 
@@ -80,6 +101,7 @@ export class HousekeepingWorkerModule implements OnModuleInit {
     private readonly queues: QueueRegistry,
     private readonly rooms: RoomStateService,
     private readonly jobs: JobService,
+    private readonly readiness: ReadinessService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
   async onModuleInit(): Promise<void> {
@@ -87,8 +109,10 @@ export class HousekeepingWorkerModule implements OnModuleInit {
       this.consumers.on(def.name, ROOM_STATE_CONSUMER, (envelope) => this.rooms.applyPms(envelope));
     for (const def of JobService.consumes)
       this.consumers.on(def.name, JOB_CONSUMER, (envelope) => this.jobs.apply(envelope));
+    for (const def of ReadinessService.consumes)
+      this.consumers.on(def.name, READINESS_CONSUMER, (envelope) => this.readiness.apply(envelope));
     this.consumers.onJob(STAYOVER_JOB, async () => {
-      await this.jobs.generateStayovers();
+      await this.jobs.generateDaily();
     });
     if (!this.config.worker.schedulerEnabled) return;
     await this.queues.queue('normal').upsertJobScheduler(

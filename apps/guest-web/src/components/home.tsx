@@ -55,6 +55,73 @@ export function SignedOut() {
   );
 }
 
+type Signal = 'DND' | 'MAKE_UP_ROOM';
+
+/** Do not disturb / please make up my room for the guest's current room (each turns the other off). */
+function RoomSignals() {
+  const t = useTranslations('portal.home');
+  const locale = useLocale();
+  const [active, setActive] = useState<readonly Signal[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    api<{ active: Signal[] }>('guest/room-signals', locale)
+      .then((r) => setActive(r.active))
+      .catch(() => setActive(null));
+  }, [locale]);
+  if (!active) return null;
+  const toggle = async (signal: Signal) => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const r = await api<{ active: Signal[] }>('guest/room-signals', locale, {
+        body: { signal, active: !active.includes(signal) },
+      });
+      setActive(r.active.filter((s) => s === 'DND' || s === 'MAKE_UP_ROOM'));
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const item = (signal: Signal, label: string, on: string) => {
+    const pressed = active.includes(signal);
+    return (
+      <li>
+        <button
+          type="button"
+          aria-pressed={pressed}
+          disabled={busy}
+          data-signal={signal}
+          onClick={() => void toggle(signal)}
+          className={`w-full rounded-lg border px-3 py-2 text-start text-sm ${
+            pressed ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white'
+          }`}
+        >
+          {label}
+        </button>
+        {pressed && <p className="mt-1 text-xs text-slate-600">{on}</p>}
+      </li>
+    );
+  };
+  return (
+    <section aria-labelledby="room-signals" className="flex flex-col gap-2">
+      <h2 id="room-signals" className="text-sm font-semibold uppercase text-slate-500">
+        {t('room_signals')}
+      </h2>
+      <ul className="grid grid-cols-2 gap-2">
+        {item('DND', t('dnd'), t('dnd_on'))}
+        {item('MAKE_UP_ROOM', t('make_up'), t('make_up_on'))}
+      </ul>
+      {failed && (
+        <p role="alert" className="text-sm text-red-700">
+          {t('signal_failed')}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** The guest's home: greeting, room, the service catalog and links to requests and chat. */
 export function Home() {
   const t = useTranslations('portal.home');
@@ -125,6 +192,7 @@ export function Home() {
                 )}
               </nav>
             </Card>
+            {me.stay?.room && me.scopes.includes('SERVICE_REQUEST') && <RoomSignals />}
             {catalog?.categories.map((c) => (
               <section
                 key={c.code}

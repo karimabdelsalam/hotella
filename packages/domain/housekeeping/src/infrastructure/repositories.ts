@@ -55,6 +55,8 @@ export class HousekeepingRepositories {
         | 'lastCleanedAt'
         | 'lastInspectedAt'
         | 'lastPmsEventAt'
+        | 'ready'
+        | 'readySince'
       >
     >,
   ): Promise<RoomStateRow> {
@@ -240,15 +242,17 @@ export class HousekeepingRepositories {
   }
 
   // ---- the daily sweep (all tenants: the worker runs it without a tenant) ----
-  occupiedRooms() {
+  /** Every room the platform tracks, across tenants (the worker's daily sweep; RLS applies inside a tenant). */
+  trackedRooms() {
     return this.x
       .select({
         tenantId: roomStates.tenantId,
         propertyId: roomStates.propertyId,
         roomId: roomStates.roomId,
+        occupancy: roomStates.occupancy,
+        housekeeping: roomStates.housekeeping,
       })
       .from(roomStates)
-      .where(eq(roomStates.occupancy, 'OCCUPIED'))
       .orderBy(asc(roomStates.tenantId), asc(roomStates.propertyId), asc(roomStates.roomId));
   }
 }

@@ -7,5 +7,16 @@
   "hk.job.title": "{type, select, STAYOVER {Stayover clean} CHECKOUT {Check-out clean} ARRIVAL {Arrival clean} DEEP_CLEAN {Deep clean} TURNDOWN {Turndown} TOUCH_UP {Touch-up} VIP {VIP set-up} other {Cleaning}} · room {room}",
   "hk.work_kind.job": "Room cleaning",
   "hk.setting.inspection_required": "Cleaned rooms wait for a supervisor's inspection before they are ready",
-  "hk.setting.stayover_hour": "Hour of the day (property time) from which stayover cleans are created"
+  "hk.setting.stayover_hour": "Hour of the day (property time) from which stayover cleans are created",
+  "hk.setting.readiness_dimensions": "What a vacant room must pass to be ready",
+  "hk.setting.arrival_clean": "Give a clean room a final arrival check on the day a guest arrives",
+  "hk.readiness.dimension.HOUSEKEEPING": "Cleaned",
+  "hk.readiness.dimension.INSPECTION": "Inspected",
+  "hk.readiness.dimension.ENGINEERING": "No open maintenance",
+  "hk.readiness.dimension.NO_OOO": "Not out of order",
+  "hk.readiness.reason.NOT_CLEAN": "The room has not been cleaned yet.",
+  "hk.readiness.reason.NOT_INSPECTED": "The room has not been inspected yet.",
+  "hk.readiness.reason.OPEN_ENGINEERING_WORK": "Maintenance work is still open in this room.",
+  "hk.readiness.reason.ENGINEERING_UNKNOWN": "Open maintenance work could not be checked.",
+  "hk.readiness.reason.OUT_OF_ORDER": "The room is out of order or out of service."
 }

@@ -38,6 +38,8 @@ export {
   ROOM_SIGNALS,
   ROOM_STATE_CAUSES,
   ROOM_STATE_DIMENSIONS,
+  READINESS_DIMENSIONS,
+  RoomReady,
   RoomSignalChanged,
   RoomStateChanged,
 } from './hk-events';

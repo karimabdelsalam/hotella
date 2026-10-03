@@ -8,6 +8,7 @@ import {
   StayRoomChanged,
   WorkItemStatusChanged,
 } from '@hotella/contracts-events';
+import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '@hotella/domain-integrations/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
@@ -33,7 +34,8 @@ import {
   localHour,
   resolveCredits,
 } from '../domain/jobs';
-import { HK_INSPECTION_REQUIRED, HK_STAYOVER_HOUR } from '../domain/settings';
+import { type BalancerJob, proposeAssignments } from '../domain/balancer';
+import { HK_ARRIVAL_CLEAN, HK_INSPECTION_REQUIRED, HK_STAYOVER_HOUR } from '../domain/settings';
 import { HousekeepingRepositories } from '../infrastructure/repositories';
 import type { JobRow } from '../infrastructure/schema';
 import { RoomStateService } from './room-state.service';
@@ -70,6 +72,16 @@ export const listJobsSchema = z.object({
     )
     .optional(),
 });
+export const proposalSchema = z.object({
+  day: isoDay.optional(),
+  attendantIds: z.array(z.uuid()).min(1).max(50),
+});
+export const applyAssignmentsSchema = z.object({
+  assignments: z
+    .array(z.object({ jobId: z.uuid(), userId: z.uuid() }))
+    .min(1)
+    .max(500),
+});
 export const skipSchema = z.object({ reason: z.string().trim().min(1).max(200) });
 export const inspectSchema = z.object({
   result: z.enum(['PASS', 'FAIL']),
@@ -86,6 +98,8 @@ interface Actor {
   readonly id: string | null;
 }
 const SYSTEM: Actor = { type: 'SYSTEM', id: null };
+/** An arrival clean is a final check of a room that is already clean (dirty rooms have their CHECKOUT clean). */
+const ARRIVAL_READY = new Set(['CLEAN', 'INSPECTED']);
 
 /**
  * Cleaning jobs (Spec §9.1–§9.2, BUILD_PLAN 7.2) on the operations engine: a job is an `HK_JOB` work item for the
@@ -109,6 +123,7 @@ export class JobService {
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
     @Inject(INTEGRATIONS_API) private readonly integrations: IntegrationsPublicApi,
+    @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -396,91 +411,202 @@ export class JobService {
     return result;
   }
 
-  // ---- the daily stayover sweep (worker, hourly) ----
+  // ---- the daily sweep (worker, hourly) ----
 
-  /** Creates the day's STAYOVER cleans for occupied rooms of every property past its configured hour. */
-  async generateStayovers(now = new Date()): Promise<number> {
-    const occupied = await this.tx.read(() => this.repo.occupiedRooms());
-    const byProperty = new Map<string, { tenantId: string; propertyId: string; rooms: string[] }>();
-    for (const r of occupied) {
+  /**
+   * Once a property's local hour passed `hk.stayover.hour`: the day's STAYOVER clean for each occupied room and, when
+   * `hk.arrival.clean` is on, an ARRIVAL clean for each vacant clean room an expected guest is assigned to today. Both
+   * are idempotent per room, type and day, so the hourly run creates each once.
+   */
+  async generateDaily(now = new Date()): Promise<number> {
+    const tracked = await this.tx.read(() => this.repo.trackedRooms());
+    const byProperty = new Map<
+      string,
+      { tenantId: string; propertyId: string; rooms: typeof tracked }
+    >();
+    for (const r of tracked) {
       const key = `${r.tenantId}|${r.propertyId}`;
       const entry = byProperty.get(key) ?? {
         tenantId: r.tenantId,
         propertyId: r.propertyId,
         rooms: [],
       };
-      entry.rooms.push(r.roomId);
+      entry.rooms.push(r);
       byProperty.set(key, entry);
     }
     let created = 0;
     for (const p of byProperty.values()) {
       const scope = { tenantId: p.tenantId, propertyId: p.propertyId };
-      const property = await this.org.getProperty(p.tenantId, p.propertyId);
-      if (!property) continue;
-      if (localHour(now, property.timezone) < (await this.settings.value(HK_STAYOVER_HOUR, scope)))
-        continue;
-      const day = localDay(now, property.timezone);
       // One property's failure (e.g. no Housekeeping department yet) does not hold the others back.
       try {
         created += await this.ctx.run({ tenant_id: p.tenantId, property_id: p.propertyId }, () =>
-          this.tx.run(async () => {
-            let n = 0;
-            for (const roomId of p.rooms) {
-              const job = await this.create(scope, {
-                roomId,
-                cleaningType: 'STAYOVER',
-                scheduledFor: day,
-                origin: 'GENERATED',
-              });
-              if (job) n++;
-            }
-            return n;
-          }),
+          this.dailyFor(scope, p.rooms, now),
         );
       } catch (err) {
         this.logger.warn(
           { err, tenant_id: p.tenantId, property_id: p.propertyId },
-          'stayover cleans not created',
+          'daily cleans not created',
         );
       }
     }
-    if (created > 0) this.logger.info({ created }, 'stayover cleans created');
+    if (created > 0) this.logger.info({ created }, 'daily cleans created');
     return created;
+  }
+
+  private async dailyFor(
+    scope: PropertyScope,
+    rooms: ReadonlyArray<{ roomId: string; occupancy: string; housekeeping: string }>,
+    now: Date,
+  ): Promise<number> {
+    const property = await this.org.getProperty(scope.tenantId, scope.propertyId);
+    if (!property) return 0;
+    if (localHour(now, property.timezone) < (await this.settings.value(HK_STAYOVER_HOUR, scope)))
+      return 0;
+    const day = localDay(now, property.timezone);
+    const wanted: Array<{ roomId: string; type: CleaningType; stayId: string | null }> = rooms
+      .filter((r) => r.occupancy === 'OCCUPIED')
+      .map((r) => ({ roomId: r.roomId, type: 'STAYOVER', stayId: null }));
+    if (await this.settings.value(HK_ARRIVAL_CLEAN, scope)) {
+      const byRoom = new Map(rooms.map((r) => [r.roomId, r]));
+      for (const stay of await this.guests.expectedArrivals(
+        scope.tenantId,
+        scope.propertyId,
+        day,
+      )) {
+        const room = stay.currentRoomId ? byRoom.get(stay.currentRoomId) : undefined;
+        if (room && room.occupancy === 'VACANT' && ARRIVAL_READY.has(room.housekeeping))
+          wanted.push({ roomId: room.roomId, type: 'ARRIVAL', stayId: stay.id });
+      }
+    }
+    return this.tx.run(async () => {
+      let n = 0;
+      for (const w of wanted) {
+        const job = await this.create(scope, {
+          roomId: w.roomId,
+          cleaningType: w.type,
+          scheduledFor: day,
+          origin: 'GENERATED',
+          stayId: w.stayId,
+        });
+        if (job) n++;
+      }
+      return n;
+    });
   }
 
   // ---- reading and configuration ----
 
+  /**
+   * The day's jobs with their room, task, assignee and the room's signals; open jobs of rooms asking to be made up
+   * come first, then by room number (`hk.board.read`).
+   */
   list(scope: PropertyScope, query: z.infer<typeof listJobsSchema>) {
     return this.gate.execute(
       { action: 'hk.board.read', tenantId: scope.tenantId, propertyId: scope.propertyId },
+      () => this.tx.read(async () => this.views(scope, query)),
+    );
+  }
+
+  private async views(scope: PropertyScope, query: z.infer<typeof listJobsSchema>) {
+    const day = query.day ?? (await this.today(scope));
+    const rows = await this.repo.jobsOf(scope, {
+      day,
+      ...(query.status ? { statuses: query.status } : {}),
+    });
+    const rooms = new Map(
+      (await this.org.listRooms(scope.tenantId, scope.propertyId)).map((r) => [r.id, r]),
+    );
+    const signals = await this.repo.openSignals(scope);
+    const has = (roomId: string, signal: string) =>
+      signals.some((x) => x.roomId === roomId && x.signal === signal);
+    const view = async (j: JobRow) => {
+      const work = j.workItemId ? await this.ops.getWorkItem(scope.tenantId, j.workItemId) : null;
+      const task = work?.tasks[0] ?? null;
+      const room = rooms.get(j.roomId);
+      return {
+        ...j,
+        roomNumber: room?.roomNumber ?? null,
+        floorLabel: room?.floorLabel ?? null,
+        taskId: task?.id ?? null,
+        assignee: task?.assignee ?? null,
+        priority: work?.priority ?? null,
+        makeUpRequested: has(j.roomId, 'MAKE_UP_ROOM'),
+        doNotDisturb: has(j.roomId, 'DND') || has(j.roomId, 'PRIVACY'),
+      };
+    };
+    // One query at a time on the transaction's connection.
+    const out: Array<Awaited<ReturnType<typeof view>>> = [];
+    for (const j of rows) out.push(await view(j));
+    const rank = (v: (typeof out)[number]) => (v.status === 'OPEN' && v.makeUpRequested ? 0 : 1);
+    return out.sort(
+      (a, b) =>
+        rank(a) - rank(b) ||
+        (a.roomNumber ?? '').localeCompare(b.roomNumber ?? '', 'en', { numeric: true }),
+    );
+  }
+
+  // ---- assignment proposal (BUILD_PLAN 7.B): code proposes, a person applies ----
+
+  /** The day's open jobs balanced across the chosen attendants by credits, floors kept together (`hk.job.manage`). */
+  propose(scope: PropertyScope, input: z.infer<typeof proposalSchema>) {
+    return this.gate.execute(
+      { action: 'hk.job.manage', tenantId: scope.tenantId, propertyId: scope.propertyId },
       () =>
         this.tx.read(async () => {
-          const day = query.day ?? (await this.today(scope));
-          const rows = await this.repo.jobsOf(scope, {
-            day,
-            ...(query.status ? { statuses: query.status } : {}),
+          const open = await this.views(scope, {
+            ...(input.day ? { day: input.day } : {}),
+            status: ['OPEN'],
           });
-          const rooms = new Map(
-            (await this.org.listRooms(scope.tenantId, scope.propertyId)).map((r) => [
-              r.id,
-              r.roomNumber,
-            ]),
-          );
-          const out = [];
-          for (const j of rows) {
-            const work = j.workItemId
-              ? await this.ops.getWorkItem(scope.tenantId, j.workItemId)
+          const jobs: BalancerJob[] = open.map((j) => ({
+            jobId: j.id,
+            roomNumber: j.roomNumber ?? '',
+            floor: j.floorLabel,
+            credits: j.credits,
+          }));
+          const plan = proposeAssignments(jobs, input.attendantIds);
+          const totalCredits = Math.round(jobs.reduce((t, j) => t + j.credits, 0) * 100) / 100;
+          return {
+            day: open[0]?.scheduledFor ?? input.day ?? (await this.today(scope)),
+            totalCredits,
+            plan,
+          };
+        }),
+    );
+  }
+
+  /**
+   * Applies a (possibly edited) proposal: each job's task is assigned to the attendant through the operations engine
+   * (`task.assign` is checked there; assignment history kept). All or nothing.
+   */
+  applyAssignments(scope: PropertyScope, input: z.infer<typeof applyAssignmentsSchema>) {
+    return this.gate.execute(
+      { action: 'hk.job.manage', tenantId: scope.tenantId, propertyId: scope.propertyId },
+      () =>
+        this.tx.run(async () => {
+          for (const a of input.assignments) {
+            const job = await this.find(scope, a.jobId);
+            if (job.status !== 'OPEN') throw AppError.conflict('hk.job.not_open');
+            const work = job.workItemId
+              ? await this.ops.getWorkItem(scope.tenantId, job.workItemId)
               : null;
-            const task = work?.tasks[0] ?? null;
-            out.push({
-              ...j,
-              roomNumber: rooms.get(j.roomId) ?? null,
-              taskId: task?.id ?? null,
-              assignee: task?.assignee ?? null,
-              priority: work?.priority ?? null,
-            });
+            const task = work?.tasks[0];
+            if (!task) throw AppError.conflict('hk.job.not_open');
+            await this.ops.assignTask(
+              scope,
+              task.id,
+              { type: 'USER', userId: a.userId },
+              'Housekeeping assignment',
+            );
           }
-          return out;
+          await this.audit.record({
+            action: 'hk.assignment.apply',
+            entityType: 'property',
+            entityId: scope.propertyId,
+            tenantId: scope.tenantId,
+            propertyId: scope.propertyId,
+            after: { assignments: input.assignments.length },
+          });
+          return { assigned: input.assignments.length };
         }),
     );
   }

@@ -55,5 +55,11 @@
   "portal.chat.empty": "Write to us; the team replies here.",
   "portal.chat.placeholder": "Write a message…",
   "portal.chat.send": "Send",
-  "portal.chat.error": "Your message was not sent. Please try again."
+  "portal.chat.error": "Your message was not sent. Please try again.",
+  "portal.home.room_signals": "Your room",
+  "portal.home.dnd": "Do not disturb",
+  "portal.home.make_up": "Please make up my room",
+  "portal.home.dnd_on": "We will not disturb you until you turn this off.",
+  "portal.home.make_up_on": "Housekeeping will come to make up your room.",
+  "portal.home.signal_failed": "That did not work. Please try again."
 }

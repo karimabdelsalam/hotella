@@ -109,6 +109,22 @@ export interface OperationsPublicApi {
   /** Open and in-progress work items of a stay, whichever module created them (staff inbox context). */
   openWorkItemsOfStay(tenantId: string, stayId: string): Promise<readonly WorkItemSummary[]>;
   /** The source module withdrew the work (e.g. the guest cancelled the request): open tasks are cancelled. */
+  /** Open work at a location (a room), e.g. engineering work that keeps a room from being ready. */
+  openWorkItemsAtLocation(
+    tenantId: string,
+    propertyId: string,
+    locationId: string,
+  ): Promise<readonly WorkItemSummary[]>;
+  /**
+   * Assigns a task as the current actor (ActionGate `task.assign`; assignment history kept), e.g. a supervisor
+   * applying a housekeeping assignment proposal. API process only.
+   */
+  assignTask(
+    scope: { readonly tenantId: string; readonly propertyId: string },
+    taskId: string,
+    assignee: AssigneeInput,
+    reason?: string | null,
+  ): Promise<TaskSummary>;
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary>;
   /** Declares an approval kind and the handler that runs once a person approves (Spec §8.4). */
   registerApprovalKind(kind: ApprovalKindDefinition): void;

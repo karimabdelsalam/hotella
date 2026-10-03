@@ -55,5 +55,11 @@
   "portal.chat.empty": "اكتب لنا؛ يرد عليك الفريق هنا.",
   "portal.chat.placeholder": "اكتب رسالة…",
   "portal.chat.send": "إرسال",
-  "portal.chat.error": "لم تُرسل رسالتك. يُرجى المحاولة مرة أخرى."
+  "portal.chat.error": "لم تُرسل رسالتك. يُرجى المحاولة مرة أخرى.",
+  "portal.home.room_signals": "غرفتك",
+  "portal.home.dnd": "عدم الإزعاج",
+  "portal.home.make_up": "يرجى تنظيف غرفتي",
+  "portal.home.dnd_on": "لن نزعجك حتى توقف هذا الخيار.",
+  "portal.home.make_up_on": "سيأتي فريق التدبير الفندقي لتنظيف غرفتك.",
+  "portal.home.signal_failed": "لم يتم ذلك. يرجى المحاولة مرة أخرى."
 }

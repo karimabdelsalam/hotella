@@ -30,6 +30,7 @@ import {
 } from '../domain/room-state';
 import { HousekeepingRepositories } from '../infrastructure/repositories';
 import type { RoomStateRow } from '../infrastructure/schema';
+import { ReadinessService } from './readiness.service';
 
 const HK = 'hk';
 
@@ -62,6 +63,7 @@ export class RoomStateService {
     private readonly audit: AuditWriter,
     private readonly gate: ActionGate,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
+    private readonly readiness: ReadinessService,
   ) {}
 
   // ---- the PMS (CLAUDE.md rule 19: occupancy and front-office status are the PMS's) ----
@@ -228,7 +230,7 @@ export class RoomStateService {
         payload: { room_id: current.roomId, dimension: c.dimension, from: c.from, to: c.to, cause },
       });
     }
-    return updated;
+    return changes.length > 0 ? this.readiness.refresh(scope, updated, at) : updated;
   }
 
   // ---- signals (Spec §9.3) ----
@@ -279,6 +281,13 @@ export class RoomStateService {
     });
   }
 
+  /** The signals of a room that are on now. */
+  activeSignals(scope: PropertyScope, roomId: string): Promise<RoomSignal[]> {
+    return this.tx.read(async () =>
+      (await this.repo.openSignals(scope)).filter((s) => s.roomId === roomId).map((s) => s.signal),
+    );
+  }
+
   /** Staff raise or clear a signal (`hk.room.manage`). */
   signalByStaff(
     scope: PropertyScope,
@@ -316,6 +325,8 @@ export class RoomStateService {
                 lastCleanedAt: s?.lastCleanedAt ?? null,
                 lastInspectedAt: s?.lastInspectedAt ?? null,
                 version: s?.version ?? null,
+                ready: s?.ready ?? false,
+                readySince: s?.readySince ?? null,
                 signals: signals
                   .filter((x) => x.roomId === room.id)
                   .map((x) => ({ signal: x.signal, source: x.source, since: x.startedAt })),
@@ -333,6 +344,26 @@ export class RoomStateService {
         this.tx.read(async () => {
           await this.room(scope, roomId);
           return this.repo.history(scope, roomId, 100);
+        }),
+    );
+  }
+
+  /** Why a room is or is not ready, dimension by dimension (`hk.board.read`). */
+  roomReadiness(scope: PropertyScope, roomId: string) {
+    return this.gate.execute(
+      { action: 'hk.board.read', tenantId: scope.tenantId, propertyId: scope.propertyId },
+      () =>
+        this.tx.read(async () => {
+          await this.room(scope, roomId);
+          const state = await this.repo.state(scope, roomId);
+          if (!state)
+            return { roomId, ready: false, occupied: false, tracked: false, dimensions: [] };
+          return {
+            roomId,
+            tracked: true,
+            readySince: state.readySince,
+            ...(await this.readiness.evaluate(scope, state)),
+          };
         }),
     );
   }

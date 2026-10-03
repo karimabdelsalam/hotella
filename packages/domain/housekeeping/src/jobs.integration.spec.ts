@@ -356,7 +356,7 @@ describe.skipIf(needsInfra())(`Housekeeping cleaning jobs (${infraSkipReason()})
     ]);
 
     async function sweep(at: Date) {
-      return jobs().generateStayovers(at);
+      return jobs().generateDaily(at);
     }
   });
 

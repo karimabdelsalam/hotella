@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { TransactionRunner } from '@hotella/platform-database';
 import { AlertService } from './application/alert.service';
 import { ApprovalService, approvalSummary } from './application/approval.service';
+import { TaskService } from './application/task.service';
 import { WorkflowEngine } from './application/workflow.service';
 import { WorkItemKindRegistry, WorkService } from './application/work.service';
 import type {
+  AssigneeInput,
   CreateWorkItemInput,
   ApprovalKindDefinition,
   ApprovalSummary,
@@ -26,6 +29,7 @@ export class OperationsPublicApiService implements OperationsPublicApi {
     private readonly approvals: ApprovalService,
     private readonly workflows: WorkflowEngine,
     private readonly tx: TransactionRunner,
+    private readonly modules: ModuleRef,
   ) {}
 
   registerWorkItemKind(kind: WorkItemKindDefinition): void {
@@ -58,6 +62,26 @@ export class OperationsPublicApiService implements OperationsPublicApi {
   }
   openWorkItemsOfStay(tenantId: string, stayId: string): Promise<readonly WorkItemSummary[]> {
     return this.work.openWorkItemsOfStay({ tenantId }, stayId);
+  }
+  openWorkItemsAtLocation(
+    tenantId: string,
+    propertyId: string,
+    locationId: string,
+  ): Promise<readonly WorkItemSummary[]> {
+    return this.work.openWorkItemsAtLocation({ tenantId, propertyId }, locationId);
+  }
+  assignTask(
+    scope: { readonly tenantId: string; readonly propertyId: string },
+    taskId: string,
+    assignee: AssigneeInput,
+    reason?: string | null,
+  ): Promise<TaskSummary> {
+    // The task lifecycle lives with the staff API (API process); resolved lazily so the worker composes without it.
+    const tasks = this.modules.get(TaskService, { strict: false });
+    return tasks.assign(scope, taskId, {
+      assignee: assignee.type === 'USER' ? { type: 'USER', userId: assignee.userId } : assignee,
+      ...(reason ? { reason } : {}),
+    }) as Promise<TaskSummary>;
   }
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary> {
     return this.work.cancelWorkItem(tenantId, workItemId, reason);

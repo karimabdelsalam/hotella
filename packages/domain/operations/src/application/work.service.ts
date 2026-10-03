@@ -245,6 +245,19 @@ export class WorkService {
     return items.map((i) => workItemSummary(i, taskRows));
   }
 
+  async openWorkItemsAtLocation(
+    scope: PropertyScope,
+    locationId: string,
+  ): Promise<WorkItemSummary[]> {
+    if (!isUuid(locationId)) return [];
+    const items = await this.repo.openWorkItemsAtLocation(scope, locationId);
+    const taskRows = await this.repo.tasksOfWorkItems(
+      scope,
+      items.map((i) => i.id),
+    );
+    return items.map((i) => workItemSummary(i, taskRows));
+  }
+
   async workItemsForSource(
     scope: TenantScope,
     entityType: string,
