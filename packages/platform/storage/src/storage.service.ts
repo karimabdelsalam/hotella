@@ -17,7 +17,7 @@ export interface StorageOptions {
   readonly bucket: string;
   readonly accessKey: string;
   readonly secretKey: string;
-  /** MinIO and most on-prem S3 need path-style URLs. */
+  /** SeaweedFS and most on-prem S3 stores need path-style URLs. */
   readonly forcePathStyle?: boolean;
 }
 

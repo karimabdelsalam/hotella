@@ -20,13 +20,13 @@ nvm use                      # Node 24 LTS
 corepack enable              # pnpm 11, exact version pinned
 pnpm install                 # frozen lockfile
 cp .env.example .env         # dev defaults only; no secrets needed locally
-pnpm dev:infra               # PostgreSQL 18 + pgvector, Valkey 9, MinIO, Mailpit, Grafana (otel-lgtm)
+pnpm dev:infra               # PostgreSQL 18 + pgvector, Valkey 9, SeaweedFS, Mailpit, Grafana (otel-lgtm)
 pnpm build                   # compiles packages (SWC) and the API; required once before dev/test
 pnpm db:migrate              # applies packages/platform/database/migrations (needs DATABASE_URL from .env)
 pnpm dev                     # api (nest start --watch) + packages in watch mode
 curl -s localhost:3000/api/v1/health   # liveness
 curl -s localhost:3000/api/v1/ready    # readiness: 200 when PostgreSQL + Valkey reachable, else 503 Problem Details with per-dependency details
-pnpm test                    # unit + e2e + integration (Testcontainers starts PostgreSQL/Valkey/MinIO; without Docker those suites skip with a reason)
+pnpm test                    # unit + e2e + integration (Testcontainers starts PostgreSQL/Valkey/SeaweedFS; without Docker those suites skip with a reason)
 ```
 
 > Integration suites print `TEST_INFRA_UNAVAILABLE` and skip when no container runtime is reachable; CI always runs them against real services.
@@ -37,7 +37,7 @@ Full verification exactly as CI runs it:
 pnpm format:check && pnpm lint && pnpm lint:selftest && pnpm depcruise && pnpm build && pnpm typecheck && pnpm db:check && pnpm test
 ```
 
-Useful URLs in dev: Mailpit `http://localhost:8025`, MinIO console `http://localhost:9001`, Grafana `http://localhost:3001`; API docs `http://localhost:3000/api/docs` arrive with Sprint 0.3.9.
+Useful URLs in dev: Mailpit `http://localhost:8025`, SeaweedFS master UI `http://localhost:9333` (S3 on 8333), Grafana `http://localhost:3001`; API docs `http://localhost:3000/api/docs` arrive with Sprint 0.3.9.
 
 Everything above is a `package.json` script; if a script name changes, this section changes in the same PR.
 

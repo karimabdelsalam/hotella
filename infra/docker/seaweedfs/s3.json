@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "hotella-dev",
+      "credentials": [{ "accessKey": "hotella", "secretKey": "hotella-dev-only" }],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

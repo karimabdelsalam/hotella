@@ -2,7 +2,7 @@
   "name": "@hotella/platform-storage",
   "version": "0.0.0",
   "private": true,
-  "description": "S3-compatible object storage (MinIO on-prem, ADR-0013). Binary objects never live in PostgreSQL (Spec §2.4).",
+  "description": "S3-compatible object storage (SeaweedFS on-prem, ADR-0013). Binary objects never live in PostgreSQL (Spec §2.4).",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

@@ -127,7 +127,7 @@ flowchart LR
     W3[worker: integration] --> VK
     W4[worker: background-ai] --> VK
     W4 -- allow-listed egress --> LLM[AI providers / local models]
-    API --> S3[(MinIO)]
+    API --> S3[(SeaweedFS)]
     API --> VAULT[(Vault)]
     OTEL[OTel collector] --> GRAF[Grafana · Tempo · Loki · Prometheus]
   end

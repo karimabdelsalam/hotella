@@ -2,7 +2,7 @@
   "name": "@hotella/platform-testing",
   "version": "0.0.0",
   "private": true,
-  "description": "Test infrastructure: Testcontainers (PostgreSQL 18 + pgvector, Valkey 9, MinIO) with Docker detection, Vitest global setup, helpers.",
+  "description": "Test infrastructure: Testcontainers (PostgreSQL 18 + pgvector, Valkey 9, SeaweedFS S3) with Docker detection, Vitest global setup, helpers.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

@@ -4,7 +4,7 @@ import { StorageService } from './storage.service';
 
 const infra = readTestInfra();
 
-describe.skipIf(!infra.s3)('StorageService against MinIO', () => {
+describe.skipIf(!infra.s3)('StorageService against the S3 store (SeaweedFS)', () => {
   let storage: StorageService;
   beforeAll(async () => {
     storage = new StorageService({
@@ -14,7 +14,16 @@ describe.skipIf(!infra.s3)('StorageService against MinIO', () => {
       accessKey: infra.s3!.accessKey,
       secretKey: infra.s3!.secretKey,
     });
-    await storage.ensureBucket();
+    // the S3 gateway may accept TCP before the filer is ready; retry briefly
+    for (let i = 0; i < 20; i++) {
+      try {
+        await storage.ensureBucket();
+        break;
+      } catch (err) {
+        if (i === 19) throw err;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
   });
   afterAll(() => storage?.destroy());
 

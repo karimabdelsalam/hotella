@@ -1,4 +1,4 @@
-import { isContainerRuntimeAvailable, startMinio, startPostgres, startValkey } from './containers';
+import { isContainerRuntimeAvailable, startPostgres, startS3, startValkey } from './containers';
 import { readTestInfra, writeTestInfra } from './env';
 
 /**
@@ -24,15 +24,15 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   }
 
   const stops: Array<() => Promise<unknown>> = [];
-  // PostgreSQL and Valkey are required for integration suites; MinIO is optional (its suite skips without it),
-  // so a registry hiccup for MinIO must never take the database/queue suites down.
-  const [pg, valkey, minio] = await Promise.all([
+  // PostgreSQL and Valkey are required for integration suites; the S3 store is optional (its suite skips without it),
+  // so a registry hiccup for the S3 image must never take the database/queue suites down.
+  const [pg, valkey, s3] = await Promise.all([
     needPg ? startPostgres() : undefined,
     needValkey ? startValkey() : undefined,
     needS3
-      ? startMinio().catch((err: unknown) => {
+      ? startS3().catch((err: unknown) => {
           process.stderr.write(
-            `[test-infra] MinIO unavailable, storage integration tests will skip: ${err instanceof Error ? err.message : String(err)}\n`,
+            `[test-infra] S3 store unavailable, storage integration tests will skip: ${err instanceof Error ? err.message : String(err)}\n`,
           );
           return undefined;
         })
@@ -46,14 +46,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     writeTestInfra({ TEST_VALKEY_URL: valkey.getConnectionUrl() });
     stops.push(() => valkey.stop());
   }
-  if (minio) {
+  if (s3) {
     writeTestInfra({
-      TEST_S3_ENDPOINT: minio.endpoint,
-      TEST_S3_ACCESS_KEY: minio.accessKey,
-      TEST_S3_SECRET_KEY: minio.secretKey,
+      TEST_S3_ENDPOINT: s3.endpoint,
+      TEST_S3_ACCESS_KEY: s3.accessKey,
+      TEST_S3_SECRET_KEY: s3.secretKey,
       TEST_S3_BUCKET: 'hotella-test',
     });
-    stops.push(() => minio.container.stop());
+    stops.push(() => s3.container.stop());
   }
   return async () => {
     await Promise.all(stops.map((s) => s()));

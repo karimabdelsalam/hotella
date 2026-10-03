@@ -10,8 +10,8 @@ import {
 export const IMAGES = {
   postgres: 'pgvector/pgvector:pg18',
   valkey: 'valkey/valkey:9',
-  // Docker Hub's minio/minio is no longer pullable (2026); the project publishes to quay.io.
-  minio: 'quay.io/minio/minio:latest',
+  // SeaweedFS (Apache-2.0) is the S3 store; MinIO's community images were withdrawn in Sept 2026.
+  s3: 'chrislusf/seaweedfs:4.48',
 } as const;
 
 /** True when a container runtime (Docker/Podman) is reachable. Never throws. */
@@ -37,25 +37,43 @@ export async function startValkey(): Promise<StartedRedisContainer> {
   return new RedisContainer(IMAGES.valkey).start();
 }
 
-export interface StartedMinio {
+export interface StartedS3 {
   readonly container: StartedTestContainer;
   readonly endpoint: string;
   readonly accessKey: string;
   readonly secretKey: string;
 }
 
-export async function startMinio(): Promise<StartedMinio> {
+/** Single-process SeaweedFS (master + volume + filer + S3 gateway) with one static identity. */
+export async function startS3(): Promise<StartedS3> {
   const accessKey = 'hotella';
   const secretKey = 'hotella-test-secret';
-  const container = await new GenericContainer(IMAGES.minio)
-    .withCommand(['server', '/data'])
-    .withEnvironment({ MINIO_ROOT_USER: accessKey, MINIO_ROOT_PASSWORD: secretKey })
-    .withExposedPorts(9000)
-    .withWaitStrategy(Wait.forHttp('/minio/health/live', 9000))
+  const s3Config = JSON.stringify({
+    identities: [
+      {
+        name: 'test',
+        credentials: [{ accessKey, secretKey }],
+        actions: ['Admin', 'Read', 'List', 'Tagging', 'Write'],
+      },
+    ],
+  });
+  const container = await new GenericContainer(IMAGES.s3)
+    .withCommand([
+      'server',
+      '-dir=/data',
+      '-ip.bind=0.0.0.0',
+      '-master.volumeSizeLimitMB=64',
+      '-s3',
+      '-s3.port=8333',
+      '-s3.config=/etc/seaweedfs/s3.json',
+    ])
+    .withCopyContentToContainer([{ content: s3Config, target: '/etc/seaweedfs/s3.json' }])
+    .withExposedPorts(8333, 9333)
+    .withWaitStrategy(Wait.forHttp('/cluster/healthz', 9333).forStatusCode(200))
     .start();
   return {
     container,
-    endpoint: `http://${container.getHost()}:${container.getMappedPort(9000)}`,
+    endpoint: `http://${container.getHost()}:${container.getMappedPort(8333)}`,
     accessKey,
     secretKey,
   };
