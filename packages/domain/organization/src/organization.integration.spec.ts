@@ -62,6 +62,7 @@ describe.skipIf(needsInfra())(
               provide: PERMISSION_RESOLVER,
               useValue: new StaticPermissionResolver(grants),
             },
+            propertyVerifier: OrganizationModule.propertyVerifier(),
           }),
           OrganizationModule,
         ],

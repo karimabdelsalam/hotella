@@ -58,6 +58,9 @@
     },
     {
       "path": "packages/domain/organization"
+    },
+    {
+      "path": "packages/domain/identity"
     }
   ]
 }

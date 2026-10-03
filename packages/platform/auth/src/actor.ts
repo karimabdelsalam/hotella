@@ -14,6 +14,8 @@ export interface RequestActor {
   readonly isPlatformAdmin: boolean;
   /** Preferred locale from the profile, when known. */
   readonly locale?: string | null;
+  /** The staff session behind the request, when authenticated with an access token (logout, audit). */
+  readonly sessionId?: string | null;
 }
 
 const CLS_ACTOR_KEY = 'request_actor';

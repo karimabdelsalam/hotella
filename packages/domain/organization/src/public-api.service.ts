@@ -1,7 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { BrandingService } from './application/services';
 import { OrganizationRepositories } from './infrastructure/repositories';
-import type { OrganizationPublicApi, PropertySummary, ResolvedBrand, RoomSummary } from './public';
+import { normalizeCode } from './domain/values';
+import type { TenantRow } from './infrastructure/schema';
+import type {
+  OrganizationPublicApi,
+  PropertySummary,
+  ResolvedBrand,
+  RoomSummary,
+  TenantSummary,
+} from './public';
+
+function toTenantSummary(t: TenantRow): TenantSummary {
+  return { id: t.id, code: t.code, name: t.name, status: t.status, defaultLocale: t.defaultLocale };
+}
 
 @Injectable()
 export class OrganizationPublicApiService implements OrganizationPublicApi {
@@ -9,6 +21,20 @@ export class OrganizationPublicApiService implements OrganizationPublicApi {
     private readonly repo: OrganizationRepositories,
     private readonly branding: BrandingService,
   ) {}
+  async findTenantByCode(code: string): Promise<TenantSummary | null> {
+    let normalized: string;
+    try {
+      normalized = normalizeCode(code);
+    } catch {
+      return null;
+    }
+    const t = await this.repo.tenantByCode(normalized);
+    return t ? toTenantSummary(t) : null;
+  }
+  async getTenant(tenantId: string): Promise<TenantSummary | null> {
+    const t = await this.repo.tenantById(tenantId);
+    return t ? toTenantSummary(t) : null;
+  }
   async getProperty(tenantId: string, propertyId: string): Promise<PropertySummary | null> {
     const p = await this.repo.propertyById({ tenantId }, propertyId);
     return p

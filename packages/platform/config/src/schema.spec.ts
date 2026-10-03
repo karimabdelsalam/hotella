@@ -57,6 +57,32 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...valid, DEFAULT_LOCALE: 'english' })).toThrow();
   });
 
+  it('identity keys are SecretRefs, optional outside production and required in production', () => {
+    const dev = loadConfig(valid);
+    expect(dev.iam.jwtSigningKeyRef).toBeNull();
+    expect(dev.iam.accessTokenTtlSeconds).toBe(900);
+    expect(() => loadConfig({ ...valid, IAM_ACCESS_TOKEN_TTL_SECONDS: '3600' })).toThrow();
+    expect(() =>
+      loadConfig({ ...valid, IAM_JWT_SIGNING_KEY_REF: '-----BEGIN PRIVATE KEY' }),
+    ).toThrow();
+    try {
+      loadConfig({ ...valid, NODE_ENV: 'production' });
+      expect.unreachable();
+    } catch (err) {
+      expect((err as ConfigValidationError).issues.map((i) => i.path)).toEqual([
+        'IAM_JWT_SIGNING_KEY_REF',
+        'IAM_MFA_KEY_REF',
+      ]);
+    }
+    const prod = loadConfig({
+      ...valid,
+      NODE_ENV: 'production',
+      IAM_JWT_SIGNING_KEY_REF: 'vault://iam/jwt#private_key',
+      IAM_MFA_KEY_REF: 'vault://iam/mfa#key',
+    });
+    expect(prod.iam.mfaKeyRef).toBe('vault://iam/mfa#key');
+  });
+
   it('rejects unknown log levels and environments', () => {
     expect(() => loadConfig({ ...valid, LOG_LEVEL: 'verbose' })).toThrow();
     expect(() => loadConfig({ ...valid, NODE_ENV: 'staging' })).toThrow();

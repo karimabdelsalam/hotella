@@ -23,6 +23,14 @@ const cases = [
   },
 ];
 
+/** Positive fixtures: allowed patterns that must NOT trip the rule (guards against over-broad rules). */
+const allowed = [
+  {
+    file: 'tooling/lint-fixtures/packages/domain/guest/src/public-import.ts',
+    rule: 'no-restricted-imports',
+  },
+];
+
 const eslint = new ESLint({ overrideConfigFile: 'eslint.config.mjs', ignore: false });
 let ok = true;
 for (const c of cases) {
@@ -33,5 +41,14 @@ for (const c of cases) {
     `${hit ? 'PASS' : 'FAIL'}  ${c.file}  expected ${c.rule}  got [${[...rules].join(', ')}]`,
   );
   if (!hit) ok = false;
+}
+for (const c of allowed) {
+  const [result] = await eslint.lintFiles([c.file]);
+  const rules = new Set(result.messages.map((m) => m.ruleId));
+  const clean = !rules.has(c.rule);
+  console.log(
+    `${clean ? 'PASS' : 'FAIL'}  ${c.file}  must not trigger ${c.rule}  got [${[...rules].join(', ')}]`,
+  );
+  if (!clean) ok = false;
 }
 process.exit(ok ? 0 : 1);

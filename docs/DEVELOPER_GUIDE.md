@@ -12,12 +12,12 @@ A white-label, multi-tenant **Hotel Intelligence Platform**. Hotels (tenants/pro
 
 ## 2. Setup (target: under 30 minutes)
 
-Prerequisites: Git, Docker (with Compose), Node 24 LTS (`nvm use` reads `.nvmrc`), Corepack enabled (`corepack enable` → pnpm 11 is picked from `package.json#packageManager`). No C/C++ toolchain is needed: the foundation has no native modules that compile at install.
+Prerequisites: Git, Docker (with Compose), Node 24 LTS (`nvm use` reads `.nvmrc`), Corepack enabled (`corepack enable` → pnpm 10 is picked from `package.json#packageManager`). No C/C++ toolchain is needed: the foundation has no native modules that compile at install.
 
 ```bash
 git clone <repo> hotella && cd hotella
 nvm use                      # Node 24 LTS
-corepack enable              # pnpm 11, exact version pinned
+corepack enable              # pnpm 10, exact version pinned
 pnpm install                 # frozen lockfile
 cp .env.example .env         # dev defaults only; no secrets needed locally
 pnpm dev:infra               # PostgreSQL 18 + pgvector, Valkey 9, SeaweedFS, Mailpit, Grafana (otel-lgtm)
@@ -30,6 +30,18 @@ pnpm test                    # unit + e2e + integration (Testcontainers starts P
 ```
 
 > Integration suites print `TEST_INFRA_UNAVAILABLE` and skip when no container runtime is reachable; CI always runs them against real services.
+> Without Docker you can still run the database suites against any PostgreSQL 16+ you have: `TEST_DATABASE_URL=postgresql://user@host:5432/empty_db pnpm test` (turbo passes the `TEST_*` variables through; CI's PostgreSQL 18 stays the authority).
+
+First sign-in on a fresh database (the only way to create a platform administrator; there is no HTTP endpoint for it):
+
+```bash
+printf '%s' 'a long passphrase of yours' | pnpm iam:bootstrap-admin --email you@example.com --given-name You [--locale ar]
+curl -s localhost:3000/api/v1/auth/login -H 'content-type: application/json' \
+  -d '{"email":"you@example.com","password":"a long passphrase of yours"}'      # → accessToken, refreshToken
+curl -s localhost:3000/api/v1/me -H "authorization: Bearer <accessToken>"
+```
+
+The password is read from stdin so it never lands in shell history. Hotel staff sign in with their tenant code (`"tenantCode": "NILE"`); they are created by an administrator through `POST /api/v1/tenants/{tenantId}/users`, which returns a one-time invitation token for `POST /api/v1/auth/invitations/accept` (e-mail/WhatsApp delivery arrives with the comms context). In development, leaving `IAM_JWT_SIGNING_KEY_REF`/`IAM_MFA_KEY_REF` empty makes the API generate ephemeral keys, so sessions end when it restarts.
 
 Full verification exactly as CI runs it:
 
@@ -52,6 +64,7 @@ packages/
                                        auth (request actor, permission guard, ActionGate)
   domain/      business (one folder per bounded context, one PostgreSQL schema each)
                                      → organization (schema `org`: tenants, properties, location tree, rooms, branding)
+                                     → identity (schema `iam`: staff users, memberships, roles/permissions, sessions, MFA)
   contracts/   zod schemas shared by everything → events, api, later connectors, ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
 docs/          spec, plan, ADRs, traceability, this guide, architecture diagrams
@@ -70,6 +83,19 @@ src/
   <ctx>.module.ts  ← NestJS module + ModuleManifest
   index.ts
 ```
+
+Each context's Nest module is `@Global()` and exports only its public API token (e.g. `ORGANIZATION_API`), so another context injects it without importing that module. Public API tokens are registered symbols (`Symbol.for('hotella.domain.<ctx>.api')`).
+
+How a request is authorized (packages `platform-auth` + `domain-identity`):
+
+```text
+Authorization: Bearer <jwt> → JwtAuthenticationStrategy (signature + live session + ACTIVE user) → RequestActor in CLS
+→ @TenantScoped / @PropertyScoped: a property outside the actor's tenant → 404 (never 403)
+→ @RequirePermission('x.y.z'): Membership → Role → Permission for that property (tenant-wide memberships cover all)
+→ service → ActionGate (same check for jobs/AI, then entitlement → feature → configuration → connector → AI policy)
+```
+
+Use `@RequirePermission(code, { checkedBy: 'gate' })` only when the scope is known after loading the resource (e.g. a membership's property); the service's ActionGate then checks it.
 
 Dependency direction (enforced by dependency-cruiser; see the graph in `docs/architecture/dependency-graph.svg`):
 

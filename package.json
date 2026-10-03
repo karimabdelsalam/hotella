@@ -24,6 +24,7 @@
     "commitlint": "commitlint",
     "clean": "turbo run clean && rm -rf node_modules/.cache",
     "db:migrate": "node packages/platform/database/bin/hotella-db.mjs migrate",
+    "iam:bootstrap-admin": "pnpm --filter @hotella/api iam:bootstrap-admin",
     "db:generate": "node packages/platform/database/bin/hotella-db.mjs generate",
     "db:check": "node packages/platform/database/bin/hotella-db.mjs check",
     "db:studio": "node packages/platform/database/bin/hotella-db.mjs studio",

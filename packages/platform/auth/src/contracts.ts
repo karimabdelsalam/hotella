@@ -20,6 +20,16 @@ export interface PermissionResolver {
 }
 export const PERMISSION_RESOLVER = Symbol('PERMISSION_RESOLVER');
 
+/**
+ * Confirms a property belongs to a tenant, so a tenant user naming another tenant's (or a non-existent) property gets
+ * 404 before any permission check — cross-tenant probing never learns more than "not found" (CLAUDE.md rule 1).
+ * Implemented by the organization context.
+ */
+export interface PropertyScopeVerifier {
+  propertyBelongsToTenant(propertyId: string, tenantId: string): Promise<boolean>;
+}
+export const PROPERTY_SCOPE_VERIFIER = Symbol('PROPERTY_SCOPE_VERIFIER');
+
 /** Nobody is authenticated; used until the identity context wires a real strategy. */
 export class AnonymousStrategy implements AuthenticationStrategy {
   async authenticate(): Promise<RequestActor | null> {

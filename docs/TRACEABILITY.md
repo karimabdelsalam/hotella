@@ -20,7 +20,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 3 | Bounded contexts list; each owns data; no cross-domain table mutation | BP §3 layout; ADR-0001; CM "Repository shape" | P0 |
 | 4.1–4.3 | Tenant, organization, property (incl. enabled languages, timezone, currency) | BP §5.2 `org.tenants/organizations/properties` | P1 |
 | 4.4 | Generic location tree; room is a location specialization | BP §5.2 `org.locations` (ltree) + `org.rooms` | P1 |
-| 5 | Person ≠ User ≠ Guest; Membership → tenant/property scope → role → permission; granular permissions; AI uses same authz | BP §5.2 `iam.*`, §5.4 action gate; CM 4; BP §10 P6 tools through gate | P1, P6 |
+| 5 | Person ≠ User ≠ Guest; Membership → tenant/property scope → role → permission; granular permissions; AI uses same authz | BP §5.2 `iam.*`, §5.4 action gate, §5.9 Sprint 1.2 (`domain-identity`: `MembershipPermissionResolver`, `IdentityAdminService` anti-escalation, `identity.integration.spec.ts` per-property acceptance); CM 4; BP §10 P6 tools through gate | P1 ✔ (1.2), P6 |
 | 6 | Guest, Stay, Reservation Reference, Party Member, Room Assignment History, External Reference, Preference, Access Grant; PMS ids never internal ids; PMS source of truth for stay state | BP §6.1 all tables; §8.1 grants; §1.5 source-of-truth rule; CM 3, 19 | P2, P4 |
 | 7 | Service definitions independent of UI/channel; fields; versioned | BP §9.1 `catalog.*`, §9.2 | P5 |
 | 8, 8.1–8.4 | Work Item, Task, Assignment history, Workflow def/version/instance/transition, SLA policy/instance, Escalation, Approval, Alert; one engine; deterministic SLA with response/resolution/pause/business hours/overrides; generic approvals | BP §7.1–7.4; CM 11 | P3 |
@@ -80,8 +80,8 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 62 | Signed offline license tokens with grace; public-key validation on agent | BP §10 P10/P11; ADR-0017 §6 | P10, P11 |
 | 63 | Control plane functions; data plane separation; admins no automatic guest data access | BP §10 P11; §5.2 support grants; ADR-0007 audited bypass role; CM 20 | P1, P11 |
 | 64 | Support access explicit/scoped/time-limited/read-only/audited/reason/revocable | BP §5.2 `iam.support_access_grants`; CM 20 | P1 |
-| 65 | Security scope; staff password/MFA now, OIDC/SAML later; guest passwordless | ADR-0011 | P1, P4 |
-| 66 | Staff token model; guest activation token properties; OTP properties | ADR-0011; BP §8.3 | P1, P4 |
+| 65 | Security scope; staff password/MFA now, OIDC/SAML later; guest passwordless | ADR-0011 (+ Sprint 1.2 implementation notes: argon2id, TOTP, lockout, rate limits) | P1 ✔ (1.2), P4 |
+| 66 | Staff token model; guest activation token properties; OTP properties | ADR-0011 (staff: EdDSA access ≤ 15 min + rotating refresh with reuse detection, live-session check per request); BP §8.3 | P1 ✔ (1.2), P4 |
 | 67 | TLS, encryption at rest, field-level encryption, secret manager; no plaintext production secrets; data classifications; AI respects classification | ADR-0010/0013; BP §4 0.3.13; CM 13, 21 | P0, P6 |
 | 68 | Audit actor types; who/approved/policy/changed/integration ack/AI involved; append-only tamper-resistant | BP §5.2 `audit.audit_log`, §5.7 grant test; CM 5 | P1 |
 | 69 | Consent history, export, correction, retention, anonymization, deletion; integrity preserved; configurable retention | BP §5.2 `platform.retention_policies`; §6.1 `guest_data_requests`, §6.6; DoD §12.15; CM 21 | P1, P2 |

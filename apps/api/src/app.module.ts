@@ -1,4 +1,10 @@
 import { Module } from '@nestjs/common';
+import {
+  IdentityCoreModule,
+  IdentityModule,
+  identityAuthOptions,
+  identityLocalePreferences,
+} from '@hotella/domain-identity';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
@@ -19,7 +25,7 @@ import { MetaModule } from './meta/meta.module';
   imports: [
     ConfigModule.forRoot(),
     ObservabilityModule.forRoot(),
-    I18nModule.forRoot(),
+    I18nModule.forRoot({ preferences: identityLocalePreferences() }),
     SecretsModule.forRoot(),
     DatabaseModule.forRoot(),
     QueueModule.forRoot(),
@@ -28,9 +34,14 @@ import { MetaModule } from './meta/meta.module';
     FeatureFlagsModule,
     ManifestModule.forRoot(),
     StorageModule.forRoot(),
-    // Phase 1.2 wires the identity context's strategy and resolver; until then nobody is authenticated.
-    AuthModule.forRoot(),
+    // Staff identity (ADR-0011): JWT access tokens + live-session check, Membership → Role → Permission resolution.
+    IdentityCoreModule,
+    AuthModule.forRoot({
+      ...identityAuthOptions(),
+      propertyVerifier: OrganizationModule.propertyVerifier(),
+    }),
     OrganizationModule,
+    IdentityModule,
     HealthModule,
     MetaModule,
   ],

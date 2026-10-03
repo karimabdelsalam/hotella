@@ -8,6 +8,7 @@ import {
   AUTHENTICATION_STRATEGY,
   DenyAllResolver,
   PERMISSION_RESOLVER,
+  PROPERTY_SCOPE_VERIFIER,
 } from './contracts';
 
 export interface AuthModuleOptions {
@@ -17,6 +18,8 @@ export interface AuthModuleOptions {
   readonly resolver?: Provider;
   /** Extra gate stages (entitlement, configuration, connector capability, AI policy). */
   readonly stages?: Provider[];
+  /** Provider for PROPERTY_SCOPE_VERIFIER (organization context): foreign/unknown property → 404 before permissions. */
+  readonly propertyVerifier?: Provider;
 }
 
 @Global()
@@ -31,6 +34,7 @@ export class AuthModule {
         options.strategy ?? { provide: AUTHENTICATION_STRATEGY, useClass: AnonymousStrategy },
         options.resolver ?? { provide: PERMISSION_RESOLVER, useClass: DenyAllResolver },
         ...(options.stages ?? []),
+        options.propertyVerifier ?? { provide: PROPERTY_SCOPE_VERIFIER, useValue: null },
         { provide: APP_GUARD, useClass: AuthGuard },
       ],
       exports: [ActorStore, ActionGate, AUTHENTICATION_STRATEGY, PERMISSION_RESOLVER],

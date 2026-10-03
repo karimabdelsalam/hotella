@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
@@ -15,8 +16,11 @@ import {
   type AuthenticationStrategy,
   PERMISSION_RESOLVER,
   type PermissionResolver,
+  PROPERTY_SCOPE_VERIFIER,
+  type PropertyScopeVerifier,
 } from './contracts';
 import {
+  PERMISSION_CHECK_KEY,
   PERMISSION_KEY,
   PROPERTY_SCOPE_KEY,
   PUBLIC_KEY,
@@ -40,6 +44,9 @@ export class AuthGuard implements CanActivate {
     private readonly ctx: RequestContext,
     @Inject(AUTHENTICATION_STRATEGY) private readonly strategy: AuthenticationStrategy,
     @Inject(PERMISSION_RESOLVER) private readonly permissions: PermissionResolver,
+    @Optional()
+    @Inject(PROPERTY_SCOPE_VERIFIER)
+    private readonly properties?: PropertyScopeVerifier | null,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -73,8 +80,13 @@ export class AuthGuard implements CanActivate {
       tenantId = named;
     }
     const propertyId = propertySource ? readId(req, propertySource) : null;
-    if (propertySource && !propertyId)
+    if (propertySource && !propertyId && !propertySource.optional)
       throw new AppError('platform.validation_failed', HttpStatus.BAD_REQUEST, { count: 1 });
+    // A tenant user naming a property outside their tenant (or one that does not exist) gets 404, never 403.
+    if (propertyId && actor.tenantId && this.properties) {
+      if (!(await this.properties.propertyBelongsToTenant(propertyId, actor.tenantId)))
+        throw AppError.notFound('org.property.not_found');
+    }
     this.ctx.setScope({ tenantId, propertyId });
 
     const permission = this.reflector.getAllAndOverride<string | undefined>(
@@ -82,6 +94,11 @@ export class AuthGuard implements CanActivate {
       targets,
     );
     if (!permission) return true;
+    const checkedBy = this.reflector.getAllAndOverride<'guard' | 'gate' | undefined>(
+      PERMISSION_CHECK_KEY,
+      targets,
+    );
+    if (checkedBy === 'gate') return true;
     const allowed = await this.permissions.hasPermission(actor, permission, {
       tenantId,
       propertyId,

@@ -54,6 +54,26 @@ export const envSchema = z.object({
     .string()
     .regex(/^[a-z][a-z0-9+.-]*:\/\//i, 'must be a SecretRef like env://STORAGE_SECRET_KEY')
     .default('env://STORAGE_SECRET_KEY'),
+
+  /**
+   * Staff identity (ADR-0011). Keys are SecretRefs: the JWT signing key is an Ed25519 private key (PKCS#8 PEM),
+   * the MFA key is 32 random bytes (base64) used to encrypt TOTP seeds at rest. Both are required in production;
+   * outside production an ephemeral key is generated at boot (tokens and MFA enrolments do not survive a restart).
+   */
+  IAM_JWT_SIGNING_KEY_REF: z
+    .string()
+    .regex(/^[a-z][a-z0-9+.-]*:\/\//i, 'must be a SecretRef like vault://iam/jwt#private_key')
+    .optional(),
+  IAM_MFA_KEY_REF: z
+    .string()
+    .regex(/^[a-z][a-z0-9+.-]*:\/\//i, 'must be a SecretRef like vault://iam/mfa#key')
+    .optional(),
+  IAM_JWT_ISSUER: z.string().min(1).default('hotella'),
+  IAM_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(900),
+  IAM_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  IAM_LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
+  IAM_LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+  IAM_INVITE_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(72),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -98,6 +118,16 @@ export interface AppConfig {
     readonly accessKeyRef: string;
     readonly secretKeyRef: string;
   };
+  readonly iam: {
+    readonly jwtSigningKeyRef: string | null;
+    readonly mfaKeyRef: string | null;
+    readonly issuer: string;
+    readonly accessTokenTtlSeconds: number;
+    readonly refreshTokenTtlDays: number;
+    readonly loginMaxAttempts: number;
+    readonly loginLockMinutes: number;
+    readonly inviteTtlHours: number;
+  };
 }
 
 export class ConfigValidationError extends Error {
@@ -118,6 +148,18 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
     );
   }
   const e = parsed.data;
+  if (e.NODE_ENV === 'production') {
+    const missing = (
+      [
+        ['IAM_JWT_SIGNING_KEY_REF', e.IAM_JWT_SIGNING_KEY_REF],
+        ['IAM_MFA_KEY_REF', e.IAM_MFA_KEY_REF],
+      ] as const
+    ).filter(([, v]) => !v);
+    if (missing.length > 0)
+      throw new ConfigValidationError(
+        missing.map(([path]) => ({ path, message: 'required in production' })),
+      );
+  }
   return {
     env: e.NODE_ENV,
     isProduction: e.NODE_ENV === 'production',
@@ -161,6 +203,16 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
       forcePathStyle: e.STORAGE_FORCE_PATH_STYLE,
       accessKeyRef: e.STORAGE_ACCESS_KEY_REF,
       secretKeyRef: e.STORAGE_SECRET_KEY_REF,
+    },
+    iam: {
+      jwtSigningKeyRef: e.IAM_JWT_SIGNING_KEY_REF ?? null,
+      mfaKeyRef: e.IAM_MFA_KEY_REF ?? null,
+      issuer: e.IAM_JWT_ISSUER,
+      accessTokenTtlSeconds: e.IAM_ACCESS_TOKEN_TTL_SECONDS,
+      refreshTokenTtlDays: e.IAM_REFRESH_TOKEN_TTL_DAYS,
+      loginMaxAttempts: e.IAM_LOGIN_MAX_ATTEMPTS,
+      loginLockMinutes: e.IAM_LOGIN_LOCK_MINUTES,
+      inviteTtlHours: e.IAM_INVITE_TTL_HOURS,
     },
   };
 }

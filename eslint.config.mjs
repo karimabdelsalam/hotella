@@ -157,10 +157,28 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['@hotella/domain-*', '!@hotella/domain-*/public'],
+              // A regex, not a glob: gitignore-style negation cannot re-include `/public` under an excluded package.
+              regex: '^@hotella/domain-[a-z0-9-]+(?:/(?!public$).*)?$',
               message:
                 'Import another bounded context only via "@hotella/domain-<ctx>/public" (ADR-0001, CLAUDE.md).',
             },
+            {
+              group: ['@hotella/domain-*/src/*', '@hotella/domain-*/dist/*'],
+              message: 'Deep imports into another bounded context are forbidden (ADR-0001).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Integration specs compose other contexts' Nest modules the way an app does (main entry only, never internals).
+  {
+    files: ['packages/domain/**/*.integration.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
             {
               group: ['@hotella/domain-*/src/*', '@hotella/domain-*/dist/*'],
               message: 'Deep imports into another bounded context are forbidden (ADR-0001).',

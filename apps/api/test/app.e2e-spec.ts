@@ -2,6 +2,12 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import type { OpenAPIObject } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
+import {
+  IdentityCoreModule,
+  IdentityModule,
+  identityAuthOptions,
+  identityLocalePreferences,
+} from '@hotella/domain-identity';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
@@ -38,7 +44,7 @@ describe('api skeleton (e2e)', () => {
       imports: [
         ConfigModule.forRoot({ env: testEnv }),
         ObservabilityModule.forRoot(),
-        I18nModule.forRoot(),
+        I18nModule.forRoot({ preferences: identityLocalePreferences() }),
         SecretsModule.forRoot({
           providers: [
             new EnvSecretProvider({ STORAGE_ACCESS_KEY: 'test', STORAGE_SECRET_KEY: 'test' }),
@@ -51,8 +57,13 @@ describe('api skeleton (e2e)', () => {
         FeatureFlagsModule,
         ManifestModule.forRoot(),
         StorageModule.forRoot(),
-        AuthModule.forRoot(),
+        IdentityCoreModule,
+        AuthModule.forRoot({
+          ...identityAuthOptions(),
+          propertyVerifier: OrganizationModule.propertyVerifier(),
+        }),
         OrganizationModule,
+        IdentityModule,
         HealthModule,
         MetaModule,
       ],
@@ -139,7 +150,8 @@ describe('api skeleton (e2e)', () => {
     const byCode = new Map(
       (res.body as { code: string; events: string[] }[]).map((m) => [m.code, m]),
     );
-    expect([...byCode.keys()].sort()).toEqual(['org', 'platform']);
+    expect([...byCode.keys()].sort()).toEqual(['iam', 'org', 'platform']);
+    expect(byCode.get('iam')?.events).toContain('iam.session.revoked.v1');
     expect(byCode.get('platform')?.events).toContain('platform.feature_flag.changed.v1');
     expect(byCode.get('org')?.events).toContain('org.property.created.v1');
   });
@@ -152,6 +164,11 @@ describe('api skeleton (e2e)', () => {
     expect(res.headers['content-type']).toContain('application/problem+json');
     expect(res.body).toMatchObject({ status: 401, code: 'platform.unauthorized' });
     await request(app.getHttpServer()).post('/api/v1/tenants').send({}).expect(401);
+    // a forged or malformed bearer token is the same as none
+    await request(app.getHttpServer())
+      .get('/api/v1/me')
+      .set('Authorization', 'Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4In0.')
+      .expect(401);
   });
 
   it('unknown route → Problem Details 404, localized detail from the request locale', async () => {

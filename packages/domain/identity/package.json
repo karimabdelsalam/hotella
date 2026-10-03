@@ -1,0 +1,62 @@
+{
+  "name": "@hotella/domain-identity",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Identity & Access bounded context (Spec \u00a75, ADR-0011): persons, staff users, memberships, roles and permissions, sessions with rotating refresh tokens, TOTP MFA, and the real AuthenticationStrategy + PermissionResolver behind platform-auth.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./public": {
+      "types": "./dist/public/index.d.ts",
+      "default": "./dist/public/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@hotella/contracts-api": "workspace:*",
+    "@hotella/contracts-events": "workspace:*",
+    "@hotella/domain-organization": "workspace:*",
+    "@hotella/platform-auth": "workspace:*",
+    "@hotella/platform-config": "workspace:*",
+    "@hotella/platform-database": "workspace:*",
+    "@hotella/platform-events": "workspace:*",
+    "@hotella/platform-http": "workspace:*",
+    "@hotella/platform-i18n": "workspace:*",
+    "@hotella/platform-manifest": "workspace:*",
+    "@hotella/platform-observability": "workspace:*",
+    "@hotella/platform-secrets": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "@node-rs/argon2": "2.2.1",
+    "drizzle-orm": "0.45.3",
+    "jose": "6.2.12",
+    "nestjs-zod": "5.5.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@hotella/platform-flags": "workspace:*",
+    "@hotella/platform-testing": "workspace:*",
+    "@hotella/tooling": "workspace:*",
+    "@nestjs/core": "11.2.7",
+    "@nestjs/platform-express": "11.2.7",
+    "@nestjs/testing": "11.2.7",
+    "@types/express": "5.0.6",
+    "@types/supertest": "7.2.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "supertest": "7.3.1",
+    "vitest": "4.1.11"
+  }
+}

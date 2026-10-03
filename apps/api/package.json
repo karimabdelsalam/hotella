@@ -9,10 +9,12 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "clean": "rm -rf dist coverage"
+    "clean": "rm -rf dist coverage",
+    "iam:bootstrap-admin": "node dist/cli/bootstrap-admin.js"
   },
   "dependencies": {
     "@hotella/contracts-api": "workspace:*",
+    "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-auth": "workspace:*",
     "@hotella/platform-config": "workspace:*",

@@ -21,7 +21,18 @@ export interface RoomSummary {
   readonly roomTypeId: string | null;
 }
 
+export interface TenantSummary {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly status: 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
+  readonly defaultLocale: string;
+}
+
 export interface OrganizationPublicApi {
+  /** Login and activation flows name a tenant by its stable code. */
+  findTenantByCode(code: string): Promise<TenantSummary | null>;
+  getTenant(tenantId: string): Promise<TenantSummary | null>;
   getProperty(tenantId: string, propertyId: string): Promise<PropertySummary | null>;
   listProperties(tenantId: string): Promise<readonly PropertySummary[]>;
   getRoomByNumber(
@@ -35,6 +46,7 @@ export interface OrganizationPublicApi {
     locale: string | null,
   ): Promise<ResolvedBrand>;
 }
-export const ORGANIZATION_API = Symbol('ORGANIZATION_API');
+/** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */
+export const ORGANIZATION_API = Symbol.for('hotella.domain.organization.api');
 
 export { ORGANIZATION_MANIFEST } from '../manifest';

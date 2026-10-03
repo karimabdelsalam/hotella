@@ -17,9 +17,16 @@ export {
   AUTHENTICATION_STRATEGY,
   DenyAllResolver,
   PERMISSION_RESOLVER,
+  PROPERTY_SCOPE_VERIFIER,
 } from './contracts';
-export type { AuthenticationStrategy, PermissionResolver, PermissionScope } from './contracts';
+export type {
+  AuthenticationStrategy,
+  PermissionResolver,
+  PermissionScope,
+  PropertyScopeVerifier,
+} from './contracts';
 export {
+  PERMISSION_CHECK_KEY,
   PERMISSION_KEY,
   PROPERTY_SCOPE_KEY,
   PropertyScoped,
@@ -29,5 +36,5 @@ export {
   TENANT_SCOPE_KEY,
   TenantScoped,
 } from './decorators';
-export type { ScopeSource } from './decorators';
+export type { RequirePermissionOptions, ScopeSource } from './decorators';
 export { HeaderActorStrategy, StaticPermissionResolver } from './testing';

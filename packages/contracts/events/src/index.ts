@@ -16,6 +16,12 @@ export {
   TenantCreated,
 } from './org-events';
 export {
+  MembershipChanged,
+  RolePermissionsChanged,
+  SessionRevoked,
+  UserCreated,
+} from './iam-events';
+export {
   createEnvelope,
   defineEvent,
   EventDefinitionError,
