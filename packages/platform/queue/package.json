@@ -1,0 +1,39 @@
+{
+  "name": "@hotella/platform-queue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "BullMQ on Valkey: the five Spec §71 priority queues, typed jobs carrying request context, workers that restore it, and the BullMQ EventTransport for the outbox relay.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@hotella/contracts-events": "workspace:*",
+    "@hotella/platform-config": "workspace:*",
+    "@hotella/platform-events": "workspace:*",
+    "@hotella/platform-observability": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "bullmq": "5.81.5",
+    "ioredis": "5.11.1",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@hotella/platform-testing": "workspace:*",
+    "@hotella/tooling": "workspace:*",
+    "vitest": "4.1.11"
+  }
+}

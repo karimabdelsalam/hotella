@@ -1,0 +1,10 @@
+export { DomainEventBus } from './domain-event-bus';
+export type { DomainEventHandler } from './domain-event-bus';
+export { EventsModule, NoopTransport } from './events.module';
+export { IdempotentConsumer } from './idempotency';
+export type { ProcessOutcome } from './idempotency';
+export { EventPublisher, OutboxRequiresTransactionError } from './publisher';
+export type { PublishInput } from './publisher';
+export { backoffMs, EVENT_TRANSPORT, OutboxRelay } from './relay';
+export type { EventTransport, RelayResult } from './relay';
+export * as eventsSchema from './schema';

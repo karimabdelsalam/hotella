@@ -6,7 +6,11 @@ import { defineConfig } from 'drizzle-kit';
  */
 export default defineConfig({
   dialect: 'postgresql',
-  schema: ['./src/schema/*.ts', '../../domain/*/src/infrastructure/schema.ts'],
+  schema: [
+    './src/schema/*.ts',
+    '../events/src/schema/*.ts',
+    '../../domain/*/src/infrastructure/schema.ts',
+  ],
   out: './migrations',
   casing: 'snake_case',
   schemaFilter: [
@@ -29,7 +33,7 @@ export default defineConfig({
     'license',
     'audit',
   ],
-  migrations: { schema: 'platform', table: 'schema_migrations' },
+  migrations: { schema: 'migrations', table: 'journal' },
   strict: true,
   verbose: true,
 });

@@ -20,11 +20,18 @@ describe.skipIf(needsInfra())(`platform-database against PostgreSQL (${infraSkip
   afterAll(() => handle?.close());
 
   it('applies the journal and creates the platform schema tables', async () => {
-    const rows = await handle.db.execute<{ table_name: string }>(
-      "select table_name from information_schema.tables where table_schema = 'platform' order by 1",
+    const rows = await handle.db.execute<{ table_schema: string; table_name: string }>(
+      "select table_schema, table_name from information_schema.tables where table_schema in ('platform','migrations') order by 1,2",
     );
-    const names = rows.rows.map((r) => r.table_name);
-    expect(names).toEqual(expect.arrayContaining(['feature_flags', 'schema_migrations']));
+    const names = rows.rows.map((r) => `${r.table_schema}.${r.table_name}`);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'platform.feature_flags',
+        'platform.outbox',
+        'platform.inbox',
+        'migrations.journal',
+      ]),
+    );
   });
 
   it('inserts with application-generated UUIDv7 ids and TIMESTAMPTZ defaults', async () => {

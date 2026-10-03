@@ -9,14 +9,17 @@ export function migrationsFolder(): string {
   return join(packageRoot(), 'migrations');
 }
 
-export const MIGRATIONS_SCHEMA = 'platform';
-export const MIGRATIONS_TABLE = 'schema_migrations';
+/**
+ * The journal lives in its own schema so that migration 0000 can own `CREATE SCHEMA "platform"`.
+ * Drizzle's migrator creates the journal schema/table itself (IF NOT EXISTS).
+ */
+export const MIGRATIONS_SCHEMA = 'migrations';
+export const MIGRATIONS_TABLE = 'journal';
 
 /** Applies pending migrations. Idempotent; safe to run at every deploy and in test setup. */
 export async function runMigrations(url: string): Promise<void> {
   const handle = createDatabase({ url, pool: { max: 1 }, applicationName: 'hotella-migrate' });
   try {
-    await handle.db.execute(`CREATE SCHEMA IF NOT EXISTS "${MIGRATIONS_SCHEMA}"`);
     await migrate(handle.db, {
       migrationsFolder: migrationsFolder(),
       migrationsSchema: MIGRATIONS_SCHEMA,
