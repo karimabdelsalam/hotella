@@ -1,7 +1,7 @@
 # HOTELLA — Build Plan
 
 **Status:** Active execution plan (derived from `docs/spec/HOTELLA_MASTER_SPEC.md` v1.0)
-**Version:** 1.4 (ADR-0016 revised with a Maturity Gate: adopt only GA ≥ 6 months with ecosystem support; HOLD list for NestJS 12 / TS 7 / Node 26 / Drizzle 1.0 / oxlint)
+**Version:** 1.5 (Phase 0 delivered and accepted; see `docs/acceptance/phase-0.md`)
 **Date:** 2026-10-03
 **Audience:** Implementation team / Claude engineering agents
 
@@ -281,6 +281,8 @@ packages/domain/<ctx>/src/
 | 0.3.13 | **Data classification registry** (Spec §67) — *delivered early in Sprint 0.2*: `classify(table, {...})` wraps every table and throws at module load when a column is missing a class (`PUBLIC / INTERNAL / CONFIDENTIAL / SENSITIVE / RESTRICTED`); registry exported for the logger redaction list, the AI redaction policy (Phase 6) and retention policies (Phase 1) | an unclassified column cannot be built or tested |
 
 ### Phase 0 acceptance criteria
+
+> **Status: accepted on 2026-10-03** — evidence per item in `docs/acceptance/phase-0.md` (two items need a human walk-through of the Developer Guide).
 
 - [ ] `pnpm install && pnpm dev:infra && pnpm db:migrate && pnpm dev` boots API + worker locally; `/api/v1/ready` is green.
 - [ ] CI runs ESLint, Prettier check, dependency-cruiser, `tsc --noEmit`, build, unit + integration tests (real PostgreSQL 18 / Valkey 9), the migration drift check and the OpenAPI snapshot.

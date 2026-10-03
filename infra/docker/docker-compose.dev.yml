@@ -49,7 +49,7 @@ services:
   otel:
     # All-in-one OpenTelemetry collector + Grafana + Tempo + Loki + Prometheus for local use.
     image: grafana/otel-lgtm:latest
-    ports: ['3001:3000', '4317:4317', '4318:4318']
+    ports: ['3003:3000', '4317:4317', '4318:4318']
 
 volumes:
   pgdata:

@@ -37,7 +37,7 @@ Full verification exactly as CI runs it:
 pnpm format:check && pnpm lint && pnpm lint:selftest && pnpm depcruise && pnpm build && pnpm typecheck && pnpm locales:check && pnpm db:check && pnpm test
 ```
 
-Useful URLs in dev: API docs `http://localhost:3000/api/docs` (JSON at `/api/docs/json`), worker status `http://localhost:3001/ready`, Mailpit `http://localhost:8025`, SeaweedFS master UI `http://localhost:9333` (S3 on 8333), Grafana `http://localhost:3002` is **not** used — the dev Grafana from `otel-lgtm` is on `http://localhost:3001`? No: the worker owns 3001; Grafana is mapped to `http://localhost:3003`.
+Useful URLs in dev: API docs `http://localhost:3000/api/docs` (JSON at `/api/docs/json`), worker status `http://localhost:3001/ready`, Grafana `http://localhost:3003`, Mailpit `http://localhost:8025`, SeaweedFS master UI `http://localhost:9333` (S3 on 8333).
 
 Everything above is a `package.json` script; if a script name changes, this section changes in the same PR.
 
@@ -135,7 +135,7 @@ No code: create a service definition in the catalog (staff API/UI), add translat
 
 ## 9. Observability while developing
 
-Every request has an `X-Correlation-Id` (echoed when the caller sends a well-formed one, minted otherwise, always returned in the response). Every log line carries `correlation_id`, `trace_id` (when `OTEL_ENABLED=true`), `tenant_id`, `property_id`, `actor_type`, `actor_id` from the request context (`RequestContext` in `@hotella/platform-observability`). Background work uses `requestContext.run(seed, fn)` so jobs and consumers log under the id that travelled with them. Grep logs for the id, or open Grafana → Tempo and search by `correlation_id`.
+Every request has an `X-Correlation-Id` (echoed when the caller sends a well-formed one, minted otherwise, always returned in the response). Every error is an RFC 9457 Problem Details body with a stable `code` and a `detail` localized to the request locale (`?lang=`, `X-Locale`, `Accept-Language`). Every log line carries `correlation_id`, `trace_id` (when `OTEL_ENABLED=true`), `tenant_id`, `property_id`, `actor_type`, `actor_id` from the request context (`RequestContext` in `@hotella/platform-observability`). Background work uses `requestContext.run(seed, fn)` so jobs and consumers log under the id that travelled with them. Grep logs for the id, or open Grafana → Tempo and search by `correlation_id`.
 
 ## 10. Upgrading dependencies
 
