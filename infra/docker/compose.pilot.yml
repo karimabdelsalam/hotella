@@ -1,0 +1,183 @@
+# Hotella pilot deployment (BUILD_PLAN §5.8, ADR-0013): one hardened Linux host, Docker Compose.
+# Operate it with infra/docker/pilot/pilot.sh (init → up → vault-init → migrate → start → admin), see
+# docs/runbooks/deploy.md. Every credential is generated locally by `pilot.sh init` into pilot/.secrets (0600,
+# never committed); the applications read theirs from OpenBao through AppRole, not from environment variables.
+name: hotella-pilot
+
+x-app-env: &app-env
+  NODE_ENV: production
+  LOG_LEVEL: info
+  DATABASE_URL: postgresql://hotella_app@postgres:5432/hotella
+  DATABASE_PASSWORD_REF: vault://kv/hotella/app#db_password
+  VALKEY_URL: redis://valkey:6379
+  VALKEY_PASSWORD_REF: vault://kv/hotella/app#valkey_password
+  STORAGE_ENDPOINT: http://s3:8333
+  STORAGE_BUCKET: hotella
+  STORAGE_ACCESS_KEY_REF: vault://kv/hotella/app#s3_access_key
+  STORAGE_SECRET_KEY_REF: vault://kv/hotella/app#s3_secret_key
+  IAM_JWT_SIGNING_KEY_REF: vault://kv/hotella/app#jwt_private_key
+  IAM_MFA_KEY_REF: vault://kv/hotella/app#mfa_key
+  SECRETS_VAULT_ADDR: https://openbao:8200
+  SECRETS_VAULT_AUTH: approle
+  SECRETS_VAULT_ROLE_ID_FILE: /run/approle/role_id
+  SECRETS_VAULT_SECRET_ID_FILE: /run/approle/secret_id
+  NODE_EXTRA_CA_CERTS: /run/pilot-ca/ca.crt
+  PUBLIC_BASE_URL: ${HOTELLA_PUBLIC_BASE_URL:-http://localhost:3000}
+  OTEL_ENABLED: ${HOTELLA_OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+
+services:
+  postgres:
+    build: { context: ./postgres }
+    image: hotella/postgres:18-pgbackrest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hotella_admin
+      POSTGRES_DB: hotella
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_admin_password
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --stanza=hotella archive-push %p
+      - -c
+      - archive_timeout=60
+      - -c
+      - max_wal_senders=3
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - pgbackrest:/var/lib/pgbackrest
+      - ./pilot/.secrets/pg_admin_password:/run/secrets/pg_admin_password:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hotella_admin -d hotella']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [backend]
+
+  valkey:
+    image: valkey/valkey:9
+    restart: unless-stopped
+    command: ['valkey-server', '/usr/local/etc/valkey/valkey.conf']
+    volumes:
+      - valkeydata:/data
+      - ./pilot/.secrets/valkey.conf:/usr/local/etc/valkey/valkey.conf:ro
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'valkey-cli --no-auth-warning -a "$$(sed -n "s/^requirepass //p" /usr/local/etc/valkey/valkey.conf)" ping | grep -q PONG',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [backend]
+
+  s3:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    command: ['server', '-dir=/data', '-s3', '-s3.port=8333', '-s3.config=/etc/seaweedfs/s3.json']
+    volumes:
+      - s3data:/data
+      - ./pilot/.secrets/s3.json:/etc/seaweedfs/s3.json:ro
+    networks: [backend]
+
+  openbao:
+    image: openbao/openbao:2.6.4
+    restart: unless-stopped
+    # The image entrypoint adds `-config=/openbao/config` (our file is mounted there) and drops privileges.
+    command: ['server']
+    environment:
+      BAO_ADDR: https://127.0.0.1:8200
+      BAO_CACERT: /openbao/tls/ca.crt
+    cap_add: [IPC_LOCK]
+    volumes:
+      - baodata:/openbao/file
+      - ./pilot/openbao/openbao.hcl:/openbao/config/openbao.hcl:ro
+      - ./pilot/.secrets/tls:/openbao/tls:ro
+    networks: [backend]
+
+  # One-shot: applies migrations as the admin role, then grants the application role (pilot.sh migrate).
+  migrate:
+    image: hotella/api:${HOTELLA_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: api }
+    profiles: [ops]
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        DATABASE_URL="postgresql://hotella_admin:$$(cat /run/secrets/pg_admin_password)@postgres:5432/hotella"
+        node node_modules/@hotella/platform-database/bin/hotella-db.mjs migrate &&
+        DATABASE_URL="postgresql://hotella_admin:$$(cat /run/secrets/pg_admin_password)@postgres:5432/hotella"
+        node node_modules/@hotella/platform-database/bin/hotella-db.mjs grant hotella_app
+    volumes:
+      - ./pilot/.secrets/pg_admin_password:/run/secrets/pg_admin_password:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [backend]
+
+  api:
+    image: hotella/api:${HOTELLA_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: api }
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      APP_NAME: hotella-api
+      PORT: '3000'
+    ports:
+      # Bound to the host loopback: TLS terminates in the host reverse proxy (docs/runbooks/deploy.md).
+      - '127.0.0.1:${HOTELLA_API_PORT:-3000}:3000'
+    volumes:
+      - ./pilot/.secrets/approle/api:/run/approle:ro
+      - ./pilot/.secrets/tls/ca.crt:/run/pilot-ca/ca.crt:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+    networks: [backend]
+
+  worker:
+    image: hotella/worker:${HOTELLA_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: worker }
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      APP_NAME: hotella-worker
+      WORKER_QUEUES: all
+      WORKER_SCHEDULER_ENABLED: 'true'
+    volumes:
+      - ./pilot/.secrets/approle/worker:/run/approle:ro
+      - ./pilot/.secrets/tls/ca.crt:/run/pilot-ca/ca.crt:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+    networks: [backend]
+
+  # Restore drill: restores the latest backup into a throwaway data directory (pilot.sh restore-drill).
+  restore-drill:
+    image: hotella/postgres:18-pgbackrest
+    profiles: [ops]
+    user: postgres
+    entrypoint: ['restore-drill']
+    volumes:
+      - pgbackrest:/var/lib/pgbackrest:ro
+      - drilldata:/var/lib/postgresql/drill
+    networks: [backend]
+
+  otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    profiles: [observability]
+    ports: ['127.0.0.1:3003:3000']
+    networks: [backend]
+
+volumes:
+  pgdata:
+  pgbackrest:
+  valkeydata:
+  s3data:
+  baodata:
+  drilldata:
+
+networks:
+  backend:

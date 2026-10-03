@@ -1,0 +1,13 @@
+# Build context for infra/docker/Dockerfile (repository root). Keep it small and secret-free.
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+.git
+.github
+docs
+infra/docker/pilot/.secrets
+**/*.log
+.env
+.env.*
+!.env.example

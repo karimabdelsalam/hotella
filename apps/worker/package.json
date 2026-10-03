@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "description": "Hotella worker (NestJS 11): outbox relay, BullMQ queue workers (selected by WORKER_QUEUES), scheduler. Same image as the API, different entry point.",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",

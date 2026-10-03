@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "description": "Hotella platform API (NestJS 11). Composes platform and domain modules; exposes /api/v1.",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
