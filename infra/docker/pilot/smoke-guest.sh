@@ -123,7 +123,10 @@ provider=$(call "$API/ai/providers" -H "authorization: Bearer $admin" "${json[@]
   -d '{"code":"PILOT_MODEL_MOCK","kind":"OPENAI_COMPATIBLE","baseUrl":"http://model-mock:8080/v1","egress":"ON_PREM","maxDataClass":"CONFIDENTIAL"}' | jq -r .id)
 model=$(call "$API/ai/models" -H "authorization: Bearer $admin" "${json[@]}" \
   -d "{\"providerId\":\"$provider\",\"code\":\"concierge-mock\",\"capabilities\":[\"REASONING_HIGH\"]}" | jq -r .id)
-call -X PUT "$API/ai/routing-rules" "${auth[@]}" -d "{\"capability\":\"REASONING_HIGH\",\"modelIds\":[\"$model\"]}" >/dev/null
+# The stand-in is the installation's on-prem model: the platform default route (a property GM cannot change the
+# tenant-wide routing; ai.routing.manage needs a tenant-wide membership).
+call -X PUT "$API/ai/routing-rules/platform" -H "authorization: Bearer $admin" "${json[@]}" \
+  -d "{\"capability\":\"REASONING_HIGH\",\"modelIds\":[\"$model\"]}" >/dev/null
 conversation=$(call "${cookie[@]}" "$GUEST_WEB/hotella/guest/conversation" | jq -r .conversation.id)
 call "$API/properties/$property/conversations/$conversation/ai-mode" "${auth[@]}" -d '{"mode":"AUTO"}' |
   jq -e '.aiMode == "AUTO"' >/dev/null
