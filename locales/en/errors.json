@@ -214,5 +214,9 @@
   "errors.knowledge.document.archived": "This document is archived.",
   "errors.knowledge.document.version_conflict": "This document was changed by someone else. Reload and try again.",
   "errors.knowledge.version.not_found": "This document version does not exist.",
-  "errors.knowledge.version.not_draft": "Only a draft can be published; published versions never change."
+  "errors.knowledge.version.not_draft": "Only a draft can be published; published versions never change.",
+  "errors.hk.room.not_found": "This room does not exist.",
+  "errors.hk.room.version_conflict": "This room was updated by someone else. Reload and try again.",
+  "errors.hk.room.move_not_allowed": "A room cannot go from {from} to {to} by hand.",
+  "errors.hk.signal.no_room": "There is no room on your stay right now."
 }

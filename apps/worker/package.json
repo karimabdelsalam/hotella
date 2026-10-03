@@ -20,6 +20,7 @@
     "@hotella/domain-catalog": "workspace:*",
     "@hotella/domain-communications": "workspace:*",
     "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-housekeeping": "workspace:*",
     "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",
     "@hotella/domain-knowledge": "workspace:*",

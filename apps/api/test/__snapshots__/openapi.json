@@ -8015,6 +8015,207 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/housekeeping/rooms": {
+      "get": {
+        "operationId": "HousekeepingController_board",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Housekeeping"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/housekeeping/rooms/{roomId}/history": {
+      "get": {
+        "operationId": "HousekeepingController_history",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Housekeeping"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/housekeeping/rooms/{roomId}/state": {
+      "post": {
+        "operationId": "HousekeepingController_setState",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetStateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Housekeeping"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/housekeeping/rooms/{roomId}/signals": {
+      "post": {
+        "operationId": "HousekeepingController_signal",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Housekeeping"
+        ]
+      }
+    },
+    "/api/v1/guest/room-signals": {
+      "post": {
+        "operationId": "GuestRoomSignalsController_set",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestSignalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "GuestRoomSignals"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "HealthController_liveness",
@@ -12216,6 +12417,71 @@
         },
         "required": [
           "query"
+        ]
+      },
+      "SetStateDto": {
+        "type": "object",
+        "properties": {
+          "housekeeping": {
+            "type": "string",
+            "enum": [
+              "DIRTY",
+              "CLEANING",
+              "CLEAN",
+              "INSPECTING",
+              "INSPECTED",
+              "PICKUP"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "housekeeping",
+          "version"
+        ]
+      },
+      "SignalDto": {
+        "type": "object",
+        "properties": {
+          "signal": {
+            "type": "string",
+            "enum": [
+              "DND",
+              "MAKE_UP_ROOM",
+              "PRIVACY",
+              "SERVICE_REQUESTED"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "signal",
+          "active"
+        ]
+      },
+      "GuestSignalDto": {
+        "type": "object",
+        "properties": {
+          "signal": {
+            "type": "string",
+            "enum": [
+              "DND",
+              "MAKE_UP_ROOM"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "signal",
+          "active"
         ]
       },
       "EchoDto": {

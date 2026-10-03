@@ -129,6 +129,9 @@ importers:
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../../packages/domain/guest
+      '@hotella/domain-housekeeping':
+        specifier: workspace:*
+        version: link:../../packages/domain/housekeeping
       '@hotella/domain-identity':
         specifier: workspace:*
         version: link:../../packages/domain/identity
@@ -493,6 +496,9 @@ importers:
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../../packages/domain/guest
+      '@hotella/domain-housekeeping':
+        specifier: workspace:*
+        version: link:../../packages/domain/housekeeping
       '@hotella/domain-identity':
         specifier: workspace:*
         version: link:../../packages/domain/identity
@@ -1101,6 +1107,127 @@ importers:
       '@types/supertest':
         specifier: 7.2.1
         version: 7.2.1
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: 7.8.2
+        version: 7.8.2
+      supertest:
+        specifier: 7.3.1
+        version: 7.3.1
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.1)(vite@8.3.2(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/domain/housekeeping:
+    dependencies:
+      '@hotella/contracts-events':
+        specifier: workspace:*
+        version: link:../../contracts/events
+      '@hotella/domain-guest':
+        specifier: workspace:*
+        version: link:../guest
+      '@hotella/domain-operations':
+        specifier: workspace:*
+        version: link:../operations
+      '@hotella/domain-organization':
+        specifier: workspace:*
+        version: link:../organization
+      '@hotella/platform-audit':
+        specifier: workspace:*
+        version: link:../../platform/audit
+      '@hotella/platform-auth':
+        specifier: workspace:*
+        version: link:../../platform/auth
+      '@hotella/platform-database':
+        specifier: workspace:*
+        version: link:../../platform/database
+      '@hotella/platform-events':
+        specifier: workspace:*
+        version: link:../../platform/events
+      '@hotella/platform-i18n':
+        specifier: workspace:*
+        version: link:../../platform/i18n
+      '@hotella/platform-manifest':
+        specifier: workspace:*
+        version: link:../../platform/manifest
+      '@hotella/platform-observability':
+        specifier: workspace:*
+        version: link:../../platform/observability
+      '@hotella/platform-queue':
+        specifier: workspace:*
+        version: link:../../platform/queue
+      '@nestjs/common':
+        specifier: 11.2.7
+        version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      drizzle-orm:
+        specifier: 0.45.3
+        version: 0.45.3(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)
+      nestjs-zod:
+        specifier: 5.5.0
+        version: 5.5.0(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/swagger@11.4.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(reflect-metadata@0.2.2))(rxjs@7.8.2)(zod@4.6.5)
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@hotella/domain-catalog':
+        specifier: workspace:*
+        version: link:../catalog
+      '@hotella/domain-communications':
+        specifier: workspace:*
+        version: link:../communications
+      '@hotella/domain-identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@hotella/domain-integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      '@hotella/platform-config':
+        specifier: workspace:*
+        version: link:../../platform/config
+      '@hotella/platform-flags':
+        specifier: workspace:*
+        version: link:../../platform/flags
+      '@hotella/platform-http':
+        specifier: workspace:*
+        version: link:../../platform/http
+      '@hotella/platform-secrets':
+        specifier: workspace:*
+        version: link:../../platform/secrets
+      '@hotella/platform-settings':
+        specifier: workspace:*
+        version: link:../../platform/settings
+      '@hotella/platform-testing':
+        specifier: workspace:*
+        version: link:../../platform/testing
+      '@hotella/tooling':
+        specifier: workspace:*
+        version: link:../../../tooling
+      '@nestjs/core':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)
+      '@nestjs/testing':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(@nestjs/platform-express@11.2.7)
+      '@types/express':
+        specifier: 5.0.6
+        version: 5.0.6
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      '@types/supertest':
+        specifier: 7.2.1
+        version: 7.2.1
+      nestjs-cls:
+        specifier: 6.3.1
+        version: 6.3.1(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2

@@ -39,6 +39,8 @@ const TASK_WORKER = ['task.read', 'task.accept', 'task.complete', ...MY_NOTIFICA
 const TASK_SUPERVISOR = [...TASK_WORKER, 'task.assign', 'task.cancel', 'request.read'] as const;
 /** Who watches the alert board (Spec §15) and acts on it. */
 const ALERT_DESK = ['alert.read', 'alert.ack'] as const;
+/** Housekeeping supervision (Spec §9): the board, room states and signals, jobs and inspections. */
+const HK_DESK = ['hk.board.read', 'hk.room.manage', 'hk.job.manage', 'hk.inspect'] as const;
 
 export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
   {
@@ -111,6 +113,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'ai.usage.read',
       'ai.execution.read',
       'knowledge.manage',
+      ...HK_DESK,
+      'hk.config.manage',
     ],
   },
   {
@@ -126,23 +130,24 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'approval.read',
       'approval.decide',
       'inbox.assign',
+      'hk.board.read',
     ],
   },
   {
     code: 'HK_SUPERVISOR',
     audience: 'TENANT',
-    permissions: [...PROPERTY_READ, 'iam.user.read', ...TASK_SUPERVISOR, ...ALERT_DESK],
+    permissions: [...PROPERTY_READ, 'iam.user.read', ...TASK_SUPERVISOR, ...ALERT_DESK, ...HK_DESK],
   },
   {
     code: 'ROOM_ATTENDANT',
     audience: 'TENANT',
-    permissions: ['org.property.read', ...TASK_WORKER],
+    permissions: ['org.property.read', ...TASK_WORKER, 'hk.board.read'],
   },
   { code: 'ENGINEER', audience: 'TENANT', permissions: ['org.property.read', ...TASK_WORKER] },
   {
     code: 'FRONT_DESK',
     audience: 'TENANT',
-    permissions: [...PROPERTY_READ, ...GUEST_DESK, ...TASK_WORKER],
+    permissions: [...PROPERTY_READ, ...GUEST_DESK, ...TASK_WORKER, 'hk.board.read'],
   },
   {
     code: 'GUEST_RELATIONS',

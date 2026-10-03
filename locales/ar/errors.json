@@ -214,5 +214,9 @@
   "errors.knowledge.document.archived": "هذا المستند مؤرشف.",
   "errors.knowledge.document.version_conflict": "عدّل شخص آخر هذا المستند. أعد التحميل وحاول مرة أخرى.",
   "errors.knowledge.version.not_found": "إصدار المستند هذا غير موجود.",
-  "errors.knowledge.version.not_draft": "لا يُنشر إلا المسودة؛ الإصدارات المنشورة لا تتغير."
+  "errors.knowledge.version.not_draft": "لا يُنشر إلا المسودة؛ الإصدارات المنشورة لا تتغير.",
+  "errors.hk.room.not_found": "هذه الغرفة غير موجودة.",
+  "errors.hk.room.version_conflict": "حدّث شخص آخر هذه الغرفة. أعد التحميل وحاول مرة أخرى.",
+  "errors.hk.room.move_not_allowed": "لا يمكن نقل الغرفة يدويًا من {from} إلى {to}.",
+  "errors.hk.signal.no_room": "لا توجد غرفة على إقامتك الآن."
 }

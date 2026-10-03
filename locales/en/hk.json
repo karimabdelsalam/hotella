@@ -1,0 +1,7 @@
+{
+  "hk.permission.board_read": "See the housekeeping board",
+  "hk.permission.room_manage": "Change room states and signals",
+  "hk.permission.job_manage": "Create, assign and manage cleaning jobs",
+  "hk.permission.inspect": "Inspect cleaned rooms",
+  "hk.permission.config_manage": "Set up housekeeping credits and rules"
+}

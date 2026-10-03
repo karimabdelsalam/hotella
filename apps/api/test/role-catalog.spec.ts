@@ -6,6 +6,7 @@ import { COMMUNICATIONS_MANIFEST } from '@hotella/domain-communications/public';
 import { GUEST_MANIFEST } from '@hotella/domain-guest/public';
 import { IDENTITY_MANIFEST, SYSTEM_ROLES } from '@hotella/domain-identity';
 import { INTEGRATIONS_MANIFEST } from '@hotella/domain-integrations/public';
+import { HOUSEKEEPING_MANIFEST } from '@hotella/domain-housekeeping/public';
 import { KNOWLEDGE_MANIFEST } from '@hotella/domain-knowledge/public';
 import { OPERATIONS_MANIFEST } from '@hotella/domain-operations/public';
 import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
@@ -30,6 +31,7 @@ describe('system role catalog', () => {
         CATALOG_MANIFEST,
         AI_MANIFEST,
         KNOWLEDGE_MANIFEST,
+        HOUSEKEEPING_MANIFEST,
       ].flatMap((m) => m.permissions.map((p) => p.code)),
     );
     for (const role of SYSTEM_ROLES)

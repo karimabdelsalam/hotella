@@ -30,6 +30,14 @@ export {
   ServiceVersionPublished,
 } from './catalog-events';
 export {
+  ROOM_SIGNAL_SOURCES,
+  ROOM_SIGNALS,
+  ROOM_STATE_CAUSES,
+  ROOM_STATE_DIMENSIONS,
+  RoomSignalChanged,
+  RoomStateChanged,
+} from './hk-events';
+export {
   ConversationOpened,
   DeliveryUpdated,
   HandoffRequested,

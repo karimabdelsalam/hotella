@@ -1,0 +1,7 @@
+{
+  "hk.permission.board_read": "عرض لوحة التدبير الفندقي",
+  "hk.permission.room_manage": "تغيير حالات الغرف وإشاراتها",
+  "hk.permission.job_manage": "إنشاء مهام التنظيف وتوزيعها وإدارتها",
+  "hk.permission.inspect": "فحص الغرف بعد تنظيفها",
+  "hk.permission.config_manage": "إعداد نقاط التنظيف وقواعده"
+}
