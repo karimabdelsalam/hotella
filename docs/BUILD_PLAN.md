@@ -1897,7 +1897,7 @@ logbook.handovers               id, property_id, department_code, shift_date, sh
 | Sprint | Scope | Status |
 |---|---|---|
 | 9.1 | Inspection engine: templates/versions/sections/items, publish, inspections with responses, photos, deterministic scoring and findings, CRITICAL → urgent work, housekeeping bridge, staff web inspection runner | delivered |
-| 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | planned |
+| 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | delivered |
 | 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | planned |
 | 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | planned |
 | 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | planned |
@@ -1926,6 +1926,34 @@ Reality notes for 9.1:
 - Staff web `/inspections`: start a published checklist on a room, phone-sized answer controls per kind (buttons,
   numbers, text, photos from the camera, chips), complete, findings with "open work"; read-only for viewers.
   Playwright English and Arabic.
+
+Reality notes for 9.2:
+- `@hotella/domain-relations`, migration `0035_guest_relations`: `complaint_categories` (+ translations, default
+  severity, owning department; starter set NOISE, CLEANLINESS, MAINTENANCE, STAFF, FOOD, BILLING, AMENITIES, SAFETY,
+  OTHER in English and Arabic), `complaints` (number per property under an advisory lock, stay/guest, category,
+  severity, source, version), append-only `complaint_status_history` and `complaint_evidence` (triggers), `complaint_links`
+  (ROOM/SERVICE_REQUEST/TASK/ASSET/WORK_ORDER/USER), `complaint_candidates` (with the guest's own words, the execution
+  id, and a partial unique index: one PENDING per stay and category) and `recovery_actions`; RLS on every table.
+- Lifecycle (`domain/complaints.ts`): OPEN → IN_PROGRESS/RESOLVED, IN_PROGRESS → RESOLVED, RESOLVED → IN_PROGRESS
+  (reopen) or CLOSED; CLOSED is final; optimistic `version`. Resolving publishes `relations.complaint.resolved.v1`
+  with the minutes open and the recovery kinds done.
+- Concierge (GUEST_CONCIERGE v4): `relations.suggest_complaint` (LOW, permission `complaint.suggest`, needs the guest)
+  records a candidate only — below confidence 0.6 nothing is kept; a code the tenant does not use is kept under
+  OTHER; the guest is never told. Confirming (`complaint.manage`) creates the complaint with source AI_CANDIDATE and
+  copies the guest's words (MESSAGE) and the AI's reason with its confidence (AI_REASON) as evidence; the person may
+  correct category, severity and summary. Dismissing keeps the candidate as DISMISSED with who and when.
+- Recovery (`complaint.recovery.manage`): APOLOGY/AMENITY/ROOM_MOVE/OTHER are DONE at once; MEAL, DISCOUNT and REFUND
+  (amount required for discount and refund, in the property's currency) become PENDING_APPROVAL with a
+  `RECOVERY_ACTION` approval, HIGH from `relations.recovery.high_risk_from_minor` (default 50 000 minor units). The
+  approval handler sets DONE in the approving transaction; the worker settles rejected or expired approvals as
+  REJECTED (idempotent). No PROPOSED state was needed: a recovery is either done or waiting for its approval.
+  Nothing is posted to the PMS folio.
+- `RELATIONS_API.openComplaints` (ids, codes, severities; never the guest's words) for the shift handover in 9.4.
+- Roles: complaint read/manage/recovery for the GM, duty manager and guest relations (+ `approval.read`), category
+  management for the GM, read/manage for the front desk.
+- Staff web `/relations`: the concierge's suggestions with confidence, the guest's words and the reason (confirm /
+  dismiss), record a complaint, list and detail with evidence, notes, status buttons, recovery with "waits for
+  approval", history; read-only for viewers. Playwright English and Arabic. The pilot smoke covers relations in 9.4.
 
 ### Phase 10 — Real OPERA 5 On-Premise Integration (M4a)
 `apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
