@@ -14,6 +14,7 @@ Spec §2.1 mandates a modular monolith with explicit bounded contexts that may l
   - `contracts/*` imports nothing but zod and other contracts.
   - `apps/*` may import anything (they compose modules).
 - Lint failure on violation is a CI failure.
+- Spec §77 lists ten suggested domain packages. We keep all of them and add, as separate bounded contexts with their own PostgreSQL schema, the contexts the spec names in §3 but did not list in §77: `catalog` (Service Catalog, §7), `inspections` (§11), `relations` (§12), `lostfound` (§13), `logbook` (§14), `knowledge` (§37) and `audit` (§68). This is an elaboration, not a deviation: §77 is explicitly "suggested" and §3 is the authoritative context list.
 
 ## Consequences
 - Extracting a context into a service later means moving a package and replacing `/public` calls with network calls; the contract already exists.

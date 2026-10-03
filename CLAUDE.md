@@ -2,7 +2,7 @@
 
 Hotella is a white-label, multi-tenant, AI-native **Hotel Intelligence Platform** (product by Planova).
 The architecture source of truth is `docs/spec/HOTELLA_MASTER_SPEC.md`. The execution order and
-concrete technology decisions are in `docs/BUILD_PLAN.md` and `docs/adr/`.
+concrete technology decisions are in `docs/BUILD_PLAN.md` and `docs/adr/`; `docs/TRACEABILITY.md` maps every spec section to where it is satisfied.
 Read all three before changing anything structural. Work phase by phase; never build ahead of the current phase.
 
 ## Stack (locked by ADRs, do not change without a new ADR)
@@ -14,7 +14,7 @@ TypeScript 5 strict · Node 22 · NestJS modular monolith · pnpm workspaces + T
 ## Repository shape
 - `apps/*` compose; `packages/platform/*` are infrastructure; `packages/domain/*` are bounded contexts; `packages/contracts/*` are zod schemas (events, api, connectors, ai-tools).
 - A domain package exposes other domains **only** `src/public`. Never import another domain's `infrastructure`, `schema` or repositories. Lint enforces this.
-- Each bounded context owns its PostgreSQL schema (`org`, `iam`, `guest`, `catalog`, `ops`, `hk`, `eng`, `inspection`, `relations`, `comms`, `knowledge`, `ai`, `integration`, `license`, `audit`, `platform`). No domain writes another domain's tables; use its application service or an event.
+- Each bounded context owns its PostgreSQL schema (`org`, `iam`, `guest`, `catalog`, `ops`, `hk`, `eng`, `inspection`, `relations`, `lostfound`, `logbook`, `comms`, `knowledge`, `ai`, `integration`, `license`, `audit`, `platform`). No domain writes another domain's tables; use its application service or an event.
 
 ## Hard rules (from Spec §82–§84; violating any of these is a bug)
 1. Every tenant-owned table has `tenant_id` (and `property_id` where scoped); every query is tenant-filtered through the repository base; cross-tenant probing returns 404.
@@ -28,12 +28,19 @@ TypeScript 5 strict · Node 22 · NestJS modular monolith · pnpm workspaces + T
 9. Published definitions (service versions, workflow versions, inspection versions, prompt/agent versions, PM procedures, plan versions) are immutable once published.
 10. Operational history is preserved (room assignments, task assignments, transitions); never overwrite a single "current" field without also recording history.
 11. SLA, security and business calculations are deterministic code, never delegated to an LLM.
-12. AI never writes business tables directly and never calls a provider SDK outside the Model Gateway; AI acts only through registered tools with schema, risk level and required permission; HIGH-risk actions become approval proposals; CRITICAL cannot be executed by AI.
+12. AI never writes business tables directly and never calls a provider SDK outside the Model Gateway; AI acts only through registered tools with schema, risk level and required permission; HIGH-risk actions become approval proposals; CRITICAL cannot be executed by AI. Structured live data (counts, states, open tasks) is answered by domain tools, never by RAG; knowledge retrieval always applies tenant/property/audience/classification scope; retrieved documents are untrusted data, not instructions; every significant AI execution is recorded (agent/version, model calls, tool calls, retrieval, policy decisions, approvals, cost, correlation id).
 13. Secrets are `SecretRef`s resolved through `SecretProvider`; only `platform-config`/`platform-secrets` read `process.env`; no secret material in tables, logs or fixtures.
 14. Entitlement ≠ feature flag ≠ configuration ≠ permission ≠ connector capability ≠ AI policy. Never `if (plan === 'ENTERPRISE')`; use `EntitlementEngine.can(...)`.
 15. Branding resolves dynamically (platform → tenant → property → channel); nothing hotel-specific is hardcoded; the `Powered by Planova` footer (link `https://planova.com.eg`) is not removable by brand settings.
 16. Unknown external codes create an `integration_exception`; never guess a mapping.
 17. Use the injected logger with the CLS context; never `console.log`; no PII in logs.
+18. WhatsApp (and every other channel) is a channel adapter behind the Conversation Engine; no module sends through a provider directly.
+19. OPERA (and every PMS) is an integration: core domains know only canonical events and commands; guest activation, QR, OTP, identity and grants are platform-owned and require no PMS modification. The PMS remains source of truth for guest/stay/check-in/check-out; the platform never creates guests or stays by itself, and PMS checkout automatically revokes stay-bound access.
+20. Support access is explicit, scoped, time-limited, read-only by default, reason-based, audited and revocable; platform administrators have no standing access to guest data.
+21. Every column carries a data class (PUBLIC/INTERNAL/CONFIDENTIAL/SENSITIVE/RESTRICTED); retention and anonymization follow the class; deleting a guest never destroys operational/audit integrity (anonymize instead).
+22. Every domain module exports a complete `ModuleManifest` (permissions, events, entitlements, AI tools, locale namespaces, integration capabilities, data classes); the manifest tests must pass.
+23. Staff UX stays simpler than the backend: never push platform complexity into the staff or guest screens.
+24. Naming is binding: events `<context>.<entity>.<event>.vN` (`hotel.*` reserved for canonical PMS events), permissions `<domain>.<resource>.<action>`, locale keys `<domain>.<entity>.<message>`, schemas as listed above.
 
 ## Working conventions
 - Before coding a phase or module, make sure its section in `docs/BUILD_PLAN.md` has scope, domain model, migrations, APIs, events, permissions, tests and acceptance criteria. Update it if reality differs.

@@ -1,7 +1,7 @@
 # HOTELLA — Build Plan
 
 **Status:** Active execution plan (derived from `docs/spec/HOTELLA_MASTER_SPEC.md` v1.0)
-**Version:** 1.1 (decisions Q1/Q2/Q3/Q5/Q6/Q7 recorded)
+**Version:** 1.2 (audit pass against all 88 spec sections; see `docs/TRACEABILITY.md`)
 **Date:** 2026-10-03
 **Audience:** Implementation team / Claude engineering agents
 
@@ -15,6 +15,19 @@
 2. Before coding any phase, its section here must contain: scope, domain model, migrations, APIs, events, permissions, tests, acceptance criteria (Spec §84.5). Phases 0–5 already carry that detail below. Phases 6–13 are outlined and get expanded when their predecessor is accepted.
 3. Every module follows the **Module Definition of Done** (§9 of this plan) — no exceptions for "internal" modules.
 4. Material technology or boundary decisions are recorded in `docs/adr/`. Decisions already taken for Phase 0 are listed in §2.
+5. **Traceability:** `docs/TRACEABILITY.md` maps every spec section to the plan section, ADR and phase that satisfies it. A spec requirement with no row there is a planning bug; fix the plan before coding.
+6. **Quality gates (every sprint, no exceptions):**
+   - *Gate A — Automated:* lint (incl. boundaries, no-`process.env`, no-`console`, no-`gen_random_uuid`), typecheck, unit + integration + contract tests, migration drift check, `en`/`ar` key parity, OpenAPI snapshot. All green in CI before review.
+   - *Gate B — Spec review:* reviewer walks the Module Definition of Done (§12) and the relevant TRACEABILITY rows; any invariant in `CLAUDE.md` touched by the change is cited in the PR description with how it is honoured.
+   - *Gate C — Docs sync:* BUILD_PLAN section, ADRs, TRACEABILITY and CLAUDE.md updated in the same PR if anything deviated.
+   - *Gate D — Acceptance:* the sprint's acceptance checklist is executed and its result recorded in the PR.
+7. **Versions:** majors are fixed by ADR (Node 22, TypeScript 5, NestJS 11, PostgreSQL 16, Redis 7). Exact versions are pinned by `pnpm-lock.yaml`; upgrades are deliberate PRs, never drive-by.
+8. **Naming conventions (binding):**
+   - Events: `<context>.<entity>.<past_tense_event>.v<N>` for platform events (e.g. `ops.task.assigned.v1`); `hotel.<entity>.<event>.v<N>` is reserved for canonical PMS/hotel events produced by the Integration Platform (Spec §51).
+   - Permissions: `<domain>.<resource>.<action>` or `<resource>.<action>` as in Spec §5 (e.g. `engineering.work_order.create`, `task.assign`).
+   - Locale keys: `<domain>.<entity>.<message>` (Spec §79.1). Error codes: same shape, stored in `errors.json`.
+   - PostgreSQL schemas: `org, iam, guest, catalog, ops, hk, eng, inspection, relations, lostfound, logbook, comms, knowledge, ai, integration, license, audit, platform`.
+   - Tables: snake_case plural; translation tables `<singular>_translations`; history tables keep every row (no updates to closed rows).
 
 ---
 
@@ -130,6 +143,9 @@ hotella/
 ├── apps/
 │   ├── api/                      # NestJS HTTP API (platform-api)
 │   ├── worker/                   # BullMQ consumers, outbox relay, scheduler (platform-worker / scheduler)
+│   │                             # apps/worker runs one or more BullMQ queue groups selected by WORKER_QUEUES, so the
+│   │                             # six Spec §71 deployables are: api; worker[normal,analytics]; worker[scheduler];
+│   │                             # realtime; worker[integration]; worker[background-ai] — same image, different env
 │   ├── realtime/                 # WebSocket gateway (Phase 4)
 │   ├── guest-web/                # Guest PWA (Phase 5, stack per ADR-0009)
 │   ├── staff-web/                # Staff portal (Phase 4+, stack per ADR-0009)
@@ -157,8 +173,8 @@ hotella/
 │   │   ├── engineering/
 │   │   ├── inspections/
 │   │   ├── relations/            # complaints, service recovery
-│   │   ├── lostfound/
-│   │   ├── logbook/
+│   │   ├── lostfound/            # schema lostfound
+│   │   ├── logbook/              # schema logbook
 │   │   ├── communications/       # channels, conversations, messages, delivery, channel identities, activation, OTP, inbox
 │   │   ├── knowledge/            # documents, chunks, embeddings abstraction, retrieval
 │   │   ├── ai/                   # model gateway, agents, prompts, tools, context engine, policy, execution audit, memory
@@ -250,6 +266,8 @@ packages/domain/<ctx>/src/
 | 0.3.9 | API conventions: versioned routes, `IdempotencyInterceptor` (`Idempotency-Key` header, Redis-backed, 24h, replays stored response), Redis rate limiting (per IP now; per actor/tenant in Phase 1), cursor pagination helper, OpenAPI from zod (`@nestjs/swagger` + `nestjs-zod`) served at `/api/docs` in non-prod | replayed POST returns identical body and `Idempotent-Replayed: true` |
 | 0.3.10 | Scheduler base in `apps/worker` (BullMQ repeatable jobs) for later SLA timers, reconciliation, PM | a heartbeat job runs every minute in dev |
 | 0.3.11 | Feature flags v0 in `platform-config`: `FeatureFlagService.isEnabled(flag, {tenant, property})` reading a table `platform.feature_flags` with scope columns; explicitly *not* licensing | test shows flag ≠ entitlement call sites |
+| 0.3.12 | **Module manifest** (Spec §76 brought forward as an enforcement tool): every domain module exports a `ModuleManifest { code, schema, permissions[], events[], entitlements[], aiTools[], localeNamespaces[], integrationCapabilities[], dataClasses[] }`; a `ManifestRegistry` collects them at boot; tests assert that every permission used in a decorator, every event published, every locale namespace loaded and every table's data class is declared in exactly one manifest | a permission used but not declared fails the test suite |
+| 0.3.13 | **Data classification registry** (Spec §67): `dataClass` annotation on Drizzle columns via helper (`PUBLIC / INTERNAL / CONFIDENTIAL / SENSITIVE / RESTRICTED`); registry exported for the logger redaction list, the AI redaction policy (Phase 6) and retention policies (Phase 1) | a column without a class fails `db:check` |
 
 ### Phase 0 acceptance criteria
 
@@ -320,6 +338,9 @@ audit.audit_log            id, tenant_id, property_id nullable, actor_type
 
 platform.configuration     id, scope (PLATFORM|TENANT|PROPERTY|DEPARTMENT|MODULE), scope_id, key,
                            value jsonb, version, changed_by, changed_at  + platform.configuration_history
+platform.retention_policies id, tenant_id nullable, data_class, entity_type nullable, retain_days, action
+                           (DELETE|ANONYMIZE|ARCHIVE), legal_hold bool — framework only in Phase 1; each module
+                           declares its data classes (manifest) and implements its purge/anonymize job (DoD §12.15)
 ```
 
 ### 5.3 Application services & APIs (`/api/v1`)
@@ -332,6 +353,7 @@ platform.configuration     id, scope (PLATFORM|TENANT|PROPERTY|DEPARTMENT|MODULE
 - Branding: brand profile CRUD per scope; **`GET /public/branding?property=…&channel=…`** returns the fully resolved guest-facing brand (used by guest web / QR pages / WhatsApp context) and always includes `attribution: { show: true, label: "Powered by Planova", href: "https://planova.com.eg" }` unless the attribution policy entitlement says otherwise
 - Audit: `GET /audit?entity=…` (read-only)
 - Support access: request/approve/revoke endpoints (model + API; approval UI later)
+- Retention policies: CRUD per tenant/data class (framework; enforcement jobs land with each module)
 
 ### 5.4 Authorization & the action gate v1
 
@@ -408,6 +430,16 @@ integration.integration_messages    id, instance_id, direction, source_message_i
 integration.integration_mappings    instance_id, mapping_type (ROOM|ROOM_TYPE|RATE|MARKET|STATUS…), external_code,
                                     internal_value, confirmed_by, confirmed_at
 integration.integration_exceptions  instance_id, kind (UNKNOWN_MAPPING|PARSE_ERROR|CONFLICT), payload, status, resolved_by
+integration.integration_commands    id, instance_id, command_type, payload, idempotency_key unique(instance_id, key),
+                                    status (PENDING|SENT|ACKNOWLEDGED|FAILED|EXPIRED), attempts, sent_at, acknowledged_at,
+                                    error, correlation_id — durable outbound commands (Spec §53); first used by Phase 8 room restrictions
+integration.integration_health      instance_id, status (HEALTHY|DEGRADED|OFFLINE|MISCONFIGURED|AUTH_FAILED), last_success_at,
+                                    last_failure_at, latency_ms_p95, queue_depth, error_rate, agent_last_seen_at, updated_at
+                                    (Spec §57; alerts deduplicated through ops.alerts)
+integration.reconciliation_runs / reconciliation_results  run_id, instance_id, entity_type, outcome
+                                    (MATCH|MISSING_INTERNAL|MISSING_EXTERNAL|DIFFERENT), details — Spec §52; simulator-driven in Phase 2
+guest.guest_data_requests           id, tenant_id, guest_id, kind (EXPORT|CORRECTION|ANONYMIZE|DELETE), status, requested_by_actor,
+                                    reason, completed_at, result_asset_id — Spec §69; anonymization keeps operational/audit integrity
 ```
 
 ### 6.2 Canonical events (contracts, Spec §51)
@@ -426,11 +458,11 @@ Connector `SIM_PMS` implementing the Connector SDK contract v0: HTTP endpoints /
 
 ### 6.4 APIs
 
-`GET /guests/:id`, search, merge (approval-gated later), `GET /stays?status=IN_HOUSE&property=`, `GET /stays/:id` (with party, current room, assignment history), `GET /rooms/:id/current-stay`, preferences & consents CRUD, external reference lookup, integration instances CRUD, mapping confirmation, exceptions queue.
+`GET /guests/:id`, search, merge (approval-gated later), `GET /stays?status=IN_HOUSE&property=`, `GET /stays/:id` (with party, current room, assignment history), `GET /rooms/:id/current-stay`, preferences & consents CRUD, external reference lookup, integration instances CRUD, mapping confirmation, exceptions queue, integration health read, reconciliation run/trigger/results, guest data requests (export → JSON asset; anonymize → pseudonymised profile with audit/ops rows intact).
 
 ### 6.5 Permissions
 
-`guest.read guest.manage guest.merge stay.read stay.manage integration.read integration.configure integration.replay integration.mapping.confirm`
+`guest.read guest.manage guest.merge guest.data_request.manage stay.read stay.manage integration.read integration.configure integration.replay integration.mapping.confirm integration.reconcile`
 
 ### 6.6 Acceptance
 
@@ -438,6 +470,8 @@ Connector `SIM_PMS` implementing the Connector SDK contract v0: HTTP endpoints /
 - Room move creates a second `room_assignments` row and closes the first; `GET /rooms/504/current-stay` flips.
 - Unknown room code from the simulator yields an `integration_exceptions` row and no stay; confirming the mapping and replaying resolves it.
 - PMS ids never appear as `id` of any `guest.*` row (test over schema).
+- Reconciliation against the simulator reports MATCH for a clean run and the correct outcome for each injected discrepancy.
+- Anonymizing a checked-out guest removes identifying fields and identifiers while stays, work history and audit rows remain queryable.
 - Checkout emits `hotel.guest.checked_out.v1` consumed later by grants (Phase 4) and HK (Phase 7).
 - No API or UI path creates a guest or stay outside the canonical-event consumer (staff can only *view*, *merge*, annotate preferences/consents); a test asserts the stay state machine is driven exclusively by PMS events.
 
@@ -530,6 +564,7 @@ comms.verification_sessions     id, tenant_id, property_id, stay_id nullable, ro
 comms.room_qr_codes             id, tenant_id, property_id, room_id (location), token_hash, status (ACTIVE|ROTATED|REVOKED),
                                 created_at, rotated_from — contains no guest data
 comms.inbox_views               (materialized/read model) conversation + guest + stay + room + open work items + SLA risk + AI summary placeholder
+-- owned by the guest domain (Spec §6); comms creates grants only through `@hotella/domain-guest/public`
 guest.guest_access_grants       id, tenant_id, property_id, guest_id, stay_id nullable, scopes text[]
                                 (SERVICE_REQUEST|CHAT|DINING|CONCIERGE|ROOM_CONTROL|VIEW_BILL|PAYMENT|LOST_FOUND|FEEDBACK|INVOICE|SUPPORT),
                                 valid_from, valid_until, revoked_at, revoke_reason, granted_via (ACTIVATION|QR|STAFF|PRE_ARRIVAL)
@@ -547,7 +582,7 @@ guest.guest_sessions            id, grant_id, session_token_hash, device_info, c
 
 ### 8.3 Security requirements (tests, Spec §66)
 
-OTP hashed (argon2id/HMAC), 6 digits, 5 min, 5 attempts, per-phone and per-IP rate limits, single-use; activation token single purpose, 24h default, revocable; replay of a used token ⇒ 410; QR token rotation invalidates printed codes without PMS change.
+OTP stored as HMAC-SHA256 with a provider-managed key (ADR-0011; a plain hash of a 6-digit code is brute-forceable), 6 digits, 5 min, 5 attempts, per-phone and per-IP rate limits, single-use; activation token single purpose, 24h default, revocable; replay of a used token ⇒ 410; QR token rotation invalidates printed codes without PMS change.
 
 ### 8.4 APIs
 
@@ -601,7 +636,7 @@ catalog.service_requests             id, tenant_id, property_id, service_version
 
 Guest: `GET /guest/services` (eligible, localized), `POST /guest/requests`, `GET /guest/requests`. Staff: catalog CRUD + publish, requests board, create on behalf of guest.
 Permissions: `catalog.read catalog.manage catalog.publish request.read request.create request.manage`
-Events: `catalog.service_version.published.v1`, `guest.request.created.v1`, `guest.request.status_changed.v1`, `guest.request.related.v1`
+Events: `catalog.service_version.published.v1`, `catalog.service_request.created.v1`, `catalog.service_request.status_changed.v1`, `catalog.service_request.related.v1`
 
 ### 9.4 Acceptance (closes **M1**)
 
@@ -612,7 +647,7 @@ End-to-end CI scenario: simulator check-in → activation → request EXTRA_TOWE
 ## 10. Phases 6–13 (outline; expanded before each starts)
 
 ### Phase 6 — AI Foundation (M2)
-Deliver: `ai` schema (providers, models, capabilities, routing rules, agents, agent_versions (immutable), prompts, prompt_versions, tools, tool_versions, policies, action_proposals, executions, execution_steps, model_calls, memory_candidates, memories, feedback). Model Gateway with capability-based routing (`REASONING_HIGH, FAST_CLASSIFICATION, VISION, TRANSLATION, EMBEDDING, AUDIO, STRUCTURED_OUTPUT`), providers behind one interface (Anthropic, OpenAI, Google, local), fallback, cost/latency recording, kill switches. Tool Registry executing through the **action gate** with risk levels and AI policy stage now real. Context Engine with per-agent context policies. Guest Concierge v1 with tools `guest.get_current_stay`, `operations.find_open_requests`, `operations.create_service_request`, `knowledge.search` (stub), `communication.send_message`. Handoff reasons → inbox. Language detection → respond in guest language. Data classification/redaction before provider calls. Acceptance: "الجو حر أوي هنا" scenario; HIGH-risk tool produces an `action_proposal` routed to approvals; execution audit complete; no AI code path has a DB write outside tool handlers (lint + test).
+Deliver: `ai` schema (providers, models, capabilities, routing rules, agents, agent_versions (immutable), prompts, prompt_versions, tools, tool_versions, policies, action_proposals, executions, execution_steps, model_calls, memory_candidates, memories, feedback). Model Gateway with capability-based routing (`REASONING_HIGH, FAST_CLASSIFICATION, VISION, TRANSLATION, EMBEDDING, AUDIO, STRUCTURED_OUTPUT`), providers behind one interface (Anthropic, OpenAI, Google, local), fallback, cost/latency recording, kill switches. Tool Registry executing through the **action gate** with risk levels and AI policy stage now real. Context Engine with per-agent context policies. Guest Concierge v1 with tools `guest.get_current_stay`, `operations.find_open_requests`, `operations.create_service_request`, `knowledge.search` (stub), `communication.send_message`. Prompt composition in layers (Spec §30: platform → agent → tenant policy → property context → actor role → current task), prompt and agent versions immutable once published. Handoff reasons → inbox; AI drafts in the inbox with human edits recorded (`ai_feedback`, edit distance) for evaluation (Spec §24, §40). Language detection → respond in guest language. Data classification/redaction before provider calls using the Phase 0 classification registry. Knowledge module v1 (`knowledge` schema: documents, versions, chunks, embeddings, scope = tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank; retrieval results carry document version references, Spec §37–§38). Rule: structured live data (open tasks, stay state) is served by tools, never RAG (Spec §82.10). Acceptance: "الجو حر أوي هنا" scenario; HIGH-risk tool produces an `action_proposal` routed to approvals; execution audit complete; no AI code path has a DB write outside tool handlers (lint + test).
 
 ### Phase 7 — Housekeeping
 `hk` schema: `room_operational_states` projection (+version), `housekeeping_jobs` via work items, `credit_rules`, `room_signals` (DND/MUR/PRIVACY/SERVICE_REQUESTED with source), assignment boards, inspection hook (Phase 9 engine, early minimal version here), arrival readiness v0 (configurable dimensions, Spec §16). Consumes `hotel.guest.checked_out.v1` → CHECKOUT job; `hotel.room.status_changed.v1`. Housekeeping Copilot recommendations (assignment balancing by credits/location/history) as proposals only.
@@ -627,10 +662,10 @@ Generic inspection engine first (`inspection` schema per Spec §11, critical fin
 `apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
 
 ### Phase 11 — Licensing & Control Plane (M4b)
-`license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent.
+`license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent. Developer platform v1 (Spec §75): API clients with scoped keys, signed outbound webhooks with retry/DLQ/replay (ADR-0012), OAuth clients later; no untrusted code plugins in the runtime.
 
 ### Phase 12 — Advanced Intelligence
-GM/duty-manager intelligence, cross-property analysis, insight/recommendation engine with evidence (Spec §38), evaluation sets/runs, shadow & canary agent versions, predictive models where data supports, cost optimization and quality metrics dashboards (Spec §41).
+GM/duty-manager intelligence, cross-property analysis, insight/recommendation engine with evidence (Spec §38), evaluation sets/runs, shadow & canary agent versions, predictive models where data supports, cost optimization and quality metrics dashboards (Spec §41). Operational digital-twin read model (Spec §80): a graph-shaped projection (property → rooms → stays/guests/assets/tasks/incidents/conversations) built from existing domain events, used by Manager AI and arrival-risk; it is a projection, never a source of truth. Controlled agent collaboration (Spec §43): specialist agents callable as capabilities with structured results, no free-form agent swarms.
 
 ### Phase 13 — Voice / IoT / Additional Connectors
 Voice channel via PBX gateway → conversation engine → same tools; IoT/BMS telemetry path (high-volume ingest → rules/anomaly → meaningful events); POS/ERP/Wi-Fi/lock connectors through the Connector SDK. No core redesign allowed; if one seems needed, stop and write an ADR.
@@ -673,7 +708,9 @@ A module/phase is accepted only when all of the following are true:
 11. **Integration**: declared connector capabilities consumed; unknown external values create exceptions.
 12. **Observability**: correlation ids flow through jobs and events; metrics for queue lag/failures; no PII in logs.
 13. **Tests**: unit for domain rules; integration against real PG/Redis; contract tests for events/connectors; e2e scenario for the phase acceptance; all in CI.
-14. **Docs**: OpenAPI updated; ADR for any deviation; CLAUDE.md updated if a convention changed.
+14. **Docs**: OpenAPI updated; ADR for any deviation; CLAUDE.md updated if a convention changed; TRACEABILITY rows updated.
+15. **Privacy & retention**: every column carries a data class; the module declares retention behaviour per class and implements its purge/anonymize job; nothing in the module blocks guest anonymization except legal-hold rows.
+16. **Manifest**: the module's `ModuleManifest` is complete (permissions, events, entitlements, AI tools, locale namespaces, integration capabilities, data classes) and the manifest tests pass.
 
 ---
 
