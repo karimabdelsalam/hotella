@@ -43,7 +43,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 25 | Notification intent ≠ delivery channel; channels; preferences; critical override | BP §7.1 `ops.notification_*`, §7.2 adapters; Sprint 3.4 (`channelsFor` unit test, dispatcher/rules/e-mail retry/inbox/preferences integration tests, `EMAIL_CHANNEL`) | P3 ✔ (staff in-app + e-mail), P4 (WhatsApp/SMS), P5 ✔ guests (5.3: `COMMUNICATIONS_API.notifyGuest`, `notifications.integration.spec.ts`) |
 | 26 | Service vs marketing consent; portal use ≠ marketing consent | BP §6.1 `guest.guest_consents` — Sprint 2.4: typed consents (SERVICE_COMMUNICATION vs MARKETING_* vs PERSONALIZATION), append-only history enforced by a DB trigger, current state = latest per type | P2 ✔ |
 | 27 | Agent runtime: context, memory, planner, policy, tool registry, model gateway; provider-independent | BP §10 P6 | P6 |
-| 28 | Single model gateway; capability-based routing; fallback; cost/latency/policy | BP §10 P6; CM 12 | P6 |
+| 28 | Single model gateway; capability-based routing; fallback; cost/latency/policy | BP §10 P6; ADR-0018; Sprint 6.1 (`domain-ai`: `MODEL_GATEWAY`, `pickRule` tests, OpenAI-compatible/Anthropic contract tests, fallback and routing in `gateway.integration.spec.ts`); CM 12 | P6 (6.1 ✔) |
 | 29 | Logical agents; agent = prompt+tools+context+memory+routing+autonomy+output contract; immutable versions | BP §10 P6 `agents/agent_versions` | P6 |
 | 30 | Versioned prompts; layered composition | BP §10 P6 prompt layering | P6 |
 | 31 | Tool registry fields; AI never writes tables; execution through validation/authz/entitlement/workflow/SLA/audit/events | BP §10 P6 tools via action gate; CM 12 | P6 |
@@ -56,8 +56,8 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 38 | Evidence & explainability; traceable to document versions | BP §10 P6 (version refs), P12 insights | P6, P12 |
 | 39 | Rules/statistics first, LLM only when valuable | BP §10 P7/P8 notes, P13 IoT path; CM 11 | P7+ |
 | 40 | Feedback, evaluation sets/cases/runs/results; implicit signals; regression/shadow/canary before publish | BP §10 P6 `feedback`, P12 evaluation & canary | P6, P12 |
-| 41 | Cost & quality observability metrics | BP §10 P6 cost/token metrics; ADR-0006 meter; P12 dashboards | P6, P12 |
-| 42 | Safety pipeline; retrieved docs untrusted; schema → business → authz validation; classification/redaction; kill switches | BP §10 P6; BP §4 0.3.13 classification registry; CM 12 | P0, P6 |
+| 41 | Cost & quality observability metrics | BP §10 P6 cost/token metrics (6.1: `ai.model_calls` tokens/latency/cost/fallback/outcome, `/ai/usage`); ADR-0006 meter; P12 dashboards | P6, P12 |
+| 42 | Safety pipeline; retrieved docs untrusted; schema → business → authz validation; classification/redaction; kill switches | BP §10 P6; BP §4 0.3.13 classification registry; ADR-0018 egress policy (6.1: data-class filter, identifier masking, RESTRICTED never sent, provider/model kill switches, budget); CM 12 | P0, P6 |
 | 43 | Controlled agent collaboration; no swarms | BP §10 P12 | P12 |
 | 44 | Voice, vision, IoT, robots via same engine | BP §10 P13; `ops.task_assignments.assignee_type` includes AI/ROBOT (BP §7.1) | P13 |
 | 45 | Core knows canonical concepts; connector adapters → integration platform → normalized events | BP §6.2 pipeline, §6.7 Sprint 2.1 (`IngestService`, `toCanonical`); `contracts-events/hotel-events.ts`; ADR-0014 | P2 ✔ (2.1) |

@@ -7231,6 +7231,316 @@
         ]
       }
     },
+    "/api/v1/ai/providers": {
+      "get": {
+        "operationId": "AiAdminController_providers",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      },
+      "post": {
+        "operationId": "AiAdminController_createProvider",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProviderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      }
+    },
+    "/api/v1/ai/providers/{id}": {
+      "patch": {
+        "operationId": "AiAdminController_updateProvider",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProviderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      }
+    },
+    "/api/v1/ai/models": {
+      "get": {
+        "operationId": "AiAdminController_models",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      },
+      "post": {
+        "operationId": "AiAdminController_createModel",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      }
+    },
+    "/api/v1/ai/models/{id}": {
+      "patch": {
+        "operationId": "AiAdminController_updateModel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateModelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      }
+    },
+    "/api/v1/ai/routing-rules/platform": {
+      "put": {
+        "operationId": "AiAdminController_putPlatformRule",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      }
+    },
+    "/api/v1/ai/routing-rules": {
+      "get": {
+        "operationId": "AiAdminController_rules",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      },
+      "put": {
+        "operationId": "AiAdminController_putRule",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      }
+    },
+    "/api/v1/ai/usage": {
+      "get": {
+        "operationId": "AiAdminController_usage",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiAdmin"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "HealthController_liveness",
@@ -11041,6 +11351,252 @@
             "maxLength": 500
           }
         }
+      },
+      "CreateProviderDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "OPENAI_COMPATIBLE",
+              "ANTHROPIC",
+              "FAKE"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "credentialRef": {
+            "type": "string",
+            "maxLength": 256,
+            "nullable": true
+          },
+          "egress": {
+            "type": "string",
+            "enum": [
+              "ON_PREM",
+              "EXTERNAL"
+            ]
+          },
+          "maxDataClass": {
+            "default": "INTERNAL",
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "INTERNAL",
+              "CONFIDENTIAL",
+              "SENSITIVE"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "kind",
+          "egress"
+        ]
+      },
+      "UpdateProviderDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "baseUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "credentialRef": {
+            "type": "string",
+            "maxLength": 256,
+            "nullable": true
+          },
+          "maxDataClass": {
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "INTERNAL",
+              "CONFIDENTIAL",
+              "SENSITIVE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "CreateModelDto": {
+        "type": "object",
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "capabilities": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "REASONING_HIGH",
+                "FAST_CLASSIFICATION",
+                "VISION",
+                "TRANSLATION",
+                "EMBEDDING",
+                "AUDIO",
+                "STRUCTURED_OUTPUT"
+              ]
+            }
+          },
+          "contextWindow": {
+            "default": 8192,
+            "type": "integer",
+            "minimum": 512,
+            "maximum": 10000000
+          },
+          "inputPerMillionMinor": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "outputPerMillionMinor": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "cachedPerMillionMinor": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "currency": {
+            "default": "USD",
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "required": [
+          "providerId",
+          "code",
+          "capabilities"
+        ]
+      },
+      "UpdateModelDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "capabilities": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "REASONING_HIGH",
+                "FAST_CLASSIFICATION",
+                "VISION",
+                "TRANSLATION",
+                "EMBEDDING",
+                "AUDIO",
+                "STRUCTURED_OUTPUT"
+              ]
+            }
+          },
+          "contextWindow": {
+            "type": "integer",
+            "minimum": 512,
+            "maximum": 10000000
+          },
+          "inputPerMillionMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "outputPerMillionMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "cachedPerMillionMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "RoutingDto": {
+        "type": "object",
+        "properties": {
+          "capability": {
+            "type": "string",
+            "enum": [
+              "REASONING_HIGH",
+              "FAST_CLASSIFICATION",
+              "VISION",
+              "TRANSLATION",
+              "EMBEDDING",
+              "AUDIO",
+              "STRUCTURED_OUTPUT"
+            ]
+          },
+          "modelIds": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "nullable": true
+          }
+        },
+        "required": [
+          "capability",
+          "modelIds"
+        ]
       },
       "EchoDto": {
         "type": "object",

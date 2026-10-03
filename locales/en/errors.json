@@ -186,5 +186,13 @@
   "errors.catalog.request.daily_limit": "You have reached today's limit for this service.",
   "errors.catalog.request.field_invalid": "Please check \"{field}\".",
   "errors.catalog.request.not_found": "Request not found.",
-  "errors.catalog.request.cannot_cancel": "This request can no longer be cancelled."
+  "errors.catalog.request.cannot_cancel": "This request can no longer be cancelled.",
+  "errors.ai.gateway.unavailable": "The AI service is not available right now.",
+  "errors.ai.provider.not_found": "AI provider not found.",
+  "errors.ai.provider.code_taken": "An AI provider with this code already exists.",
+  "errors.ai.provider.version_conflict": "Someone else changed this provider; reload and try again.",
+  "errors.ai.model.not_found": "AI model not found.",
+  "errors.ai.model.code_taken": "This provider already has a model with this code.",
+  "errors.ai.model.version_conflict": "Someone else changed this model; reload and try again.",
+  "errors.ai.routing.model_unsuitable": "Every model must be active and serve the capability {capability}."
 }

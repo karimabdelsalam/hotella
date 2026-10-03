@@ -2,6 +2,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import { GuestEventsModule } from '@hotella/domain-guest';
 import { IntegrationsCoreModule } from '@hotella/domain-integrations';
 import { IdentityDirectoryModule } from '@hotella/domain-identity';
+import { AiCoreModule } from '@hotella/domain-ai';
 import { CatalogWorkerModule } from '@hotella/domain-catalog';
 import { CommunicationsWorkerModule } from '@hotella/domain-communications';
 import { OperationsWorkerModule } from '@hotella/domain-operations';
@@ -48,6 +49,8 @@ const WORKER_MODULES = [
   CommunicationsWorkerModule,
   // Service requests follow their work items and the stay (catalog).
   CatalogWorkerModule,
+  // The Model Gateway for background AI work (ADR-0018).
+  AiCoreModule,
   WorkerRuntimeModule,
 ];
 

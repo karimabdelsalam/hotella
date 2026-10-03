@@ -10,6 +10,7 @@ import {
 } from '@hotella/domain-identity';
 import { GuestModule } from '@hotella/domain-guest';
 import { IntegrationsModule } from '@hotella/domain-integrations';
+import { AiModule } from '@hotella/domain-ai';
 import { CatalogModule } from '@hotella/domain-catalog';
 import { CommunicationsModule } from '@hotella/domain-communications';
 import { OperationsModule } from '@hotella/domain-operations';
@@ -79,6 +80,7 @@ describe('api skeleton (e2e)', () => {
         OperationsModule,
         CommunicationsModule,
         CatalogModule,
+        AiModule,
         HealthModule,
         MetaModule,
       ],
@@ -166,6 +168,7 @@ describe('api skeleton (e2e)', () => {
       (res.body as { code: string; events: string[] }[]).map((m) => [m.code, m]),
     );
     expect([...byCode.keys()].sort()).toEqual([
+      'ai',
       'audit',
       'catalog',
       'comms',

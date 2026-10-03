@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AUDIT_MANIFEST } from '@hotella/platform-audit';
+import { AI_MANIFEST } from '@hotella/domain-ai/public';
 import { CATALOG_MANIFEST } from '@hotella/domain-catalog/public';
 import { COMMUNICATIONS_MANIFEST } from '@hotella/domain-communications/public';
 import { GUEST_MANIFEST } from '@hotella/domain-guest/public';
@@ -26,6 +27,7 @@ describe('system role catalog', () => {
         OPERATIONS_MANIFEST,
         COMMUNICATIONS_MANIFEST,
         CATALOG_MANIFEST,
+        AI_MANIFEST,
       ].flatMap((m) => m.permissions.map((p) => p.code)),
     );
     for (const role of SYSTEM_ROLES)

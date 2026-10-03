@@ -186,5 +186,13 @@
   "errors.catalog.request.daily_limit": "وصلت إلى الحد اليومي لهذه الخدمة.",
   "errors.catalog.request.field_invalid": "يُرجى مراجعة \"{field}\".",
   "errors.catalog.request.not_found": "لم يتم العثور على الطلب.",
-  "errors.catalog.request.cannot_cancel": "لم يعد من الممكن إلغاء هذا الطلب."
+  "errors.catalog.request.cannot_cancel": "لم يعد من الممكن إلغاء هذا الطلب.",
+  "errors.ai.gateway.unavailable": "خدمة الذكاء الاصطناعي غير متاحة الآن.",
+  "errors.ai.provider.not_found": "لم يتم العثور على مزوّد الذكاء الاصطناعي.",
+  "errors.ai.provider.code_taken": "يوجد مزوّد ذكاء اصطناعي بهذا الرمز بالفعل.",
+  "errors.ai.provider.version_conflict": "قام شخص آخر بتعديل هذا المزوّد؛ أعد التحميل وحاول مرة أخرى.",
+  "errors.ai.model.not_found": "لم يتم العثور على نموذج الذكاء الاصطناعي.",
+  "errors.ai.model.code_taken": "لدى هذا المزوّد نموذج بهذا الرمز بالفعل.",
+  "errors.ai.model.version_conflict": "قام شخص آخر بتعديل هذا النموذج؛ أعد التحميل وحاول مرة أخرى.",
+  "errors.ai.routing.model_unsuitable": "يجب أن يكون كل نموذج نشطًا ويخدم القدرة {capability}."
 }

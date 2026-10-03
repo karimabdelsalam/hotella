@@ -65,6 +65,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'integration.mapping.confirm',
       'integration.replay',
       'integration.reconcile',
+      // AI providers, models and the platform default routing (ADR-0018).
+      'ai.provider.manage',
     ],
   },
   { code: 'SUPPORT', audience: 'PLATFORM', permissions: ['support.access.request'] },
@@ -104,6 +106,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'inbox.assign',
       'catalog.manage',
       'catalog.publish',
+      'ai.routing.manage',
+      'ai.usage.read',
     ],
   },
   {

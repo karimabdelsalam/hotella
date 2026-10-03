@@ -1314,11 +1314,28 @@ ai.feedback             id, tenant_id, execution_id, kind (DRAFT_EDIT|REASSIGNME
 
 | Sprint | Scope | Status |
 |---|---|---|
-| 6.1 | `@hotella/domain-ai`: providers, models, routing rules, `MODEL_GATEWAY` (`complete`, `embed`) with `OPENAI_COMPATIBLE`, `ANTHROPIC` and `FAKE` adapters, fallback, cost/latency in `ai.model_calls`, egress policy (data class filter + identifier masking), budgets and kill switches, admin API (platform admin for providers/models, tenant for routing overrides) | planned |
+| 6.1 | `@hotella/domain-ai`: providers, models, routing rules, `MODEL_GATEWAY` (`complete`, `embed`) with `OPENAI_COMPATIBLE`, `ANTHROPIC` and `FAKE` adapters, fallback, cost/latency in `ai.model_calls`, egress policy (data class filter + identifier masking), budgets and kill switches, admin API (platform admin for providers/models, tenant for routing overrides) | delivered |
 | 6.2 | Tool registry + AI policy stage: tool definitions from manifests, handlers registered by owning contexts, execution through the ActionGate as `AI_AGENT`, risk decisions, `ai.action_proposals` + approval kind `AI_ACTION`; tools v1 `guest.get_current_stay`, `operations.find_open_requests`, `operations.create_service_request`, `catalog.list_services`, `communication.send_message`, `knowledge.search` (stub) | planned |
 | 6.3 | Agents and prompts (immutable versions), Context Engine with context policies, execution audit (`executions`, `execution_steps`), Guest Concierge v1 runtime triggered by guest messages (AUTO/ASSIST), language rule, handoff → inbox, drafts with edit-distance feedback, staff inbox shows AI drafts | planned |
 | 6.4 | Knowledge v1 (`knowledge` schema: documents, versions, chunks, embeddings with pgvector; scope tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank with document version references; retrieved text framed as untrusted data) | planned |
 | 6.5 | M2 acceptance: "الجو حر أوي هنا" end to end with the `FAKE` provider scripted, HIGH-risk proposal → approval → execution, execution audit complete, the no-direct-write rule enforced by depcruise + test; `docs/acceptance/phase-6.md` | planned |
+
+Reality notes for 6.1:
+- Migration `0022_ai_gateway`: `ai.providers`, `ai.models`, `ai.routing_rules` (platform defaults visible to every
+  tenant through their RLS policy), `ai.model_calls` (never the content). Adapters speak HTTP through `fetch`
+  (no vendor SDK); calls time out after 60 s.
+- Routing: the property's rule, else the tenant's, else the platform default; models are tried in order, skipped when
+  disabled, killed (`ai.kill.provider.<code>`, `ai.kill.model.<code>` feature flags), not serving the capability, or
+  external without the opt-in. External providers need the platform allow-list `ai.external_providers.allowed`, the
+  tenant's `ai.external_providers.enabled` and budget left in `ai.budget.monthly_limit_minor` (UTC month; reaching it
+  raises one `AI_BUDGET_EXHAUSTED` alert per tenant and month). Retryable failures (timeout, 429, 5xx, bad response)
+  fall back to the next model; every attempt is a `model_calls` row with its outcome.
+- Egress: system parts above the provider's maximum class are left out, conversation turns above it become
+  `[withheld]`; RESTRICTED never leaves; phone numbers, e-mail addresses and card-like numbers are masked for
+  `EXTERNAL` providers. Embeddings refuse a provider that may not see every text.
+- Administration: `/ai/providers`, `/ai/models`, `PUT /ai/routing-rules/platform` (platform administrators,
+  `ai.provider.manage`); `GET|PUT /ai/routing-rules` and `GET /ai/usage` for a tenant (`ai.routing.manage`,
+  `ai.usage.read`, general managers).
 
 ### Phase 7 — Housekeeping
 `hk` schema: `room_operational_states` projection (+version), `housekeeping_jobs` via work items, `credit_rules`, `room_signals` (DND/MUR/PRIVACY/SERVICE_REQUESTED with source), assignment boards, inspection hook (Phase 9 engine, early minimal version here), arrival readiness v0 (configurable dimensions, Spec §16). Consumes `hotel.guest.checked_out.v1` → CHECKOUT job; `hotel.room.status_changed.v1`. Housekeeping Copilot recommendations (assignment balancing by credits/location/history) as proposals only.
