@@ -54,5 +54,9 @@
   "errors.iam.role.system_immutable": "لا يمكن تعديل الأدوار الأساسية. أنشئ دورًا خاصًا بك بدلًا من ذلك.",
   "errors.iam.role.not_assignable": "هذا الدور مخصص لفريق المنصة.",
   "errors.iam.role.unknown_permission": "صلاحية غير معروفة: {code}.",
-  "errors.iam.role.cannot_delegate": "لا يمكنك منح صلاحيات لا تملكها: {permission}."
+  "errors.iam.role.cannot_delegate": "لا يمكنك منح صلاحيات لا تملكها: {permission}.",
+  "errors.platform.config.unknown_key": "إعداد غير معروف: {key}.",
+  "errors.platform.config.invalid_value": "القيمة غير صالحة للإعداد {key}.",
+  "errors.platform.config.scope_not_allowed": "لا يمكن تغيير هذا الإعداد على مستوى {scope}.",
+  "errors.platform.attribution.entitlement_required": "إخفاء إشارة المنصة يتطلب ترخيص العلامة البيضاء."
 }

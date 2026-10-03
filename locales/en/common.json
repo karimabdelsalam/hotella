@@ -11,5 +11,7 @@
   "platform.permission.feature_flag_read": "View feature flags",
   "platform.permission.feature_flag_manage": "Enable or disable feature flags",
   "platform.permission.outbox_read": "View the event outbox",
-  "platform.permission.outbox_replay": "Replay outbox events"
+  "platform.permission.outbox_replay": "Replay outbox events",
+  "platform.permission.config_read": "View configuration and retention policies",
+  "platform.permission.config_manage": "Change configuration and retention policies"
 }

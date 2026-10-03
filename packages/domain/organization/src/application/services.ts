@@ -16,6 +16,7 @@ import {
   TransactionRunner,
 } from '@hotella/platform-database';
 import { AuditWriter } from '@hotella/platform-audit';
+import { AttributionPolicyService } from '@hotella/platform-settings';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError, CurrentLocale } from '@hotella/platform-i18n';
 import { mergeBrand, type BrandLayer, type ResolvedBrand } from '../domain/branding';
@@ -570,6 +571,7 @@ export class BrandingService {
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
     private readonly audit: AuditWriter,
+    private readonly attribution: AttributionPolicyService,
     private readonly actors: ActorStore,
   ) {}
 
@@ -695,17 +697,24 @@ export class BrandingService {
       ch: string | null,
     ): BrandProfileRow | undefined =>
       rows.find((r) => r.scope === s && r.scopeId === id && r.channel === ch);
-    return mergeBrand(propertyId, channel, effectiveLocale, property.name, [
-      { name: 'tenant', layer: toLayer(find('TENANT', property.tenantId, null)) },
-      {
-        name: 'organization',
-        layer: property.organizationId
-          ? toLayer(find('ORGANIZATION', property.organizationId, null))
-          : null,
-      },
-      { name: 'property', layer: toLayer(find('PROPERTY', propertyId, null)) },
-      { name: 'channel', layer: channel ? toLayer(find('CHANNEL', propertyId, channel)) : null },
-    ]);
+    return mergeBrand(
+      propertyId,
+      channel,
+      effectiveLocale,
+      property.name,
+      [
+        { name: 'tenant', layer: toLayer(find('TENANT', property.tenantId, null)) },
+        {
+          name: 'organization',
+          layer: property.organizationId
+            ? toLayer(find('ORGANIZATION', property.organizationId, null))
+            : null,
+        },
+        { name: 'property', layer: toLayer(find('PROPERTY', propertyId, null)) },
+        { name: 'channel', layer: channel ? toLayer(find('CHANNEL', propertyId, channel)) : null },
+      ],
+      await this.attribution.resolve(property.tenantId),
+    );
   }
 
   actor(): RequestActor {

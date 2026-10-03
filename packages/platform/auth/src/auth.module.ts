@@ -37,7 +37,13 @@ export class AuthModule {
         options.propertyVerifier ?? { provide: PROPERTY_SCOPE_VERIFIER, useValue: null },
         { provide: APP_GUARD, useClass: AuthGuard },
       ],
-      exports: [ActorStore, ActionGate, AUTHENTICATION_STRATEGY, PERMISSION_RESOLVER],
+      exports: [
+        ActorStore,
+        ActionGate,
+        AUTHENTICATION_STRATEGY,
+        PERMISSION_RESOLVER,
+        PROPERTY_SCOPE_VERIFIER,
+      ],
     };
   }
 }

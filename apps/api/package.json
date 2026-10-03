@@ -28,6 +28,7 @@
     "@hotella/platform-observability": "workspace:*",
     "@hotella/platform-queue": "workspace:*",
     "@hotella/platform-secrets": "workspace:*",
+    "@hotella/platform-settings": "workspace:*",
     "@hotella/platform-storage": "workspace:*",
     "@nestjs/common": "11.2.7",
     "@nestjs/core": "11.2.7",

@@ -30,7 +30,7 @@ export class IdentityBootstrapService {
     localePref?: string | null;
   }): Promise<{ userId: string }> {
     const email = input.email.trim().toLowerCase();
-    this.auth.assertPasswordPolicy(input.password, email);
+    await this.auth.assertPasswordPolicy(input.password, email, null);
     const passwordHash = await hashPassword(input.password);
     return this.tx.run(async () => {
       if (await this.repo.userByLogin(null, email)) throw AppError.conflict('iam.user.email_taken');

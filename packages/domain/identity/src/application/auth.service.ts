@@ -7,6 +7,7 @@ import { TransactionRunner } from '@hotella/platform-database';
 import { AuditWriter } from '@hotella/platform-audit';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError } from '@hotella/platform-i18n';
+import { ConfigurationService } from '@hotella/platform-settings';
 import {
   burnPasswordCheck,
   checkPasswordPolicy,
@@ -16,6 +17,7 @@ import {
   verifyPassword,
 } from '../domain/passwords';
 import { staffActorType } from '../domain/access';
+import { IAM_PASSWORD_MIN_LENGTH } from '../domain/settings';
 import { generateTotpSecret, otpauthUri, verifyTotp } from '../domain/totp';
 import { seal, sha256Hex, unseal } from '../domain/tokens';
 import { IdentityKeys } from '../infrastructure/keys';
@@ -48,6 +50,7 @@ export class AuthService {
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
     private readonly audit: AuditWriter,
+    private readonly settings: ConfigurationService,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
@@ -141,7 +144,7 @@ export class AuthService {
       const user = await this.repo.userById(claimed.userId);
       if (!user || user.status === 'DISABLED')
         throw new AppError('iam.invitation.invalid', HttpStatus.BAD_REQUEST);
-      this.assertPasswordPolicy(input.password, user.email);
+      await this.assertPasswordPolicy(input.password, user.email, user.tenantId);
       await this.repo.updateUser(user.id, {
         passwordHash: await hashPassword(input.password),
         passwordChangedAt: now,
@@ -204,11 +207,20 @@ export class AuthService {
     return { mfaEnabled: true };
   }
 
-  assertPasswordPolicy(password: string, email: string): void {
-    const problem = checkPasswordPolicy(password, email);
+  /** Length policy with the tenant's configured minimum (`iam.password.min_length`, never below the platform floor). */
+  async assertPasswordPolicy(
+    password: string,
+    email: string,
+    tenantId: string | null,
+  ): Promise<void> {
+    const min = Math.max(
+      PASSWORD_MIN_LENGTH,
+      (await this.settings.effective(IAM_PASSWORD_MIN_LENGTH, { tenantId })).value,
+    );
+    const problem = checkPasswordPolicy(password, email, min);
     if (problem)
       throw new AppError(`iam.password.${problem}`, HttpStatus.UNPROCESSABLE_ENTITY, {
-        min: PASSWORD_MIN_LENGTH,
+        min,
         max: PASSWORD_MAX_LENGTH,
       });
   }

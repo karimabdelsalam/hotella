@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
 import { AUDIT_MANIFEST } from '@hotella/platform-audit';
 import { findLocalesDir } from '@hotella/platform-i18n';
+import { PLATFORM_MANIFEST } from '@hotella/platform-manifest';
 import { IDENTITY_MANIFEST } from '../manifest';
 import {
   applicableGrants,
@@ -168,6 +169,7 @@ describe('system role catalog', () => {
       ...ORGANIZATION_MANIFEST.permissions,
       ...IDENTITY_MANIFEST.permissions,
       ...AUDIT_MANIFEST.permissions,
+      ...PLATFORM_MANIFEST.permissions,
     ].map((p) => p.code),
   );
   const locales = ['en', 'ar'].map(

@@ -1,18 +1,14 @@
 {
-  "name": "@hotella/domain-organization",
+  "name": "@hotella/platform-settings",
   "version": "0.0.0",
   "private": true,
-  "description": "Organization & Property bounded context (Spec \u00a74, Product Identity): tenants, organizations, properties, location tree with rooms, brand profiles and the guest-facing branding resolver.",
+  "description": "Hierarchical configuration (Spec §72: platform → tenant → property, typed and versioned with history), data retention policies (Spec §69) and the platform attribution policy (Spec invariant 33).",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./public": {
-      "types": "./dist/public/index.d.ts",
-      "default": "./dist/public/index.js"
     }
   },
   "files": [
@@ -33,9 +29,7 @@
     "@hotella/platform-database": "workspace:*",
     "@hotella/platform-events": "workspace:*",
     "@hotella/platform-i18n": "workspace:*",
-    "@hotella/platform-manifest": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
-    "@hotella/platform-settings": "workspace:*",
     "@nestjs/common": "11.2.7",
     "drizzle-orm": "0.45.3",
     "nestjs-zod": "5.5.0",
@@ -43,18 +37,12 @@
   },
   "devDependencies": {
     "@hotella/platform-config": "workspace:*",
-    "@hotella/platform-flags": "workspace:*",
-    "@hotella/platform-http": "workspace:*",
     "@hotella/platform-testing": "workspace:*",
     "@hotella/tooling": "workspace:*",
     "@nestjs/core": "11.2.7",
-    "@nestjs/platform-express": "11.2.7",
     "@nestjs/testing": "11.2.7",
-    "@types/express": "5.0.6",
-    "@types/supertest": "7.2.1",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "supertest": "7.3.1",
     "vitest": "4.1.11"
   }
 }

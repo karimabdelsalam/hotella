@@ -1,4 +1,4 @@
-import { PLATFORM_ATTRIBUTION } from './values';
+import type { Attribution } from '@hotella/platform-settings';
 
 export interface BrandLayer {
   readonly displayName?: string | null;
@@ -36,8 +36,8 @@ export interface ResolvedBrand {
   readonly welcomeText: string | null;
   readonly farewellText: string | null;
   readonly direction: 'ltr' | 'rtl';
-  /** Always present; never overridable by brand layers (Spec invariant 33). */
-  readonly attribution: typeof PLATFORM_ATTRIBUTION;
+  /** Always present; never overridable by brand layers (Spec invariant 33); visibility comes from the platform policy. */
+  readonly attribution: Attribution;
   /** Which layers contributed, for admin debugging. */
   readonly layers: readonly string[];
 }
@@ -72,6 +72,7 @@ export function mergeBrand(
   locale: string,
   propertyName: string,
   layers: ReadonlyArray<{ name: string; layer: BrandLayer | null }>,
+  attribution: Attribution,
 ): ResolvedBrand {
   const acc: Record<string, unknown> = { ...PLATFORM_BRAND_DEFAULTS };
   const used: string[] = ['platform'];
@@ -111,7 +112,7 @@ export function mergeBrand(
     welcomeText: (acc['welcomeText'] as string | null) ?? null,
     farewellText: (acc['farewellText'] as string | null) ?? null,
     direction: base === 'ar' || base === 'he' || base === 'fa' || base === 'ur' ? 'rtl' : 'ltr',
-    attribution: PLATFORM_ATTRIBUTION,
+    attribution: Object.freeze({ ...attribution }),
     layers: used,
   };
 }

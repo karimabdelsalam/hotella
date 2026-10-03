@@ -34,8 +34,9 @@ export type PasswordProblem = 'too_short' | 'too_long' | 'contains_email';
 export function checkPasswordPolicy(
   password: string,
   email: string | null,
+  minLength: number = PASSWORD_MIN_LENGTH,
 ): PasswordProblem | null {
-  if (password.length < PASSWORD_MIN_LENGTH) return 'too_short';
+  if (password.length < Math.max(minLength, PASSWORD_MIN_LENGTH)) return 'too_short';
   if (password.length > PASSWORD_MAX_LENGTH) return 'too_long';
   const local = email?.split('@')[0]?.toLowerCase();
   if (local && local.length >= 4 && password.toLowerCase().includes(local)) return 'contains_email';

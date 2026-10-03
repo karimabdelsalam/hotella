@@ -10,6 +10,7 @@ import {
 } from '@hotella/domain-identity';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
+import { SettingsModule } from '@hotella/platform-settings';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
@@ -58,6 +59,7 @@ describe('api skeleton (e2e)', () => {
         FeatureFlagsModule,
         ManifestModule.forRoot(),
         AuditModule,
+        SettingsModule,
         StorageModule.forRoot(),
         IdentityCoreModule,
         AuthModule.forRoot({

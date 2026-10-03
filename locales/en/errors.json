@@ -54,5 +54,9 @@
   "errors.iam.role.system_immutable": "Built-in roles cannot be changed. Create your own role instead.",
   "errors.iam.role.not_assignable": "This role is reserved for platform staff.",
   "errors.iam.role.unknown_permission": "Unknown permission: {code}.",
-  "errors.iam.role.cannot_delegate": "You cannot grant permissions you do not have yourself: {permission}."
+  "errors.iam.role.cannot_delegate": "You cannot grant permissions you do not have yourself: {permission}.",
+  "errors.platform.config.unknown_key": "Unknown setting: {key}.",
+  "errors.platform.config.invalid_value": "The value is not valid for {key}.",
+  "errors.platform.config.scope_not_allowed": "This setting cannot be changed at the {scope} level.",
+  "errors.platform.attribution.entitlement_required": "Hiding the platform attribution requires a white-label entitlement."
 }

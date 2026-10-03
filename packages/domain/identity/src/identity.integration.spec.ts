@@ -6,9 +6,11 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
+import { SettingsModule } from '@hotella/platform-settings';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
-import { DatabaseModule, runMigrations } from '@hotella/platform-database';
+import { sql } from 'drizzle-orm';
+import { DATABASE, type Database, DatabaseModule, runMigrations } from '@hotella/platform-database';
 import { EventsModule } from '@hotella/platform-events';
 import { FeatureFlagsModule } from '@hotella/platform-flags';
 import { HttpConventionsModule, KV_STORE, MemoryKeyValueStore } from '@hotella/platform-http';
@@ -75,6 +77,7 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
         FeatureFlagsModule,
         ManifestModule.forRoot(),
         AuditModule,
+        SettingsModule,
         IdentityCoreModule,
         AuthModule.forRoot({
           ...identityAuthOptions(),
@@ -337,6 +340,185 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
       .set(bearer(gm.access))
       .expect(200);
     expect(JSON.stringify(all.body)).not.toMatch(/argon2|inv_|rt_/);
+  });
+
+  it('configuration inherits platform → tenant → property, respects scopes and is audited (Spec §72)', async () => {
+    const key = 'org.property.checkout_time';
+    const defs = await api().get('/config/definitions').set(bearer(adminToken)).expect(200);
+    expect(defs.body.map((d: { key: string }) => d.key)).toEqual(
+      expect.arrayContaining([key, 'iam.password.min_length']),
+    );
+    await api()
+      .put(`/config/values/${key}`)
+      .set(bearer(adminToken))
+      .send({ scope: 'PLATFORM', value: '11:00' })
+      .expect(200);
+    // GENERAL_MANAGER at A may configure A — not the tenant, not the platform, not another tenant's property
+    await api()
+      .put(`/config/values/${key}`)
+      .set(bearer(gm.access))
+      .send({
+        scope: 'PROPERTY',
+        propertyId: propA,
+        value: '13:00',
+        reason: 'late checkout policy',
+      })
+      .expect(200);
+    await api()
+      .put(`/config/values/${key}`)
+      .set(bearer(gm.access))
+      .send({ scope: 'TENANT', value: '10:00' })
+      .expect(403);
+    await api()
+      .put(`/config/values/${key}`)
+      .set(bearer(gm.access))
+      .send({ scope: 'PLATFORM', value: '10:00' })
+      .expect(403);
+    await api()
+      .put(`/config/values/${key}`)
+      .set(bearer(gm.access))
+      .send({ scope: 'PROPERTY', propertyId: foreignProp, value: '10:00' })
+      .expect(404);
+    const invalid = await api()
+      .put(`/config/values/${key}`)
+      .set(bearer(gm.access))
+      .send({ scope: 'PROPERTY', propertyId: propA, value: '25:00' })
+      .expect(422);
+    expect(invalid.body.code).toBe('platform.config.invalid_value');
+    const wrongScope = await api()
+      .put('/config/values/iam.password.min_length')
+      .set(bearer(gm.access))
+      .send({ scope: 'PROPERTY', propertyId: propA, value: 14 })
+      .expect(422);
+    expect(wrongScope.body.code).toBe('platform.config.scope_not_allowed');
+    // effective values
+    const atA = await api()
+      .get(`/config/effective/${key}?propertyId=${propA}`)
+      .set(bearer(gm.access))
+      .expect(200);
+    expect(atA.body).toMatchObject({ value: '13:00', source: 'PROPERTY' });
+    await api()
+      .get(`/config/effective/${key}?propertyId=${propB}`)
+      .set(bearer(gm.access))
+      .expect(403);
+    const atB = await api()
+      .get(`/config/effective/${key}?tenantId=${tenantId}&propertyId=${propB}`)
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(atB.body).toMatchObject({ value: '11:00', source: 'PLATFORM' });
+    // removing the override falls back; both changes are in the audit trail
+    await api()
+      .delete(`/config/values/${key}?scope=PROPERTY&propertyId=${propA}&reason=revert`)
+      .set(bearer(gm.access))
+      .expect(200);
+    expect(
+      (
+        await api()
+          .get(`/config/effective/${key}?propertyId=${propA}`)
+          .set(bearer(gm.access))
+          .expect(200)
+      ).body,
+    ).toMatchObject({ value: '11:00', source: 'PLATFORM' });
+    const trail = await api()
+      .get(`/audit?propertyId=${propA}&action=platform.configuration.`)
+      .set(bearer(gm.access))
+      .expect(200);
+    expect(trail.body.data.map((e: { action: string }) => e.action)).toEqual([
+      'platform.configuration.remove',
+      'platform.configuration.set',
+    ]);
+    expect(trail.body.data[1]).toMatchObject({
+      reason: 'late checkout policy',
+      after: { value: '13:00' },
+    });
+  });
+
+  it('a tenant can raise the password minimum and it applies to its staff', async () => {
+    await api()
+      .put('/config/values/iam.password.min_length')
+      .set(bearer(adminToken))
+      .send({ scope: 'TENANT', tenantId, value: 16 })
+      .expect(200);
+    await api()
+      .put('/config/values/iam.password.min_length')
+      .set(bearer(adminToken))
+      .send({ scope: 'TENANT', tenantId, value: 8 })
+      .expect(422); // never below the platform floor
+    const invited = await api()
+      .post(`/tenants/${tenantId}/users`)
+      .set(bearer(adminToken))
+      .send({ email: `pw-${stamp}@nile.example`, givenName: 'Pw' })
+      .expect(201);
+    const short = await api()
+      .post('/auth/invitations/accept')
+      .send({ token: invited.body.invitation.token, password: 'thirteen char' })
+      .expect(422);
+    expect(short.body).toMatchObject({ code: 'iam.password.too_short', params: { min: 16 } });
+    await api()
+      .post('/auth/invitations/accept')
+      .send({ token: invited.body.invitation.token, password: 'sixteen chars ok!' })
+      .expect(200);
+  });
+
+  it('retention policies: platform defaults plus tenant overrides, managed with config.manage', async () => {
+    await api()
+      .put('/retention-policies')
+      .set(bearer(adminToken))
+      .send({ scope: 'PLATFORM', dataClass: 'SENSITIVE', retainDays: 365, action: 'ANONYMIZE' })
+      .expect(200);
+    await api()
+      .put('/retention-policies')
+      .set(bearer(gm.access))
+      .send({ scope: 'TENANT', dataClass: 'SENSITIVE', retainDays: 30, action: 'DELETE' })
+      .expect(403); // property-level manager
+    await api()
+      .put('/retention-policies')
+      .set(bearer(adminToken))
+      .send({
+        scope: 'TENANT',
+        tenantId,
+        dataClass: 'SENSITIVE',
+        entityType: 'guest.profile',
+        retainDays: 730,
+        action: 'ANONYMIZE',
+        legalHold: true,
+      })
+      .expect(200);
+    const list = await api()
+      .get(`/retention-policies?tenantId=${tenantId}`)
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(list.body).toHaveLength(2);
+    expect(
+      list.body.find((p: { tenantId: string | null }) => p.tenantId === tenantId),
+    ).toMatchObject({
+      entityType: 'guest.profile',
+      legalHold: true,
+    });
+  });
+
+  it('the Powered by Planova attribution can only be hidden by a policy citing an entitlement', async () => {
+    const db = app.get<Database>(DATABASE);
+    const shown = await api().get(`/public/branding?property=${propA}`).expect(200);
+    expect(shown.body.attribution).toEqual({
+      show: true,
+      label: 'Powered by Planova',
+      href: 'https://planova.com.eg',
+    });
+    await expect(
+      db.execute(
+        sql`insert into platform.attribution_policies (tenant_id, show_powered_by) values (${tenantId}, false)`,
+      ),
+    ).rejects.toThrow();
+    await db.execute(
+      sql`insert into platform.attribution_policies (tenant_id, show_powered_by, override_entitlement_ref) values (${tenantId}, false, 'lic-white-label-1')`,
+    );
+    const hidden = await api().get(`/public/branding?property=${propA}`).expect(200);
+    expect(hidden.body.attribution).toMatchObject({ show: false, label: 'Powered by Planova' });
+    // another tenant is unaffected
+    const other = await api().get(`/public/branding?property=${foreignProp}`).expect(200);
+    expect(other.body.attribution.show).toBe(true);
+    await db.execute(sql`delete from platform.attribution_policies where tenant_id = ${tenantId}`);
   });
 
   it('refresh tokens rotate; reusing a rotated token revokes the whole session', async () => {

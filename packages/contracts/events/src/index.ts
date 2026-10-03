@@ -6,7 +6,7 @@ export {
   eventName,
 } from './envelope';
 export type { DeliveryQueue, EventEnvelope } from './envelope';
-export { FeatureFlagChanged, PlatformPing } from './platform-events';
+export { ConfigurationChanged, FeatureFlagChanged, PlatformPing } from './platform-events';
 export {
   BrandProfileUpdated,
   LocationCreated,

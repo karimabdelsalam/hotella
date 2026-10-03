@@ -28,9 +28,5 @@ export const APPROVED_FONTS = [
 /** Location kinds that may have children. Rooms are leaves. */
 export const CONTAINER_KINDS = new Set(['PROPERTY', 'BUILDING', 'FLOOR', 'AREA', 'PLANT', 'OTHER']);
 
-/** Spec invariant 33 — not configurable through brand profiles. */
-export const PLATFORM_ATTRIBUTION = Object.freeze({
-  show: true,
-  label: 'Powered by Planova',
-  href: 'https://planova.com.eg',
-});
+/** Spec invariant 33 — not configurable through brand profiles (visibility is the platform attribution policy). */
+export { PLANOVA_ATTRIBUTION as PLATFORM_ATTRIBUTION } from '@hotella/platform-settings';

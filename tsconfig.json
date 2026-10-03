@@ -60,6 +60,9 @@
       "path": "packages/platform/audit"
     },
     {
+      "path": "packages/platform/settings"
+    },
+    {
       "path": "packages/domain/organization"
     },
     {

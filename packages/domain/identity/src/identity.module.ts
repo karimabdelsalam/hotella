@@ -6,6 +6,8 @@ import {
 } from '@hotella/platform-auth';
 import { LOCALE_PREFERENCE_PROVIDER } from '@hotella/platform-i18n';
 import { ManifestRegistry } from '@hotella/platform-manifest';
+import { SettingsRegistry } from '@hotella/platform-settings';
+import { IDENTITY_SETTINGS } from './domain/settings';
 import {
   AuthController,
   MeController,
@@ -39,9 +41,13 @@ import { IdentityPublicApiService } from './public-api.service';
   exports: [IDENTITY_API, IdentityBootstrapService, IdentityCatalogService],
 })
 export class IdentityModule implements OnModuleInit {
-  constructor(private readonly manifests: ManifestRegistry) {}
+  constructor(
+    private readonly manifests: ManifestRegistry,
+    private readonly settings: SettingsRegistry,
+  ) {}
   onModuleInit(): void {
     this.manifests.register(IDENTITY_MANIFEST);
+    this.settings.register(...IDENTITY_SETTINGS);
   }
 }
 

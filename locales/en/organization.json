@@ -4,5 +4,6 @@
   "org.permission.property_manage": "Create and edit properties",
   "org.permission.location_manage": "Manage the location tree, room types and rooms",
   "org.permission.branding_read": "View brand profiles",
-  "org.permission.branding_manage": "Edit brand profiles"
+  "org.permission.branding_manage": "Edit brand profiles",
+  "org.setting.checkout_time": "Standard check-out time at the property (HH:MM, property time zone)."
 }

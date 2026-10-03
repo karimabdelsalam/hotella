@@ -22,5 +22,6 @@
   "iam.role.front_desk.name": "Front desk agent",
   "iam.role.front_desk.description": "Welcomes guests and handles their requests at reception.",
   "iam.role.guest_relations.name": "Guest relations",
-  "iam.role.guest_relations.description": "Looks after guest experience, feedback and special requests."
+  "iam.role.guest_relations.description": "Looks after guest experience, feedback and special requests.",
+  "iam.setting.password_min_length": "Minimum password length for staff accounts (at least 12)."
 }

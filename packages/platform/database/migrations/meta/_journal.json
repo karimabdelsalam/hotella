@@ -36,6 +36,13 @@
       "when": 1791003271261,
       "tag": "0004_audit_log",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791003706222,
+      "tag": "0005_settings",
+      "breakpoints": true
     }
   ]
 }

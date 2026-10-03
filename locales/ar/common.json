@@ -11,5 +11,7 @@
   "platform.permission.feature_flag_read": "عرض مفاتيح الميزات",
   "platform.permission.feature_flag_manage": "تفعيل مفاتيح الميزات أو تعطيلها",
   "platform.permission.outbox_read": "عرض صندوق الأحداث الصادر",
-  "platform.permission.outbox_replay": "إعادة إرسال أحداث الصندوق الصادر"
+  "platform.permission.outbox_replay": "إعادة إرسال أحداث الصندوق الصادر",
+  "platform.permission.config_read": "عرض الإعدادات وسياسات الاحتفاظ بالبيانات",
+  "platform.permission.config_manage": "تعديل الإعدادات وسياسات الاحتفاظ بالبيانات"
 }

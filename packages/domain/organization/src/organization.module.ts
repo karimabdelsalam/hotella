@@ -1,6 +1,8 @@
 import { Global, Module, type OnModuleInit, type Provider } from '@nestjs/common';
 import { PROPERTY_SCOPE_VERIFIER, type PropertyScopeVerifier } from '@hotella/platform-auth';
 import { ManifestRegistry } from '@hotella/platform-manifest';
+import { SettingsRegistry } from '@hotella/platform-settings';
+import { ORGANIZATION_SETTINGS } from './domain/settings';
 import { BrandingController, PropertiesController, TenantsController } from './api/controllers';
 import {
   BrandingService,
@@ -45,8 +47,12 @@ export class OrganizationModule implements OnModuleInit {
     };
   }
 
-  constructor(private readonly manifests: ManifestRegistry) {}
+  constructor(
+    private readonly manifests: ManifestRegistry,
+    private readonly settings: SettingsRegistry,
+  ) {}
   onModuleInit(): void {
     this.manifests.register(ORGANIZATION_MANIFEST);
+    this.settings.register(...ORGANIZATION_SETTINGS);
   }
 }
