@@ -1,0 +1,34 @@
+# The pilot deployment smoke (infra/docker/pilot/smoke-agent.sh): the basic stay with link chaos, plus a second guest
+# who stays in house so the guest activation smoke (smoke-guest.sh) has a current stay to activate.
+name: pilot stays
+timezone: Africa/Cairo
+faces: [FIAS, OWS]
+steps:
+  - reserve:
+      id: SIM-R1
+      confirmation: SIM-C1
+      guest: { profileId: SIM-P1, first: Amira, last: Nile, language: ar, email: amira@example.com }
+      sharers: [{ first: Omar, last: Nile }]
+      arrival: '2026-10-03'
+      departure: '2026-10-06'
+      room: '504'
+  - checkin: { id: SIM-R1, room: '505', at: '2026-10-03T12:00:00Z' }
+  - chaos: { duplicate_next: true }
+  - move: { id: SIM-R1, to: '506', at: '2026-10-04T07:00:00Z' }
+  - chaos: { reorder_next: true }
+  - room_status: { room: '505', status: 1, at: '2026-10-04T07:05:00Z' }
+  - guest: { id: SIM-R1, language: en, at: '2026-10-04T08:00:00Z' }
+  - wait_acked: {}
+  - chaos: { drop_connection: true }
+  - checkout: { id: SIM-R1, at: '2026-10-06T08:30:00Z' }
+  - wait_acked: {}
+  # A long stay that remains in house (departure far ahead, so access granted by the smoke is valid on any run date).
+  - reserve:
+      id: SIM-R2
+      confirmation: SIM-C2
+      guest: { profileId: SIM-P2, first: Mona, last: Delta, language: en, phone: '+201001234567' }
+      arrival: '2026-10-06'
+      departure: '2030-12-31'
+      room: '504'
+  - checkin: { id: SIM-R2, room: '504', at: '2026-10-06T14:00:00Z' }
+  - wait_acked: {}

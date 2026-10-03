@@ -5,15 +5,17 @@ import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-or
 import { AuditWriter } from '@hotella/platform-audit';
 import { ActionGate } from '@hotella/platform-auth';
 import { isUuid, newId, type PropertyScope, TransactionRunner } from '@hotella/platform-database';
-import { AppError } from '@hotella/platform-i18n';
-import { SettingsReader } from '@hotella/platform-settings';
+import { AppError, I18nService } from '@hotella/platform-i18n';
+import { AttributionPolicyService, SettingsReader } from '@hotella/platform-settings';
 import { attemptGate } from '../domain/otp';
 import { maskPhone } from '../domain/phone';
 import { COMMS_OTP_STAFF_ASSIST_ENABLED } from '../domain/settings';
 import { ActivationRepositories } from '../infrastructure/activation-repositories';
 import { ActivationService, hashSecret, newSecret } from './activation.service';
+import { renderQrSheet } from './qr-sheet';
 
 export const issueTokenSchema = z.object({ guestId: z.uuid().optional() });
+export const qrSheetSchema = z.object({ roomIds: z.array(z.uuid()).min(1).max(2000).optional() });
 export const assistSchema = z.object({ reason: z.string().trim().min(5).max(500) });
 export const referenceQuerySchema = z.object({
   reference: z
@@ -189,6 +191,8 @@ export class RoomQrAdminService {
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly audit: AuditWriter,
+    private readonly attribution: AttributionPolicyService,
+    private readonly i18n: I18nService,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
   ) {}
 
@@ -218,34 +222,74 @@ export class RoomQrAdminService {
         ? await this.org.getRoom(scope.tenantId, scope.propertyId, roomId)
         : null;
       if (!room) throw AppError.notFound('org.room.not_found');
-      const now = new Date();
-      const current = await this.repo.activeQrForRoom(scope, room.id);
-      if (current) await this.repo.setQrStatus(scope, current.id, 'ROTATED', now);
-      const token = newSecret();
-      const row = await this.repo.insertQr({
-        id: newId(),
-        tenantId: scope.tenantId,
-        propertyId: scope.propertyId,
-        roomId: room.id,
-        tokenHash: hashSecret(token),
-        rotatedFromId: current?.id ?? null,
-        statusChangedAt: now,
-      });
+      return this.rotate(scope, room.id, room.roomNumber);
+    });
+  }
+
+  private async rotate(scope: PropertyScope, roomId: string, roomNumber: string) {
+    const now = new Date();
+    const current = await this.repo.activeQrForRoom(scope, roomId);
+    if (current) await this.repo.setQrStatus(scope, current.id, 'ROTATED', now);
+    const token = newSecret();
+    const row = await this.repo.insertQr({
+      id: newId(),
+      tenantId: scope.tenantId,
+      propertyId: scope.propertyId,
+      roomId,
+      tokenHash: hashSecret(token),
+      rotatedFromId: current?.id ?? null,
+      statusChangedAt: now,
+    });
+    await this.audit.record({
+      action: current ? 'comms.room_qr.rotate' : 'comms.room_qr.generate',
+      entityType: 'room_qr_code',
+      entityId: row.id,
+      tenantId: scope.tenantId,
+      propertyId: scope.propertyId,
+      after: { room_id: roomId, rotated_from: current?.id ?? null },
+    });
+    return { id: row.id, roomId, roomNumber, token, url: this.activation.url('q', token) };
+  }
+
+  /**
+   * A printable sheet for the given rooms (default: every room of the property). Printing needs the tokens, which are
+   * only shown once, so the sheet *rotates* the codes it prints: codes printed earlier stop working (Spec §20).
+   */
+  sheet(scope: PropertyScope, roomIds: readonly string[] | undefined, locale: string) {
+    return this.act(scope, 'write', async () => {
+      const rooms = (await this.org.listRooms(scope.tenantId, scope.propertyId))
+        .filter((r) => !roomIds || roomIds.includes(r.id))
+        .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, 'en', { numeric: true }));
+      if (roomIds && rooms.length !== new Set(roomIds).size)
+        throw AppError.notFound('org.room.not_found');
+      const cards = [];
+      for (const room of rooms) {
+        const generated = await this.rotate(scope, room.id, room.roomNumber);
+        cards.push({ roomNumber: room.roomNumber, url: generated.url });
+      }
+      const property = await this.org.getProperty(scope.tenantId, scope.propertyId);
+      const attribution = await this.attribution.resolve(scope.tenantId);
       await this.audit.record({
-        action: current ? 'comms.room_qr.rotate' : 'comms.room_qr.generate',
-        entityType: 'room_qr_code',
-        entityId: row.id,
+        action: 'comms.room_qr.sheet',
+        entityType: 'property',
+        entityId: scope.propertyId,
         tenantId: scope.tenantId,
         propertyId: scope.propertyId,
-        after: { room_id: room.id, rotated_from: current?.id ?? null },
+        after: { rooms: rooms.length },
       });
-      return {
-        id: row.id,
-        roomId: room.id,
-        roomNumber: room.roomNumber,
-        token,
-        url: this.activation.url('q', token),
-      };
+      return renderQrSheet(
+        cards,
+        {
+          title: this.i18n.t('comms.qr.sheet_title', { property: property?.name ?? '' }, locale),
+          room: this.i18n.t('comms.qr.room', {}, locale),
+          instruction: this.i18n.t('comms.qr.instruction', {}, locale),
+          attribution: attribution.show
+            ? { label: attribution.label, href: attribution.href }
+            : null,
+        },
+        locale,
+        this.i18n.direction(locale),
+      );
     });
   }
 

@@ -26,6 +26,15 @@ infra/docker/pilot/pilot.sh backup full   # first full backup; also proves WAL a
 4. Install the backup schedule (backup-restore.md) and confirm the first scheduled run in `pilot.sh status`.
 5. Staff e-mail (escalations, approvals): add `NOTIFY_SMTP_HOST`, `NOTIFY_SMTP_PORT`, `NOTIFY_SMTP_USER`, `NOTIFY_EMAIL_FROM` and `NOTIFY_SMTP_PASSWORD_REF: vault://kv/hotella/app#smtp_password` to the app environment of `compose.pilot.yml` and put the password into OpenBao (`bao kv patch kv/hotella/app smtp_password=…`). Until then e-mail deliveries are recorded as skipped (`channel_not_configured`) and staff rely on the in-app inbox; nothing else changes.
 
+6. Guest messaging (Phase 4): create the property's channels as a general manager (`POST /api/v1/properties/{p}/channels`)
+   with the provider's configuration and a `credentialRef` pointing at OpenBao (`bao kv patch kv/hotella/app
+   whatsapp_<property>='{"accessToken":"…","appSecret":"…","verifyToken":"…"}'`; BSP/SMS: `{"apiKey":"…","webhookSecret":"…"}`),
+   then register the webhook URL with the provider: `https://<public host>/api/v1/webhooks/whatsapp/{channelId}`
+   (Meta: same URL for the verification handshake; BSP/SMS: add the header `X-Hotella-Webhook-Secret`). Approve the
+   `otp` and `activation` templates with the provider and map them in the channel's `config.templates`. Any reverse
+   proxy in front of the API must pass WebSocket upgrades on `/api/v1/realtime` (staff inbox and guest chat updates).
+   Print room QR codes from `POST /api/v1/properties/{p}/room-qr-codes/sheet` (printing rotates the codes).
+
 ## Upgrade to a new release
 ```bash
 infra/docker/pilot/pilot.sh backup full                 # always, before anything else

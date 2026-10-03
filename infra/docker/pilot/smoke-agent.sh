@@ -2,6 +2,7 @@
 # Phase 2 deployed-pipeline smoke (CI "pilot deployment smoke"): a simulated hotel agent enrolls at the agent gateway
 # over mutual TLS and replays a stay; the platform must process every message and the worker must project the stay
 # (gateway → integration inbox → outbox → relay → BullMQ → StayProjector). Needs a signed-in platform admin token.
+# The scenario also leaves a second guest in house for the guest activation smoke (smoke-guest.sh).
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 API="${HOTELLA_API:-http://localhost:3000/api/v1}"
@@ -21,7 +22,7 @@ curl -fsS -X PATCH "$API/properties/$property/integrations/$instance" "${auth[@]
 curl -fsS -X POST "$API/properties/$property/integrations/$instance/mappings/rooms-by-number" "${auth[@]}" | jq -e '.created == 3' >/dev/null
 enroll=$(curl -fsS -X POST "$API/properties/$property/integrations/$instance/enrollment-tokens" "${auth[@]}" | jq -r .token)
 
-"$DIR/pilot.sh" simulate "$enroll"
+"$DIR/pilot.sh" simulate "$enroll" scenarios/pilot-stay.yml
 
 curl -fsS "$API/properties/$property/integrations/$instance/agent" "${auth[@]}" | jq -e '.enrolled == true' >/dev/null
 statuses=$(curl -fsS "$API/properties/$property/integrations/$instance/messages?limit=200" "${auth[@]}" | jq -r '[.[].status] | group_by(.) | map("\(.[0])=\(length)") | join(",")')
@@ -29,17 +30,21 @@ echo "integration messages: $statuses"
 echo "$statuses" | grep -qv 'FAILED\|PENDING_MAPPING\|HELD\|RECEIVED' || { echo "unprocessed messages" >&2; exit 1; }
 
 # The worker relays the canonical events and the StayProjector applies them (asynchronously).
+stay_of() { psql "select s.id from guest.stays s join guest.reservation_references r on r.stay_id = s.id
+  where s.property_id = '$property' and r.confirmation_number = '$1' limit 1"; }
 for _ in $(seq 1 60); do
-  state=$(psql "select status from guest.stays where property_id = '$property'")
-  [ "$state" = CHECKED_OUT ] && break
+  state=$(psql "select string_agg(r.confirmation_number || '=' || s.status, ',' order by r.confirmation_number)
+    from guest.stays s join guest.reservation_references r on r.stay_id = s.id where s.property_id = '$property'")
+  [ "$state" = "SIM-C1=CHECKED_OUT,SIM-C2=IN_HOUSE" ] && break
   sleep 2
 done
-echo "stay: ${state:-none}"
-[ "$state" = CHECKED_OUT ]
+echo "stays: ${state:-none}"
+[ "$state" = "SIM-C1=CHECKED_OUT,SIM-C2=IN_HOUSE" ]
+stay1=$(stay_of SIM-C1)
 # Room history: check-in 505, move 506 (closed at check-out), after the 504 pre-assignment when the reservation
 # snapshot was projected first — events of one stay run concurrently, and a late, older snapshot is ignored.
 history=$(psql "select string_agg(r.room_number || ':' || a.reason, ',' order by a.assigned_at, a.id)
-  from guest.room_assignments a join org.rooms r on r.location_id = a.room_id where a.property_id = '$property'")
+  from guest.room_assignments a join org.rooms r on r.location_id = a.room_id where a.stay_id = '$stay1'")
 echo "room history: $history"
 case "$history" in
   "504:PRE_ASSIGNMENT,505:INITIAL,506:ROOM_MOVE" | "505:INITIAL,506:ROOM_MOVE") ;;

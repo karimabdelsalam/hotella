@@ -2,7 +2,7 @@
   "name": "@hotella/domain-communications",
   "version": "0.0.0",
   "private": true,
-  "description": "Communications & guest identity (Spec \u00a718\u2013\u00a722): channels behind provider adapters (WhatsApp via Meta Cloud API or a BSP, SMS), channel identities, activation, OTP with fallback, room QR, conversations and the staff inbox.",
+  "description": "Communications & guest identity (Spec §18–§22): channels behind provider adapters (WhatsApp via Meta Cloud API or a BSP, SMS), channel identities, activation, OTP with fallback, room QR, conversations and the staff inbox.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -46,7 +46,10 @@
     "@nestjs/common": "11.2.7",
     "@nestjs/core": "11.2.7",
     "drizzle-orm": "0.45.3",
+    "ioredis": "5.11.1",
     "nestjs-zod": "5.5.0",
+    "qrcode-generator": "2.0.4",
+    "ws": "8.22.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
@@ -60,6 +63,7 @@
     "@types/express": "5.0.6",
     "@types/pg": "8.23.1",
     "@types/supertest": "7.2.1",
+    "@types/ws": "8.18.2",
     "nestjs-cls": "6.3.1",
     "pg": "8.23.1",
     "reflect-metadata": "0.2.2",

@@ -16,6 +16,8 @@ import {
   GuestSelfController,
 } from './api/guest.controllers';
 import { WebhooksController } from './api/webhooks.controller';
+import { RealtimeGateway } from './api/realtime.gateway';
+import { RealtimeRelay } from './application/realtime-relay';
 import { Dialog360WhatsAppAdapter } from './application/adapters/bsp';
 import { MetaCloudWhatsAppAdapter } from './application/adapters/meta-cloud';
 import { JsonHttpSmsAdapter } from './application/adapters/sms-http';
@@ -41,6 +43,7 @@ import { COMMUNICATIONS_MANIFEST } from './manifest';
 export const GUEST_LIFECYCLE_CONSUMER = 'comms.guest-lifecycle';
 export const ARRIVAL_ACTIVATION_CONSUMER = 'comms.arrival-activation';
 export const CONVERSATION_LIFECYCLE_CONSUMER = 'comms.conversation-lifecycle';
+export const REALTIME_RELAY_CONSUMER = 'comms.realtime-relay';
 /** Repeatable jobs: queued replies leave through their channel; webhook items left unprocessed are retried. */
 export const MESSAGE_SEND_JOB = 'comms.message.send';
 export const INBOUND_RETRY_JOB = 'comms.inbound.retry';
@@ -136,7 +139,7 @@ export class CommunicationsModule implements OnModuleInit {
  * verified number, check-out closes the stay's conversation, anonymization clears message texts) and runs the OTP
  * fallback (5 s), outbound messages (3 s) and the retry of unprocessed webhook items (15 s).
  */
-@Module({ imports: [CommunicationsCoreModule] })
+@Module({ imports: [CommunicationsCoreModule], providers: [RealtimeRelay] })
 export class CommunicationsWorkerModule implements OnModuleInit {
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -146,10 +149,15 @@ export class CommunicationsWorkerModule implements OnModuleInit {
     private readonly arrival: ArrivalActivation,
     private readonly activation: ActivationService,
     private readonly conversations: ConversationService,
+    private readonly relay: RealtimeRelay,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
   async onModuleInit(): Promise<void> {
+    for (const def of RealtimeRelay.consumes)
+      this.consumers.on(def.name, REALTIME_RELAY_CONSUMER, (envelope) =>
+        this.relay.apply(envelope),
+      );
     for (const def of GuestLifecycleConsumer.consumes)
       this.consumers.on(def.name, GUEST_LIFECYCLE_CONSUMER, (envelope) =>
         this.lifecycle.apply(envelope),
@@ -190,3 +198,14 @@ export class CommunicationsWorkerModule implements OnModuleInit {
     }
   }
 }
+
+/**
+ * The realtime gateway for the API process (notes for 4.4): WebSocket on `/api/v1/realtime`, fed by the worker's
+ * relay over Valkey pub/sub. Needs the queue module (Valkey) and the auth module (strategy, permissions).
+ */
+@Module({
+  imports: [CommunicationsCoreModule],
+  providers: [RealtimeGateway],
+  exports: [RealtimeGateway],
+})
+export class CommunicationsRealtimeModule {}

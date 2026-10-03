@@ -2,7 +2,9 @@ export {
   ARRIVAL_ACTIVATION_CONSUMER,
   CommunicationsCoreModule,
   CommunicationsModule,
+  CommunicationsRealtimeModule,
   CommunicationsWorkerModule,
+  REALTIME_RELAY_CONSUMER,
   GUEST_LIFECYCLE_CONSUMER,
   CONVERSATION_LIFECYCLE_CONSUMER,
   INBOUND_RETRY_JOB,
@@ -40,3 +42,6 @@ export type { FakeSent } from './application/fake-providers';
 export { isE164, maskPhone, toE164 } from './domain/phone';
 export * from './public';
 export * as communicationsSchema from './infrastructure/schema';
+export { RealtimeGateway } from './api/realtime.gateway';
+export { REALTIME_CHANNEL_PREFIX, RealtimeRelay } from './application/realtime-relay';
+export type { RealtimeNotice } from './application/realtime-relay';

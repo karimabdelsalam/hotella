@@ -149,7 +149,7 @@ hotella/
 │   │                             # apps/worker runs one or more BullMQ queue groups selected by WORKER_QUEUES, so the
 │   │                             # six Spec §71 deployables are: api; worker[normal,analytics]; worker[scheduler];
 │   │                             # realtime; worker[integration]; worker[background-ai] — same image, different env
-│   ├── realtime/                 # WebSocket gateway (Phase 4)
+│   ├── realtime/                 # WebSocket gateway (Phase 4: runs inside apps/api for now — §8.9 notes for 4.4)
 │   ├── guest-web/                # Guest PWA (Phase 5, stack per ADR-0009)
 │   ├── staff-web/                # Staff portal (Phase 4+, stack per ADR-0009)
 │   ├── pms-simulator/            # Dev-only PMS simulator CLI/HTTP (Phase 2)
@@ -756,6 +756,8 @@ Reality notes for 3.1:
 
 **Goal / acceptance (Spec §85):** a checked-in guest activates without OPERA modification and is later recognized automatically on the verified channel.
 
+> **Status: accepted on 2026-10-03** — evidence in `docs/acceptance/phase-4.md`; design decisions in §8.7, sprints and reality notes in §8.9. Package `@hotella/domain-communications` (context code `comms`); grants and guest sessions in `@hotella/domain-guest`.
+
 ### 8.1 Domain model (schema `comms`, plus `guest` additions)
 
 ```text
@@ -893,7 +895,27 @@ Events: `comms.conversation.opened.v1`, `comms.message.received.v1`, `comms.mess
 | 4.1 | Guest access in the guest context: grants (scopes by policy, companions narrower, pre-arrival, post-stay window), guest sessions, `GUEST_API` (issue grant, open/authenticate/revoke session), checkout revocation in the projector, `guest.grant.revoked.v1`, staff grants list/revoke; `@hotella/domain-communications` skeleton: channels CRUD with `credential_ref`, `MessagingProvider`/`SmsProvider` ports with fake adapters, channel identities, phone normalization, manifest | delivered |
 | 4.2 | Activation: tokens (on in-house stays with a verified identity, front-desk issuance/revoke), verification sessions with HMAC OTP, delivery chain WhatsApp → SMS with `verification_deliveries`, fallback sweep, health pre-emption + alert, rate limits, guest routes (`/guest/activation/*`, `/guest/me`), `GuestSessionGuard`, staff-assisted verification; room QR codes (generate, rotate, revoke, verify with last name); `guest.activated.v1` | delivered |
 | 4.3 | Messaging: Meta Cloud API and generic BSP adapters (templates, text, media refs, webhook signatures, delivery receipts) with contract tests; webhooks with raw store and worker normalization; conversations, participants, messages, delivery events; routing by verified identity + active grant; activation prompt for unverified phones; outbound queue with retries; staff inbox (list/filter, detail with guest/stay/room/open work, send, assign, takeover/handoff, close); guest conversation routes; checkout closes stay conversations; `comms.*` events | delivered |
-| 4.4 | `apps/realtime` WebSocket gateway (staff access token / guest session; inbox and conversation updates through Valkey pub/sub); printable room QR sheet; pilot smoke extended to activation; Phase 4 acceptance (`docs/acceptance/phase-4.md`) | planned |
+| 4.4 | `apps/realtime` WebSocket gateway (staff access token / guest session; inbox and conversation updates through Valkey pub/sub); printable room QR sheet; pilot smoke extended to activation; Phase 4 acceptance (`docs/acceptance/phase-4.md`) | delivered |
+
+Reality notes for 4.4:
+- The realtime gateway runs **inside the API process** (`CommunicationsRealtimeModule`, WebSocket on
+  `/api/v1/realtime`) instead of a separate `apps/realtime`: it needs exactly what the API already has (the staff
+  authentication strategy, permissions, the guest context, Valkey), and a separate service would need its own secrets,
+  OpenBao role and compose service at pilot. It stays extractable: the worker's `RealtimeRelay` publishes notices on
+  Valkey pub/sub (`hotella:rt:<tenant>`) and every API instance fans them out to its own sockets.
+- Protocol: the first message authenticates (`{type:"auth", token}` with the staff access token, or
+  `{type:"guest", session}`; browsers cannot set headers on WebSockets), within 10 s; staff then subscribe per property
+  (`inbox.read` there, same rule as the route); guests hear only about their stay and need `CHAT`. Credentials are
+  re-checked every minute (logout, revoked sessions, check-out and expired tokens close the socket with 4401).
+  Notices carry the event name and ids only; clients fetch content over REST.
+- The printable room QR sheet is an **HTML page** (inline SVG codes via `qrcode-generator`, ADR-0016 row; A4 print CSS,
+  logical properties, localized, `Powered by Planova` per the attribution policy) that staff print to paper or PDF,
+  instead of a server-side PDF. Printing needs the tokens, which are shown only once, so the sheet rotates the codes it
+  prints (`POST /properties/:p/room-qr-codes/sheet`, optional `roomIds`; `Cache-Control: no-store`).
+- Pilot smoke: the simulator scenario `pilot-stay.yml` leaves a second guest in house; `smoke-guest.sh` signs in a
+  general manager, issues a link, requests a code (the OTP key comes from OpenBao; the smoke SMS channel cannot
+  deliver, so the failure is recorded), confirms the guest at the desk, opens the guest session, checks `/guest/me`,
+  the single-use link, the QR sheet and the WebSocket upgrade on the deployed stack.
 
 Reality notes for 4.3:
 - Adapters shipped: `WHATSAPP_META_CLOUD` (Graph API `/{phone-number-id}/messages`, `X-Hub-Signature-256` webhooks,

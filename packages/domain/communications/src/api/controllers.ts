@@ -1,13 +1,14 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform-auth';
 import type { PropertyScope } from '@hotella/platform-database';
-import { AppError } from '@hotella/platform-i18n';
+import { AppError, CurrentLocale } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import {
   ActivationAdminService,
   assistSchema,
   issueTokenSchema,
+  qrSheetSchema,
   referenceQuerySchema,
   RoomQrAdminService,
 } from '../application/activation-admin.service';
@@ -28,6 +29,7 @@ class CreateChannelDto extends createZodDto(createChannelSchema) {}
 class UpdateChannelDto extends createZodDto(updateChannelSchema) {}
 class IssueTokenDto extends createZodDto(issueTokenSchema) {}
 class AssistDto extends createZodDto(assistSchema) {}
+class QrSheetDto extends createZodDto(qrSheetSchema) {}
 class ReferenceQueryDto extends createZodDto(referenceQuerySchema) {}
 class InboxQueryDto extends createZodDto(inboxQuerySchema) {}
 class ReplyDto extends createZodDto(replySchema) {}
@@ -156,12 +158,27 @@ export class RoomQrController {
     private readonly qr: RoomQrAdminService,
     private readonly ctx: RequestContext,
     private readonly actors: ActorStore,
+    private readonly locale: CurrentLocale,
   ) {}
 
   @Get('room-qr-codes')
   @RequirePermission('qr.manage')
   list(@Param('propertyId') propertyId: string) {
     return this.qr.list(propertyScope(this.ctx, this.actors, propertyId));
+  }
+
+  /** Printable sheet (HTML; print to paper or PDF). Rotates the printed rooms' codes: earlier prints stop working. */
+  @Post('room-qr-codes/sheet')
+  @HttpCode(200)
+  @Header('content-type', 'text/html; charset=utf-8')
+  @Header('cache-control', 'no-store')
+  @RequirePermission('qr.manage')
+  sheet(@Param('propertyId') propertyId: string, @Body() body: QrSheetDto) {
+    return this.qr.sheet(
+      propertyScope(this.ctx, this.actors, propertyId),
+      body.roomIds,
+      this.locale.get(),
+    );
   }
 
   @Post('rooms/:roomId/qr-code')

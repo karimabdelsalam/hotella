@@ -57,8 +57,8 @@ Everything above is a `package.json` script; if a script name changes, this sect
 
 ```text
 apps/          things you run        → api (:3000), worker (:3001), agent-gateway (:8443, TLS + client certificates),
-                                       pms-simulator (reference hotel agent + simulated PMS); later realtime, guest-web,
-                                       staff-web, hotel-agent (.NET)
+                                       pms-simulator (reference hotel agent + simulated PMS); later guest-web, staff-web,
+                                       hotel-agent (.NET). The realtime WebSocket gateway runs inside api for now.
 packages/
   platform/    infrastructure        → config, secrets, pki (agent CA, device certificates, command signatures), observability (logs, request context, tracing), database, events (outbox/inbox),
                                        queue (BullMQ on Valkey), http (Problem Details, idempotency, rate limit, OpenAPI), i18n,
@@ -81,8 +81,8 @@ packages/
                                      → communications (schema `comms`: channels bound to provider adapters — WhatsApp via
                                        Meta Cloud API or a BSP, SMS — with SecretRef credentials, channel identities,
                                        guest activation: links, room QR, OTP with WhatsApp → SMS fallback, staff-assisted
-                                       verification, guest session guard; provider webhooks, the conversation engine
-                                       and the staff inbox)
+                                       verification, guest session guard; provider webhooks, the conversation engine,
+                                       the staff inbox and the realtime gateway on /api/v1/realtime)
   contracts/   zod schemas shared by everything → events (incl. canonical hotel.*), api, connectors (Connector SDK v0),
                                        later ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
