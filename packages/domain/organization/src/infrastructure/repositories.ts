@@ -17,6 +17,8 @@ import {
   organizations,
   properties,
   rooms,
+  departments,
+  departmentTranslations,
   roomTypes,
   roomTypeTranslations,
   tenants,
@@ -25,6 +27,7 @@ import {
   type OrganizationRow,
   type PropertyRow,
   type RoomRow,
+  type DepartmentRow,
   type RoomTypeRow,
   type TenantRow,
 } from './schema';
@@ -282,6 +285,63 @@ export class OrganizationRepositories {
       })
       .from(roomTypeTranslations)
       .where(inArray(roomTypeTranslations.entityId, [...ids]));
+  }
+
+  // ---- departments ----
+  async insertDepartment(values: typeof departments.$inferInsert): Promise<DepartmentRow> {
+    const [row] = await this.x.insert(departments).values(values).returning();
+    return row!;
+  }
+  departmentByCode(scope: PropertyScope, code: string): Promise<DepartmentRow | undefined> {
+    return this.x
+      .select()
+      .from(departments)
+      .where(propertyWhere(departments, scope, eq(departments.code, code)))
+      .then((r) => r[0]);
+  }
+  listDepartments(scope: PropertyScope): Promise<DepartmentRow[]> {
+    return this.x
+      .select()
+      .from(departments)
+      .where(propertyWhere(departments, scope))
+      .orderBy(asc(departments.code));
+  }
+  async upsertDepartmentTranslations(
+    departmentId: string,
+    translations: ReadonlyArray<{ locale: string; name: string; description?: string | null }>,
+  ): Promise<void> {
+    if (translations.length === 0) return;
+    await this.x
+      .insert(departmentTranslations)
+      .values(
+        translations.map((t) => ({
+          entityId: departmentId,
+          locale: t.locale,
+          name: t.name,
+          description: t.description ?? null,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [departmentTranslations.entityId, departmentTranslations.locale],
+        set: {
+          name: sql`excluded.name`,
+          description: sql`excluded.description`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+  departmentTranslationsFor(
+    ids: readonly string[],
+  ): Promise<Array<{ entityId: string; locale: string; name: string }>> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.x
+      .select({
+        entityId: departmentTranslations.entityId,
+        locale: departmentTranslations.locale,
+        name: departmentTranslations.name,
+      })
+      .from(departmentTranslations)
+      .where(inArray(departmentTranslations.entityId, [...ids]));
   }
 
   // ---- rooms ----

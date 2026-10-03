@@ -84,6 +84,12 @@ export const createRoomTypeSchema = z.object({
 });
 export type CreateRoomTypeInput = z.infer<typeof createRoomTypeSchema>;
 
+export const createDepartmentSchema = z.object({
+  code,
+  translations: z.array(translation).min(1),
+});
+export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
+
 export const createRoomSchema = z.object({
   parentId: uuidSchema,
   roomNumber: z.string().trim().min(1).max(16),

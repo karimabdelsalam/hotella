@@ -310,6 +310,57 @@ export const roomTypeTranslations = classify(
   },
 );
 
+/**
+ * Spec §80 "Property → Departments": the units that own work (housekeeping, engineering, front office…). Operations
+ * reference a department by its stable code inside the property; names are translations.
+ */
+export const departments = classify(
+  org.table(
+    'departments',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      code: varchar('code', { length: 32 }).notNull(),
+      status: activeStatus('status').notNull().default('ACTIVE'),
+      ...versioned(),
+    },
+    (t) => [
+      unique('departments_property_code_uq').on(t.propertyId, t.code),
+      tenantFk('departments', t.tenantId),
+      propertyFk('departments', t.propertyId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    code: 'INTERNAL',
+    status: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+export const departmentTranslations = classify(
+  org.table(
+    'department_translations',
+    {
+      ...translationColumns(() => departments.id),
+      name: text('name').notNull(),
+      description: text('description'),
+    },
+    (t) => [translationUnique('department_translations', t)],
+  ),
+  {
+    entityId: 'INTERNAL',
+    locale: 'INTERNAL',
+    name: 'INTERNAL',
+    description: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+  },
+);
+
 /** Spec §4.4 — "a room is a specialization of a location": PK = the location id. */
 export const rooms = classify(
   org.table(
@@ -443,4 +494,5 @@ export type PropertyRow = typeof properties.$inferSelect;
 export type LocationRow = typeof locations.$inferSelect;
 export type RoomTypeRow = typeof roomTypes.$inferSelect;
 export type RoomRow = typeof rooms.$inferSelect;
+export type DepartmentRow = typeof departments.$inferSelect;
 export type BrandProfileRow = typeof brandProfiles.$inferSelect;

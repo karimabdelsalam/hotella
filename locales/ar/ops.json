@@ -1,0 +1,7 @@
+{
+  "ops.permission.task_read": "عرض المهام وأعمال التشغيل",
+  "ops.permission.task_assign": "إسناد المهام وإعادة إسنادها وإلغاء إسنادها",
+  "ops.permission.task_accept": "استلام المهام الخاصة وبدؤها وإيقافها مؤقتًا",
+  "ops.permission.task_complete": "إنهاء المهام",
+  "ops.permission.task_cancel": "إلغاء المهام"
+}

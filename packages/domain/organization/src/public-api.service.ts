@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { isUuid } from '@hotella/platform-database';
 import { BrandingService } from './application/services';
 import { OrganizationRepositories } from './infrastructure/repositories';
 import { normalizeCode } from './domain/values';
 import type { RoomRow, TenantRow } from './infrastructure/schema';
 import type {
+  DepartmentSummary,
+  LocationSummary,
   OrganizationPublicApi,
   PropertySummary,
   ResolvedBrand,
@@ -92,6 +95,25 @@ export class OrganizationPublicApiService implements OrganizationPublicApi {
   }
   async listRooms(tenantId: string, propertyId: string): Promise<readonly RoomSummary[]> {
     return (await this.repo.listRooms({ tenantId, propertyId })).map(toRoomSummary);
+  }
+  async getLocation(
+    tenantId: string,
+    propertyId: string,
+    locationId: string,
+  ): Promise<LocationSummary | null> {
+    if (!isUuid(locationId)) return null;
+    const l = await this.repo.locationById({ tenantId, propertyId }, locationId);
+    return l
+      ? { id: l.id, propertyId: l.propertyId, kind: l.kind, code: l.code, status: l.status }
+      : null;
+  }
+  async getDepartment(
+    tenantId: string,
+    propertyId: string,
+    code: string,
+  ): Promise<DepartmentSummary | null> {
+    const d = await this.repo.departmentByCode({ tenantId, propertyId }, code.trim().toUpperCase());
+    return d ? { id: d.id, propertyId: d.propertyId, code: d.code, status: d.status } : null;
   }
   resolveBranding(
     propertyId: string,

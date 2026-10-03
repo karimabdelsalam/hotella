@@ -12,6 +12,7 @@ import {
 import { CurrentLocale } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import {
+  createDepartmentSchema,
   createLocationSchema,
   createOrganizationSchema,
   createPropertySchema,
@@ -24,6 +25,7 @@ import {
 } from '../application/dto';
 import {
   BrandingService,
+  DepartmentService,
   LocationService,
   OrganizationService,
   PropertyService,
@@ -39,6 +41,7 @@ class UpdatePropertyDto extends createZodDto(updatePropertySchema) {}
 class CreateLocationDto extends createZodDto(createLocationSchema) {}
 class CreateRoomTypeDto extends createZodDto(createRoomTypeSchema) {}
 class CreateRoomDto extends createZodDto(createRoomSchema) {}
+class CreateDepartmentDto extends createZodDto(createDepartmentSchema) {}
 class UpsertBrandProfileDto extends createZodDto(upsertBrandProfileSchema) {}
 class PublicBrandingQueryDto extends createZodDto(publicBrandingQuerySchema) {}
 class TenantQueryDto extends createZodDto(z.object({ tenantId: uuidSchema.optional() })) {}
@@ -87,6 +90,7 @@ export class PropertiesController {
     private readonly properties: PropertyService,
     private readonly locations: LocationService,
     private readonly rooms: RoomService,
+    private readonly departments: DepartmentService,
     private readonly actors: ActorStore,
     private readonly locale: CurrentLocale,
     /** Tenant derived by the guard from the property (platform staff act on a property without naming its tenant). */
@@ -191,6 +195,28 @@ export class PropertiesController {
   }
 
   /** Confirms the property belongs to the acting tenant (404 otherwise) and returns the scope. */
+  @Get(':propertyId/departments')
+  @PropertyScoped({ from: 'param' })
+  @RequirePermission('org.property.read')
+  async listDepartments(
+    @Param('propertyId') propertyId: string,
+    @Query() query: TenantQueryDto & TreeQueryDto,
+  ) {
+    const { scope, property } = await this.scope(propertyId, query.tenantId);
+    return this.departments.list(scope, property, query.lang ?? this.locale.get());
+  }
+  @Post(':propertyId/departments')
+  @PropertyScoped({ from: 'param' })
+  @RequirePermission('org.department.manage')
+  async createDepartment(
+    @Param('propertyId') propertyId: string,
+    @Query() query: TenantQueryDto,
+    @Body() body: CreateDepartmentDto,
+  ) {
+    const { scope } = await this.scope(propertyId, query.tenantId);
+    return this.departments.create(scope, body);
+  }
+
   private async scope(propertyId: string, named?: string) {
     const tenantId = resolveTenantId(this.actors.require(), named ?? this.ctx.tenantId);
     const property = await this.properties.get({ tenantId }, propertyId);

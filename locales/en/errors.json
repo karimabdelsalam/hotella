@@ -29,6 +29,8 @@
   "errors.org.property.code_taken": "A property with this code already exists in this tenant.",
   "errors.org.location.not_found": "Location not found.",
   "errors.org.location.code_taken": "A location with this code already exists under the same parent.",
+  "errors.org.department.code_taken": "A department with the code {code} already exists at this property.",
+  "errors.org.department.not_found": "The department was not found at this property.",
   "errors.org.location.invalid_parent": "The parent location belongs to another property or cannot contain this kind.",
   "errors.org.room.not_found": "Room not found.",
   "errors.org.room.number_taken": "A room with this number already exists in this property.",
@@ -93,5 +95,14 @@
   "errors.guest.guest.already_anonymized": "This guest is already anonymized.",
   "errors.guest.guest.active_stay": "This guest has an expected or in-house stay; anonymize after check-out.",
   "errors.integration.reconciliation.unsupported": "This integration cannot report its in-house list for reconciliation.",
-  "errors.integration.reconciliation.not_found": "Reconciliation run not found."
+  "errors.integration.reconciliation.not_found": "Reconciliation run not found.",
+  "errors.ops.work_item.kind_unknown": "The kind of work {kind} is not registered by any module.",
+  "errors.ops.work_item.not_found": "The work item was not found.",
+  "errors.ops.work_item.closed": "The work item is already {status} and cannot take new tasks.",
+  "errors.ops.work_item.reference_invalid": "The value of {field} does not belong to this property.",
+  "errors.ops.task.not_found": "The task was not found.",
+  "errors.ops.task.version_conflict": "The task was changed by someone else (now version {version}). Reload and try again.",
+  "errors.ops.task.transition_not_allowed": "A task that is {status} cannot be moved with {action}.",
+  "errors.ops.task.not_assignee": "Only the assignee or a supervisor can do this on the task.",
+  "errors.ops.task.assignee_invalid": "This person or department cannot take tasks at this property."
 }

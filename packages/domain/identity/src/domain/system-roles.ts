@@ -13,6 +13,10 @@ export interface SystemRoleDefinition {
 const PROPERTY_READ = ['org.property.read', 'branding.read'] as const;
 /** Guest-facing desks: see stays and guests, keep preferences/consents (Spec §6, §26). */
 const GUEST_DESK = ['guest.read', 'guest.manage', 'stay.read'] as const;
+/** Everyone who does operational work: see, take, start, pause and finish their tasks (Spec §8.2). */
+const TASK_WORKER = ['task.read', 'task.accept', 'task.complete'] as const;
+/** Supervisors also dispatch work and may act for an assignee. */
+const TASK_SUPERVISOR = [...TASK_WORKER, 'task.assign', 'task.cancel'] as const;
 
 export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
   {
@@ -24,6 +28,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'org.property.read',
       'org.property.manage',
       'org.location.manage',
+      'org.department.manage',
       'branding.read',
       'branding.manage',
       'iam.user.read',
@@ -49,6 +54,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...PROPERTY_READ,
       'org.property.manage',
       'org.location.manage',
+      'org.department.manage',
       'branding.manage',
       'iam.user.read',
       'iam.user.manage',
@@ -66,21 +72,40 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'guest.merge',
       'guest.data_request.manage',
       'stay.manage',
+      ...TASK_SUPERVISOR,
     ],
   },
   {
     code: 'DUTY_MANAGER',
     audience: 'TENANT',
-    permissions: [...PROPERTY_READ, 'iam.user.read', 'integration.read', ...GUEST_DESK],
+    permissions: [
+      ...PROPERTY_READ,
+      'iam.user.read',
+      'integration.read',
+      ...GUEST_DESK,
+      ...TASK_SUPERVISOR,
+    ],
   },
-  { code: 'HK_SUPERVISOR', audience: 'TENANT', permissions: [...PROPERTY_READ, 'iam.user.read'] },
-  { code: 'ROOM_ATTENDANT', audience: 'TENANT', permissions: ['org.property.read'] },
-  { code: 'ENGINEER', audience: 'TENANT', permissions: ['org.property.read'] },
-  { code: 'FRONT_DESK', audience: 'TENANT', permissions: [...PROPERTY_READ, ...GUEST_DESK] },
+  {
+    code: 'HK_SUPERVISOR',
+    audience: 'TENANT',
+    permissions: [...PROPERTY_READ, 'iam.user.read', ...TASK_SUPERVISOR],
+  },
+  {
+    code: 'ROOM_ATTENDANT',
+    audience: 'TENANT',
+    permissions: ['org.property.read', ...TASK_WORKER],
+  },
+  { code: 'ENGINEER', audience: 'TENANT', permissions: ['org.property.read', ...TASK_WORKER] },
+  {
+    code: 'FRONT_DESK',
+    audience: 'TENANT',
+    permissions: [...PROPERTY_READ, ...GUEST_DESK, ...TASK_WORKER],
+  },
   {
     code: 'GUEST_RELATIONS',
     audience: 'TENANT',
-    permissions: [...PROPERTY_READ, ...GUEST_DESK],
+    permissions: [...PROPERTY_READ, ...GUEST_DESK, ...TASK_WORKER],
   },
 ];
 

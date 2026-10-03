@@ -1,0 +1,7 @@
+{
+  "ops.permission.task_read": "View tasks and work items",
+  "ops.permission.task_assign": "Assign, reassign and unassign tasks",
+  "ops.permission.task_accept": "Take, start and pause own tasks",
+  "ops.permission.task_complete": "Complete tasks",
+  "ops.permission.task_cancel": "Cancel tasks"
+}

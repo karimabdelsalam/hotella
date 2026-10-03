@@ -7,6 +7,7 @@ import {
 } from '@hotella/domain-identity';
 import { GuestModule } from '@hotella/domain-guest';
 import { IntegrationsModule } from '@hotella/domain-integrations';
+import { OperationsModule } from '@hotella/domain-operations';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
 import { SettingsModule } from '@hotella/platform-settings';
@@ -51,6 +52,7 @@ import { MetaModule } from './meta/meta.module';
     IdentityModule,
     IntegrationsModule,
     GuestModule,
+    OperationsModule,
     HealthModule,
     MetaModule,
   ],

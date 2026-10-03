@@ -21,6 +21,20 @@ export interface RoomSummary {
   readonly roomTypeId: string | null;
 }
 
+export interface LocationSummary {
+  readonly id: string;
+  readonly propertyId: string;
+  readonly kind: string;
+  readonly code: string;
+  readonly status: 'ACTIVE' | 'INACTIVE';
+}
+export interface DepartmentSummary {
+  readonly id: string;
+  readonly propertyId: string;
+  readonly code: string;
+  readonly status: 'ACTIVE' | 'INACTIVE';
+}
+
 export interface TenantSummary {
   readonly id: string;
   readonly code: string;
@@ -44,6 +58,18 @@ export interface OrganizationPublicApi {
   ): Promise<RoomSummary | null>;
   getRoom(tenantId: string, propertyId: string, roomId: string): Promise<RoomSummary | null>;
   listRooms(tenantId: string, propertyId: string): Promise<readonly RoomSummary[]>;
+  /** Any location of the property (room, floor, outlet, back-of-house area…); null when not at this property. */
+  getLocation(
+    tenantId: string,
+    propertyId: string,
+    locationId: string,
+  ): Promise<LocationSummary | null>;
+  /** Department by its stable code at the property (codes are what operations store). */
+  getDepartment(
+    tenantId: string,
+    propertyId: string,
+    code: string,
+  ): Promise<DepartmentSummary | null>;
   resolveBranding(
     propertyId: string,
     channel: string | null,

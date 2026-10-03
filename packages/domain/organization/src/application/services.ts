@@ -24,6 +24,7 @@ import { CONTAINER_KINDS, normalizeCode } from '../domain/values';
 import { OrganizationRepositories } from '../infrastructure/repositories';
 import type {
   BrandProfileRow,
+  DepartmentRow,
   LocationRow,
   PropertyRow,
   RoomRow,
@@ -31,6 +32,7 @@ import type {
   TenantRow,
 } from '../infrastructure/schema';
 import type {
+  CreateDepartmentInput,
   CreateLocationInput,
   CreateOrganizationInput,
   CreatePropertyInput,
@@ -560,6 +562,71 @@ export class RoomService {
   }
   list(scope: PropertyScope): Promise<RoomRow[]> {
     return this.repo.listRooms(scope);
+  }
+}
+
+export interface DepartmentView {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly status: DepartmentRow['status'];
+}
+
+/** Departments own operational work (Spec §80); operations reference them by code. */
+@Injectable()
+export class DepartmentService {
+  constructor(
+    private readonly repo: OrganizationRepositories,
+    private readonly gate: ActionGate,
+    private readonly tx: TransactionRunner,
+    private readonly audit: AuditWriter,
+    private readonly locale: CurrentLocale,
+  ) {}
+
+  create(scope: PropertyScope, input: CreateDepartmentInput): Promise<DepartmentRow> {
+    return this.gate.execute(
+      { action: 'org.department.manage', tenantId: scope.tenantId, propertyId: scope.propertyId },
+      () =>
+        this.tx.run(async () => {
+          const code = normalizeCode(input.code);
+          if (await this.repo.departmentByCode(scope, code))
+            throw AppError.conflict('org.department.code_taken', { code });
+          const row = await this.repo.insertDepartment({
+            id: newId(),
+            tenantId: scope.tenantId,
+            propertyId: scope.propertyId,
+            code,
+          });
+          await this.repo.upsertDepartmentTranslations(row.id, input.translations);
+          await this.audit.record({
+            action: 'org.department.create',
+            entityType: 'department',
+            entityId: row.id,
+            tenantId: scope.tenantId,
+            propertyId: scope.propertyId,
+            after: { ...row, translations: input.translations },
+          });
+          return row;
+        }),
+    );
+  }
+
+  async list(
+    scope: PropertyScope,
+    property: PropertyRow,
+    locale = this.locale.get(),
+  ): Promise<DepartmentView[]> {
+    const rows = await this.repo.listDepartments(scope);
+    const translations = await this.repo.departmentTranslationsFor(rows.map((r) => r.id));
+    return rows.map((r) => {
+      const mine = translations.filter((t) => t.entityId === r.id);
+      const name =
+        mine.find((t) => t.locale === locale)?.name ??
+        mine.find((t) => t.locale === property.defaultLocale)?.name ??
+        mine.find((t) => t.locale === 'en')?.name ??
+        r.code;
+      return { id: r.id, code: r.code, name, status: r.status };
+    });
   }
 }
 

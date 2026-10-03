@@ -66,12 +66,16 @@ packages/
                                        auth (request actor, permission guard, ActionGate), audit (append-only audit log),
                                        settings (typed hierarchical configuration, retention, attribution policy)
   domain/      business (one folder per bounded context, one PostgreSQL schema each)
-                                     → organization (schema `org`: tenants, properties, location tree, rooms, branding)
+                                     → organization (schema `org`: tenants, properties, location tree, rooms, departments,
+                                       branding)
                                      → identity (schema `iam`: staff users, memberships, roles/permissions, sessions, MFA)
                                      → integrations (schema `integration`: connectors, instances, raw message inbox,
                                        parser/mapper → canonical hotel.* events, mappings, exceptions, external refs)
                                      → guest (schema `guest`: guests, stays, party, room-assignment history — written only
                                        by the StayProjector from canonical events; staff API is read-only)
+                                     → operations (schema `ops`: the one operations engine — work items created by modules
+                                       through OPERATIONS_API, tasks, assignment history, task history; SLA, workflows,
+                                       approvals, alerts and notifications arrive in Phase 3 sprints)
   contracts/   zod schemas shared by everything → events (incl. canonical hotel.*), api, connectors (Connector SDK v0),
                                        later ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
@@ -123,6 +127,8 @@ agent / simulator → IngestService.ingest(instance, raw)   stored in integratio
 ```
 
 A core context never sees vendor formats or vendor ids: it resolves and links opaque references through `INTEGRATIONS_API` (`resolveReference` / `linkReference`). The guest context's `StayProjector` runs in the worker (`GuestEventsModule`), one transaction per event with the inbox row, and publishes `guest.stay.*` events with internal ids for everyone downstream. Contexts expose a `<Ctx>CoreModule` without HTTP routes for background processes and a full module for the API.
+
+Operational work (Spec §8): a module never builds its own task table. At boot it registers its kinds of work (`OPERATIONS_API.registerWorkItemKind({ code: 'HK_JOB', module: 'hk', … })`); when something needs doing it calls `OPERATIONS_API.createWorkItem(…)` inside its own transaction, naming its record as the source. The engine owns tasks (lifecycle in BUILD_PLAN §7.5), assignment history and task history, and publishes `ops.work_item.*` / `ops.task.*` events the module can react to (e.g. close its record when the work item is `RESOLVED`). Staff take, start, pause and finish tasks through `/properties/:id/tasks/…`; a task given to a department (`TEAM`) waits in that department's queue until a member claims it.
 
 Trying the agent link locally: `pnpm --filter @hotella/agent-gateway dev` (outside production it creates an ephemeral agent CA and logs a warning), create an instance and an enrollment token through the staff API, then `node apps/pms-simulator/dist/main.js enroll --gateway https://localhost:8443 --ca <ca.pem> --token <token>` and `… run --gateway https://localhost:8443 --scenario apps/pms-simulator/scenarios/basic-stay.yml`. The quickest full loop is the test `pnpm --filter @hotella/pms-simulator test`, which starts both sides over real mutual TLS.
 

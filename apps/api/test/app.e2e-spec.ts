@@ -10,6 +10,7 @@ import {
 } from '@hotella/domain-identity';
 import { GuestModule } from '@hotella/domain-guest';
 import { IntegrationsModule } from '@hotella/domain-integrations';
+import { OperationsModule } from '@hotella/domain-operations';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
 import { SettingsModule } from '@hotella/platform-settings';
@@ -73,6 +74,7 @@ describe('api skeleton (e2e)', () => {
         IdentityModule,
         IntegrationsModule,
         GuestModule,
+        OperationsModule,
         HealthModule,
         MetaModule,
       ],
@@ -164,6 +166,7 @@ describe('api skeleton (e2e)', () => {
       'guest',
       'iam',
       'integration',
+      'ops',
       'org',
       'platform',
     ]);

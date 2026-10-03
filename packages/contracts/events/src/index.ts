@@ -35,6 +35,15 @@ export {
   ReconciliationSnapshotCompleted,
 } from './integration-events';
 export {
+  PRIORITIES,
+  TASK_STATUSES,
+  TaskAssigned,
+  TaskStatusChanged,
+  WORK_ITEM_STATUSES,
+  WorkItemCreated,
+  WorkItemStatusChanged,
+} from './ops-events';
+export {
   CANONICAL_ROOM_STATUSES,
   GuestCheckedIn,
   GuestCheckedOut,

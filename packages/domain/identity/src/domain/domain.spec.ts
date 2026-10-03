@@ -2,13 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { GUEST_MANIFEST } from '@hotella/domain-guest/public';
-import { INTEGRATIONS_MANIFEST } from '@hotella/domain-integrations/public';
-import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
-import { AUDIT_MANIFEST } from '@hotella/platform-audit';
 import { findLocalesDir } from '@hotella/platform-i18n';
-import { PLATFORM_MANIFEST } from '@hotella/platform-manifest';
-import { IDENTITY_MANIFEST } from '../manifest';
+import { PERMISSION_RE } from '@hotella/platform-manifest';
 import {
   applicableGrants,
   effectivePermissions,
@@ -165,17 +160,9 @@ describe('effective permissions (Membership → Role → Permission)', () => {
   });
 });
 
+// Every granted permission must be declared by a module manifest: checked in apps/api (test/role-catalog.spec.ts),
+// where all contexts are composed — contexts that depend on identity (operations…) cannot be imported here.
 describe('system role catalog', () => {
-  const declared = new Set(
-    [
-      ...ORGANIZATION_MANIFEST.permissions,
-      ...IDENTITY_MANIFEST.permissions,
-      ...AUDIT_MANIFEST.permissions,
-      ...PLATFORM_MANIFEST.permissions,
-      ...INTEGRATIONS_MANIFEST.permissions,
-      ...GUEST_MANIFEST.permissions,
-    ].map((p) => p.code),
-  );
   const locales = ['en', 'ar'].map(
     (l) =>
       JSON.parse(readFileSync(join(findLocalesDir(), l, 'identity.json'), 'utf8')) as Record<
@@ -183,7 +170,7 @@ describe('system role catalog', () => {
         string
       >,
   );
-  it('covers the agreed roles, each with en/ar names and only declared permissions', () => {
+  it('covers the agreed roles, each with en/ar names and well-formed permissions', () => {
     expect(SYSTEM_ROLES.map((r) => r.code)).toEqual([
       'PLATFORM_ADMIN',
       'SUPPORT',
@@ -196,7 +183,7 @@ describe('system role catalog', () => {
       'GUEST_RELATIONS',
     ]);
     for (const role of SYSTEM_ROLES) {
-      for (const p of role.permissions) expect(declared, `${role.code}: ${p}`).toContain(p);
+      for (const p of role.permissions) expect(p, role.code).toMatch(PERMISSION_RE);
       for (const catalog of locales) {
         expect(catalog[roleNameKey(role.code)]).toBeTruthy();
         expect(catalog[roleDescriptionKey(role.code)]).toBeTruthy();

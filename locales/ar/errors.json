@@ -29,6 +29,8 @@
   "errors.org.property.code_taken": "يوجد فندق بهذا الرمز بالفعل لدى هذا العميل.",
   "errors.org.location.not_found": "الموقع غير موجود.",
   "errors.org.location.code_taken": "يوجد موقع بهذا الرمز بالفعل تحت نفس الموقع الأب.",
+  "errors.org.department.code_taken": "يوجد قسم بالرمز {code} بالفعل في هذا الفندق.",
+  "errors.org.department.not_found": "لم يتم العثور على القسم في هذا الفندق.",
   "errors.org.location.invalid_parent": "الموقع الأب يتبع فندقًا آخر أو لا يمكنه احتواء هذا النوع.",
   "errors.org.room.not_found": "الغرفة غير موجودة.",
   "errors.org.room.number_taken": "توجد غرفة بهذا الرقم بالفعل في هذا الفندق.",
@@ -93,5 +95,14 @@
   "errors.guest.guest.already_anonymized": "تم إخفاء هوية هذا النزيل بالفعل.",
   "errors.guest.guest.active_stay": "لدى هذا النزيل إقامة متوقعة أو حالية؛ يمكن إخفاء الهوية بعد المغادرة.",
   "errors.integration.reconciliation.unsupported": "هذا الربط لا يستطيع إرسال قائمة المقيمين للمطابقة.",
-  "errors.integration.reconciliation.not_found": "لم يتم العثور على عملية المطابقة."
+  "errors.integration.reconciliation.not_found": "لم يتم العثور على عملية المطابقة.",
+  "errors.ops.work_item.kind_unknown": "نوع العمل {kind} غير مسجل لدى أي وحدة.",
+  "errors.ops.work_item.not_found": "لم يتم العثور على عنصر العمل.",
+  "errors.ops.work_item.closed": "عنصر العمل في حالة {status} بالفعل ولا يقبل مهامًا جديدة.",
+  "errors.ops.work_item.reference_invalid": "قيمة {field} لا تخص هذا الفندق.",
+  "errors.ops.task.not_found": "لم يتم العثور على المهمة.",
+  "errors.ops.task.version_conflict": "عدّل شخص آخر المهمة (الإصدار الآن {version}). أعد التحميل وحاول مرة أخرى.",
+  "errors.ops.task.transition_not_allowed": "لا يمكن تنفيذ {action} على مهمة حالتها {status}.",
+  "errors.ops.task.not_assignee": "لا يقوم بهذا الإجراء إلا المكلَّف بالمهمة أو المشرف.",
+  "errors.ops.task.assignee_invalid": "هذا الشخص أو القسم لا يمكنه استلام المهام في هذا الفندق."
 }

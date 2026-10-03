@@ -3,6 +3,7 @@
   "org.permission.property_read": "عرض الفنادق والمواقع والغرف",
   "org.permission.property_manage": "إنشاء الفنادق وتعديلها",
   "org.permission.location_manage": "إدارة شجرة المواقع وأنواع الغرف والغرف",
+  "org.permission.department_manage": "إدارة الأقسام المسؤولة عن العمل التشغيلي",
   "org.permission.branding_read": "عرض ملفات العلامة",
   "org.permission.branding_manage": "تعديل ملفات العلامة",
   "org.setting.checkout_time": "موعد المغادرة المعتاد في الفندق (س:د بتوقيت الفندق)."

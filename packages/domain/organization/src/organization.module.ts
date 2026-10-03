@@ -6,6 +6,7 @@ import { ORGANIZATION_SETTINGS } from './domain/settings';
 import { BrandingController, PropertiesController, TenantsController } from './api/controllers';
 import {
   BrandingService,
+  DepartmentService,
   LocationService,
   OrganizationService,
   PropertyService,
@@ -28,6 +29,7 @@ import { OrganizationPublicApiService } from './public-api.service';
     PropertyService,
     LocationService,
     RoomService,
+    DepartmentService,
     BrandingService,
     OrganizationPublicApiService,
     { provide: ORGANIZATION_API, useExisting: OrganizationPublicApiService },

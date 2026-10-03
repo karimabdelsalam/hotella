@@ -562,6 +562,8 @@ Reality notes for 2.4:
 
 **Goal / acceptance (Spec §85):** multiple future modules create work through one engine; SLA deterministic; approvals generic.
 
+> **Status: in progress** — sprints and reality notes in §7.7. Package `@hotella/domain-operations` (context code `ops`).
+
 ### 7.1 Domain model (schema `ops`)
 
 ```text
@@ -593,7 +595,15 @@ ops.notification_intents    id, tenant_id, property_id, recipient_type (USER|GUE
 ops.notification_deliveries id, intent_id, channel (PUSH|WHATSAPP|EMAIL|SMS|IN_APP), status, provider_ref, attempts, last_error
 ops.notification_preferences actor_type, actor_id, template_key/category, channel, enabled
 ops.business_hours          id, tenant_id, property_id, department_code nullable, schedule jsonb, timezone
+ops.sla_pauses              id, sla_instance_id, reason, paused_at, resumed_at — pause history (rule 10), totals derive from it
+-- owned by the organization context (Spec §80 "Property → Departments"); ops references departments by code
+org.departments             id, tenant_id, property_id, code unique per property, status, version
+org.department_translations department_id, locale, name
 ```
+
+Work-item kinds are not an enum: a module registers the kinds it creates (`WorkItemKindRegistry.register('HK_JOB', …)`) at
+module init; creating a work item of an unregistered kind is rejected. This is what lets future modules use the engine
+without a migration of `ops`.
 
 ### 7.2 Engine rules
 
@@ -617,6 +627,62 @@ Events: `ops.work_item.created.v1`, `ops.task.assigned.v1`, `ops.task.status_cha
 - Same alert condition raised 50 times produces one active alert with `last_seen_at` updated.
 - Approval of a HIGH-risk subject is required before the subject's handler runs; expiry closes it.
 - Assignment history is complete after assign → reassign → unassign.
+
+### 7.5 Task lifecycle (deterministic, unit-tested)
+
+```text
+NEW ──assign──▶ ASSIGNED ──accept──▶ ACCEPTED ──start──▶ IN_PROGRESS ──complete──▶ DONE
+ ▲                 │  └──reject (assignee)──▶ NEW (assignment closed, reason REJECTED)
+ └───unassign──────┘                          IN_PROGRESS ──pause(reason)──▶ PAUSED ──resume──▶ IN_PROGRESS
+any non-terminal ──cancel(reason)──▶ CANCELLED;   reassign = close current assignment + open a new one (ASSIGNED)
+```
+
+Assignees act on their own tasks with `task.accept`/`task.complete`; supervisors (`task.assign`) may act on any task of
+the property. Work-item status derives from its tasks: OPEN → IN_PROGRESS (a task accepted/started) → RESOLVED (all
+tasks terminal, at least one DONE) or CANCELLED (all cancelled). Every transition writes `ops.task_events` and an
+`ops.task.status_changed.v1` event; the row's `version` guards concurrent updates.
+
+### 7.6 Migrations and tests
+
+- `0011_ops_core` (departments, work items, tasks, assignments, task events), `0012_ops_sla` (business hours,
+  policies, instances, pauses, escalations, alerts), `0013_ops_workflow_approvals`, `0014_ops_notifications`; every
+  tenant-owned table gets forced RLS and tenant/property FKs; published workflow versions are protected by a trigger.
+- Unit: task state machine, work-item status derivation, `computeSlaDeadlines` table (business hours, overnight
+  schedules, pauses, DST in `Africa/Cairo` and a zone with a gap), escalation ladder, workflow interpreter, approval
+  expiry, alert dedupe key.
+- Integration (real PostgreSQL/Valkey): two test modules create work through `OPERATIONS_API`; assignment history;
+  SLA timers fire through the `critical-operational` queue and breach → escalation → alert → notification intent;
+  approvals gate a HIGH-risk handler; 50 identical alert raises → one alert; tenant-leak test (404 + RLS).
+- e2e: API routes for tasks/approvals/alerts with the role catalog (General manager, Duty manager, department staff).
+
+### 7.7 Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 3.1 | `org.departments` (+ translations, API, `ORGANIZATION_API.getDepartment`); `@hotella/domain-operations`: work items, tasks, assignment history, task events; kind registry; `OPERATIONS_API.createWorkItem/addTask`; task lifecycle API (assign/unassign/accept/reject/start/pause/resume/complete/cancel); `my tasks`/department/property lists; events `ops.work_item.created.v1`, `ops.work_item.status_changed.v1`, `ops.task.assigned.v1`, `ops.task.status_changed.v1`; permissions; role grants | delivered |
+| 3.2 | `@hotella/platform-time` (IANA wall clock ↔ UTC); business hours; SLA policies with property/department/service overrides; `computeSlaDeadlines`; SLA instances started by work items, paused/resumed by task pauses with policy pause rules; timers on `critical-operational` + a sweep; breach → escalation ladder → deduplicated alert; `ops.sla.breached.v1`, `ops.escalation.triggered.v1`, `ops.alert.raised.v1` | planned |
+| 3.3 | Workflow definitions/versions (immutable once published), deterministic interpreter with code-registered guards and actions (create task, start SLA, notify, request approval); generic approval engine (risk level, expiry job, audited decisions, handler registry); `ops.approval.requested.v1`, `ops.approval.decided.v1` | planned |
+| 3.4 | Notification intents and deliveries; `IN_APP` inbox and `EMAIL` (SMTP, Mailpit locally) adapters; preferences with critical-policy override; alert acknowledgement/resolution; outbox retention purge; Phase 3 acceptance (`docs/acceptance/phase-3.md`) | planned |
+
+Reality notes for 3.1:
+- Tasks keep the plan's status set without `REJECTED`: an assignee who rejects a task hands it back (`ASSIGNED → NEW`, the
+  assignment closes with end reason `REJECTED`); cancelling is `CANCELLED`. Starting implies accepting, and completing is
+  allowed from any owned status, so staff screens stay one tap (CLAUDE.md rule 23).
+- `tasks.current_assignee_user_id` became `assignee_type` + `assignee_id`: a task can wait in a department's queue
+  (`TEAM` = the department) and any member claims it (`CLAIM` in the history, the team assignment closes with `CLAIMED`).
+  `AI` and `ROBOT` are reserved. Department membership of staff is not modelled yet: anyone with `task.accept` at the
+  property may claim; it arrives with the staff app (Phase 5) if hotels need it.
+- Supervisors (`task.assign`) may act for an assignee; such actions are audited with `onBehalf`. Assignments, unassignments
+  and cancellations are audited; every transition is in `ops.task_events`, append-only at the database level (only a
+  free-text reason may be cleared, for anonymization).
+- Work items carry `source_module/source_entity_type/source_entity_id`; titles are a locale key with parameters or quoted
+  free text (CONFIDENTIAL). Anonymizing a guest must also clear free-text titles that quote them — wired when the first
+  guest-facing source (service requests, Phase 5) exists.
+- Departments live in the organization context (`org.departments`), referenced by code with a composite foreign key
+  `(property_id, department_code)`. Permission `org.department.manage` (platform admin, general manager).
+- Defects found and fixed on the way: the identity catalog sync let a partial process (the admin CLI) strip the grants of
+  modules it does not load, which broke the Phase 2 pilot smoke; the check that system roles grant only declared
+  permissions moved to `apps/api` (`test/role-catalog.spec.ts`), because identity cannot import contexts that depend on it.
 
 ---
 
