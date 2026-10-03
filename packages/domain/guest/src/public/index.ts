@@ -10,6 +10,10 @@ export interface StaySummary {
   readonly primaryGuestId: string;
   readonly expectedArrival: string;
   readonly expectedDeparture: string;
+  /** Estimated time of arrival, when the PMS gives one. */
+  readonly eta: string | null;
+  /** The primary guest carries a VIP code (the code itself stays in the guest context). */
+  readonly vip: boolean;
   readonly currentRoomId: string | null;
   /** Guests currently in the party (primary first). */
   readonly partyGuestIds: readonly string[];

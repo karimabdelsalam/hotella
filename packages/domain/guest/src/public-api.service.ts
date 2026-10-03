@@ -105,6 +105,7 @@ export class GuestPublicApiService implements GuestPublicApi {
   private async summary(tenantId: string, s: StayRow): Promise<StaySummary> {
     const open = await this.repo.openAssignment({ tenantId }, s.id);
     const party = await this.repo.activeParty({ tenantId }, s.id);
+    const [primary] = await this.repo.guestsByIds({ tenantId }, [s.primaryGuestId]);
     return {
       id: s.id,
       propertyId: s.propertyId,
@@ -112,6 +113,8 @@ export class GuestPublicApiService implements GuestPublicApi {
       primaryGuestId: s.primaryGuestId,
       expectedArrival: s.expectedArrival,
       expectedDeparture: s.expectedDeparture,
+      eta: s.eta?.toISOString() ?? null,
+      vip: Boolean(primary?.vipCode),
       currentRoomId: open?.roomId ?? null,
       partyGuestIds: [...party]
         .sort((a, b) => (a.role === 'PRIMARY' ? -1 : b.role === 'PRIMARY' ? 1 : 0))

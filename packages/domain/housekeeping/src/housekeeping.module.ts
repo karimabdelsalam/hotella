@@ -12,6 +12,7 @@ import {
   HousekeepingController,
   HousekeepingJobsController,
 } from './api/controllers';
+import { ArrivalRiskService } from './application/arrival-risk.service';
 import { HK_JOB_KIND, JobService } from './application/job.service';
 import { HousekeepingPublicApiService } from './application/public-api.service';
 import { ReadinessService } from './application/readiness.service';
@@ -76,6 +77,7 @@ export class HousekeepingCoreModule implements OnModuleInit {
 /** Staff and guest API, settings and manifest, for the API process. */
 @Module({
   imports: [HousekeepingCoreModule],
+  providers: [ArrivalRiskService],
   controllers: [HousekeepingController, HousekeepingJobsController, GuestRoomSignalsController],
 })
 export class HousekeepingModule implements OnModuleInit {

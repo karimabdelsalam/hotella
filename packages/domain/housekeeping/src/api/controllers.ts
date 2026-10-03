@@ -34,7 +34,9 @@ import {
   skipSchema,
 } from '../application/job.service';
 import { RoomStateService, setStateSchema, signalSchema } from '../application/room-state.service';
+import { ArrivalRiskService, arrivalRiskQuerySchema } from '../application/arrival-risk.service';
 
+class ArrivalRiskQueryDto extends createZodDto(arrivalRiskQuerySchema) {}
 class SetStateDto extends createZodDto(setStateSchema) {}
 class SignalDto extends createZodDto(signalSchema) {}
 const guestSignalSchema = z.object({
@@ -56,6 +58,7 @@ class ApplyAssignmentsDto extends createZodDto(applyAssignmentsSchema) {}
 export class HousekeepingController {
   constructor(
     private readonly rooms: RoomStateService,
+    private readonly arrivals: ArrivalRiskService,
     private readonly ctx: RequestContext,
     private readonly actors: ActorStore,
   ) {}
@@ -74,6 +77,13 @@ export class HousekeepingController {
   @RequirePermission('hk.board.read')
   board(@Param('propertyId') propertyId: string) {
     return this.rooms.board(this.scope(propertyId));
+  }
+
+  /** Expected arrivals of today or tomorrow, riskiest first, with the reasons (`hk.arrivals.read`). */
+  @Get('arrival-risk')
+  @RequirePermission('hk.arrivals.read', { checkedBy: 'gate' })
+  arrivalRisk(@Param('propertyId') propertyId: string, @Query() query: ArrivalRiskQueryDto) {
+    return this.arrivals.list(this.scope(propertyId), query);
   }
 
   @Get('rooms/:roomId/history')

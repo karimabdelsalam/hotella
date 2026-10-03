@@ -8274,6 +8274,50 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/housekeeping/arrival-risk": {
+      "get": {
+        "operationId": "HousekeepingController_arrivalRisk",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "day",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "today",
+              "type": "string",
+              "enum": [
+                "today",
+                "tomorrow"
+              ]
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Housekeeping"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/housekeeping/rooms/{roomId}/history": {
       "get": {
         "operationId": "HousekeepingController_history",

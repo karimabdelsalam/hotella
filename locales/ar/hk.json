@@ -4,6 +4,7 @@
   "hk.permission.job_manage": "إنشاء مهام التنظيف وتوزيعها وإدارتها",
   "hk.permission.inspect": "فحص الغرف بعد تنظيفها",
   "hk.permission.config_manage": "إعداد نقاط التنظيف وقواعده",
+  "hk.permission.arrivals_read": "عرض وصول اليوم والغد ومخاطر جاهزية الغرف",
   "hk.job.title": "{type, select, STAYOVER {تنظيف غرفة مقيم} CHECKOUT {تنظيف بعد المغادرة} ARRIVAL {تجهيز للوصول} DEEP_CLEAN {تنظيف عميق} TURNDOWN {تجهيز مسائي} TOUCH_UP {تنظيف سريع} VIP {تجهيز كبار الزوار} other {تنظيف}} · غرفة {room}",
   "hk.work_kind.job": "تنظيف غرفة",
   "hk.setting.inspection_required": "الغرف المنظفة تنتظر فحص المشرف قبل أن تصبح جاهزة",

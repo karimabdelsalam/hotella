@@ -4,6 +4,7 @@
   "hk.permission.job_manage": "Create, assign and manage cleaning jobs",
   "hk.permission.inspect": "Inspect cleaned rooms",
   "hk.permission.config_manage": "Set up housekeeping credits and rules",
+  "hk.permission.arrivals_read": "See today's and tomorrow's arrivals with their risk",
   "hk.job.title": "{type, select, STAYOVER {Stayover clean} CHECKOUT {Check-out clean} ARRIVAL {Arrival clean} DEEP_CLEAN {Deep clean} TURNDOWN {Turndown} TOUCH_UP {Touch-up} VIP {VIP set-up} other {Cleaning}} · room {room}",
   "hk.work_kind.job": "Room cleaning",
   "hk.setting.inspection_required": "Cleaned rooms wait for a supervisor's inspection before they are ready",

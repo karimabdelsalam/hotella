@@ -18,6 +18,7 @@ export const HOUSEKEEPING_MANIFEST = defineManifest({
     { code: 'hk.job.manage', descriptionKey: 'hk.permission.job_manage', risk: 'LOW' },
     { code: 'hk.inspect', descriptionKey: 'hk.permission.inspect', risk: 'LOW' },
     { code: 'hk.config.manage', descriptionKey: 'hk.permission.config_manage', risk: 'MEDIUM' },
+    { code: 'hk.arrivals.read', descriptionKey: 'hk.permission.arrivals_read', risk: 'READ' },
   ],
   events: [
     RoomStateChanged.name,
