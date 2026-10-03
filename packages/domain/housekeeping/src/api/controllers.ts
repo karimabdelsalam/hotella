@@ -164,6 +164,12 @@ export class HousekeepingJobsController {
     return this.jobs.inspect(this.scope(propertyId), jobId, body, this.actor());
   }
 
+  @Get('attendants')
+  @RequirePermission('hk.job.manage', { checkedBy: 'gate' })
+  attendants(@Param('propertyId') propertyId: string) {
+    return this.jobs.attendants(this.scope(propertyId));
+  }
+
   @Post('assignments/proposal')
   @HttpCode(200)
   @RequirePermission('hk.job.manage', { checkedBy: 'gate' })

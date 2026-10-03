@@ -319,6 +319,7 @@ export class RoomStateService {
                 roomId: room.id,
                 roomNumber: room.roomNumber,
                 roomTypeId: room.roomTypeId,
+                floorLabel: room.floorLabel,
                 occupancy: s?.occupancy ?? null,
                 housekeeping: s?.housekeeping ?? null,
                 frontOffice: s?.frontOffice ?? null,

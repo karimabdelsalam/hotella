@@ -147,6 +147,27 @@ jq -e '.status == "COMPLETED" and .agentCode == "GUEST_CONCIERGE" and .tokensIn 
 [ "$(psql "select count(*) from audit.audit_log a join catalog.service_requests r on r.id = a.entity_id
   where r.property_id = '$property' and r.service_code = 'AC_PROBLEM' and a.action = 'catalog.request.create' and a.actor_type = 'AI_AGENT'")" = 1 ]
 echo "M2 concierge: OK"
+
+# Housekeeping (BUILD_PLAN 7.4) on the deployed stack: SIM-C1's check-out from 506 (2026-10-06, before the property had
+# departments, so its work is unrouted) made the room dirty and created its CHECKOUT clean; the GM takes and finishes
+# it, and the worker moves the room to CLEAN, which makes it ready.
+hk="$API/properties/$property/housekeeping"
+job=$(call "$hk/jobs?day=2026-10-06" "${auth[@]}" |
+  jq -c '[.[] | select(.roomNumber == "506" and .cleaningType == "CHECKOUT")] | first')
+echo "checkout clean: $(jq -c '{cleaningType, credits, status}' <<<"$job")"
+jq -e '.status == "OPEN" and .credits == 1' <<<"$job" >/dev/null
+for action in start complete; do
+  call "$API/properties/$property/tasks/$(jq -r .taskId <<<"$job")/$action" "${auth[@]}" -d '{}' >/dev/null
+done
+room=""
+for _ in $(seq 1 30); do
+  room=$(call "$hk/rooms" "${auth[@]}" | jq -r '.[] | select(.roomNumber == "506") | "\(.housekeeping) ready=\(.ready)"')
+  [ "$room" = "CLEAN ready=true" ] && break
+  sleep 1
+done
+echo "room 506 after its clean: $room"
+[ "$room" = "CLEAN ready=true" ]
+echo "housekeeping: OK"
 # The link was single use.
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$API/guest/activation/start" "${json[@]}" -d "{\"token\":\"$token\"}")" = 410 ]
 

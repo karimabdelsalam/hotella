@@ -1131,6 +1131,9 @@ importers:
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../guest
+      '@hotella/domain-identity':
+        specifier: workspace:*
+        version: link:../identity
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../integrations
@@ -1189,9 +1192,6 @@ importers:
       '@hotella/domain-communications':
         specifier: workspace:*
         version: link:../communications
-      '@hotella/domain-identity':
-        specifier: workspace:*
-        version: link:../identity
       '@hotella/platform-flags':
         specifier: workspace:*
         version: link:../../platform/flags

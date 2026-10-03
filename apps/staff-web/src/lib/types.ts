@@ -71,3 +71,48 @@ export interface PropertySummary {
   readonly id: string;
   readonly name: string;
 }
+
+// ---- housekeeping (see the housekeeping context's board and job services) ----
+
+export type HousekeepingState =
+  'DIRTY' | 'CLEANING' | 'CLEAN' | 'INSPECTING' | 'INSPECTED' | 'PICKUP';
+
+export interface BoardRoom {
+  readonly roomId: string;
+  readonly roomNumber: string;
+  readonly floorLabel: string | null;
+  readonly occupancy: 'VACANT' | 'OCCUPIED' | null;
+  readonly housekeeping: HousekeepingState | null;
+  readonly frontOffice: string | null;
+  readonly ready: boolean;
+  readonly signals: ReadonlyArray<{ readonly signal: string; readonly source: string }>;
+}
+
+export interface HousekeepingJob {
+  readonly id: string;
+  readonly roomId: string;
+  readonly roomNumber: string | null;
+  readonly floorLabel: string | null;
+  readonly cleaningType: string;
+  readonly credits: number;
+  readonly status: string;
+  readonly taskId: string | null;
+  readonly assignee: { readonly type: string; readonly id: string } | null;
+  readonly makeUpRequested: boolean;
+  readonly doNotDisturb: boolean;
+}
+
+export interface Attendant {
+  readonly id: string;
+  readonly displayName: string;
+}
+
+export interface AssignmentPlan {
+  readonly day: string;
+  readonly totalCredits: number;
+  readonly plan: ReadonlyArray<{
+    readonly attendantId: string;
+    readonly credits: number;
+    readonly jobs: ReadonlyArray<{ readonly jobId: string; readonly roomNumber: string }>;
+  }>;
+}

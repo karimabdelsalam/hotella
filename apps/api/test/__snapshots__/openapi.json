@@ -8408,6 +8408,37 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/housekeeping/attendants": {
+      "get": {
+        "operationId": "HousekeepingJobsController_attendants",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "HousekeepingJobs"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/housekeeping/assignments/proposal": {
       "post": {
         "operationId": "HousekeepingJobsController_propose",

@@ -9,6 +9,7 @@ import {
   WorkItemStatusChanged,
 } from '@hotella/contracts-events';
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
+import { IDENTITY_API, type IdentityPublicApi } from '@hotella/domain-identity/public';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '@hotella/domain-integrations/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
@@ -41,6 +42,8 @@ import type { JobRow } from '../infrastructure/schema';
 import { RoomStateService } from './room-state.service';
 
 export const HK_JOB_KIND = 'HK_JOB';
+const ATTENDANT_ROLE = 'ROOM_ATTENDANT';
+const HK_DEPARTMENT = 'HK';
 const HK = 'hk';
 const isoDay = z.iso.date();
 
@@ -124,6 +127,7 @@ export class JobService {
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
     @Inject(INTEGRATIONS_API) private readonly integrations: IntegrationsPublicApi,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
+    @Inject(IDENTITY_API) private readonly identity: IdentityPublicApi,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -164,6 +168,18 @@ export class JobService {
       scheduledFor: input.scheduledFor,
     });
     if (!job) return null;
+    // A property without an active Housekeeping department still gets its cleans, as unrouted work.
+    const department = await this.org.getDepartment(
+      scope.tenantId,
+      scope.propertyId,
+      HK_DEPARTMENT,
+    );
+    const routed = department?.status === 'ACTIVE';
+    if (!routed)
+      this.logger.warn(
+        { property_id: scope.propertyId },
+        'no Housekeeping department: job work is unrouted',
+      );
     const work = await this.ops.createWorkItem({
       tenantId: scope.tenantId,
       propertyId: scope.propertyId,
@@ -172,7 +188,7 @@ export class JobService {
       title: { key: 'hk.job.title', params: { type: input.cleaningType, room: room.roomNumber } },
       priority: input.priority ?? (input.cleaningType === 'VIP' ? 'HIGH' : 'NORMAL'),
       locationId: input.roomId,
-      departmentCode: 'HK',
+      departmentCode: routed ? HK_DEPARTMENT : null,
       stayId: input.stayId ?? null,
     });
     const linked = await this.repo.updateJob(scope, job.id, { workItemId: work.id });
@@ -546,6 +562,27 @@ export class JobService {
   }
 
   // ---- assignment proposal (BUILD_PLAN 7.B): code proposes, a person applies ----
+
+  /** Active room attendants of the property (ROOM_ATTENDANT role), to plan the day with (`hk.job.manage`). */
+  attendants(scope: PropertyScope) {
+    return this.gate.execute(
+      { action: 'hk.job.manage', tenantId: scope.tenantId, propertyId: scope.propertyId },
+      async () => {
+        const ids = await this.identity.usersWithRole(
+          scope.tenantId,
+          scope.propertyId,
+          ATTENDANT_ROLE,
+        );
+        const out: Array<{ id: string; displayName: string }> = [];
+        for (const id of ids) {
+          const member = await this.identity.getStaffMember(scope.tenantId, id);
+          if (member && member.status === 'ACTIVE')
+            out.push({ id, displayName: member.displayName });
+        }
+        return out.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      },
+    );
+  }
 
   /** The day's open jobs balanced across the chosen attendants by credits, floors kept together (`hk.job.manage`). */
   propose(scope: PropertyScope, input: z.infer<typeof proposalSchema>) {

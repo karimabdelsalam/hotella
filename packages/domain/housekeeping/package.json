@@ -29,6 +29,7 @@
     "@hotella/contracts-events": "workspace:*",
     "@hotella/domain-ai": "workspace:*",
     "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",
     "@hotella/domain-operations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
@@ -50,7 +51,6 @@
   "devDependencies": {
     "@hotella/domain-catalog": "workspace:*",
     "@hotella/domain-communications": "workspace:*",
-    "@hotella/domain-identity": "workspace:*",
     "@hotella/platform-flags": "workspace:*",
     "@hotella/platform-http": "workspace:*",
     "@hotella/platform-secrets": "workspace:*",

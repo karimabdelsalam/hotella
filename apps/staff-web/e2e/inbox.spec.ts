@@ -221,7 +221,7 @@ test('the same inbox in Arabic is right-to-left and fully translated', async ({ 
   const outbound = await page.locator('[data-direction="OUTBOUND"]').boundingBox();
   expect(inbound!.x).toBeGreaterThan(outbound!.x);
   // The conversation list sits on the start side too.
-  const nav = await page.getByRole('navigation').boundingBox();
+  const nav = await page.getByRole('navigation', { name: 'صندوق محادثات الضيوف' }).boundingBox();
   const thread = await page.locator('section').boundingBox();
   expect(nav!.x).toBeGreaterThan(thread!.x);
   await expect(page.getByTestId('attribution')).toContainText('Powered by Planova');
