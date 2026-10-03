@@ -85,6 +85,12 @@ export async function grantApplicationRole(url: string, role: string): Promise<v
       throw new Error(
         `Role "${role}" bypasses row-level security; the application must use an ordinary role`,
       );
+    // Grants on the same schema update one catalog row: concurrent sessions (several services starting, parallel test
+    // suites) fail with "tuple concurrently updated". One transaction under a cluster-wide advisory lock serializes them.
+    await client.query('BEGIN');
+    await client.query(
+      "select pg_advisory_xact_lock(hashtextextended('hotella.grant_application_role', 0))",
+    );
     for (const schema of APPLICATION_SCHEMAS) {
       await client.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${role}"`);
       await client.query(
@@ -94,6 +100,10 @@ export async function grantApplicationRole(url: string, role: string): Promise<v
         `ALTER DEFAULT PRIVILEGES IN SCHEMA "${schema}" GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "${role}"`,
       );
     }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw e;
   } finally {
     await client.end();
   }
