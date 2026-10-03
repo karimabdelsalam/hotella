@@ -1,0 +1,31 @@
+{
+  "name": "@hotella/contracts-connectors",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Connector SDK contract v0 (Spec §46, §47, §56; ADR-0017): connector manifests, capabilities, the connector-neutral inbound record produced by adapters, and the hotel-agent link frames. Depends on zod only.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@hotella/tooling": "workspace:*",
+    "vitest": "4.1.11"
+  }
+}

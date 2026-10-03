@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Client } from 'pg';
@@ -53,7 +54,7 @@ export async function runMigrations(url: string): Promise<void> {
 }
 
 /** Schemas the application reads and writes. The migration journal schema is deliberately not granted. */
-export const APPLICATION_SCHEMAS = ['org', 'iam', 'audit', 'platform'] as const;
+export const APPLICATION_SCHEMAS = ['org', 'iam', 'audit', 'platform', 'integration'] as const;
 const ROLE_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 
 /**
@@ -87,4 +88,55 @@ export async function grantApplicationRole(url: string, role: string): Promise<v
   } finally {
     await client.end();
   }
+}
+
+/**
+ * Creates (or re-keys) an ordinary login role with the application grants and returns a URL for it — the way every
+ * deployed environment must connect. Used by integration suites so the application under test is bound by
+ * row-level security (superusers bypass it). Run migrations with the admin URL first.
+ */
+export async function applicationRoleUrl(
+  adminUrl: string,
+  role = 'hotella_app_test',
+): Promise<string> {
+  if (!ROLE_RE.test(role)) throw new Error(`Invalid role name "${role}"`);
+  const password = randomBytes(12).toString('hex');
+  const client = new Client({ connectionString: adminUrl, application_name: 'hotella-grant' });
+  await client.connect();
+  try {
+    await client.query(
+      `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN CREATE ROLE "${role}"; END IF; END $$`,
+    );
+    await client.query(
+      `ALTER ROLE "${role}" WITH LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`,
+    );
+  } finally {
+    await client.end();
+  }
+  await grantApplicationRole(adminUrl, role);
+  const u = new URL(adminUrl);
+  u.username = role;
+  u.password = password;
+  return u.toString();
+}
+
+/**
+ * A fresh, dedicated database next to `adminUrl` (`<db>_<suffix>`), recreated on every call — for suites whose
+ * assertions are about global tables (the outbox relay) and must not see rows other suites write in parallel.
+ */
+export async function isolatedDatabaseUrl(adminUrl: string, suffix: string): Promise<string> {
+  if (!/^[a-z0-9_]{1,20}$/.test(suffix)) throw new Error(`Invalid database suffix "${suffix}"`);
+  const u = new URL(adminUrl);
+  const name = `${u.pathname.replace(/^\//, '') || 'postgres'}_${suffix}`;
+  if (!ROLE_RE.test(name)) throw new Error(`Invalid database name "${name}"`);
+  const client = new Client({ connectionString: adminUrl, application_name: 'hotella-test-db' });
+  await client.connect();
+  try {
+    await client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+    await client.query(`CREATE DATABASE "${name}"`);
+  } finally {
+    await client.end();
+  }
+  u.pathname = `/${name}`;
+  return u.toString();
 }

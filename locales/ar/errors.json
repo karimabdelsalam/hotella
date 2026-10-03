@@ -63,5 +63,18 @@
   "errors.iam.support.scope_not_read_only": "طلب القراءة فقط يجب أن يتضمن صلاحيات العرض فقط.",
   "errors.iam.support.not_pending": "طلب وصول الدعم هذا لم يعد بانتظار الموافقة.",
   "errors.iam.support.not_found": "طلب وصول الدعم غير موجود.",
-  "errors.platform.dependency_unavailable": "إحدى الخدمات المطلوبة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل."
+  "errors.platform.dependency_unavailable": "إحدى الخدمات المطلوبة غير متاحة مؤقتًا. يرجى المحاولة بعد قليل.",
+  "errors.integration.instance.not_found": "لم يتم العثور على الربط.",
+  "errors.integration.instance.not_active": "هذا الربط غير مفعّل.",
+  "errors.integration.instance.name_taken": "يوجد ربط باسم «{name}» في هذا الفندق بالفعل.",
+  "errors.integration.instance.config_invalid": "إعدادات الربط غير صحيحة.",
+  "errors.integration.instance.credentials_invalid": "مراجع بيانات الاعتماد غير صحيحة.",
+  "errors.integration.instance.capability_unsupported": "الموصل لا يدعم: {capabilities}.",
+  "errors.integration.connector.not_found": "موصل غير معروف {code}.",
+  "errors.integration.message.not_found": "لم يتم العثور على رسالة الربط.",
+  "errors.integration.message.not_replayable": "لا يمكن إعادة معالجة هذه الرسالة في حالتها الحالية.",
+  "errors.integration.mapping.room_not_found": "الغرفة المختارة غير موجودة في هذا الفندق.",
+  "errors.integration.mapping.invalid_code": "استخدم رمزًا بأحرف لاتينية كبيرة أو أرقام أو شرطة سفلية بحد أقصى 32 حرفًا.",
+  "errors.integration.exception.not_found": "لم يتم العثور على استثناء الربط.",
+  "errors.integration.capability_unavailable": "يتطلب هذا الإجراء نظامًا مربوطًا يدعم {capability}."
 }

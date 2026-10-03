@@ -18,15 +18,20 @@ export class IdempotentConsumer {
     envelope: EventEnvelope,
     handler: (envelope: EventEnvelope) => Promise<void>,
   ): Promise<ProcessOutcome> {
-    return withTransaction(this.db, async (tx) => {
-      const inserted = await tx
-        .insert(inbox)
-        .values({ eventId: envelope.event_id, consumer })
-        .onConflictDoNothing()
-        .returning({ eventId: inbox.eventId });
-      if (inserted.length === 0) return 'duplicate';
-      await handler(envelope);
-      return 'processed';
-    });
+    // Pinned to the event's tenant so the consumer's writes are bound by row-level security like a request's.
+    return withTransaction(
+      this.db,
+      async (tx) => {
+        const inserted = await tx
+          .insert(inbox)
+          .values({ eventId: envelope.event_id, consumer })
+          .onConflictDoNothing()
+          .returning({ eventId: inbox.eventId });
+        if (inserted.length === 0) return 'duplicate';
+        await handler(envelope);
+        return 'processed';
+      },
+      { tenantId: envelope.tenant_id },
+    );
   }
 }

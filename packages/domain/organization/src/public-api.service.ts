@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { BrandingService } from './application/services';
 import { OrganizationRepositories } from './infrastructure/repositories';
 import { normalizeCode } from './domain/values';
-import type { TenantRow } from './infrastructure/schema';
+import type { RoomRow, TenantRow } from './infrastructure/schema';
 import type {
   OrganizationPublicApi,
   PropertySummary,
@@ -13,6 +13,15 @@ import type {
 
 function toTenantSummary(t: TenantRow): TenantSummary {
   return { id: t.id, code: t.code, name: t.name, status: t.status, defaultLocale: t.defaultLocale };
+}
+
+function toRoomSummary(r: RoomRow): RoomSummary {
+  return {
+    id: r.locationId,
+    propertyId: r.propertyId,
+    roomNumber: r.roomNumber,
+    roomTypeId: r.roomTypeId,
+  };
 }
 
 @Injectable()
@@ -75,14 +84,14 @@ export class OrganizationPublicApiService implements OrganizationPublicApi {
     roomNumber: string,
   ): Promise<RoomSummary | null> {
     const r = await this.repo.roomByNumber({ tenantId, propertyId }, roomNumber);
-    return r
-      ? {
-          id: r.locationId,
-          propertyId: r.propertyId,
-          roomNumber: r.roomNumber,
-          roomTypeId: r.roomTypeId,
-        }
-      : null;
+    return r ? toRoomSummary(r) : null;
+  }
+  async getRoom(tenantId: string, propertyId: string, roomId: string): Promise<RoomSummary | null> {
+    const r = await this.repo.roomById({ tenantId, propertyId }, roomId);
+    return r ? toRoomSummary(r) : null;
+  }
+  async listRooms(tenantId: string, propertyId: string): Promise<readonly RoomSummary[]> {
+    return (await this.repo.listRooms({ tenantId, propertyId })).map(toRoomSummary);
   }
   resolveBranding(
     propertyId: string,

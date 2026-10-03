@@ -21,6 +21,23 @@ export {
   SessionRevoked,
   UserCreated,
 } from './iam-events';
+export { IntegrationExceptionOpened, IntegrationHealthChanged } from './integration-events';
+export {
+  CANONICAL_ROOM_STATUSES,
+  GuestCheckedIn,
+  GuestCheckedOut,
+  GuestProfileUpdated,
+  guestProfileSchema,
+  HOTEL_EVENTS,
+  ReservationCancelled,
+  ReservationCreated,
+  reservationRefSchema,
+  ReservationUpdated,
+  roomRefSchema,
+  RoomStatusChanged,
+  StayRoomChanged,
+} from './hotel-events';
+export type { GuestProfile, ReservationRef, RoomRef } from './hotel-events';
 export {
   createEnvelope,
   defineEvent,

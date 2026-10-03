@@ -60,19 +60,19 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 42 | Safety pipeline; retrieved docs untrusted; schema → business → authz validation; classification/redaction; kill switches | BP §10 P6; BP §4 0.3.13 classification registry; CM 12 | P0, P6 |
 | 43 | Controlled agent collaboration; no swarms | BP §10 P12 | P12 |
 | 44 | Voice, vision, IoT, robots via same engine | BP §10 P13; `ops.task_assignments.assignee_type` includes AI/ROBOT (BP §7.1) | P13 |
-| 45 | Core knows canonical concepts; connector adapters → integration platform → normalized events | BP §6.2 pipeline; ADR-0014 | P2 |
-| 46 | Connector definition vs instance; categories; capabilities | BP §6.1 `connector_definitions/integration_instances` | P2 |
-| 47 | Capability negotiation per instance; AI/UI never offer unsupported actions | BP §6.1 `negotiated_capabilities`; §6.3 two-faced simulator; action gate connector stage (BP §5.4) | P1, P2 |
+| 45 | Core knows canonical concepts; connector adapters → integration platform → normalized events | BP §6.2 pipeline, §6.7 Sprint 2.1 (`IngestService`, `toCanonical`); `contracts-events/hotel-events.ts`; ADR-0014 | P2 ✔ (2.1) |
+| 46 | Connector definition vs instance; categories; capabilities | BP §6.1 `connector_definitions/integration_instances`; `contracts-connectors` (`defineConnector`, `CONNECTOR_CAPABILITIES`); catalog synced at boot | P2 ✔ (2.1) |
+| 47 | Capability negotiation per instance; AI/UI never offer unsupported actions | BP §6.1 enabled ∩ reported capabilities (`effectiveCapabilities`); per-record capability filter; action-gate connector stage `ConnectorCapabilityStage`; `INTEGRATIONS_API.hasCapability`; §6.3 two-faced simulator | P1, P2 ✔ (2.1) |
 | 48 | OPERA 5 on-prem architecture; outbound; no remote shell; signed operations | BP §10 P10; ADR-0013/0014/0017 (enrollment, mTLS, WSS/HTTPS, signed predefined commands) | P2 gateway, P10 agent |
 | 49 | Agent responsibilities; SQLite durable store contents | BP §10 P10; ADR-0017 §4, §6 | P10 |
-| 50 | Inbox/outbox, idempotency, source ids, ordering, retries, DLQ, replay, reconciliation, checkpoints; raw ≠ domain event | ADR-0004; BP §6.1 `integration_messages`, §6.2; CM 6 | P0, P2 |
-| 51 | Canonical event names; envelope fields; versioning | BP §4 0.3.1 envelope; §6.2 events; BP §0.8 naming | P0, P2 |
-| 52 | Mappings; unknown ⇒ exception not guess; AI suggests, human confirms; reconciliation outcomes; source-of-truth policies, no naive LWW | BP §6.1 mappings/exceptions/reconciliation tables, §6.6; CM 16 | P2 |
+| 50 | Inbox/outbox, idempotency, source ids, ordering, retries, DLQ, replay, reconciliation, checkpoints; raw ≠ domain event | ADR-0004; BP §6.1 `integration_messages` (unique source id, ordering keys, HELD successors, replay), §6.2; consumers pinned to the event tenant; CM 6 | P0, P2 ✔ (2.1) |
+| 51 | Canonical event names; envelope fields; versioning | BP §4 0.3.1 envelope; §6.2 events (`hotel.*` snapshot payloads, `canonical: true` only); BP §0.8 naming | P0, P2 ✔ (2.1) |
+| 52 | Mappings; unknown ⇒ exception not guess; AI suggests, human confirms; reconciliation outcomes; source-of-truth policies, no naive LWW | BP §6.1 mappings/exceptions (deduplicated open unknown-code exceptions; required vs optional mapping types; explicit `rooms-by-number` confirmation) — 2.1; reconciliation tables — 2.4; §6.6; CM 16 | P2 |
 | 53 | Durable outbound commands with idempotency/lifecycle/ack; AI never calls PMS directly | BP §6.1 `integration_commands`; §10 P8 room restrictions path | P2, P8 |
 | 54 | OPERA independence of activation/QR/OTP/identity/grants | BP §1.5 source-of-truth rule; §8; CM 19 | P4 |
 | 55 | POS/ERP/BMS/IoT/PBX/Wi-Fi capability sets; telemetry path | BP §10 P13 | P13 |
-| 56 | Connector SDK: manifest, capabilities, config/credential schema, health, mappers, commands; simulators & contract tests | BP §3 `contracts/connectors`; §6.3 simulator; ADR-0005/0008 | P2 |
-| 57 | Integration health states & tracked fields; dedup alerts | BP §6.1 `integration_health`; §7.1 alerts | P2, P3 |
+| 56 | Connector SDK: manifest, capabilities, config/credential schema, health, mappers, commands; simulators & contract tests | `packages/contracts/connectors` (manifest, `ParseContext`, `InboundRecord`, `RECORD_CAPABILITY`, `localDateTimeToUtc`); `SIM_PMS` adapter; §6.3 simulator; ADR-0005/0008 | P2 ✔ (2.1 SDK), 2.3 simulator |
+| 57 | Integration health states & tracked fields; dedup alerts | BP §6.1 `integration_health` (deterministic `classifyHealth`, rolling error rate, `integration.health.changed.v1`); §7.1 alerts | P2 ✔ (2.1), P3 |
 | 58 | Entitlement engine, not plan checks; commercial concepts; billing ≠ entitlement | BP §10 P11; §5.4 stub stage; CM 14 | P1 stub, P11 |
 | 59 | Module / AI / connector entitlements; tenant-wide and property grants | BP §10 P11 | P11 |
 | 60 | Entitlement ≠ flag ≠ config ≠ permission ≠ connector capability ≠ AI policy; unified action gate order | BP §1.2, §5.4 `ActionGate`; CM 4, 14 | P1 |

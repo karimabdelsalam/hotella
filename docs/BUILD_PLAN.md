@@ -443,6 +443,8 @@ Reality notes for 1.3:
 
 **Goal:** core guest/stay model driven by canonical PMS events, fully testable with a simulator; no OPERA required (Spec §85 Phase 2).
 
+> **Status: in progress** — sprints and reality notes in §6.7.
+
 ### 6.1 Domain model (schema `guest`, `integration`)
 
 ```text
@@ -515,6 +517,23 @@ Connector `SIM_PMS` implementing the Connector SDK contract v0 **and the agent l
 - Anonymizing a checked-out guest removes identifying fields and identifiers while stays, work history and audit rows remain queryable.
 - Checkout emits `hotel.guest.checked_out.v1` consumed later by grants (Phase 4) and HK (Phase 7).
 - No API or UI path creates a guest or stay outside the canonical-event consumer (staff can only *view*, *merge*, annotate preferences/consents); a test asserts the stay state machine is driven exclusively by PMS events.
+
+### 6.7 Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 2.1 | `@hotella/contracts-connectors` (Connector SDK v0: categories, capabilities, `defineConnector`, raw message, `ParseContext`, connector-neutral `InboundRecord`, `RECORD_CAPABILITY`, ordering keys, wall-clock → UTC helper); canonical `hotel.*` events + `integration.exception.opened.v1` / `integration.health.changed.v1`; `@hotella/domain-integrations` (schema `integration`, migration `0007_integration_phase2` with hand-reviewed FKs to `org` and forced RLS): connector catalog synced at boot, instances with enabled ∩ reported capabilities, raw inbox with replay-safe ingest, `SIM_PMS` adapter (FIAS-shaped records + OWS-shaped JSON), mapper with required/optional mapping types, deduplicated exceptions, HELD successors, replay, external references API, health counters, action-gate connector-capability stage; `TransactionRunner.read()` and tenant-pinned event consumers; RLS coverage test | delivered |
+| 2.2 | `@hotella/domain-guest` (schema `guest`): guests, identifiers, stays, reservation references, party, room-assignment history; idempotent consumers of the canonical events (stay state machine, out-of-order safety); read APIs incl. `GET /rooms/:id/current-stay`; worker wiring | planned |
+| 2.3 | Agent link (ADR-0017) platform side: enrollment tokens, device certificates, WSS frames with sequence/ack/resend, HTTPS batches, heartbeat → health; `apps/pms-simulator` speaking the link with FIAS/OWS faces and YAML scenarios replayed in CI | planned |
+| 2.4 | Reconciliation runs/results, preferences & consents, guest merge, guest data requests (export/anonymize), integration commands service, Phase 2 acceptance record | planned |
+
+Reality notes for 2.1:
+- `integration_instances` stores `enabled_capabilities` (administrator) and `reported_capabilities` (agent, from 2.3); the effective set is their intersection, and only for `ACTIVE` instances. The plan's single `negotiated_capabilities` column could not tell the two apart.
+- Mapping types are split into REQUIRED (`ROOM`, `ROOM_STATUS`: the message waits as `PENDING_MAPPING`) and OPTIONAL (`RATE`, `MARKET`, `VIP`: the canonical field is `null`). Both raise a deduplicated `UNKNOWN_MAPPING` exception; nothing is inferred. `POST …/mappings/rooms-by-number` is an explicit administrator confirmation that PMS room codes equal Hotella room numbers (exact matches only).
+- Ordering: a message whose reservation/room key is shared with an earlier blocked message is `HELD` and released, in order, when the blocker is processed. Exception kinds gained `UNSUPPORTED_MESSAGE` (message type or capability not enabled).
+- Protocol-defined FIAS values (e.g. `RS` maid status 1–6, `YYMMDD` dates) are translated by the adapter; hotel-defined codes (rooms, rates, VIP) always go through mappings. FIAS wall-clock times are converted with the property timezone.
+- Raw message payloads (SENSITIVE) are not exposed through the staff API; staff see message metadata, status and error.
+- Ingestion has no staff HTTP endpoint on purpose: messages enter only through the agent link (2.3), authenticated as the instance (actor `INTEGRATION`).
 
 ---
 

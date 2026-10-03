@@ -25,6 +25,8 @@ export {
   MIGRATIONS_SCHEMA,
   MIGRATIONS_TABLE,
   APPLICATION_SCHEMAS,
+  applicationRoleUrl,
+  isolatedDatabaseUrl,
   grantApplicationRole,
   migrationsFolder,
   runMigrations,

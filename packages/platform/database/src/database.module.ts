@@ -31,6 +31,13 @@ export class TransactionRunner {
   run<T>(fn: (tx: Transaction) => Promise<T>): Promise<T> {
     return withTransaction(this.db, fn, { tenantId: this.ctx?.tenantId ?? null });
   }
+  /**
+   * Read-only unit of work pinned to the request's tenant, so row-level security also guards reads (a plain query
+   * outside a transaction carries no tenant setting). Inside an outer transaction it simply joins it.
+   */
+  read<T>(fn: (tx: Transaction) => Promise<T>): Promise<T> {
+    return withTransaction(this.db, fn, { tenantId: this.ctx?.tenantId ?? null, readOnly: true });
+  }
 }
 
 @Global()

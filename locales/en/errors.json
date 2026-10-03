@@ -63,5 +63,18 @@
   "errors.iam.support.scope_not_read_only": "A read-only request may include only viewing permissions.",
   "errors.iam.support.not_pending": "This support access request is no longer waiting for approval.",
   "errors.iam.support.not_found": "Support access request not found.",
-  "errors.platform.dependency_unavailable": "A required service is temporarily unavailable. Please try again shortly."
+  "errors.platform.dependency_unavailable": "A required service is temporarily unavailable. Please try again shortly.",
+  "errors.integration.instance.not_found": "Integration not found.",
+  "errors.integration.instance.not_active": "This integration is not active.",
+  "errors.integration.instance.name_taken": "An integration named “{name}” already exists at this property.",
+  "errors.integration.instance.config_invalid": "The integration settings are invalid.",
+  "errors.integration.instance.credentials_invalid": "The credential references are invalid.",
+  "errors.integration.instance.capability_unsupported": "The connector does not support: {capabilities}.",
+  "errors.integration.connector.not_found": "Unknown connector {code}.",
+  "errors.integration.message.not_found": "Integration message not found.",
+  "errors.integration.message.not_replayable": "This message cannot be replayed in its current state.",
+  "errors.integration.mapping.room_not_found": "The selected room does not exist at this property.",
+  "errors.integration.mapping.invalid_code": "Use an upper-case code of up to 32 letters, digits or underscores.",
+  "errors.integration.exception.not_found": "Integration exception not found.",
+  "errors.integration.capability_unavailable": "This action needs a connected system that supports {capability}."
 }

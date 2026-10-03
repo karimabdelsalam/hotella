@@ -7,6 +7,7 @@ import {
   DATABASE,
   DatabaseModule,
   type Database,
+  isolatedDatabaseUrl,
   runMigrations,
   TransactionRunner,
 } from '@hotella/platform-database';
@@ -43,7 +44,7 @@ describe('backoff', () => {
 describe.skipIf(needsInfra())(
   `outbox / relay / inbox against PostgreSQL (${infraSkipReason()})`,
   () => {
-    const url = readTestInfra().databaseUrl!;
+    let url: string;
     const transport = new FakeTransport();
     let db: Database;
     let publisher: EventPublisher;
@@ -55,6 +56,8 @@ describe.skipIf(needsInfra())(
     let close: () => Promise<void>;
 
     beforeAll(async () => {
+      // Own database: relay assertions are about the whole outbox, which other suites write to in parallel.
+      url = await isolatedDatabaseUrl(readTestInfra().databaseUrl!, 'events');
       await runMigrations(url);
       const env = {
         NODE_ENV: 'test',

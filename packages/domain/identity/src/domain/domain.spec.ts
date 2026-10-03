@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { INTEGRATIONS_MANIFEST } from '@hotella/domain-integrations/public';
 import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
 import { AUDIT_MANIFEST } from '@hotella/platform-audit';
 import { findLocalesDir } from '@hotella/platform-i18n';
@@ -170,6 +171,7 @@ describe('system role catalog', () => {
       ...IDENTITY_MANIFEST.permissions,
       ...AUDIT_MANIFEST.permissions,
       ...PLATFORM_MANIFEST.permissions,
+      ...INTEGRATIONS_MANIFEST.permissions,
     ].map((p) => p.code),
   );
   const locales = ['en', 'ar'].map(

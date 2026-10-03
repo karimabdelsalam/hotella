@@ -2,7 +2,7 @@
   "name": "@hotella/domain-identity",
   "version": "0.0.0",
   "private": true,
-  "description": "Identity & Access bounded context (Spec \u00a75, ADR-0011): persons, staff users, memberships, roles and permissions, sessions with rotating refresh tokens, TOTP MFA, and the real AuthenticationStrategy + PermissionResolver behind platform-auth.",
+  "description": "Identity & Access bounded context (Spec §5, ADR-0011): persons, staff users, memberships, roles and permissions, sessions with rotating refresh tokens, TOTP MFA, and the real AuthenticationStrategy + PermissionResolver behind platform-auth.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -50,6 +50,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@hotella/domain-integrations": "workspace:*",
     "@hotella/platform-flags": "workspace:*",
     "@hotella/platform-testing": "workspace:*",
     "@hotella/tooling": "workspace:*",

@@ -42,6 +42,8 @@ export interface OrganizationPublicApi {
     propertyId: string,
     roomNumber: string,
   ): Promise<RoomSummary | null>;
+  getRoom(tenantId: string, propertyId: string, roomId: string): Promise<RoomSummary | null>;
+  listRooms(tenantId: string, propertyId: string): Promise<readonly RoomSummary[]>;
   resolveBranding(
     propertyId: string,
     channel: string | null,

@@ -66,7 +66,10 @@ packages/
   domain/      business (one folder per bounded context, one PostgreSQL schema each)
                                      → organization (schema `org`: tenants, properties, location tree, rooms, branding)
                                      → identity (schema `iam`: staff users, memberships, roles/permissions, sessions, MFA)
-  contracts/   zod schemas shared by everything → events, api, later connectors, ai-tools
+                                     → integrations (schema `integration`: connectors, instances, raw message inbox,
+                                       parser/mapper → canonical hotel.* events, mappings, exceptions, external refs)
+  contracts/   zod schemas shared by everything → events (incl. canonical hotel.*), api, connectors (Connector SDK v0),
+                                       later ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
 docs/          spec, plan, ADRs, traceability, this guide, architecture diagrams, runbooks, acceptance records
 infra/         docker: dev compose, application Dockerfile, pilot compose + pilot.sh, postgres+pgBackRest image
@@ -100,8 +103,22 @@ Use `@RequirePermission(code, { checkedBy: 'gate' })` only when the scope is kno
 
 Two more layers sit under that pipeline:
 
-- **Row-level security.** `TransactionRunner.run()` pins every transaction of a tenant-scoped request to its tenant (`app.tenant_id`); PostgreSQL policies then hide other tenants' rows even if a query forgets its filter. Superusers bypass RLS, so the API must connect as an ordinary database role everywhere except local throwaway setups.
+- **Row-level security.** `TransactionRunner.run()` pins every transaction of a tenant-scoped request to its tenant (`app.tenant_id`); PostgreSQL policies then hide other tenants' rows even if a query forgets its filter. Wrap reads in `TransactionRunner.read()` (read-only, same pinning) so they are guarded too; event consumers run pinned to the event's tenant. Superusers bypass RLS, so the API must connect as an ordinary database role everywhere except local throwaway setups — integration suites use `applicationRoleUrl(adminUrl)` for exactly that, and a database test fails if any table with `tenant_id` lacks forced RLS.
 - **Configuration.** A tunable value is a setting, not a constant and not a feature flag: declare it with `defineSetting({ key: '<ctx>.<entity>.<name>', scopes, schema, default, descriptionKey })`, register it in your module's `onModuleInit` (`SettingsRegistry.register`), read it with `ConfigurationService.effective(setting, { tenantId, propertyId })` (property → tenant → platform → default). Writes go through `PUT /api/v1/config/values/{key}` with history, event and audit.
+
+How a PMS message becomes a domain fact (packages `contracts-connectors` + `domain-integrations`, Spec §50):
+
+```text
+agent / simulator → IngestService.ingest(instance, raw)   stored in integration.integration_messages, unique (instance, source_message_id)
+→ connector adapter parse()                               pure; FIAS/OWS shapes → connector-neutral InboundRecord (or PARSE_ERROR)
+→ capability filter                                       records for capabilities the hotel did not enable are not applied
+→ mapper                                                  external codes → confirmed integration_mappings only; unknown REQUIRED
+                                                          code (room) ⇒ PENDING_MAPPING + exception; later messages of the same
+                                                          reservation/room wait as HELD; unknown OPTIONAL code (rate, VIP) ⇒ null
+→ canonical hotel.* event in the outbox                   consumed by core contexts (guest, later housekeeping, grants)
+```
+
+A core context never sees vendor formats or vendor ids: it resolves and links opaque references through `INTEGRATIONS_API` (`resolveReference` / `linkReference`).
 
 Dependency direction (enforced by dependency-cruiser; see the graph in `docs/architecture/dependency-graph.svg`):
 

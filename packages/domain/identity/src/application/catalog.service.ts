@@ -57,8 +57,15 @@ export class IdentityCatalogService implements OnApplicationBootstrap, OnApplica
   async sync(): Promise<void> {
     const permissions = this.manifests.permissions();
     const known = new Set(permissions.map((p) => p.code));
+    // A permission of a module this process does not load (e.g. a test app without the integrations context) is
+    // skipped; an unknown permission of a loaded module is a typo and stops the boot. The full catalog is pinned by
+    // the system-role unit test against every manifest.
+    const loadedDomains = new Set(permissions.map((p) => p.code.split('.')[0]));
+    const deployed = (codes: readonly string[]) => codes.filter((p) => known.has(p));
     for (const role of SYSTEM_ROLES) {
-      const unknown = role.permissions.filter((p) => !known.has(p));
+      const unknown = role.permissions.filter(
+        (p) => !known.has(p) && loadedDomains.has(p.split('.')[0]),
+      );
       if (unknown.length > 0)
         throw new Error(
           `System role ${role.code} references undeclared permissions: ${unknown.join(', ')}`,
@@ -90,7 +97,7 @@ export class IdentityCatalogService implements OnApplicationBootstrap, OnApplica
             description: this.i18n.t(roleDescriptionKey(def.code), {}, locale),
           })),
         );
-        await this.repo.replaceRolePermissions(role.id, def.permissions);
+        await this.repo.replaceRolePermissions(role.id, deployed(def.permissions));
       }
     });
     this.resolver.invalidate();

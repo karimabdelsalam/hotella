@@ -5,6 +5,7 @@ import {
   identityAuthOptions,
   identityLocalePreferences,
 } from '@hotella/domain-identity';
+import { IntegrationsModule } from '@hotella/domain-integrations';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
 import { SettingsModule } from '@hotella/platform-settings';
@@ -43,9 +44,11 @@ import { MetaModule } from './meta/meta.module';
     AuthModule.forRoot({
       ...identityAuthOptions(),
       propertyVerifier: OrganizationModule.propertyVerifier(),
+      stages: [IntegrationsModule.capabilityStage()],
     }),
     OrganizationModule,
     IdentityModule,
+    IntegrationsModule,
     HealthModule,
     MetaModule,
   ],

@@ -1,0 +1,7 @@
+{
+  "integration.permission.read": "View integrations, their health, mappings and exceptions",
+  "integration.permission.configure": "Create and configure integrations",
+  "integration.permission.replay": "Replay integration messages",
+  "integration.permission.mapping_confirm": "Confirm code mappings and close integration exceptions",
+  "integration.permission.reconcile": "Run and review reconciliation with external systems"
+}

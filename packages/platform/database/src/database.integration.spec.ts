@@ -34,6 +34,22 @@ describe.skipIf(needsInfra())(`platform-database against PostgreSQL (${infraSkip
     );
   });
 
+  it('protects every tenant-owned table with forced row-level security (tenant-leak guard)', async () => {
+    // The outbox is the one exception: the relay reads it across tenants by design and it is never queried by API code.
+    const exempt = new Set(['platform.outbox']);
+    const rows = await handle.db.execute<{ t: string; rls: boolean; forced: boolean }>(
+      `select n.nspname || '.' || c.relname as t, c.relrowsecurity as rls, c.relforcerowsecurity as forced
+         from pg_class c join pg_namespace n on n.oid = c.relnamespace
+         join pg_attribute a on a.attrelid = c.oid and a.attname = 'tenant_id' and not a.attisdropped
+        where c.relkind = 'r' and n.nspname not in ('pg_catalog', 'information_schema')`,
+    );
+    const unprotected = rows.rows
+      .filter((r) => !exempt.has(r.t) && !(r.rls && r.forced))
+      .map((r) => r.t);
+    expect(unprotected).toEqual([]);
+    expect(rows.rows.length).toBeGreaterThan(20);
+  });
+
   it('inserts with application-generated UUIDv7 ids and TIMESTAMPTZ defaults', async () => {
     const key = `test.flag.${newId()}`;
     const [row] = await handle.db.insert(featureFlags).values({ key, enabled: true }).returning();
