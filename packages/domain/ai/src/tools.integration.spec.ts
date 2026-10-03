@@ -173,8 +173,11 @@ describe.skipIf(needsInfra())(`AI tools through the ActionGate (${infraSkipReaso
 
   it('a HIGH-risk cancellation waits for a person; approving runs it as proposed', async () => {
     const handle = await start(a);
+    // The newest open request of the stay (created by the previous test), whatever order the list comes in.
     const requests = await catalog.serviceRequestsOfStay(a.tenantId, a.stayId);
-    const target = requests.find((r) => r.status === 'OPEN')!;
+    const target = requests
+      .filter((r) => r.status === 'OPEN')
+      .sort((x, y) => (x.id < y.id ? 1 : -1))[0]!;
     const outcome = await invoke(
       handle,
       'operations.cancel_service_request',
@@ -200,7 +203,11 @@ describe.skipIf(needsInfra())(`AI tools through the ActionGate (${infraSkipReaso
       .post(`/properties/${a.propertyId}/approvals/${approvalId}/decision`)
       .set('X-Test-Actor', user(approverId, a.tenantId))
       .send({ decision: 'APPROVE', reason: 'ok' })
-      .expect(200);
+      .expect((res) => {
+        // A refusal says why (problem details), not only its status.
+        if (res.status !== 200)
+          throw new Error(`decision ${res.status}: ${JSON.stringify(res.body)}`);
+      });
     expect((await catalog.getServiceRequest(a.tenantId, target.id))!.status).toBe('CANCELLED');
     const proposal = await app.get(AiRepositories).proposal({ tenantId: a.tenantId }, proposalId);
     expect(proposal).toMatchObject({ status: 'EXECUTED', result: { status: 'CANCELLED' } });
