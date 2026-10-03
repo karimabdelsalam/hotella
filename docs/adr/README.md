@@ -14,7 +14,10 @@ Format: Context → Decision → Consequences. Status is one of `Proposed`, `Acc
 | [0006](0006-observability.md) | pino + OpenTelemetry + CLS request context | Accepted |
 | [0007](0007-multi-tenancy.md) | Shared database, `tenant_id` columns, RLS as defense-in-depth | Accepted |
 | [0008](0008-testing-strategy.md) | Vitest + Testcontainers; integration tests against real infra | Accepted |
-| [0009](0009-frontend-stack.md) | Frontend stack (Next.js + next-intl + Tailwind logical properties) | Proposed |
+| [0009](0009-frontend-stack.md) | Frontend stack (Next.js + next-intl + Tailwind logical properties) | Accepted |
 | [0010](0010-secrets-abstraction.md) | `SecretProvider` abstraction | Accepted |
 | [0011](0011-auth-tokens.md) | Staff and guest token model | Accepted |
 | [0012](0012-rest-api-conventions.md) | REST API conventions (versioning, Problem Details, idempotency, pagination) | Accepted |
+| [0013](0013-hosting-on-prem.md) | Hosting target: on-premises deployment of the platform | Accepted |
+| [0014](0014-opera5-interfaces.md) | OPERA 5 integration interfaces: FIAS primary, OWS secondary, optional read-only DB reconciliation | Accepted |
+| [0015](0015-messaging-providers-otp-fallback.md) | WhatsApp providers (Meta Cloud API and BSP) and OTP fallback policy | Accepted |

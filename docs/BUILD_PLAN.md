@@ -1,7 +1,7 @@
 # HOTELLA — Build Plan
 
 **Status:** Active execution plan (derived from `docs/spec/HOTELLA_MASTER_SPEC.md` v1.0)
-**Version:** 1.0
+**Version:** 1.1 (decisions Q1/Q2/Q3/Q5/Q6/Q7 recorded)
 **Date:** 2026-10-03
 **Audience:** Implementation team / Claude engineering agents
 
@@ -108,11 +108,14 @@ All of these are recorded as ADRs in `docs/adr/`. "Locked" means: do not re-open
 | 6 | Observability | **pino** structured logs, **OpenTelemetry** traces/metrics, request context via AsyncLocalStorage (`nestjs-cls`) carrying `correlation_id`, `trace_id`, `tenant_id`, `property_id`, `actor` | winston, custom middleware | ADR-0006 |
 | 7 | Multi-tenancy model | Shared database, shared schema, explicit `tenant_id` columns, repository layer enforces tenant filter, PostgreSQL RLS added as defense-in-depth (Phase 1.3) | schema-per-tenant (migration fan-out), DB-per-tenant (ops cost) | ADR-0007 |
 | 8 | Testing | **Vitest** unit tests; integration tests with **Testcontainers** (real PostgreSQL + Redis); contract tests for events/connectors; e2e via supertest | Jest (slower), mocking the DB (hides tenant leaks) | ADR-0008 |
-| 9 | Frontend stack | *Proposed, decide before Phase 4:* Next.js (App Router) + `next-intl` + Tailwind with CSS logical properties for RTL; `apps/guest-web` (PWA) and `apps/staff-web` | Separate SPA frameworks | ADR-0009 (Proposed) |
+| 9 | Frontend stack | Next.js (App Router) + `next-intl` + Tailwind with CSS logical properties for RTL; `apps/guest-web` (PWA) and `apps/staff-web` | Separate SPA frameworks | ADR-0009 |
 | 10 | Secrets | `SecretProvider` interface; `EnvSecretProvider` for dev/test, Vault/AWS SM/… adapter for production; secrets never in `settings`/config tables | Reading `process.env` directly in modules | ADR-0010 |
 | 11 | Auth tokens | Staff: JWT access (≤15 min) + opaque rotating refresh token (hashed in DB, device-bound, revocable). Guest: passwordless opaque session token (hashed). Passwords: argon2id | Long-lived JWTs, sessions in Redis only | ADR-0011 |
 | 12 | API style | REST `/api/v1`, RFC 9457 Problem Details errors with localized `detail`, `Idempotency-Key` on retriable creates, cursor pagination | GraphQL first | ADR-0012 |
 | 13 | Boundary enforcement | ESLint `boundaries` rules: a domain package imports only `@hotella/platform-*`, `@hotella/contracts-*`, and other domains' **`/public`** entrypoint; never another domain's schema/repositories | Code review only | ADR-0001 |
+| 14 | Hosting | **On-premises**: Docker Compose (pilot) → Kubernetes k3s/RKE2 (production); self-managed PostgreSQL + pgBackRest PITR; MinIO; HashiCorp Vault as secrets adapter; Grafana/Prometheus/Loki/Tempo via OTel collector; hotel agent still connects outbound | Public cloud managed services | ADR-0013 |
+| 15 | OPERA 5 interfaces | **FIAS over IFC8** primary (real-time GI/GO/GC/RE, DB sync), **OWS (SOAP)** secondary for reservations/profiles/pre-arrival where licensed, optional **read-only DB views** for reconciliation only | OXI (CRS-oriented, extra licensing) | ADR-0014 |
+| 16 | WhatsApp & OTP | `MessagingProvider` abstraction with **Meta Cloud API** and **BSP** adapters selectable per channel; OTP fallback chain WhatsApp → SMS (auto on failure/timeout, manual after 30 s) → optional voice → staff-assisted verification, all deterministic and per-property configurable | Single provider, WhatsApp-only OTP | ADR-0015 |
 
 ---
 
@@ -169,7 +172,8 @@ hotella/
 │   ├── en/  common.json errors.json guest.json housekeeping.json engineering.json …
 │   └── ar/  (same keys)
 ├── infra/
-│   ├── docker/                   # docker-compose.dev.yml (postgres16+pgvector, redis7, minio, mailpit)
+│   ├── docker/                   # docker-compose.dev.yml (postgres16+pgvector, redis7, minio, mailpit) + compose.pilot.yml
+│   ├── k8s/                      # Helm charts for on-prem Kubernetes (ADR-0013), added at end of Phase 1
 │   └── ci/                       # reusable GitHub Actions workflows
 ├── docs/
 │   ├── spec/HOTELLA_MASTER_SPEC.md
@@ -364,6 +368,12 @@ support.access.request  support.access.approve
 
 ---
 
+### 5.8 Deployment deliverable at end of Phase 1 (ADR-0013)
+
+First staging environment on the on-prem target: `infra/docker/compose.pilot.yml` (api, worker, scheduler, realtime placeholder, PostgreSQL 16 + pgvector, Redis, MinIO, Vault dev-mode replaced by a real Vault, OTel collector + Grafana stack), pgBackRest backup job with a documented restore drill, and operations runbooks (deploy, rollback, backup/restore, secret rotation). Helm charts for Kubernetes follow when the second property/tenant is onboarded.
+
+---
+
 ## 6. Phase 2 — Guest, Stay & PMS Canonical Model (detailed)
 
 **Goal:** core guest/stay model driven by canonical PMS events, fully testable with a simulator; no OPERA required (Spec §85 Phase 2).
@@ -410,7 +420,7 @@ Pipeline per Spec §50: raw vendor message → `integration_messages` → parser
 
 ### 6.3 Simulator (`apps/pms-simulator`)
 
-Connector `SIM_PMS` implementing the Connector SDK contract v0: HTTP endpoints / CLI to create reservations, check in, move rooms, check out, send duplicates and out-of-order messages. Used by all later phases' integration tests. Also a scripted scenario file format (YAML) replayable in CI.
+Connector `SIM_PMS` implementing the Connector SDK contract v0: HTTP endpoints / CLI to create reservations, check in, move rooms, check out, send duplicates and out-of-order messages. It emulates **two faces** so capability negotiation is exercised before Phase 10 (ADR-0014): an event stream shaped like FIAS (in-house events only, no future reservations) and a query API shaped like OWS (future reservations, profiles, ETA). Instances can be configured with either or both faces. Used by all later phases' integration tests. Also a scripted scenario file format (YAML) replayable in CI.
 
 ### 6.4 APIs
 
@@ -525,7 +535,7 @@ guest.guest_sessions            id, grant_id, session_token_hash, device_info, c
 
 ### 8.2 Flows
 
-- **Primary activation** (Spec §19): consume `hotel.guest.checked_in.v1` → mint `activation_token` (256-bit, hashed) → build URL on the property's guest-web domain → *delivery policy* (WhatsApp template if a verified channel identity exists, else staff-visible for front desk) → guest enters mobile → OTP via `OtpProvider` interface (WhatsApp provider; SMS fallback adapter) → verify → `channel_identity` verified → `guest_access_grant` (scopes by property policy; accompanying guests narrower) → `guest_session`.
+- **Primary activation** (Spec §19): consume `hotel.guest.checked_in.v1` → mint `activation_token` (256-bit, hashed) → build URL on the property's guest-web domain → *delivery policy* (WhatsApp template if a verified channel identity exists, else staff-visible for front desk) → guest enters mobile → OTP via the fallback chain of ADR-0015 (WhatsApp template through the property's `MessagingProvider`, Meta Cloud API or BSP; automatic SMS fallback on provider error/timeout, manual fallback after 30 s, optional voice, staff-assisted verification as last resort; one verification session and one attempt counter across channels) → verify → `channel_identity` verified → `guest_access_grant` (scopes by property policy; accompanying guests narrower) → `guest_session`.
 - **Room QR fallback** (Spec §20): static QR → `room_qr_codes` resolve → room + last-name check against current stay (rate-limited) → same OTP path → grant.
 - **Checkout**: `hotel.guest.checked_out.v1` revokes room scopes; keeps post-stay scopes (`LOST_FOUND|FEEDBACK|INVOICE|SUPPORT`) for a configurable window.
 - **Pre-arrival** (Spec §22): `EXPECTED` stays can get a narrower grant via the same path.
@@ -540,17 +550,20 @@ OTP hashed (argon2id/HMAC), 6 digits, 5 min, 5 attempts, per-phone and per-IP ra
 
 Public (guest, unauthenticated → session): `POST /guest/activation/start`, `/guest/activation/otp/request`, `/guest/activation/otp/verify`, `POST /guest/qr/:token/verify`, `GET /guest/me` (stay/room/scopes/branding), `GET/POST /guest/conversations/:id/messages`.
 Staff: inbox list/filter, conversation detail, send message, assign, handoff/takeover, close; channels CRUD; QR generation/rotation per room (PDF sheet export); activation token issuance/revoke; grants list/revoke.
-Webhooks: `POST /webhooks/whatsapp/:channelId` (provider-agnostic adapter interface `MessagingProvider`).
+Webhooks: `POST /webhooks/whatsapp/:channelId` (provider-agnostic `MessagingProvider`; adapters `WHATSAPP_META_CLOUD` and `WHATSAPP_BSP_*`), `POST /webhooks/sms/:channelId` (`SmsProvider` delivery receipts).
+Staff-assisted verification: `POST /guest/activation/assist` (permission `guest.activation.assist`, reason required, audited).
 
 ### 8.5 Permissions / events
 
-`inbox.read inbox.reply inbox.assign inbox.takeover channel.manage guest.activation.issue guest.grant.revoke qr.manage`
+`inbox.read inbox.reply inbox.assign inbox.takeover channel.manage guest.activation.issue guest.activation.assist guest.grant.revoke qr.manage`
 Events: `comms.conversation.opened.v1`, `comms.message.received.v1`, `comms.message.sent.v1`, `comms.delivery.updated.v1`, `comms.handoff.requested.v1`, `guest.activated.v1`, `guest.grant.revoked.v1`
 
 ### 8.6 Acceptance
 
 - Simulator check-in → activation URL → OTP (fake provider in tests) → grant; subsequent WhatsApp message from the verified phone resolves guest/stay/room automatically with no questions asked.
 - Unverified phone gets the activation prompt; brute-forcing OTP locks the session after the limit.
+- Fake WhatsApp provider returns an error → the same code is delivered by the fake SMS provider; the attempt counter is continuous across channels; a WhatsApp channel in `OFFLINE` health sends OTP straight to SMS and raises one deduplicated alert.
+- Same activation flow passes with the channel bound to the Meta Cloud API adapter and to a BSP adapter (contract tests on both).
 - Checkout revokes `SERVICE_REQUEST` and keeps `LOST_FOUND` for the configured window.
 - QR rotation: old printed token rejected, new accepted; QR payload contains only an opaque token.
 - Staff inbox shows guest/stay/room/open work items for the conversation; takeover marks `HANDED_OFF` and stops any auto mode.
@@ -608,7 +621,7 @@ Deliver: `ai` schema (providers, models, capabilities, routing rules, agents, ag
 Generic inspection engine first (`inspection` schema per Spec §11, critical finding ⇒ work item via rules). Then `relations` (complaints, categories, evidence, `complaint_candidates` from AI with confidence, service recovery actions through approvals), `lostfound` (items, vision-derived metadata kept separate from staff description, match candidates with score/reasons, audited claims), `logbook` entries + AI shift summary with human acknowledgement.
 
 ### Phase 10 — Real OPERA 5 On-Premise Integration (M4a)
-`apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), FIAS/IFC adapter according to the interface actually available at the pilot hotel, mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Cloud side: connector `OPERA5_FIAS` through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). **Prerequisite (open question):** confirm with the pilot hotel which OPERA 5 interface is contractually available.
+`apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
 
 ### Phase 11 — Licensing & Control Plane (M4b)
 `license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent.
@@ -665,15 +678,17 @@ A module/phase is accepted only when all of the following are true:
 
 | # | Question | Needed by | Current assumption |
 |---|---|---|---|
-| Q1 | Frontend stack confirmation (ADR-0009 proposed: Next.js + next-intl + Tailwind) | before Phase 4 UI | Next.js |
-| Q2 | WhatsApp provider: Meta Cloud API direct vs BSP (Twilio / 360dialog / Infobip)? Affects template approval for OTP and webhook formats | Phase 4 | Provider-agnostic `MessagingProvider`; first adapter Meta Cloud API |
-| Q3 | OTP fallback channel when WhatsApp unavailable (SMS provider?) | Phase 4 | SMS adapter interface, no provider selected |
-| Q4 | Guest-web domain model: `*.hotella.app` subdomain per property vs custom property domains (affects activation URLs & branding resolution) | Phase 4 | `{property-code}.guest.hotella.app` + optional custom domain |
-| Q5 | Pilot hotel's OPERA 5 interface actually available (FIAS over TCP? IFC8? DB read access?) | Phase 10 | FIAS |
-| Q6 | Hosting target (AWS / GCP / Azure / on-prem Kubernetes) — affects secrets adapter, object storage, OTel backend | before first staging deploy (end of Phase 1) | S3-compatible + Vault-compatible interfaces keep this open |
-| Q7 | Data residency / region constraints for Egyptian hotel groups | Phase 1 (retention config) | Single region, configurable later |
+| Q1 | Frontend stack | — | **Answered:** Next.js + next-intl + Tailwind (ADR-0009 accepted) |
+| Q2 | WhatsApp provider | — | **Answered:** both Meta Cloud API and BSP, selectable per channel (ADR-0015). Concrete first BSP picked at pilot |
+| Q3 | OTP fallback | — | **Answered:** WhatsApp → SMS (auto + manual) → optional voice → staff-assisted (ADR-0015). Concrete SMS aggregator picked at pilot |
+| Q4 | Guest-web domain model: `*.hotella.app` subdomain per property vs custom property domains (affects activation URLs & branding resolution). With on-prem hosting, DNS for `*.guest.hotella.app` must point at the on-prem ingress, or properties use their own domains | Phase 4 | `{property-code}.guest.hotella.app` + optional custom domain |
+| Q5 | OPERA 5 interface | — | **Answered:** FIAS primary; OWS secondary where licensed; optional read-only DB views for reconciliation (ADR-0014). Pilot to confirm IFC8/OWS licenses |
+| Q6 | Hosting target | — | **Answered:** on-premises (ADR-0013): Compose → k3s/RKE2, Vault, MinIO, Grafana stack, pgBackRest |
+| Q7 | Data residency / region constraints | — | **Answered by Q6:** data stays within the on-prem installation; multi-region = multiple installations |
 | Q8 | First AI provider(s) and budget caps | Phase 6 | Anthropic + OpenAI behind gateway |
 | Q9 | Initial platform role catalog (GM, Duty Manager, HK Supervisor, Room Attendant, Engineer, Front Desk, Guest Relations, Platform Admin, Support) — confirm names and Arabic labels | Phase 1 | as listed |
+| Q10 | Pilot property: IFC8 interface license, OWS license status, read-only DB account possibility (ADR-0014) | before Phase 10 | FIAS available; OWS unknown |
+| Q11 | Concrete BSP and SMS aggregator for the pilot (ADR-0015) | Phase 4 end | Meta Cloud API adapter first; BSP/SMS adapters implemented against fakes until chosen |
 
 ---
 
@@ -682,4 +697,4 @@ A module/phase is accepted only when all of the following are true:
 1. Commit this plan, the spec, ADRs and `CLAUDE.md` to `claude/hopeful-archimedes-jskowx` and push.
 2. Execute **Sprint 0.1** tasks 0.1.1 → 0.1.8 in order; open one PR per sprint (or per task group if large).
 3. On Sprint 0.1 completion: run the Phase 0 acceptance checklist items that already apply, then start Sprint 0.2.
-4. Product owner answers Q1, Q6, Q9 while Phase 0 runs; they do not block it.
+4. Product owner answers Q4, Q8, Q9 while Phase 0 runs; they do not block it. Q1, Q2, Q3, Q5, Q6, Q7 are answered (ADR-0009, 0013, 0014, 0015).

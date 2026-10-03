@@ -8,7 +8,8 @@ Read all three before changing anything structural. Work phase by phase; never b
 ## Stack (locked by ADRs, do not change without a new ADR)
 TypeScript 5 strict · Node 22 · NestJS modular monolith · pnpm workspaces + Turborepo · PostgreSQL 16 (+pgvector)
 · Drizzle ORM with reviewed SQL migrations · Redis 7 + BullMQ · S3-compatible storage · Zod contracts · pino + OpenTelemetry
-· Vitest + Testcontainers · .NET 8 for the on-prem hotel agent (Phase 10).
+· Vitest + Testcontainers · Next.js + next-intl + Tailwind (logical properties) for web apps · .NET 8 for the on-prem hotel agent (Phase 10)
+· Hosted **on-premises** (Compose → k3s/RKE2, Vault, MinIO, Grafana stack) — ADR-0013 · OPERA 5 via FIAS + OWS adapters — ADR-0014 · WhatsApp via Meta Cloud API or BSP adapters with SMS OTP fallback — ADR-0015.
 
 ## Repository shape
 - `apps/*` compose; `packages/platform/*` are infrastructure; `packages/domain/*` are bounded contexts; `packages/contracts/*` are zod schemas (events, api, connectors, ai-tools).
