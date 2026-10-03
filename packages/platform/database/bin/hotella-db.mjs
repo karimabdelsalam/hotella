@@ -58,7 +58,7 @@ switch (cmd) {
     writeFileSync(cfg, base.replace("out: './migrations'", `out: './${tmpName}/migrations'`));
     const before = new Set(readdirSync(out).filter((f) => f.endsWith('.sql')));
     let r;
-    let added = [];
+    let added;
     try {
       r = drizzleKit(['generate', '--config', 'drizzle.config.check.ts', '--name', 'drift_check']);
       added = readdirSync(out).filter((f) => f.endsWith('.sql') && !before.has(f));
