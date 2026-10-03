@@ -93,12 +93,10 @@ export async function grantApplicationRole(url: string, role: string): Promise<v
 /**
  * Creates (or re-keys) an ordinary login role with the application grants and returns a URL for it — the way every
  * deployed environment must connect. Used by integration suites so the application under test is bound by
- * row-level security (superusers bypass it). Run migrations with the admin URL first.
+ * row-level security (superusers bypass it). Run migrations with the admin URL first. Use one role per suite:
+ * suites run in parallel and each call sets a new password.
  */
-export async function applicationRoleUrl(
-  adminUrl: string,
-  role = 'hotella_app_test',
-): Promise<string> {
+export async function applicationRoleUrl(adminUrl: string, role: string): Promise<string> {
   if (!ROLE_RE.test(role)) throw new Error(`Invalid role name "${role}"`);
   const password = randomBytes(12).toString('hex');
   const client = new Client({ connectionString: adminUrl, application_name: 'hotella-grant' });

@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { randomBytes } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -12,7 +11,13 @@ import { SettingsModule } from '@hotella/platform-settings';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { sql } from 'drizzle-orm';
-import { DATABASE, type Database, DatabaseModule, runMigrations } from '@hotella/platform-database';
+import {
+  applicationRoleUrl,
+  DATABASE,
+  type Database,
+  DatabaseModule,
+  runMigrations,
+} from '@hotella/platform-database';
 import { EventsModule } from '@hotella/platform-events';
 import { FeatureFlagsModule } from '@hotella/platform-flags';
 import { HttpConventionsModule, KV_STORE, MemoryKeyValueStore } from '@hotella/platform-http';
@@ -37,37 +42,6 @@ class ToggleRateLimitStore extends MemoryKeyValueStore {
 }
 
 const stamp = Date.now().toString(36).toUpperCase();
-const APP_ROLE = 'hotella_app_test';
-
-/**
- * The application under test connects as an ordinary role, like every deployed environment must: superusers bypass
- * row-level security, so running as one would hide RLS problems. Migrations still run as the superuser.
- */
-async function appRoleUrl(adminUrl: string): Promise<string> {
-  const password = randomBytes(12).toString('hex');
-  const c = new Client({ connectionString: adminUrl });
-  await c.connect();
-  try {
-    await c.query(
-      `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${APP_ROLE}') THEN CREATE ROLE ${APP_ROLE}; END IF; END $$`,
-    );
-    await c.query(
-      `ALTER ROLE ${APP_ROLE} WITH LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`,
-    );
-    for (const schema of ['org', 'iam', 'audit', 'platform']) {
-      await c.query(`GRANT USAGE ON SCHEMA ${schema} TO ${APP_ROLE}`);
-      await c.query(
-        `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${APP_ROLE}`,
-      );
-    }
-  } finally {
-    await c.end();
-  }
-  const u = new URL(adminUrl);
-  u.username = APP_ROLE;
-  u.password = password;
-  return u.toString();
-}
 const ADMIN = {
   email: `root-${stamp.toLowerCase()}@planova.example`,
   password: 'platform admin passphrase 1',
@@ -91,7 +65,8 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
 
   beforeAll(async () => {
     await runMigrations(url);
-    appUrl = await appRoleUrl(url);
+    // Ordinary role (superusers bypass row-level security); one role per suite since suites run in parallel.
+    appUrl = await applicationRoleUrl(url, 'hotella_app_identity');
     const ref = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({

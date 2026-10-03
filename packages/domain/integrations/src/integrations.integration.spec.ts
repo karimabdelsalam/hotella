@@ -102,7 +102,7 @@ describe.skipIf(needsInfra())(
       const env = {
         NODE_ENV: 'test',
         LOG_LEVEL: 'silent',
-        DATABASE_URL: await applicationRoleUrl(url),
+        DATABASE_URL: await applicationRoleUrl(url, 'hotella_app_integrations'),
         VALKEY_URL: 'redis://127.0.0.1:1',
       };
       const ref = await Test.createTestingModule({
