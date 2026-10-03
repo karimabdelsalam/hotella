@@ -7,5 +7,9 @@
   "common.cancel": "إلغاء",
   "common.items": "{count, plural, =0 {لا توجد عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}",
   "locale.name.en": "الإنجليزية",
-  "locale.name.ar": "العربية"
+  "locale.name.ar": "العربية",
+  "platform.permission.feature_flag_read": "عرض مفاتيح الميزات",
+  "platform.permission.feature_flag_manage": "تفعيل مفاتيح الميزات أو تعطيلها",
+  "platform.permission.outbox_read": "عرض صندوق الأحداث الصادر",
+  "platform.permission.outbox_replay": "إعادة إرسال أحداث الصندوق الصادر"
 }

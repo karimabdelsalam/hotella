@@ -4,7 +4,10 @@ import type { OpenAPIObject } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
+import { EventsModule } from '@hotella/platform-events';
+import { FeatureFlagsModule } from '@hotella/platform-flags';
 import { HttpConventionsModule } from '@hotella/platform-http';
+import { ManifestModule } from '@hotella/platform-manifest';
 import { I18nModule } from '@hotella/platform-i18n';
 import { ObservabilityModule } from '@hotella/platform-observability';
 import { EnvSecretProvider, SecretsModule } from '@hotella/platform-secrets';
@@ -42,6 +45,9 @@ describe('api skeleton (e2e)', () => {
         DatabaseModule.forRoot(),
         QueueModule.forRoot(),
         HttpConventionsModule.forRoot({ store: 'memory' }),
+        EventsModule.forRoot(),
+        FeatureFlagsModule,
+        ManifestModule.forRoot(),
         StorageModule.forRoot(),
         HealthModule,
         MetaModule,
@@ -115,6 +121,12 @@ describe('api skeleton (e2e)', () => {
     await expect(JSON.stringify(openApi, null, 2)).toMatchFileSnapshot(
       './__snapshots__/openapi.json',
     );
+  });
+
+  it('exposes validated module manifests', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/meta/manifests').expect(200);
+    expect(res.body.map((m: { code: string }) => m.code)).toEqual(['platform']);
+    expect(res.body[0].events).toContain('platform.feature_flag.changed.v1');
   });
 
   it('unknown route → Problem Details 404, localized detail from the request locale', async () => {

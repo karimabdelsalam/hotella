@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { AppError } from '@hotella/platform-i18n';
+import { ManifestRegistry, type ModuleManifest } from '@hotella/platform-manifest';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -12,6 +13,14 @@ export class EchoDto extends createZodDto(echoSchema) {}
 
 @Controller('meta')
 export class MetaController {
+  constructor(private readonly manifests: ManifestRegistry) {}
+
+  /** Module manifests (Spec §76): what each bounded context exposes. Read-only; the control plane builds on it. */
+  @Get('manifests')
+  listManifests(): ModuleManifest[] {
+    return this.manifests.all();
+  }
+
   @Get('version')
   version(): { name: string; apiVersion: 'v1' } {
     return { name: 'hotella', apiVersion: 'v1' };

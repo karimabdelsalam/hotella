@@ -201,6 +201,29 @@
         ]
       }
     },
+    "/api/v1/meta/manifests": {
+      "get": {
+        "operationId": "MetaController_listManifests",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Meta"
+        ]
+      }
+    },
     "/api/v1/meta/version": {
       "get": {
         "operationId": "MetaController_version",

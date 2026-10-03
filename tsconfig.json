@@ -46,6 +46,12 @@
     },
     {
       "path": "packages/platform/http"
+    },
+    {
+      "path": "packages/platform/flags"
+    },
+    {
+      "path": "packages/platform/manifest"
     }
   ]
 }

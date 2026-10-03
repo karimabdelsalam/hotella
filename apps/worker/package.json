@@ -16,6 +16,8 @@
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",
     "@hotella/platform-events": "workspace:*",
+    "@hotella/platform-flags": "workspace:*",
+    "@hotella/platform-manifest": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
     "@hotella/platform-queue": "workspace:*",
     "@hotella/platform-secrets": "workspace:*",

@@ -7,5 +7,9 @@
   "common.cancel": "Cancel",
   "common.items": "{count, plural, =0 {No items} one {# item} other {# items}}",
   "locale.name.en": "English",
-  "locale.name.ar": "Arabic"
+  "locale.name.ar": "Arabic",
+  "platform.permission.feature_flag_read": "View feature flags",
+  "platform.permission.feature_flag_manage": "Enable or disable feature flags",
+  "platform.permission.outbox_read": "View the event outbox",
+  "platform.permission.outbox_replay": "Replay outbox events"
 }
