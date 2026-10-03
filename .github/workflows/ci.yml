@@ -69,6 +69,14 @@ jobs:
           pnpm --filter @hotella/staff-web exec playwright install --with-deps chromium
           pnpm --filter @hotella/staff-web e2e
           pnpm --filter @hotella/guest-web e2e
+      - name: Keep Playwright failure context (page snapshots, error context)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: apps/*/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
       - name: Readiness against real PostgreSQL 18 + Valkey 9
         run: |
           node apps/api/dist/main.js & echo $! > api.pid
