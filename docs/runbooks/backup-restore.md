@@ -4,6 +4,7 @@ Targets for the pilot (ADR-0013): **RPO ≤ 15 minutes, RTO ≤ 2 hours**, quart
 
 ## How it works
 - WAL is archived continuously (`archive_command` → pgBackRest, asynchronous, zstd) and at least every 60 s (`archive_timeout`), which bounds data loss to about a minute while the repository is healthy.
+- The stanza (`hotella`) is created by `pilot.sh up` as soon as PostgreSQL is healthy. Without it every archive-push fails and PostgreSQL restarts its processes, dropping live connections — if `pilot.sh status` shows no stanza, run `pilot.sh up` again before anything else.
 - Backups go to the `pgbackrest` volume (`/var/lib/pgbackrest` in the postgres container). Retention keeps 4 full backups and the WAL needed to restore any point since the oldest.
 - The repository must also leave the host: copy the volume to the off-site store after each full backup (manual until the object-store repository is configured; see "Off-site copy").
 

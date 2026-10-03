@@ -113,7 +113,21 @@ cmd_up() {
   compose build
   compose up -d postgres valkey s3 openbao
   wait_healthy postgres; wait_healthy valkey
+  ensure_stanza
   log "infrastructure up"
+}
+
+# WAL archiving starts with PostgreSQL; without the pgBackRest stanza every archive-push fails and PostgreSQL restarts
+# its processes ("archive command was terminated by signal"), dropping live connections. Create it right away.
+ensure_stanza() {
+  for _ in $(seq 1 20); do
+    if pgbr stanza-create >/dev/null 2>&1 || pgbr stanza-upgrade >/dev/null 2>&1; then
+      log "pgBackRest stanza ready"
+      return 0
+    fi
+    sleep 3
+  done
+  die "could not create the pgBackRest stanza"
 }
 
 bao() { compose exec -T ${BAO_TOKEN:+-e BAO_TOKEN="$BAO_TOKEN"} openbao bao "$@"; }
