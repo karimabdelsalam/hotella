@@ -892,8 +892,39 @@ Events: `comms.conversation.opened.v1`, `comms.message.received.v1`, `comms.mess
 |---|---|---|
 | 4.1 | Guest access in the guest context: grants (scopes by policy, companions narrower, pre-arrival, post-stay window), guest sessions, `GUEST_API` (issue grant, open/authenticate/revoke session), checkout revocation in the projector, `guest.grant.revoked.v1`, staff grants list/revoke; `@hotella/domain-communications` skeleton: channels CRUD with `credential_ref`, `MessagingProvider`/`SmsProvider` ports with fake adapters, channel identities, phone normalization, manifest | delivered |
 | 4.2 | Activation: tokens (on in-house stays with a verified identity, front-desk issuance/revoke), verification sessions with HMAC OTP, delivery chain WhatsApp → SMS with `verification_deliveries`, fallback sweep, health pre-emption + alert, rate limits, guest routes (`/guest/activation/*`, `/guest/me`), `GuestSessionGuard`, staff-assisted verification; room QR codes (generate, rotate, revoke, verify with last name); `guest.activated.v1` | delivered |
-| 4.3 | Messaging: Meta Cloud API and generic BSP adapters (templates, text, media refs, webhook signatures, delivery receipts) with contract tests; webhooks with raw store and worker normalization; conversations, participants, messages, delivery events; routing by verified identity + active grant; activation prompt for unverified phones; outbound queue with retries; staff inbox (list/filter, detail with guest/stay/room/open work, send, assign, takeover/handoff, close); guest conversation routes; checkout closes stay conversations; `comms.*` events | planned |
+| 4.3 | Messaging: Meta Cloud API and generic BSP adapters (templates, text, media refs, webhook signatures, delivery receipts) with contract tests; webhooks with raw store and worker normalization; conversations, participants, messages, delivery events; routing by verified identity + active grant; activation prompt for unverified phones; outbound queue with retries; staff inbox (list/filter, detail with guest/stay/room/open work, send, assign, takeover/handoff, close); guest conversation routes; checkout closes stay conversations; `comms.*` events | delivered |
 | 4.4 | `apps/realtime` WebSocket gateway (staff access token / guest session; inbox and conversation updates through Valkey pub/sub); printable room QR sheet; pilot smoke extended to activation; Phase 4 acceptance (`docs/acceptance/phase-4.md`) | planned |
+
+Reality notes for 4.3:
+- Adapters shipped: `WHATSAPP_META_CLOUD` (Graph API `/{phone-number-id}/messages`, `X-Hub-Signature-256` webhooks,
+  `hub.verify_token` handshake), `WHATSAPP_BSP_360DIALOG` on a `CloudCompatibleBspAdapter` base (BSPs relaying the Cloud
+  API model; webhooks authenticated by a shared secret header `X-Hotella-Webhook-Secret`), and `SMS_HTTP_JSON` (a
+  generic JSON aggregator until the pilot's aggregator is chosen). Credentials are one SecretRef holding a JSON object
+  (ADR-0015 implementation notes). Provider error codes map to `UNAVAILABLE/TIMEOUT/AUTH_FAILED/INVALID_RECIPIENT/
+  RATE_LIMITED/REJECTED`; calls time out after 10 s. Contract tests replay recorded Cloud API payloads, and the
+  integration suite runs activation and messaging through both WhatsApp adapters against a local provider stand-in.
+- Webhooks (`POST /webhooks/whatsapp|sms/:channelId`, raw body kept for signatures) store each normalized item once in
+  `comms.inbound_events` (unique per channel and provider id) and process it at once; items that fail stay RECEIVED and
+  the worker retries them (`comms.inbound.retry`, 15 s, FAILED after 5 attempts). Delivery receipts of OTP messages
+  feed the verification deliveries (4.2), the others move outbound messages forward only.
+- Routing: a WhatsApp number reaches a stay only through a verified channel identity **and** a live grant with `CHAT`
+  at the channel's property; then the stay's one open conversation is used (also from guest web). Anyone else gets a
+  conversation keyed by the channel identity and, at most once a day, the localized activation prompt; nothing about
+  the stay is revealed. SMS is a code channel only (no conversations).
+- Outbound: staff replies are queued and sent by `comms.message.send` (3 s, `guest-realtime` queue) on the channel the
+  guest last wrote on, with retries for retryable provider errors (30 s, 2 min, 5 min; FAILED after 4 attempts); a
+  WhatsApp reply outside the 24-hour customer-service window fails with `OUTSIDE_WINDOW` (templated re-engagement comes
+  with the catalog/AI phases). Guest-web replies are shown at once (no provider).
+- Inbox: list/detail with guest, stay, room (from the guest and organization contexts, never from the phone), open
+  work items of the stay (`OPERATIONS_API.openWorkItemsOfStay`), masked contact, `aiSummary` placeholder; reply,
+  assign (optimistic version), takeover (`HANDED_OFF`, AI mode OFF, `comms.handoff.requested.v1`, audited), close.
+  The inbox read model is a query (see §8.7). Permissions `inbox.read/reply/takeover` for guest desks, `inbox.assign`
+  for duty and general managers.
+- Lifecycle: the stay leaving the house (check-out, cancellation, no-show) closes its conversation and switches AI mode
+  off; anonymization clears message texts and media references of the guest's conversations. Messages are append-only
+  at the database level except delivery fields and that anonymization clearing.
+- Not yet: inbound media download into the asset registry (references are kept), staff WhatsApp/SMS notifications
+  (Phase 5, needs staff phone numbers), templated messages outside the window.
 
 Reality notes for 4.2:
 - The OTP is **derived, not stored**: `code = HMAC-SHA256(key, session id ‖ random seed)` truncated to 6 digits, under

@@ -35,3 +35,22 @@ request OTP
 - OTP success does not depend on a single provider; the guest sees one flow.
 - Phase 4 test plan adds: fake WhatsApp provider failing → SMS fake receives the same code; attempt counter continuity; staff-assisted path audited.
 - Costs: SMS fallback incurs per-message charges; the metering metric `OTP_SMS_SENT` is added to usage metering (Phase 11).
+
+## Implementation notes (Sprints 4.2–4.3, 2026-10-03)
+These refine the decision without changing it; code lives in `packages/domain/communications`.
+- **Adapters:** `WHATSAPP_META_CLOUD` (Graph API, default `v23.0`, configurable base URL), `WHATSAPP_BSP_360DIALOG`
+  on a `CloudCompatibleBspAdapter` base for BSPs that relay the Cloud API model (another BSP is a small subclass naming
+  its endpoint and key header), `SMS_HTTP_JSON` until the pilot's SMS aggregator is chosen. Fakes (`FAKE_WHATSAPP`,
+  `FAKE_SMS`) exist for tests and local development only.
+- **Credentials:** one `credential_ref` per channel resolving to a JSON object — Meta: `accessToken`, `appSecret`
+  (webhook signatures), `verifyToken` (subscription handshake); BSP and SMS: `apiKey`, `webhookSecret`. Never stored,
+  logged or returned.
+- **Webhook authentication:** Meta signs with `X-Hub-Signature-256`; BSP and SMS webhooks are registered with the
+  header `X-Hotella-Webhook-Secret` (BSPs relay Meta's payload unsigned). Comparison is constant-time.
+- **Templates:** each channel maps platform template codes (`otp`, `activation`) to approved provider templates in its
+  configuration; authentication templates may repeat the code in a copy-code button (`codeButton`).
+- **Same code on every channel without storing it:** the code is derived with HMAC-SHA256 under the OTP key (a
+  SecretRef) from the session id and a random seed (BUILD_PLAN §8.9, notes for 4.2).
+- **Fallback timing:** provider errors fall back immediately; a missing delivery receipt falls back after
+  `fallback_timeout_seconds` through a 5-second worker sweep; health pre-emption skips OFFLINE/AUTH_FAILED channels and
+  raises the `CHANNEL_UNHEALTHY` alert, deduplicated per channel.

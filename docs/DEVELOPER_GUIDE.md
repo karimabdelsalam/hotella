@@ -81,7 +81,8 @@ packages/
                                      → communications (schema `comms`: channels bound to provider adapters — WhatsApp via
                                        Meta Cloud API or a BSP, SMS — with SecretRef credentials, channel identities,
                                        guest activation: links, room QR, OTP with WhatsApp → SMS fallback, staff-assisted
-                                       verification, guest session guard; conversations and the inbox follow in 4.3)
+                                       verification, guest session guard; provider webhooks, the conversation engine
+                                       and the staff inbox)
   contracts/   zod schemas shared by everything → events (incl. canonical hotel.*), api, connectors (Connector SDK v0),
                                        later ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend

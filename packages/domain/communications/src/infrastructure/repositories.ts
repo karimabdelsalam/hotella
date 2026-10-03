@@ -131,6 +131,13 @@ export class CommsRepositories {
       .returning();
     return row!;
   }
+  identityById(scope: TenantScope, id: string): Promise<ChannelIdentityRow | undefined> {
+    return this.x
+      .select()
+      .from(channelIdentities)
+      .where(tenantWhere(channelIdentities, scope, eq(channelIdentities.id, id)))
+      .then((r) => r[0]);
+  }
   identitiesOfGuest(scope: TenantScope, guestId: string): Promise<ChannelIdentityRow[]> {
     return this.x
       .select()

@@ -9,5 +9,10 @@
   "comms.setting.otp_manual_fallback_after_seconds": "عدد الثواني قبل أن يطلب الضيف الرمز بطريقة أخرى",
   "comms.setting.otp_staff_assist_enabled": "يمكن لمكتب الاستقبال تأكيد هوية الضيف حضوريًا",
   "comms.setting.activation_token_ttl_hours": "عدد ساعات صلاحية رابط التفعيل",
-  "comms.otp.sms_text": "رمزك في {property} هو {code}. ينتهي خلال 5 دقائق. لا تشاركه مع أحد."
+  "comms.otp.sms_text": "رمزك في {property} هو {code}. ينتهي خلال 5 دقائق. لا تشاركه مع أحد.",
+  "comms.permission.inbox_read": "عرض محادثات الضيوف",
+  "comms.permission.inbox_reply": "الرد على محادثات الضيوف وإغلاقها",
+  "comms.permission.inbox_assign": "إسناد محادثات الضيوف إلى الموظفين",
+  "comms.permission.inbox_takeover": "تولّي المحادثة بدلًا من الرد الآلي",
+  "comms.inbound.activation_prompt": "أهلًا بك في {property}. لنتمكن من مساعدتك خلال إقامتك، يرجى فتح الرابط الذي استلمته عند تسجيل الوصول أو مسح رمز QR الموجود في غرفتك ثم تأكيد رقمك. يمكن لمكتب الاستقبال مساعدتك أيضًا."
 }

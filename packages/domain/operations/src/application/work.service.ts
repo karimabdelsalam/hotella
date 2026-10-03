@@ -230,6 +230,16 @@ export class WorkService {
     return workItemSummary(item, await this.repo.tasksOfWorkItems(scope, [item.id]));
   }
 
+  async openWorkItemsOfStay(scope: TenantScope, stayId: string): Promise<WorkItemSummary[]> {
+    if (!isUuid(stayId)) return [];
+    const items = await this.repo.openWorkItemsOfStay(scope, stayId);
+    const taskRows = await this.repo.tasksOfWorkItems(
+      scope,
+      items.map((i) => i.id),
+    );
+    return items.map((i) => workItemSummary(i, taskRows));
+  }
+
   async workItemsForSource(
     scope: TenantScope,
     entityType: string,

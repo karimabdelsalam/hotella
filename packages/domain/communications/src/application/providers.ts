@@ -100,6 +100,8 @@ interface AdapterBase {
   /** Validates `comms.channels.config` for this adapter on write and before every use. */
   readonly configSchema: z.ZodType<Record<string, unknown>>;
   verifyWebhook(ctx: ProviderContext, req: WebhookRequest): Promise<boolean>;
+  /** Subscription handshake some providers perform before sending webhooks (Meta's `hub.verify_token`). */
+  verifySubscription?(ctx: ProviderContext, token: string | undefined): Promise<boolean>;
   parseWebhook(ctx: ProviderContext, body: unknown): readonly InboundItem[];
 }
 

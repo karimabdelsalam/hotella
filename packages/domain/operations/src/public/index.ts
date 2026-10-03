@@ -106,6 +106,8 @@ export interface OperationsPublicApi {
     entityType: string,
     entityId: string,
   ): Promise<readonly WorkItemSummary[]>;
+  /** Open and in-progress work items of a stay, whichever module created them (staff inbox context). */
+  openWorkItemsOfStay(tenantId: string, stayId: string): Promise<readonly WorkItemSummary[]>;
   /** The source module withdrew the work (e.g. the guest cancelled the request): open tasks are cancelled. */
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary>;
   /** Declares an approval kind and the handler that runs once a person approves (Spec §8.4). */

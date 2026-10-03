@@ -4,8 +4,15 @@ export {
   CommunicationsModule,
   CommunicationsWorkerModule,
   GUEST_LIFECYCLE_CONSUMER,
+  CONVERSATION_LIFECYCLE_CONSUMER,
+  INBOUND_RETRY_JOB,
+  MESSAGE_SEND_JOB,
   OTP_FALLBACK_JOB,
 } from './communications.module';
+export { ConversationService } from './application/conversation.service';
+export { MetaCloudWhatsAppAdapter } from './application/adapters/meta-cloud';
+export { CloudCompatibleBspAdapter, Dialog360WhatsAppAdapter } from './application/adapters/bsp';
+export { JsonHttpSmsAdapter } from './application/adapters/sms-http';
 export { ActivationService } from './application/activation.service';
 export { ArrivalActivation } from './application/arrival-activation';
 export { OtpKeyring } from './application/otp-delivery';

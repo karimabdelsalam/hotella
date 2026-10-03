@@ -1,3 +1,10 @@
+import {
+  ConversationOpened,
+  DeliveryUpdated,
+  HandoffRequested,
+  MessageReceived,
+  MessageSent,
+} from '@hotella/contracts-events';
 import { defineManifest } from '@hotella/platform-manifest';
 
 export const COMMUNICATIONS_MANIFEST = defineManifest({
@@ -18,7 +25,17 @@ export const COMMUNICATIONS_MANIFEST = defineManifest({
       risk: 'HIGH',
     },
     { code: 'qr.manage', descriptionKey: 'comms.permission.qr_manage', risk: 'MEDIUM' },
+    { code: 'inbox.read', descriptionKey: 'comms.permission.inbox_read', risk: 'READ' },
+    { code: 'inbox.reply', descriptionKey: 'comms.permission.inbox_reply', risk: 'LOW' },
+    { code: 'inbox.assign', descriptionKey: 'comms.permission.inbox_assign', risk: 'LOW' },
+    { code: 'inbox.takeover', descriptionKey: 'comms.permission.inbox_takeover', risk: 'MEDIUM' },
   ],
-  events: [],
+  events: [
+    ConversationOpened.name,
+    MessageReceived.name,
+    MessageSent.name,
+    DeliveryUpdated.name,
+    HandoffRequested.name,
+  ],
   localeNamespaces: ['comms'],
 });

@@ -4,8 +4,24 @@ import { ManifestRegistry } from '@hotella/platform-manifest';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { SettingsRegistry } from '@hotella/platform-settings';
-import { ActivationController, ChannelsController, RoomQrController } from './api/controllers';
-import { GuestActivationController, GuestSelfController } from './api/guest.controllers';
+import {
+  ActivationController,
+  ChannelsController,
+  InboxController,
+  RoomQrController,
+} from './api/controllers';
+import {
+  GuestActivationController,
+  GuestChatController,
+  GuestSelfController,
+} from './api/guest.controllers';
+import { WebhooksController } from './api/webhooks.controller';
+import { Dialog360WhatsAppAdapter } from './application/adapters/bsp';
+import { MetaCloudWhatsAppAdapter } from './application/adapters/meta-cloud';
+import { JsonHttpSmsAdapter } from './application/adapters/sms-http';
+import { ConversationService } from './application/conversation.service';
+import { InboxService } from './application/inbox.service';
+import { ConversationRepositories } from './infrastructure/conversation-repositories';
 import { GuestSessionGuard } from './api/guest-session.guard';
 import { ActivationAdminService, RoomQrAdminService } from './application/activation-admin.service';
 import { ActivationService } from './application/activation.service';
@@ -24,6 +40,12 @@ import { COMMUNICATIONS_MANIFEST } from './manifest';
 /** Inbox consumer names: one exactly-once effect per event. */
 export const GUEST_LIFECYCLE_CONSUMER = 'comms.guest-lifecycle';
 export const ARRIVAL_ACTIVATION_CONSUMER = 'comms.arrival-activation';
+export const CONVERSATION_LIFECYCLE_CONSUMER = 'comms.conversation-lifecycle';
+/** Repeatable jobs: queued replies leave through their channel; webhook items left unprocessed are retried. */
+export const MESSAGE_SEND_JOB = 'comms.message.send';
+export const INBOUND_RETRY_JOB = 'comms.inbound.retry';
+const MESSAGE_SEND_EVERY_MS = 3_000;
+const INBOUND_RETRY_EVERY_MS = 15_000;
 /** Repeatable job of the worker: automatic OTP fallback when no delivery receipt arrives (ADR-0015). */
 export const OTP_FALLBACK_JOB = 'comms.otp.fallback';
 const OTP_FALLBACK_EVERY_MS = 5_000;
@@ -37,6 +59,7 @@ const OTP_FALLBACK_EVERY_MS = 5_000;
   providers: [
     CommsRepositories,
     ActivationRepositories,
+    ConversationRepositories,
     ChannelAdapterRegistry,
     ChannelRuntime,
     ChannelIdentityService,
@@ -45,10 +68,12 @@ const OTP_FALLBACK_EVERY_MS = 5_000;
     ActivationService,
     ArrivalActivation,
     GuestLifecycleConsumer,
+    ConversationService,
   ],
   exports: [
     CommsRepositories,
     ActivationRepositories,
+    ConversationRepositories,
     ChannelAdapterRegistry,
     ChannelRuntime,
     ChannelIdentityService,
@@ -57,9 +82,21 @@ const OTP_FALLBACK_EVERY_MS = 5_000;
     ActivationService,
     ArrivalActivation,
     GuestLifecycleConsumer,
+    ConversationRepositories,
+    ConversationService,
   ],
 })
-export class CommunicationsCoreModule {}
+export class CommunicationsCoreModule implements OnModuleInit {
+  constructor(private readonly adapters: ChannelAdapterRegistry) {}
+  /** The shipped provider adapters (ADR-0015); tests and local development add the fakes. */
+  onModuleInit(): void {
+    this.adapters.register(
+      new MetaCloudWhatsAppAdapter(),
+      new Dialog360WhatsAppAdapter(),
+      new JsonHttpSmsAdapter(),
+    );
+  }
+}
 
 /** Staff and guest API, settings and manifest, for the API process. */
 @Module({
@@ -68,8 +105,11 @@ export class CommunicationsCoreModule {}
     ChannelsController,
     ActivationController,
     RoomQrController,
+    InboxController,
     GuestActivationController,
     GuestSelfController,
+    GuestChatController,
+    WebhooksController,
   ],
   providers: [
     ChannelAdminService,
@@ -77,6 +117,7 @@ export class CommunicationsCoreModule {}
     RoomQrAdminService,
     GuestPortalService,
     GuestSessionGuard,
+    InboxService,
   ],
 })
 export class CommunicationsModule implements OnModuleInit {
@@ -92,7 +133,8 @@ export class CommunicationsModule implements OnModuleInit {
 
 /**
  * Worker side: follows guest events (anonymization removes contact points, arrival sends the activation link to a
- * verified number) and runs the automatic OTP fallback every 5 s on `critical-operational`.
+ * verified number, check-out closes the stay's conversation, anonymization clears message texts) and runs the OTP
+ * fallback (5 s), outbound messages (3 s) and the retry of unprocessed webhook items (15 s).
  */
 @Module({ imports: [CommunicationsCoreModule] })
 export class CommunicationsWorkerModule implements OnModuleInit {
@@ -103,6 +145,7 @@ export class CommunicationsWorkerModule implements OnModuleInit {
     private readonly lifecycle: GuestLifecycleConsumer,
     private readonly arrival: ArrivalActivation,
     private readonly activation: ActivationService,
+    private readonly conversations: ConversationService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -115,22 +158,35 @@ export class CommunicationsWorkerModule implements OnModuleInit {
       this.consumers.on(def.name, ARRIVAL_ACTIVATION_CONSUMER, (envelope) =>
         this.arrival.apply(envelope),
       );
+    for (const def of ConversationService.consumes)
+      this.consumers.on(def.name, CONVERSATION_LIFECYCLE_CONSUMER, (envelope) =>
+        this.conversations.apply(envelope),
+      );
     this.consumers.onJob(OTP_FALLBACK_JOB, async () => {
       await this.activation.sweepFallbacks();
     });
+    this.consumers.onJob(MESSAGE_SEND_JOB, async () => {
+      await this.conversations.sendDue();
+    });
+    this.consumers.onJob(INBOUND_RETRY_JOB, async () => {
+      await this.conversations.sweepInbound();
+    });
     if (!this.config.worker.schedulerEnabled) return;
-    await this.queues.queue('critical-operational').upsertJobScheduler(
-      OTP_FALLBACK_JOB,
-      { every: OTP_FALLBACK_EVERY_MS },
-      {
-        name: OTP_FALLBACK_JOB,
-        data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
-        opts: { removeOnComplete: 10, removeOnFail: 50 },
-      },
-    );
-    this.logger.info(
-      { job: OTP_FALLBACK_JOB, every_ms: OTP_FALLBACK_EVERY_MS },
-      'communications schedule armed',
-    );
+    for (const [job, every, queue] of [
+      [OTP_FALLBACK_JOB, OTP_FALLBACK_EVERY_MS, 'critical-operational'],
+      [MESSAGE_SEND_JOB, MESSAGE_SEND_EVERY_MS, 'guest-realtime'],
+      [INBOUND_RETRY_JOB, INBOUND_RETRY_EVERY_MS, 'normal'],
+    ] as const) {
+      await this.queues.queue(queue).upsertJobScheduler(
+        job,
+        { every },
+        {
+          name: job,
+          data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
+          opts: { removeOnComplete: 10, removeOnFail: 50 },
+        },
+      );
+      this.logger.info({ job, every_ms: every }, 'communications schedule armed');
+    }
   }
 }

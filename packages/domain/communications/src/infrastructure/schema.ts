@@ -1,9 +1,11 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
   pgSchema,
+  text,
   timestamp,
   unique,
   uniqueIndex,
@@ -343,6 +345,286 @@ export const roomQrCodes = classify(
   },
 );
 
+// ---- conversations (Spec §18.2, BUILD_PLAN §8.1) ----
+
+export const inboundStatus = comms.enum('inbound_status', ['RECEIVED', 'PROCESSED', 'FAILED']);
+export const conversationStatus = comms.enum('conversation_status', [
+  'OPEN',
+  'WAITING_GUEST',
+  'WAITING_STAFF',
+  'HANDED_OFF',
+  'CLOSED',
+]);
+export const conversationSubject = comms.enum('conversation_subject', ['GUEST', 'STAFF_INTERNAL']);
+export const aiMode = comms.enum('ai_mode', ['OFF', 'ASSIST', 'AUTO']);
+export const participantType = comms.enum('participant_type', [
+  'GUEST',
+  'STAFF',
+  'AI',
+  'SYSTEM',
+  'EXTERNAL',
+]);
+export const messageDirection = comms.enum('message_direction', ['INBOUND', 'OUTBOUND']);
+export const messageType = comms.enum('message_type', [
+  'TEXT',
+  'IMAGE',
+  'AUDIO',
+  'VIDEO',
+  'DOCUMENT',
+  'LOCATION',
+  'INTERACTIVE',
+  'SYSTEM',
+]);
+export const deliveryStatus = comms.enum('delivery_status', [
+  'QUEUED',
+  'SENT',
+  'DELIVERED',
+  'READ',
+  'FAILED',
+]);
+
+/**
+ * Provider webhooks after signature verification, one row per normalized item (message or receipt), stored before
+ * anything else happens; a repeated provider id is a no-op. Not domain events (CLAUDE.md rule 6).
+ */
+export const inboundEvents = classify(
+  comms.table(
+    'inbound_events',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      channelId: uuid('channel_id')
+        .notNull()
+        .references(() => channels.id),
+      providerEventId: varchar('provider_event_id', { length: 160 }).notNull(),
+      payload: jsonb('payload').notNull(),
+      receivedAt: tz('received_at').notNull(),
+      status: inboundStatus('status').notNull().default('RECEIVED'),
+      attempts: integer('attempts').notNull().default(0),
+      processedAt: tz('processed_at'),
+      errorCode: varchar('error_code', { length: 32 }),
+    },
+    (t) => [
+      unique('inbound_events_provider_uq').on(t.channelId, t.providerEventId),
+      index('inbound_events_pending_idx')
+        .on(t.receivedAt)
+        .where(sql`${t.status} = 'RECEIVED'`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    channelId: 'INTERNAL',
+    providerEventId: 'INTERNAL',
+    payload: 'CONFIDENTIAL',
+    receivedAt: 'INTERNAL',
+    status: 'INTERNAL',
+    attempts: 'INTERNAL',
+    processedAt: 'INTERNAL',
+    errorCode: 'INTERNAL',
+  },
+);
+
+/**
+ * A conversation is a business concept independent of channel (Spec §18.2): a stay-bound conversation collects WhatsApp
+ * and guest-web messages of that stay; replies leave on the channel the guest last wrote on. Unverified contacts get
+ * their own conversation keyed by the channel identity (never linked to a stay on the phone's word).
+ */
+export const conversations = classify(
+  comms.table(
+    'conversations',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      subjectType: conversationSubject('subject_type').notNull().default('GUEST'),
+      guestId: uuid('guest_id'),
+      stayId: uuid('stay_id'),
+      channelIdentityId: uuid('channel_identity_id').references(() => channelIdentities.id),
+      /** Where replies go: the channel the guest last wrote on (null = guest web). */
+      replyChannelId: uuid('reply_channel_id').references(() => channels.id),
+      replyChannelType: channelType('reply_channel_type').notNull(),
+      status: conversationStatus('status').notNull().default('WAITING_STAFF'),
+      assignedUserId: uuid('assigned_user_id'),
+      aiMode: aiMode('ai_mode').notNull().default('OFF'),
+      handoffReason: varchar('handoff_reason', { length: 200 }),
+      lastMessageAt: tz('last_message_at').notNull(),
+      /** WhatsApp's customer-service window: free-form replies only within 24 h of the guest's last message. */
+      lastInboundAt: tz('last_inbound_at'),
+      activationPromptedAt: tz('activation_prompted_at'),
+      closedAt: tz('closed_at'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('conversations_open_stay_uq')
+        .on(t.stayId)
+        .where(sql`${t.status} <> 'CLOSED' AND ${t.stayId} IS NOT NULL`),
+      uniqueIndex('conversations_open_identity_uq')
+        .on(t.channelIdentityId)
+        .where(sql`${t.status} <> 'CLOSED' AND ${t.stayId} IS NULL`),
+      index('conversations_inbox_idx').on(t.tenantId, t.propertyId, t.status, t.lastMessageAt),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    subjectType: 'INTERNAL',
+    guestId: 'INTERNAL',
+    stayId: 'INTERNAL',
+    channelIdentityId: 'INTERNAL',
+    replyChannelId: 'INTERNAL',
+    replyChannelType: 'INTERNAL',
+    status: 'INTERNAL',
+    assignedUserId: 'INTERNAL',
+    aiMode: 'INTERNAL',
+    handoffReason: 'CONFIDENTIAL',
+    lastMessageAt: 'INTERNAL',
+    lastInboundAt: 'INTERNAL',
+    activationPromptedAt: 'INTERNAL',
+    closedAt: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+export const conversationParticipants = classify(
+  comms.table(
+    'conversation_participants',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      conversationId: uuid('conversation_id')
+        .notNull()
+        .references(() => conversations.id),
+      participantType: participantType('participant_type').notNull(),
+      /** Guest id, staff user id or agent id; null for SYSTEM and unverified contacts. */
+      participantRef: varchar('participant_ref', { length: 64 }),
+      joinedAt: tz('joined_at').notNull(),
+      leftAt: tz('left_at'),
+    },
+    (t) => [index('conversation_participants_conversation_idx').on(t.conversationId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    conversationId: 'INTERNAL',
+    participantType: 'INTERNAL',
+    participantRef: 'INTERNAL',
+    joinedAt: 'INTERNAL',
+    leftAt: 'INTERNAL',
+  },
+);
+
+/** Messages are append-only history; only delivery fields of outbound messages change (Spec §18.2). */
+export const messages = classify(
+  comms.table(
+    'messages',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      conversationId: uuid('conversation_id')
+        .notNull()
+        .references(() => conversations.id),
+      channelId: uuid('channel_id').references(() => channels.id),
+      channelType: channelType('channel_type').notNull(),
+      direction: messageDirection('direction').notNull(),
+      senderParticipantId: uuid('sender_participant_id').references(
+        () => conversationParticipants.id,
+      ),
+      senderType: participantType('sender_type').notNull(),
+      senderRef: varchar('sender_ref', { length: 64 }),
+      type: messageType('type').notNull(),
+      body: text('body'),
+      /** Provider media id; fetched on demand into the asset registry later (never trusted as an instruction). */
+      mediaRef: varchar('media_ref', { length: 256 }),
+      mediaAssetId: uuid('media_asset_id'),
+      localeDetected: varchar('locale_detected', { length: 16 }),
+      providerMessageId: varchar('provider_message_id', { length: 160 }),
+      replyToMessageId: uuid('reply_to_message_id'),
+      deliveryStatus: deliveryStatus('delivery_status').notNull(),
+      attempts: integer('attempts').notNull().default(0),
+      nextAttemptAt: tz('next_attempt_at'),
+      errorCode: varchar('error_code', { length: 32 }),
+      /** Shown to the guest (false for staff-only notes and system markers). */
+      guestVisible: boolean('guest_visible').notNull().default(true),
+    },
+    (t) => [
+      index('messages_conversation_idx').on(t.conversationId, t.id),
+      uniqueIndex('messages_provider_uq')
+        .on(t.channelId, t.providerMessageId)
+        .where(sql`${t.providerMessageId} IS NOT NULL`),
+      index('messages_outbox_idx')
+        .on(t.nextAttemptAt)
+        .where(sql`${t.deliveryStatus} = 'QUEUED'`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    conversationId: 'INTERNAL',
+    channelId: 'INTERNAL',
+    channelType: 'INTERNAL',
+    direction: 'INTERNAL',
+    senderParticipantId: 'INTERNAL',
+    senderType: 'INTERNAL',
+    senderRef: 'INTERNAL',
+    type: 'INTERNAL',
+    body: 'CONFIDENTIAL',
+    mediaRef: 'CONFIDENTIAL',
+    mediaAssetId: 'INTERNAL',
+    localeDetected: 'INTERNAL',
+    providerMessageId: 'INTERNAL',
+    replyToMessageId: 'INTERNAL',
+    deliveryStatus: 'INTERNAL',
+    attempts: 'INTERNAL',
+    nextAttemptAt: 'INTERNAL',
+    errorCode: 'INTERNAL',
+    guestVisible: 'INTERNAL',
+  },
+);
+
+/** Delivery lifecycle of outbound messages (QUEUED → SENT → DELIVERED → READ | FAILED). */
+export const messageDeliveryEvents = classify(
+  comms.table(
+    'message_delivery_events',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      messageId: uuid('message_id')
+        .notNull()
+        .references(() => messages.id),
+      status: deliveryStatus('status').notNull(),
+      errorCode: varchar('error_code', { length: 32 }),
+      occurredAt: tz('occurred_at').notNull(),
+    },
+    (t) => [index('message_delivery_events_message_idx').on(t.messageId, t.occurredAt)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    messageId: 'INTERNAL',
+    status: 'INTERNAL',
+    errorCode: 'INTERNAL',
+    occurredAt: 'INTERNAL',
+  },
+);
+
+export type InboundEventRow = typeof inboundEvents.$inferSelect;
+export type ConversationRow = typeof conversations.$inferSelect;
+export type ParticipantRow = typeof conversationParticipants.$inferSelect;
+export type MessageRow = typeof messages.$inferSelect;
 export type ChannelRow = typeof channels.$inferSelect;
 export type ActivationTokenRow = typeof activationTokens.$inferSelect;
 export type VerificationSessionRow = typeof verificationSessions.$inferSelect;

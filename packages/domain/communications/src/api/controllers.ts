@@ -12,6 +12,13 @@ import {
   RoomQrAdminService,
 } from '../application/activation-admin.service';
 import {
+  assignConversationSchema,
+  InboxService,
+  inboxQuerySchema,
+  replySchema,
+  takeoverSchema,
+} from '../application/inbox.service';
+import {
   ChannelAdminService,
   createChannelSchema,
   updateChannelSchema,
@@ -22,6 +29,10 @@ class UpdateChannelDto extends createZodDto(updateChannelSchema) {}
 class IssueTokenDto extends createZodDto(issueTokenSchema) {}
 class AssistDto extends createZodDto(assistSchema) {}
 class ReferenceQueryDto extends createZodDto(referenceQuerySchema) {}
+class InboxQueryDto extends createZodDto(inboxQuerySchema) {}
+class ReplyDto extends createZodDto(replySchema) {}
+class AssignConversationDto extends createZodDto(assignConversationSchema) {}
+class TakeoverDto extends createZodDto(takeoverSchema) {}
 
 function propertyScope(ctx: RequestContext, actors: ActorStore, propertyId: string): PropertyScope {
   const tenantId = ctx.tenantId ?? actors.require().tenantId;
@@ -164,5 +175,75 @@ export class RoomQrController {
   @RequirePermission('qr.manage')
   revoke(@Param('propertyId') propertyId: string, @Param('roomId') roomId: string) {
     return this.qr.revoke(propertyScope(this.ctx, this.actors, propertyId), roomId);
+  }
+}
+
+/** The staff inbox (Spec §18): conversations with guest, stay, room and open work; reply, assign, take over, close. */
+@Controller('properties/:propertyId/conversations')
+@PropertyScoped({ from: 'param' })
+export class InboxController {
+  constructor(
+    private readonly inbox: InboxService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope(propertyId: string) {
+    return propertyScope(this.ctx, this.actors, propertyId);
+  }
+  private actor() {
+    const a = this.actors.require();
+    return { type: a.type, id: a.id };
+  }
+
+  @Get()
+  @RequirePermission('inbox.read')
+  list(@Param('propertyId') propertyId: string, @Query() query: InboxQueryDto) {
+    return this.inbox.list(this.scope(propertyId), query, this.actor());
+  }
+
+  @Get(':conversationId')
+  @RequirePermission('inbox.read')
+  detail(@Param('propertyId') propertyId: string, @Param('conversationId') id: string) {
+    return this.inbox.detail(this.scope(propertyId), id);
+  }
+
+  @Post(':conversationId/messages')
+  @RequirePermission('inbox.reply')
+  reply(
+    @Param('propertyId') propertyId: string,
+    @Param('conversationId') id: string,
+    @Body() body: ReplyDto,
+  ) {
+    return this.inbox.reply(this.scope(propertyId), id, body.body, this.actor());
+  }
+
+  @Post(':conversationId/assign')
+  @HttpCode(200)
+  @RequirePermission('inbox.assign')
+  assign(
+    @Param('propertyId') propertyId: string,
+    @Param('conversationId') id: string,
+    @Body() body: AssignConversationDto,
+  ) {
+    return this.inbox.assign(this.scope(propertyId), id, body);
+  }
+
+  @Post(':conversationId/takeover')
+  @HttpCode(200)
+  @RequirePermission('inbox.takeover')
+  takeover(
+    @Param('propertyId') propertyId: string,
+    @Param('conversationId') id: string,
+    @Body() body: TakeoverDto,
+  ) {
+    return this.inbox.takeover(this.scope(propertyId), id, body.reason, this.actor());
+  }
+
+  @Post(':conversationId/close')
+  @HttpCode(200)
+  @RequirePermission('inbox.reply')
+  close(@Param('propertyId') propertyId: string, @Param('conversationId') id: string) {
+    return this.inbox.close(this.scope(propertyId), id);
   }
 }

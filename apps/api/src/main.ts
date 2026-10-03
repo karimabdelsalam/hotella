@@ -7,7 +7,8 @@ import { AppModule } from './app.module';
 import { configureApp } from './bootstrap';
 
 async function main(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // rawBody: provider webhooks verify signatures over the exact bytes received (ADR-0015).
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
   app.useLogger(app.get(PinoNestLogger));
   const config = app.get<AppConfig>(APP_CONFIG);
   const logger = app.get<Logger>(LOGGER);

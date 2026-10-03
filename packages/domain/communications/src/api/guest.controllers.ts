@@ -15,7 +15,9 @@ import {
   verifyOtpSchema,
 } from '../application/activation.service';
 import { GuestPortalService } from '../application/guest-portal.service';
-import { CurrentGuest, GuestSessionGuard } from './guest-session.guard';
+import { ConversationService } from '../application/conversation.service';
+import { guestMessageSchema } from '../application/inbox.service';
+import { CurrentGuest, GuestSessionGuard, RequireGuestScope } from './guest-session.guard';
 
 class StartActivationDto extends createZodDto(startActivationSchema) {}
 class RequestOtpDto extends createZodDto(requestOtpSchema) {}
@@ -23,6 +25,7 @@ class HandleDto extends createZodDto(handleSchema) {}
 class VerifyOtpDto extends createZodDto(verifyOtpSchema) {}
 class CompleteDto extends createZodDto(completeSchema) {}
 class QrVerifyDto extends createZodDto(qrVerifySchema) {}
+class GuestMessageDto extends createZodDto(guestMessageSchema) {}
 
 /**
  * Passwordless guest activation (Spec §19–§20, ADR-0011): link or room QR → phone → OTP (WhatsApp, SMS fallback) →
@@ -108,5 +111,25 @@ export class GuestSelfController {
   async logout(@CurrentGuest() guest: GuestPrincipal) {
     await this.guests.revokeGuestSession(guest.tenantId, guest.sessionId, 'LOGOUT');
     return { signedOut: true };
+  }
+}
+
+/** Chat on guest web (Spec §18): the same stay conversation as WhatsApp; needs the CHAT scope. */
+@Controller('guest/conversation')
+@Public()
+@UseGuards(GuestSessionGuard)
+@RequireGuestScope('CHAT')
+export class GuestChatController {
+  constructor(private readonly conversations: ConversationService) {}
+
+  @Get()
+  get(@CurrentGuest() guest: GuestPrincipal) {
+    return this.conversations.guestConversation(guest);
+  }
+
+  @Post('messages')
+  @RateLimit({ name: 'guest-chat', limit: 30, windowSeconds: 60 })
+  post(@CurrentGuest() guest: GuestPrincipal, @Body() body: GuestMessageDto) {
+    return this.conversations.guestPost(guest, body.body);
   }
 }

@@ -92,6 +92,21 @@ export class OperationsRepositories {
       .orderBy(desc(workItems.id))
       .limit(filter.limit);
   }
+  /** Work items of a stay that are not finished (the staff inbox shows them next to the conversation). */
+  openWorkItemsOfStay(scope: TenantScope, stayId: string): Promise<WorkItemRow[]> {
+    return this.x
+      .select()
+      .from(workItems)
+      .where(
+        tenantWhere(
+          workItems,
+          scope,
+          eq(workItems.stayId, stayId),
+          inArray(workItems.status, ['OPEN', 'IN_PROGRESS']),
+        ),
+      )
+      .orderBy(asc(workItems.id));
+  }
   workItemsBySource(
     scope: TenantScope,
     entityType: string,

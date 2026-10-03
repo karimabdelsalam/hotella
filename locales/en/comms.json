@@ -9,5 +9,10 @@
   "comms.setting.otp_manual_fallback_after_seconds": "Seconds before a guest may ask for the code another way",
   "comms.setting.otp_staff_assist_enabled": "Front desk may confirm a guest in person",
   "comms.setting.activation_token_ttl_hours": "Hours an activation link stays valid",
-  "comms.otp.sms_text": "{code} is your {property} code. It expires in 5 minutes. Never share it."
+  "comms.otp.sms_text": "{code} is your {property} code. It expires in 5 minutes. Never share it.",
+  "comms.permission.inbox_read": "See guest conversations",
+  "comms.permission.inbox_reply": "Reply to and close guest conversations",
+  "comms.permission.inbox_assign": "Assign guest conversations to staff",
+  "comms.permission.inbox_takeover": "Take a conversation over from automation",
+  "comms.inbound.activation_prompt": "Welcome to {property}. To help you with your stay, please open the link you received at check-in or scan the QR code in your room, then verify your number. The front desk can also help."
 }

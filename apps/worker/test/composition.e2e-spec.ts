@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { afterAll, describe, expect, it } from 'vitest';
+import { ActivationService, ConversationService } from '@hotella/domain-communications';
 import { NotificationService, SlaMonitor } from '@hotella/domain-operations';
 import { runMigrations } from '@hotella/platform-database';
 import { readTestInfra } from '@hotella/platform-testing';
@@ -34,5 +35,8 @@ describe.skipIf(!infra.databaseUrl || !infra.valkeyUrl)('worker composition', ()
     await app.init();
     expect(app.get(SlaMonitor)).toBeDefined();
     expect(app.get(NotificationService)).toBeDefined();
+    // Communications: OTP fallback, outbound messages and webhook retries run here.
+    expect(app.get(ActivationService)).toBeDefined();
+    expect(app.get(ConversationService)).toBeDefined();
   });
 });

@@ -22,6 +22,13 @@ export {
   UserCreated,
 } from './iam-events';
 export {
+  ConversationOpened,
+  DeliveryUpdated,
+  HandoffRequested,
+  MessageReceived,
+  MessageSent,
+} from './comms-events';
+export {
   GuestAnonymized,
   GuestGrantChanged,
   GuestGrantIssued,

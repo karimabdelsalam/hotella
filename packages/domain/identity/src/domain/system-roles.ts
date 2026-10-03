@@ -22,6 +22,9 @@ const GUEST_DESK = [
   'guest.grant.revoke',
   'guest.activation.issue',
   'guest.activation.assist',
+  'inbox.read',
+  'inbox.reply',
+  'inbox.takeover',
 ] as const;
 /** Every staff member's own notifications and channel choices (Spec §25). */
 const MY_NOTIFICATIONS = ['notification.read', 'notification.preferences.manage'] as const;
@@ -94,6 +97,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'approval.decide',
       'channel.manage',
       'qr.manage',
+      'inbox.assign',
     ],
   },
   {
@@ -108,6 +112,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...ALERT_DESK,
       'approval.read',
       'approval.decide',
+      'inbox.assign',
     ],
   },
   {

@@ -56,6 +56,9 @@ export class OperationsPublicApiService implements OperationsPublicApi {
   ): Promise<readonly WorkItemSummary[]> {
     return this.work.workItemsForSource({ tenantId }, entityType, entityId);
   }
+  openWorkItemsOfStay(tenantId: string, stayId: string): Promise<readonly WorkItemSummary[]> {
+    return this.work.openWorkItemsOfStay({ tenantId }, stayId);
+  }
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary> {
     return this.work.cancelWorkItem(tenantId, workItemId, reason);
   }
