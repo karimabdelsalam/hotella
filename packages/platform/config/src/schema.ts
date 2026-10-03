@@ -37,8 +37,8 @@ export const envSchema = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().default('http://localhost:4318'),
   OTEL_SERVICE_NAME: z.string().min(1).optional(),
 
-  /** Object storage (Spec §2.4, ADR-0013 MinIO). Credentials are SecretRefs, never values (ADR-0010). */
-  STORAGE_ENDPOINT: z.url().default('http://localhost:9000'),
+  /** Object storage (Spec §2.4, ADR-0013 SeaweedFS S3 gateway). Credentials are SecretRefs, never values (ADR-0010). */
+  STORAGE_ENDPOINT: z.url().default('http://localhost:8333'),
   STORAGE_REGION: z.string().min(1).default('us-east-1'),
   STORAGE_BUCKET: z.string().min(3).default('hotella'),
   STORAGE_FORCE_PATH_STYLE: z.stringbool().default(true),
