@@ -85,7 +85,31 @@ flowchart TD
   L[OPERA checkout via FIAS] --> M[hotel.guest.checked_out.v1] --> N[Automatic revocation of stay scopes]
 ```
 
-## 4. Deployment (on-prem, ADR-0013)
+## 4. Hotel Agent ↔ platform link (ADR-0017)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant CP as Control plane (online)
+  participant AG as Hotel Agent (.NET, hotel LAN)
+  participant PF as Platform agent gateway (online)
+  participant OP as OPERA 5 (FIAS/OWS)
+  CP->>CP: create Integration Instance, issue single-use enrollment token
+  Note over AG: installer: paste token; key pair generated locally (OS key store)
+  AG->>PF: HTTPS POST CSR + enrollment token
+  PF-->>AG: device certificate (Planova CA, 90 d) + signed licence token
+  AG->>PF: open WSS (mTLS, TLS 1.3), heartbeat 30 s
+  OP-->>AG: FIAS GI/GO/GC/RE records
+  AG->>AG: write to SQLite queue (sequence_no)
+  AG->>PF: envelope frames in order
+  PF-->>AG: ack (instance_id, sequence_no) → row deleted locally
+  PF->>AG: signed command (predefined op, idempotency key)
+  AG->>OP: execute via FIAS/OWS
+  AG-->>PF: ack + result → audit (actor INTEGRATION)
+  Note over AG,PF: link down → agent buffers for days, replays from last ack on reconnect
+```
+
+## 5. Deployment (Planova-operated servers, ADR-0013)
 
 ```mermaid
 flowchart LR

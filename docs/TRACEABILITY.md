@@ -63,8 +63,8 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 45 | Core knows canonical concepts; connector adapters → integration platform → normalized events | BP §6.2 pipeline; ADR-0014 | P2 |
 | 46 | Connector definition vs instance; categories; capabilities | BP §6.1 `connector_definitions/integration_instances` | P2 |
 | 47 | Capability negotiation per instance; AI/UI never offer unsupported actions | BP §6.1 `negotiated_capabilities`; §6.3 two-faced simulator; action gate connector stage (BP §5.4) | P1, P2 |
-| 48 | OPERA 5 on-prem architecture; outbound; no remote shell; signed operations | BP §10 P10; ADR-0013/0014 | P10 |
-| 49 | Agent responsibilities; SQLite durable store contents | BP §10 P10 | P10 |
+| 48 | OPERA 5 on-prem architecture; outbound; no remote shell; signed operations | BP §10 P10; ADR-0013/0014/0017 (enrollment, mTLS, WSS/HTTPS, signed predefined commands) | P2 gateway, P10 agent |
+| 49 | Agent responsibilities; SQLite durable store contents | BP §10 P10; ADR-0017 §4, §6 | P10 |
 | 50 | Inbox/outbox, idempotency, source ids, ordering, retries, DLQ, replay, reconciliation, checkpoints; raw ≠ domain event | ADR-0004; BP §6.1 `integration_messages`, §6.2; CM 6 | P0, P2 |
 | 51 | Canonical event names; envelope fields; versioning | BP §4 0.3.1 envelope; §6.2 events; BP §0.8 naming | P0, P2 |
 | 52 | Mappings; unknown ⇒ exception not guess; AI suggests, human confirms; reconciliation outcomes; source-of-truth policies, no naive LWW | BP §6.1 mappings/exceptions/reconciliation tables, §6.6; CM 16 | P2 |
@@ -77,7 +77,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 59 | Module / AI / connector entitlements; tenant-wide and property grants | BP §10 P11 | P11 |
 | 60 | Entitlement ≠ flag ≠ config ≠ permission ≠ connector capability ≠ AI policy; unified action gate order | BP §1.2, §5.4 `ActionGate`; CM 4, 14 | P1 |
 | 61 | Usage metrics; idempotent usage events; aggregates | BP §10 P11; ADR-0015 `OTP_SMS_SENT` | P11 |
-| 62 | Signed offline license tokens with grace; public-key validation on agent | BP §10 P10/P11 | P10, P11 |
+| 62 | Signed offline license tokens with grace; public-key validation on agent | BP §10 P10/P11; ADR-0017 §6 | P10, P11 |
 | 63 | Control plane functions; data plane separation; admins no automatic guest data access | BP §10 P11; §5.2 support grants; ADR-0007 audited bypass role; CM 20 | P1, P11 |
 | 64 | Support access explicit/scoped/time-limited/read-only/audited/reason/revocable | BP §5.2 `iam.support_access_grants`; CM 20 | P1 |
 | 65 | Security scope; staff password/MFA now, OIDC/SAML later; guest passwordless | ADR-0011 | P1, P4 |

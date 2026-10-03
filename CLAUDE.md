@@ -12,7 +12,7 @@ TypeScript 6 strict (ESM-style source, CommonJS output until the planned NestJS 
 · ESLint 10 + eslint-plugin-boundaries + Prettier 3 + dependency-cruiser · ICU MessageFormat catalog shared with the frontend
 · Next.js 16 LTS + next-intl + Tailwind 4 · .NET 10 LTS for the on-prem hotel agent (Phase 10)
 · Version policy: **Maturity Gate** (GA ≥ 6 months, ecosystem + tooling ready, exit path, no node-gyp); HOLD list with dates for NestJS 12 / TS 7 / Node 26 / Drizzle 1.0 / oxlint — ADR-0016
-· Hosted **on-premises** (Compose → k3s/RKE2, Vault, MinIO, Valkey, Grafana stack) — ADR-0013 · OPERA 5 via FIAS + OWS adapters — ADR-0014 · WhatsApp via Meta Cloud API or BSP adapters with SMS OTP fallback — ADR-0015.
+· Hosted on **Planova-operated internet-reachable servers** (Compose → k3s/RKE2, Vault, MinIO, Valkey, Grafana stack) — ADR-0013; hotels run only the thin agent, which connects **outbound-only** (enrollment → mTLS, WSS/HTTPS, durable ordered idempotent link, signed commands) — ADR-0017 · OPERA 5 via FIAS + OWS adapters — ADR-0014 · WhatsApp via Meta Cloud API or BSP adapters with SMS OTP fallback — ADR-0015.
 
 ## Repository shape
 - `apps/*` compose; `packages/platform/*` are infrastructure; `packages/domain/*` are bounded contexts; `packages/contracts/*` are zod schemas (events, api, connectors, ai-tools).
