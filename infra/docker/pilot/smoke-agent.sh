@@ -36,5 +36,13 @@ for _ in $(seq 1 60); do
 done
 echo "stay: ${state:-none}"
 [ "$state" = CHECKED_OUT ]
-[ "$(psql "select count(*) from guest.room_assignments where property_id = '$property'")" = 3 ]
+# Room history: check-in 505, move 506 (closed at check-out), after the 504 pre-assignment when the reservation
+# snapshot was projected first — events of one stay run concurrently, and a late, older snapshot is ignored.
+history=$(psql "select string_agg(r.room_number || ':' || a.reason, ',' order by a.assigned_at, a.id)
+  from guest.room_assignments a join org.rooms r on r.location_id = a.room_id where a.property_id = '$property'")
+echo "room history: $history"
+case "$history" in
+  "504:PRE_ASSIGNMENT,505:INITIAL,506:ROOM_MOVE" | "505:INITIAL,506:ROOM_MOVE") ;;
+  *) echo "unexpected room history" >&2; exit 1 ;;
+esac
 echo "agent smoke: OK"

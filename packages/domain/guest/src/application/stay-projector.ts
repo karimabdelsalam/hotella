@@ -52,6 +52,19 @@ interface Snapshot {
  * status: there is no staff or guest API that creates a guest or a stay or changes a stay's state. Runs inside the
  * idempotent consumer's transaction (inbox row + writes + outgoing events are atomic), serialized per reservation.
  */
+/**
+ * Facts of one stay travel on different queues and are processed concurrently, so a check-out or room move can reach
+ * the projector before the check-in that creates the stay. Such a fact is retried (queue backoff) for a short window
+ * instead of being dropped; after it, the reservation is genuinely unknown and reconciliation reports it (Spec §52).
+ */
+export const UNKNOWN_STAY_RETRY_WINDOW_MS = 20_000;
+export class StayNotYetKnownError extends Error {
+  constructor(eventType: string) {
+    super(`${eventType}: stay not known yet; retrying`);
+    this.name = 'StayNotYetKnownError';
+  }
+}
+
 @Injectable()
 export class StayProjector {
   constructor(
@@ -142,8 +155,7 @@ export class StayProjector {
     let stay = await this.findStay(ctx, p.reservation);
     if (!stay) {
       // Nothing to close or revoke; reconciliation reports the reservation if it matters (Spec §52).
-      this.logger.warn({ event_id: e.event_id }, 'check-out for an unknown reservation ignored');
-      return;
+      return this.unknownStay(e, 'check-out for an unknown reservation ignored');
     }
     const t = transition(stay, { kind: 'CHECKED_OUT', at });
     if (t.status === stay.status) {
@@ -163,10 +175,11 @@ export class StayProjector {
     const at = new Date(p.changed_at);
     const ctx = await this.begin(e, p.reservation, []);
     const stay = await this.findStay(ctx, p.reservation);
-    if (!stay || (stay.status !== 'IN_HOUSE' && stay.status !== 'EXPECTED')) {
+    if (!stay) return this.unknownStay(e, 'room change for an unknown stay ignored');
+    if (stay.status !== 'IN_HOUSE' && stay.status !== 'EXPECTED') {
       this.logger.warn(
-        { event_id: e.event_id, status: stay?.status ?? null },
-        'room change for an unknown or closed stay ignored',
+        { event_id: e.event_id, status: stay.status },
+        'room change for a closed stay ignored',
       );
       return;
     }
@@ -213,7 +226,7 @@ export class StayProjector {
     const at = new Date(p.cancelled_at);
     const ctx = await this.begin(e, p.reservation, []);
     let stay = await this.findStay(ctx, p.reservation);
-    if (!stay) return;
+    if (!stay) return this.unknownStay(e, 'cancellation of an unknown reservation ignored');
     const fact: PmsFact = { kind: 'CANCELLED', at, outcome: p.outcome };
     const t = transition(stay, fact);
     if (t.status === stay.status) {
@@ -245,6 +258,14 @@ export class StayProjector {
   }
 
   // ---- building blocks ----
+
+  /** A fresh fact about a stay that does not exist yet is retried; an old one is reported and ignored. */
+  private unknownStay(e: EventEnvelope, message: string): void {
+    const received = Date.parse(e.received_at || e.occurred_at);
+    if (Date.now() - received < UNKNOWN_STAY_RETRY_WINDOW_MS)
+      throw new StayNotYetKnownError(e.event_type);
+    this.logger.warn({ event_id: e.event_id }, message);
+  }
 
   private async begin(
     e: EventEnvelope,
@@ -549,6 +570,15 @@ export class StayProjector {
   ): Promise<void> {
     const open = await this.repo.openAssignment(ctx.scope, stay.id);
     if (open?.roomId === roomId) return;
+    // An older fact (e.g. a check-in processed after a later room move) never moves the guest back. A pre-assignment
+    // is a plan, stamped when the reservation arrived, and always gives way.
+    if (open && open.reason !== 'PRE_ASSIGNMENT' && at < open.assignedAt) {
+      this.logger.info(
+        { event_id: eventId },
+        'stale room assignment ignored (newer assignment exists)',
+      );
+      return;
+    }
     const effective = open ? maxDate(at, open.assignedAt) : at;
     if (open) await this.repo.closeAssignment(ctx.scope, open.id, effective);
     await this.repo.insertAssignment({

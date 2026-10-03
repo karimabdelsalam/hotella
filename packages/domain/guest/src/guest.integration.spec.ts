@@ -20,6 +20,7 @@ import {
   DATABASE,
   type Database,
   DatabaseModule,
+  newId,
   runMigrations,
 } from '@hotella/platform-database';
 import { EventsModule, eventsSchema, IdempotentConsumer } from '@hotella/platform-events';
@@ -34,7 +35,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { StaysController } from './api/controllers';
-import { StayProjector } from './application/stay-projector';
+import { StayNotYetKnownError, StayProjector } from './application/stay-projector';
 import { GuestModule, projectOnce } from './guest.module';
 import { roomAssignments, stays } from './infrastructure/schema';
 
@@ -580,6 +581,71 @@ describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReaso
       .map((k) => Reflect.getMetadata(METHOD_METADATA, proto[k] as object) as RequestMethod);
     expect(methods.length).toBeGreaterThan(0);
     expect(methods.every((m) => m === RequestMethod.GET)).toBe(true);
+  });
+
+  it('facts delivered before their check-in are retried, and a late check-in never moves the guest back', async () => {
+    // The PMS: check-in to 504, a move to 505 an hour later, check-out — delivered to the projector out of order.
+    await fias(`GI|RN504|G#X1-${stamp}|GNEast|GFNour|GD261008|DA261005|TI090000|`);
+    await fias(`GC|RN505|RO504|G#X1-${stamp}|DA261005|TI100000|`);
+    await fias(`GO|RN505|G#X1-${stamp}|DA261008|TI100000|`);
+    const of = async (type: string) =>
+      (
+        await db
+          .select()
+          .from(eventsSchema.outbox)
+          .where(
+            and(
+              eq(eventsSchema.outbox.tenantId, tenantA),
+              eq(eventsSchema.outbox.eventType, type),
+              sql`${eventsSchema.outbox.envelope}::text like ${`%X1-${stamp}%`}`,
+            ),
+          )
+      ).map((r) => r.envelope as EventEnvelope);
+    const [checkIn] = await of('hotel.guest.checked_in');
+    const [move] = await of('hotel.stay.room_changed');
+    const [checkOut] = await of('hotel.guest.checked_out');
+
+    // Before the check-in exists: rejected so the queue retries them, not dropped.
+    await expect(project(move!)).rejects.toBeInstanceOf(StayNotYetKnownError);
+    await expect(project(checkOut!)).rejects.toBeInstanceOf(StayNotYetKnownError);
+    // Long after it was received, an unknown reservation is reported and ignored (reconciliation's job).
+    const stale = {
+      ...checkOut!,
+      event_id: newId(),
+      received_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+    };
+    expect(await project(stale)).toBe('processed');
+
+    // The move arrives (via a pre-existing reservation) before the check-in: the late check-in keeps 505.
+    await ows({
+      action: 'CHANGE',
+      modifiedAt: '2026-10-04T08:00:00Z',
+      reservation: {
+        reservationId: `X1-${stamp}`,
+        arrivalDate: '2026-10-05',
+        departureDate: '2026-10-08',
+        guest: { profileId: `PX1-${stamp}`, firstName: 'Nour', lastName: 'East' },
+      },
+    });
+    const [reservation] = await of('hotel.reservation.updated');
+    expect(await project(reservation!)).toBe('processed');
+    expect(await project(move!)).toBe('processed'); // the retry now finds the stay
+    expect(await project(checkIn!)).toBe('processed');
+    // The stay behind PMS reservation X1 (external ids live only in the integration context).
+    const [ref] = (
+      await db.execute<{ id: string }>(
+        sql`select internal_entity_id as id from integration.external_references
+             where external_id = ${`X1-${stamp}`} and internal_entity_type = 'guest.stay'`,
+      )
+    ).rows;
+    const stayOf = async () =>
+      (await http().get(`${base()}/stays/${ref!.id}`).set('X-Test-Actor', gm()).expect(200)).body;
+    let stay = await stayOf();
+    expect(stay.currentRoom).toMatchObject({ roomNumber: '505', reason: 'ROOM_MOVE' });
+    expect(stay.status).toBe('IN_HOUSE');
+    expect(await project(checkOut!)).toBe('processed');
+    stay = await stayOf();
+    expect(stay.status).toBe('CHECKED_OUT');
   });
 
   it('PMS ids never become guest identifiers or keys', async () => {
