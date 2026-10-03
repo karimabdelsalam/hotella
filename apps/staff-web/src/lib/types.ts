@@ -136,3 +136,88 @@ export interface PropertyBrand {
   } | null;
   readonly resolved: ResolvedBrand;
 }
+
+// ---- engineering (see the engineering context's work order, asset and copilot services) ----
+
+export type WorkOrderStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+
+export interface WorkOrder {
+  readonly id: string;
+  readonly number: number;
+  readonly type: string;
+  readonly source: string;
+  readonly status: WorkOrderStatus;
+  readonly assetId: string | null;
+  readonly locationId: string;
+  readonly roomNumber: string | null;
+  readonly assetNumber: string | null;
+  readonly assetName: string | null;
+  readonly reportedAt: string;
+  readonly symptomCode: string | null;
+  readonly diagnosis: string | null;
+  readonly failureModeCode: string | null;
+  readonly causeCode: string | null;
+  readonly resolutionCode: string | null;
+  readonly downtimeStartedAt: string | null;
+  readonly downtimeEndedAt: string | null;
+  readonly downtimeMinutes: number | null;
+  readonly codingMissing: readonly string[];
+  readonly version: number;
+}
+
+export interface FailureCode {
+  readonly id: string;
+  readonly kind: 'SYMPTOM' | 'FAILURE_MODE' | 'CAUSE' | 'RESOLUTION';
+  readonly code: string;
+  readonly active: boolean;
+  readonly translations: ReadonlyArray<{ readonly locale: string; readonly name: string }>;
+}
+
+export interface Asset {
+  readonly id: string;
+  readonly assetNumber: string;
+  readonly name: string;
+  readonly locationId: string;
+  readonly status: 'ACTIVE' | 'OUT_OF_SERVICE' | 'RETIRED';
+  readonly criticality: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  readonly warrantyUntil: string | null;
+}
+
+export interface CopilotAnswer {
+  readonly executionId: string;
+  readonly outcome: 'ANSWERED' | 'DISABLED' | 'FAILED';
+  readonly answer: string | null;
+  readonly sources: ReadonlyArray<{
+    readonly documentId: string;
+    readonly title: string;
+    readonly versionNo: number;
+  }>;
+}
+
+// ---- arrivals (see the housekeeping context's arrival risk) ----
+
+export type ArrivalRiskReason =
+  | 'NO_ROOM_ASSIGNED'
+  | 'ROOM_RESTRICTED'
+  | 'ROOM_STILL_OCCUPIED'
+  | 'ROOM_DIRTY'
+  | 'ROOM_BEING_CLEANED'
+  | 'AWAITING_INSPECTION'
+  | 'OPEN_ENGINEERING_WORK'
+  | 'URGENT_ENGINEERING_WORK'
+  | 'ETA_SOON'
+  | 'ETA_PASSED'
+  | 'VIP_GUEST';
+
+export interface ArrivalRisk {
+  readonly stayId: string;
+  readonly guestName: string | null;
+  readonly vip: boolean;
+  readonly eta: string | null;
+  readonly roomNumber: string | null;
+  readonly housekeeping: string | null;
+  readonly ready: boolean;
+  readonly score: number;
+  readonly level: 'LOW' | 'MEDIUM' | 'HIGH';
+  readonly reasons: readonly ArrivalRiskReason[];
+}

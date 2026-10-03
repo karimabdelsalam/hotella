@@ -4,11 +4,19 @@ import { useLocale, useTranslations } from 'next-intl';
 import { BrandMark, Button, cx, GlobeIcon } from '@hotella/ui';
 import { Link, usePathname, useRouter } from '../i18n/navigation';
 import { routing } from '../i18n/routing';
+import { holdsAnywhere, useMe } from '../lib/access';
 import { logoUrl, useStaffBrand } from '../lib/brand';
 import { useSession } from '../lib/session';
 
 const NAMES: Record<string, string> = { en: 'English', ar: 'العربية' };
-const SECTIONS = ['inbox', 'housekeeping', 'branding'] as const;
+/** Each section and the permission that opens it (held at any property). */
+const SECTIONS = [
+  ['inbox', 'inbox.read'],
+  ['housekeeping', 'hk.board.read'],
+  ['engineering', 'eng.work_order.read'],
+  ['arrivals', 'hk.arrivals.read'],
+  ['branding', 'branding.manage'],
+] as const;
 
 /** The hotel's logo and name, the sections, the language and sign-out; logical spacing so it mirrors in Arabic. */
 export function Header() {
@@ -18,6 +26,8 @@ export function Header() {
   const pathname = usePathname();
   const session = useSession();
   const { brand } = useStaffBrand();
+  const me = useMe();
+  const sections = me ? SECTIONS.filter(([, permission]) => holdsAnywhere(me, permission)) : [];
   const name = brand?.displayName ?? t('title');
   return (
     <header className="border-b border-slate-200 bg-white shadow-sm">
@@ -31,9 +41,9 @@ export function Header() {
             {brand && <span className="text-xs text-slate-500">{t('title')}</span>}
           </div>
         </div>
-        {session.state === 'signed-in' && (
-          <nav aria-label={t('sections')} className="flex gap-1 text-sm">
-            {SECTIONS.map((section) => {
+        {session.state === 'signed-in' && sections.length > 0 && (
+          <nav aria-label={t('sections')} className="flex flex-wrap gap-1 text-sm">
+            {sections.map(([section]) => {
               const current = pathname.startsWith(`/${section}`);
               return (
                 <Link

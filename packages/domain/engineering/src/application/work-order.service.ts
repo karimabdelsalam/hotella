@@ -463,18 +463,35 @@ export class WorkOrderService {
   // ---- reading ----
 
   list(scope: PropertyScope, query: z.infer<typeof listWorkOrdersSchema>) {
-    return this.read(scope, async () =>
-      (
-        await this.repo.workOrdersOf(scope, {
-          ...(query.status ? { statuses: query.status } : {}),
-          ...(query.assetId ? { assetId: query.assetId } : {}),
-        })
-      ).map((w) => ({
+    return this.read(scope, async () => {
+      const orders = await this.repo.workOrdersOf(scope, {
+        ...(query.status ? { statuses: query.status } : {}),
+        ...(query.assetId ? { assetId: query.assetId } : {}),
+      });
+      const label = await this.labels(scope);
+      return orders.map((w) => ({
         ...w,
+        ...label(w),
         downtimeMinutes: downtimeMinutes(w.downtimeStartedAt, w.downtimeEndedAt),
         codingMissing: missingCoding(w.type, w),
-      })),
+      }));
+    });
+  }
+
+  /** Room number and asset number/name of an order, for the screens (one read of rooms and assets per list). */
+  private async labels(scope: PropertyScope) {
+    const rooms = new Map(
+      (await this.org.listRooms(scope.tenantId, scope.propertyId)).map((r) => [r.id, r.roomNumber]),
     );
+    const assets = new Map((await this.repo.assetsOf(scope, {})).map((a) => [a.id, a]));
+    return (w: { locationId: string; assetId: string | null }) => {
+      const asset = w.assetId ? assets.get(w.assetId) : undefined;
+      return {
+        roomNumber: rooms.get(w.locationId) ?? null,
+        assetNumber: asset?.assetNumber ?? null,
+        assetName: asset?.name ?? null,
+      };
+    };
   }
 
   get(scope: PropertyScope, id: string) {
@@ -483,6 +500,7 @@ export class WorkOrderService {
       const work = await this.ops.getWorkItem(scope.tenantId, w.workItemId);
       return {
         ...w,
+        ...(await this.labels(scope))(w),
         downtimeMinutes: downtimeMinutes(w.downtimeStartedAt, w.downtimeEndedAt),
         codingMissing: missingCoding(w.type, w),
         work: work

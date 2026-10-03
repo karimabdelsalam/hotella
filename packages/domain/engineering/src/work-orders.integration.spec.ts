@@ -121,6 +121,10 @@ describe.skipIf(needsInfra())(`Engineering work orders (${infraSkipReason()})`, 
       source: 'STAFF',
       status: 'OPEN',
     });
+    // Lists carry the labels the screens show.
+    expect(
+      (await h.http().get(`${base()}/work-orders`).set('X-Test-Actor', gm()).expect(200)).body,
+    ).toMatchObject([{ id: created.id, roomNumber: '504', assetNumber: 'FCU-504' }]);
     const work = await ops().getWorkItem(hotel.tenantId, created.workItemId);
     expect(work).toMatchObject({
       kind: 'ENG_WORK_ORDER',
