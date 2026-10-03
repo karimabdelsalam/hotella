@@ -23,6 +23,9 @@ export {
 } from './iam-events';
 export {
   GuestAnonymized,
+  GuestGrantChanged,
+  GuestGrantIssued,
+  GuestGrantRevoked,
   GuestMerged,
   GuestStayRoomChanged,
   StayCreated,

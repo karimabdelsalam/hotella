@@ -3,7 +3,16 @@ import { AttributionPolicyService } from './attribution.service';
 import { ConfigurationService } from './configuration.service';
 import { SettingsRegistry } from './registry';
 import { RetentionPolicyService } from './retention.service';
+import { SettingsReader } from './settings-reader';
 import { ConfigurationController, RetentionPoliciesController } from './settings.controller';
+
+/** Setting definitions and effective values, without routes (the worker reads property policy through it). */
+@Global()
+@Module({
+  providers: [SettingsRegistry, SettingsReader],
+  exports: [SettingsRegistry, SettingsReader],
+})
+export class SettingsCoreModule {}
 
 /**
  * Configuration, retention and attribution (declared in PLATFORM_MANIFEST: config.read, config.manage,
@@ -11,18 +20,9 @@ import { ConfigurationController, RetentionPoliciesController } from './settings
  */
 @Global()
 @Module({
+  imports: [SettingsCoreModule],
   controllers: [ConfigurationController, RetentionPoliciesController],
-  providers: [
-    SettingsRegistry,
-    ConfigurationService,
-    RetentionPolicyService,
-    AttributionPolicyService,
-  ],
-  exports: [
-    SettingsRegistry,
-    ConfigurationService,
-    RetentionPolicyService,
-    AttributionPolicyService,
-  ],
+  providers: [ConfigurationService, RetentionPolicyService, AttributionPolicyService],
+  exports: [ConfigurationService, RetentionPolicyService, AttributionPolicyService],
 })
 export class SettingsModule {}

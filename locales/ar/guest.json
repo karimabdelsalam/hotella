@@ -4,5 +4,11 @@
   "guest.permission.merge": "دمج ملفات النزلاء المكررة",
   "guest.permission.data_request_manage": "معالجة طلبات بيانات النزلاء (تصدير، تصحيح، إخفاء الهوية)",
   "guest.permission.stay_read": "عرض الإقامات والغرف والمرافقين",
-  "guest.permission.stay_manage": "إضافة ملاحظات على الإقامات"
+  "guest.permission.stay_manage": "إضافة ملاحظات على الإقامات",
+  "guest.permission.grant_revoke": "إلغاء صلاحية وصول الضيف",
+  "guest.setting.grant_in_stay_scopes": "ما يمكن للضيف الرئيسي فعله أثناء الإقامة",
+  "guest.setting.grant_companion_scopes": "ما يمكن للمرافقين فعله أثناء الإقامة",
+  "guest.setting.grant_pre_arrival_scopes": "ما يمكن للضيوف فعله قبل الوصول",
+  "guest.setting.grant_post_stay_scopes": "ما يحتفظ به الضيوف بعد المغادرة",
+  "guest.setting.grant_post_stay_hours": "عدد الساعات التي يحتفظ فيها الضيوف بصلاحيات ما بعد الإقامة بعد المغادرة"
 }

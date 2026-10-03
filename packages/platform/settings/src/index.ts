@@ -13,5 +13,6 @@ export {
 export type { ConfigScope, EffectiveValue, SettingDefinition, StoredValue } from './registry';
 export { RetentionPolicyService } from './retention.service';
 export type { RetentionPolicyInput } from './retention.service';
-export { SettingsModule } from './settings.module';
+export { SettingsCoreModule, SettingsModule } from './settings.module';
+export { SettingsReader } from './settings-reader';
 export * as settingsSchema from './schema/settings';

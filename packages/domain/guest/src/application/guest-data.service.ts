@@ -13,6 +13,8 @@ import { isUuid, newId, type PropertyScope, TransactionRunner } from '@hotella/p
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError } from '@hotella/platform-i18n';
 import { GuestRepositories } from '../infrastructure/repositories';
+import type { GrantActor } from '../public';
+import { GuestAccessService } from './access.service';
 import type { GuestRow } from '../infrastructure/schema';
 import { GUEST_ENTITY, STAY_ENTITY } from './stay-projector';
 
@@ -84,6 +86,7 @@ export class GuestDataService {
     private readonly actors: ActorStore,
     private readonly events: EventPublisher,
     @Inject(INTEGRATIONS_API) private readonly integrations: IntegrationsPublicApi,
+    private readonly access: GuestAccessService,
   ) {}
 
   // ---- preferences ----
@@ -201,6 +204,8 @@ export class GuestDataService {
       await this.repo.moveIdentifiers(scope, source.id, target.id);
       await this.repo.movePreferences(scope, source.id, target.id);
       await this.repo.moveConsents(scope, source.id, target.id);
+      // Access was granted to the duplicate; the survivor verifies again (a grant names exactly one guest).
+      await this.access.revokeAllOfGuest(scope, source.id, 'MERGED', this.grantActor());
       const links = await this.integrations.repointReferences(
         scope.tenantId,
         GUEST_ENTITY,
@@ -347,6 +352,8 @@ export class GuestDataService {
     });
     const identifiers = await this.repo.deleteIdentifiers(scope, guest.id);
     const preferences = await this.repo.deletePreferences(scope, guest.id);
+    // Every grant and guest session ends; device descriptions are cleared (they are personal data).
+    await this.access.revokeAllOfGuest(scope, guest.id, 'ANONYMIZED', this.grantActor());
     await this.repo.clearConsentEvidence(scope, guest.id);
     // The PMS profile no longer resolves to this guest; raw vendor messages about its stays lose their payload.
     const unlinked = await this.integrations.unlinkExternalIdentity(
@@ -418,6 +425,11 @@ export class GuestDataService {
   }
 
   private actor(): { type: string; id: string | null } {
+    const a = this.actors.get();
+    return { type: a?.type ?? 'SYSTEM', id: a?.id ?? null };
+  }
+
+  private grantActor(): GrantActor {
     const a = this.actors.get();
     return { type: a?.type ?? 'SYSTEM', id: a?.id ?? null };
   }

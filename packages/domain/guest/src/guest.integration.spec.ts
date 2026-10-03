@@ -38,6 +38,7 @@ import { StaysController } from './api/controllers';
 import { StayNotYetKnownError, StayProjector } from './application/stay-projector';
 import { GuestModule, projectOnce } from './guest.module';
 import { roomAssignments, stays } from './infrastructure/schema';
+import { GUEST_API, type GuestPublicApi } from './public';
 
 const admin = JSON.stringify({ type: 'USER', id: 'admin', tenantId: null, isPlatformAdmin: true });
 const user = (id: string, tenantId: string): string =>
@@ -45,6 +46,12 @@ const user = (id: string, tenantId: string): string =>
 const stamp = Date.now().toString(36).toUpperCase();
 const at = (value: unknown, path: string): unknown =>
   path.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown> | null)?.[k], value);
+/** The database's own message for a refused statement (drizzle wraps it). */
+const dbError = (fn: () => Promise<unknown>) =>
+  fn().then(
+    () => 'no error',
+    (e: { cause?: { message?: string } }) => e.cause?.message ?? String(e),
+  );
 const PERMS = [
   'org.property.read',
   'org.property.manage',
@@ -57,6 +64,7 @@ const PERMS = [
   'guest.merge',
   'guest.data_request.manage',
   'stay.read',
+  'guest.grant.revoke',
 ];
 
 describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReason()})`, () => {
@@ -447,11 +455,6 @@ describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReaso
     expect(consents.body.current).toMatchObject([{ type: 'MARKETING_EMAIL', granted: false }]);
     expect(consents.body.history).toHaveLength(2);
     // The database refuses to rewrite or delete consent history.
-    const dbError = (fn: () => Promise<unknown>) =>
-      fn().then(
-        () => 'no error',
-        (e: { cause?: { message?: string } }) => e.cause?.message ?? String(e),
-      );
     expect(
       await dbError(() =>
         db.execute(sql`update guest.guest_consents set granted = true where guest_id = ${amira}`),
@@ -646,6 +649,149 @@ describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReaso
     expect(await project(checkOut!)).toBe('processed');
     stay = await stayOf();
     expect(stay.status).toBe('CHECKED_OUT');
+  });
+
+  it('guest access follows the stay: pre-arrival, arrival, check-out window, staff revocation', async () => {
+    const api = app.get<GuestPublicApi>(GUEST_API);
+    // Dates relative to now: grant validity is checked against the real clock.
+    const day = (offset: number) => new Date(Date.now() + offset * 86_400_000);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const fiasDate = (d: Date) => iso(d).slice(2).replaceAll('-', '');
+    const fiasTime = (d: Date) => d.toISOString().slice(11, 19).replaceAll(':', '');
+    await ows({
+      action: 'NEW',
+      modifiedAt: new Date(Date.now() - 3_600_000).toISOString(),
+      reservation: {
+        reservationId: `R7-${stamp}`,
+        confirmationNo: `C7-${stamp}`,
+        arrivalDate: iso(day(0)),
+        departureDate: iso(day(3)),
+        adults: 2,
+        roomNumber: '504',
+        guest: { profileId: `P7-${stamp}`, firstName: 'Mona', lastName: 'Delta' },
+        sharers: [{ firstName: 'Ali', lastName: 'Delta' }],
+      },
+    });
+    await drain();
+    const stay = await stayByConfirmation(`C7-${stamp}`);
+    expect(stay.status).toBe('EXPECTED');
+    const primary = stay.party.find((m: { role: string }) => m.role === 'PRIMARY').guest.id;
+    const companion = stay.party.find((m: { role: string }) => m.role === 'ACCOMPANYING').guest.id;
+    const actor = { type: 'GUEST' as const, id: null };
+    const issue = (guestId: string) =>
+      api.issueGrant({
+        tenantId: tenantA,
+        propertyId: propertyA,
+        stayId: stay.id,
+        guestId,
+        via: 'ACTIVATION',
+        actor,
+      });
+
+    // Before arrival: a pre-arrival grant, reused for a second device; room-specific scopes are not part of it.
+    const pre = await issue(primary);
+    expect(pre).toMatchObject({ grantedVia: 'PRE_ARRIVAL', partyRole: 'PRIMARY' });
+    expect(pre.effectiveScopes).toEqual([
+      'SERVICE_REQUEST',
+      'CHAT',
+      'DINING',
+      'CONCIERGE',
+      'SUPPORT',
+    ]);
+    expect((await issue(primary)).id).toBe(pre.id);
+    const phone = await api.openGuestSession(tenantA, pre.id, 'phone');
+    const tablet = await api.openGuestSession(tenantA, pre.id, 'tablet');
+    expect(phone.token).not.toBe(tablet.token);
+    expect(await api.authenticateGuestSession(phone.token)).toMatchObject({
+      guestId: primary,
+      stayId: stay.id,
+      grantId: pre.id,
+    });
+    expect(await api.authenticateGuestSession('not-a-token')).toBeNull();
+    const companionGrant = await issue(companion);
+    const companionSession = await api.openGuestSession(tenantA, companionGrant.id, null);
+    // A guest outside the party gets nothing.
+    await expect(issue(await guestNamed('Lina'))).rejects.toMatchObject({
+      code: 'guest.grant.not_in_party',
+    });
+
+    // Arrival widens both grants: the primary guest gets the bill, the companion does not.
+    const arrived = new Date(Date.now() - 120_000);
+    await fias(
+      `GI|RN505|G#R7-${stamp}|GNDelta|GFMona|GD${fiasDate(day(3))}|DA${fiasDate(arrived)}|TI${fiasTime(arrived)}|`,
+    );
+    await drain();
+    const inHouse = (await api.authenticateGuestSession(phone.token))!;
+    expect(inHouse.scopes).toContain('VIEW_BILL');
+    expect(inHouse.scopes).toContain('ROOM_CONTROL');
+    const comp = (await api.authenticateGuestSession(companionSession.token))!;
+    expect(comp.scopes).toContain('ROOM_CONTROL');
+    expect(comp.scopes).not.toContain('VIEW_BILL');
+
+    // Check-out keeps only the post-stay scopes for the window; sessions survive for those scopes.
+    const left = new Date(Date.now() - 60_000);
+    await fias(`GO|RN505|G#R7-${stamp}|DA${fiasDate(left)}|TI${fiasTime(left)}|`);
+    await drain();
+    expect((await api.authenticateGuestSession(phone.token))!.scopes).toEqual([
+      'LOST_FOUND',
+      'FEEDBACK',
+      'INVOICE',
+      'SUPPORT',
+    ]);
+    expect((await api.authenticateGuestSession(companionSession.token))!.scopes).toEqual([
+      'LOST_FOUND',
+      'FEEDBACK',
+      'SUPPORT',
+    ]);
+    // Verifying again after check-out returns the live post-stay grant; it never widens back.
+    const again = await issue(primary);
+    expect(again).toMatchObject({
+      id: pre.id,
+      effectiveScopes: ['LOST_FOUND', 'FEEDBACK', 'INVOICE', 'SUPPORT'],
+    });
+    const changed = await guestEvents('guest.grant.changed');
+    expect(changed.map((e) => at(e.envelope, 'payload.change'))).toEqual(
+      expect.arrayContaining(['WIDENED', 'NARROWED']),
+    );
+
+    // Staff see the grants with their history and end one; every session on it ends at once.
+    const list = await http()
+      .get(`${base()}/stays/${stay.id}/grants`)
+      .set('X-Test-Actor', gm())
+      .expect(200);
+    const listed = (list.body as Array<{ id: string; history: Array<{ kind: string }> }>).find(
+      (g) => g.id === pre.id,
+    )!;
+    expect(listed.history.map((h) => h.kind)).toEqual(['GRANTED', 'WIDENED', 'NARROWED']);
+    await http()
+      .post(`${base()}/guest-grants/${pre.id}/revoke`)
+      .set('X-Test-Actor', gm())
+      .send({ reason: 'Guest asked to sign out every device' })
+      .expect(200);
+    expect(await api.authenticateGuestSession(phone.token)).toBeNull();
+    expect(await api.authenticateGuestSession(tablet.token)).toBeNull();
+    await http()
+      .post(`${base()}/guest-grants/${pre.id}/revoke`)
+      .set('X-Test-Actor', gm())
+      .send({ reason: 'Guest asked to sign out every device' })
+      .expect(409);
+    const revoked = await guestEvents('guest.grant.revoked');
+    expect(at(revoked.at(-1)!.envelope, 'payload')).toMatchObject({
+      reason: 'STAFF',
+      sessions_revoked: 2,
+    });
+    // History is append-only; another tenant never sees the grants.
+    expect(
+      await dbError(() =>
+        db.execute(
+          sql`update guest.guest_access_grant_events set reason = 'X' where grant_id = ${pre.id}`,
+        ),
+      ),
+    ).toMatch(/append-only/);
+    await http()
+      .get(`${base()}/stays/${stay.id}/grants`)
+      .set('X-Test-Actor', user('other', tenantB))
+      .expect(404);
   });
 
   it('PMS ids never become guest identifiers or keys', async () => {

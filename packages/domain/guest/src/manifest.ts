@@ -1,5 +1,8 @@
 import {
   GuestAnonymized,
+  GuestGrantChanged,
+  GuestGrantIssued,
+  GuestGrantRevoked,
   GuestMerged,
   GuestStayRoomChanged,
   StayCreated,
@@ -23,6 +26,7 @@ export const GUEST_MANIFEST = defineManifest({
     },
     { code: 'stay.read', descriptionKey: 'guest.permission.stay_read', risk: 'READ' },
     { code: 'stay.manage', descriptionKey: 'guest.permission.stay_manage', risk: 'MEDIUM' },
+    { code: 'guest.grant.revoke', descriptionKey: 'guest.permission.grant_revoke', risk: 'MEDIUM' },
   ],
   events: [
     StayCreated.name,
@@ -30,6 +34,9 @@ export const GUEST_MANIFEST = defineManifest({
     GuestStayRoomChanged.name,
     GuestMerged.name,
     GuestAnonymized.name,
+    GuestGrantIssued.name,
+    GuestGrantChanged.name,
+    GuestGrantRevoked.name,
   ],
   localeNamespaces: ['guest'],
   integrationCapabilities: [

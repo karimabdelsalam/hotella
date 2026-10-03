@@ -431,3 +431,145 @@ export const guestDataRequests = classify(
 export type GuestPreferenceRow = typeof guestPreferences.$inferSelect;
 export type GuestConsentRow = typeof guestConsents.$inferSelect;
 export type GuestDataRequestRow = typeof guestDataRequests.$inferSelect;
+
+// ---- guest access (Spec §19–§22, ADR-0011) ----
+
+export const grantVia = guest.enum('grant_via', ['ACTIVATION', 'QR', 'STAFF', 'PRE_ARRIVAL']);
+export const grantEventKind = guest.enum('grant_event_kind', [
+  'GRANTED',
+  'WIDENED',
+  'NARROWED',
+  'REVOKED',
+]);
+
+/**
+ * What a verified guest may do for a stay (Spec §19.3, §21). The phone or channel identity is never authorization
+ * (§18.3): every guest request is checked against an active grant. Scopes change only with a row in
+ * `guest_access_grant_events` (CLAUDE.md rule 10).
+ */
+export const guestAccessGrants = classify(
+  guest.table(
+    'guest_access_grants',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      guestId: uuid('guest_id')
+        .notNull()
+        .references(() => guests.id),
+      stayId: uuid('stay_id').references(() => stays.id),
+      /** PRIMARY or ACCOMPANYING in the stay party when granted; companions get narrower scopes. */
+      partyRole: partyRole('party_role').notNull(),
+      scopes: text('scopes').array().notNull(),
+      validFrom: tz('valid_from').notNull(),
+      validUntil: tz('valid_until').notNull(),
+      revokedAt: tz('revoked_at'),
+      revokeReason: varchar('revoke_reason', { length: 32 }),
+      grantedVia: grantVia('granted_via').notNull(),
+      grantedByType: varchar('granted_by_type', { length: 16 }).notNull(),
+      grantedById: varchar('granted_by_id', { length: 64 }),
+      ...versioned(),
+    },
+    (t) => [
+      index('guest_access_grants_stay_idx').on(t.tenantId, t.stayId),
+      index('guest_access_grants_guest_idx').on(t.tenantId, t.guestId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    guestId: 'INTERNAL',
+    stayId: 'INTERNAL',
+    partyRole: 'INTERNAL',
+    scopes: 'INTERNAL',
+    validFrom: 'INTERNAL',
+    validUntil: 'INTERNAL',
+    revokedAt: 'INTERNAL',
+    revokeReason: 'INTERNAL',
+    grantedVia: 'INTERNAL',
+    grantedByType: 'INTERNAL',
+    grantedById: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Append-only history of a grant's scopes and validity (a trigger refuses UPDATE/DELETE). */
+export const guestAccessGrantEvents = classify(
+  guest.table(
+    'guest_access_grant_events',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      grantId: uuid('grant_id')
+        .notNull()
+        .references(() => guestAccessGrants.id),
+      kind: grantEventKind('kind').notNull(),
+      scopes: text('scopes').array().notNull(),
+      validUntil: tz('valid_until').notNull(),
+      reason: varchar('reason', { length: 32 }).notNull(),
+      changedByType: varchar('changed_by_type', { length: 16 }).notNull(),
+      changedById: varchar('changed_by_id', { length: 64 }),
+      at: tz('at').notNull(),
+    },
+    (t) => [index('guest_access_grant_events_grant_idx').on(t.grantId, t.at)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    grantId: 'INTERNAL',
+    kind: 'INTERNAL',
+    scopes: 'INTERNAL',
+    validUntil: 'INTERNAL',
+    reason: 'INTERNAL',
+    changedByType: 'INTERNAL',
+    changedById: 'INTERNAL',
+    at: 'INTERNAL',
+  },
+);
+
+/** Passwordless guest sessions on a grant; several devices per grant; all end when the grant is revoked. */
+export const guestSessions = classify(
+  guest.table(
+    'guest_sessions',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      grantId: uuid('grant_id')
+        .notNull()
+        .references(() => guestAccessGrants.id),
+      /** SHA-256 of the opaque 256-bit session token; the token itself is returned once. */
+      sessionTokenHash: varchar('session_token_hash', { length: 64 }).notNull(),
+      deviceInfo: varchar('device_info', { length: 200 }),
+      lastSeenAt: tz('last_seen_at').notNull(),
+      expiresAt: tz('expires_at').notNull(),
+      revokedAt: tz('revoked_at'),
+      revokeReason: varchar('revoke_reason', { length: 32 }),
+    },
+    (t) => [
+      uniqueIndex('guest_sessions_token_uq').on(t.sessionTokenHash),
+      index('guest_sessions_grant_idx').on(t.grantId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    grantId: 'INTERNAL',
+    sessionTokenHash: 'RESTRICTED',
+    deviceInfo: 'CONFIDENTIAL',
+    lastSeenAt: 'INTERNAL',
+    expiresAt: 'INTERNAL',
+    revokedAt: 'INTERNAL',
+    revokeReason: 'INTERNAL',
+  },
+);
+
+export type GuestAccessGrantRow = typeof guestAccessGrants.$inferSelect;
+export type GuestAccessGrantEventRow = typeof guestAccessGrantEvents.$inferSelect;
+export type GuestSessionRow = typeof guestSessions.$inferSelect;

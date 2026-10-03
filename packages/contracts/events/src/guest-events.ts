@@ -72,3 +72,53 @@ export const GuestAnonymized = defineEvent({
     'A guest was anonymized on request (Spec §69): identifying data is gone; operational history stays. Contexts holding copies of guest data must drop them.',
   payload: z.object({ guest_id: z.uuid() }),
 });
+
+const grantScopes = z.array(z.string().regex(/^[A-Z_]+$/)).max(20);
+
+export const GuestGrantIssued = defineEvent({
+  type: 'guest.grant.issued',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A verified guest received access for a stay (activation, room QR, staff-assisted or pre-arrival). Spec §19.3.',
+  payload: z.object({
+    grant_id: z.uuid(),
+    guest_id: z.uuid(),
+    stay_id: z.uuid().nullable(),
+    scopes: grantScopes,
+    granted_via: z.enum(['ACTIVATION', 'QR', 'STAFF', 'PRE_ARRIVAL']),
+    valid_until: z.iso.datetime({ offset: true }),
+  }),
+});
+
+export const GuestGrantChanged = defineEvent({
+  type: 'guest.grant.changed',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A grant followed its stay: widened on arrival, narrowed to the post-stay scopes at check-out (Spec §21).',
+  payload: z.object({
+    grant_id: z.uuid(),
+    guest_id: z.uuid(),
+    stay_id: z.uuid().nullable(),
+    change: z.enum(['WIDENED', 'NARROWED']),
+    scopes: grantScopes,
+    valid_until: z.iso.datetime({ offset: true }),
+    reason: z.string().max(32),
+  }),
+});
+
+export const GuestGrantRevoked = defineEvent({
+  type: 'guest.grant.revoked',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'A grant and every guest session on it ended (check-out without post-stay scopes, cancellation, staff, anonymization).',
+  payload: z.object({
+    grant_id: z.uuid(),
+    guest_id: z.uuid(),
+    stay_id: z.uuid().nullable(),
+    reason: z.string().max(32),
+    sessions_revoked: z.number().int().min(0),
+  }),
+});

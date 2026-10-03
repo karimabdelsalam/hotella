@@ -2,7 +2,11 @@ import { Global, Module, type OnModuleInit } from '@nestjs/common';
 import { IdempotentConsumer } from '@hotella/platform-events';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { EventConsumerRegistry } from '@hotella/platform-queue';
-import { GuestProfilesController, StaysController } from './api/controllers';
+import { GuestAccessController, GuestProfilesController, StaysController } from './api/controllers';
+import { GuestAccessAdminService, GuestAccessService } from './application/access.service';
+import { GUEST_SETTINGS } from './domain/settings';
+import { AccessRepositories } from './infrastructure/access-repositories';
+import { SettingsRegistry } from '@hotella/platform-settings';
 import { GuestQueryService, StayQueryService } from './application/queries';
 import { StayProjector } from './application/stay-projector';
 import { StayReconciler } from './application/stay-reconciler';
@@ -24,25 +28,38 @@ export const STAY_RECONCILER_CONSUMER = 'guest.stay-reconciler';
 @Module({
   providers: [
     GuestRepositories,
+    AccessRepositories,
+    GuestAccessService,
     StayProjector,
     StayReconciler,
     GuestPublicApiService,
     { provide: GUEST_API, useExisting: GuestPublicApiService },
   ],
-  exports: [GUEST_API, StayProjector, StayReconciler, GuestRepositories],
+  exports: [
+    GUEST_API,
+    StayProjector,
+    StayReconciler,
+    GuestRepositories,
+    AccessRepositories,
+    GuestAccessService,
+  ],
 })
 export class GuestCoreModule {}
 
 /** Staff read API and manifest, for the API process. */
 @Module({
   imports: [GuestCoreModule],
-  controllers: [StaysController, GuestProfilesController],
-  providers: [StayQueryService, GuestQueryService, GuestDataService],
+  controllers: [StaysController, GuestProfilesController, GuestAccessController],
+  providers: [StayQueryService, GuestQueryService, GuestDataService, GuestAccessAdminService],
 })
 export class GuestModule implements OnModuleInit {
-  constructor(private readonly manifests: ManifestRegistry) {}
+  constructor(
+    private readonly manifests: ManifestRegistry,
+    private readonly settings: SettingsRegistry,
+  ) {}
   onModuleInit(): void {
     this.manifests.register(GUEST_MANIFEST);
+    this.settings.register(...GUEST_SETTINGS);
   }
 }
 

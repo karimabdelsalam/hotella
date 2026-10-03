@@ -774,6 +774,10 @@ comms.message_delivery_events   id, message_id, status (QUEUED|SENT|DELIVERED|RE
 comms.activation_tokens         id, tenant_id, property_id, stay_id, token_hash, purpose, expires_at, used_at, revoked_at, created_by
 comms.verification_sessions     id, tenant_id, property_id, stay_id nullable, room_id nullable, phone_normalized, otp_hash,
                                 attempts, max_attempts, expires_at, verified_at, channel (WHATSAPP|SMS), activation_token_id nullable
+comms.verification_deliveries   id, tenant_id, session_id, channel (WHATSAPP|SMS|VOICE|STAFF), provider_code, status, provider_ref,
+                                error_code, sent_at — one row per delivery attempt of the same code (ADR-0015)
+comms.inbound_events            id, tenant_id, property_id, channel_id, provider_event_id unique per channel, payload jsonb,
+                                received_at, processed_at, status — raw webhook store, normalized by the worker
 comms.room_qr_codes             id, tenant_id, property_id, room_id (location), token_hash, status (ACTIVE|ROTATED|REVOKED),
                                 created_at, rotated_from — contains no guest data
 comms.inbox_views               (materialized/read model) conversation + guest + stay + room + open work items + SLA risk + AI summary placeholder
@@ -818,6 +822,103 @@ Events: `comms.conversation.opened.v1`, `comms.message.received.v1`, `comms.mess
 - Checkout revokes `SERVICE_REQUEST` and keeps `LOST_FOUND` for the configured window.
 - QR rotation: old printed token rejected, new accepted; QR payload contains only an opaque token.
 - Staff inbox shows guest/stay/room/open work items for the conversation; takeover marks `HANDED_OFF` and stops any auto mode.
+
+### 8.7 Design decisions taken before coding (spec and ADR-0011/0015 applied)
+
+- **Package** `@hotella/domain-communications` (schema `comms`) owns channels, channel identities, conversations,
+  messages, activation tokens, verification sessions/deliveries and room QR codes. **Grants and guest sessions belong to
+  the guest context** (`guest.guest_access_grants`, `guest.guest_sessions`); communications creates and reads them only
+  through `GUEST_API` (CLAUDE.md rule 19: identity and grants are platform-owned, no PMS change).
+- **Internal ids only:** activation and the post-stay rules react to `guest.stay.status_changed.v1` (the guest context
+  already turned PMS facts into stays), never to `hotel.*` events with external ids. Checkout revokes stay-bound scopes
+  and every session of the grant **inside the projector transaction that checks the stay out** (same context, so no
+  window in which a checked-out guest still acts), then publishes `guest.grant.revoked.v1`; communications consumes it to
+  close the stay-bound conversation and switch AI mode off.
+- **Guest authentication** is separate from staff tokens: guest routes are `@Public()` for the staff guard and protected
+  by a `GuestSessionGuard` (header `X-Guest-Session`, opaque 256-bit token, SHA-256 at rest) that resolves the session,
+  its grant and the stay on every request and sets the actor (`GUEST`). Scopes are checked per route
+  (`@RequireGuestScope('CHAT')`). Sessions slide (default 7 days, never past the grant).
+- **Secrets:** the OTP HMAC key is a SecretRef (`COMMS_OTP_HMAC_KEY_REF`); provider credentials are the channel's
+  `credential_ref`; the webhook verification secret is part of those credentials. No token, code or phone number is
+  logged; phone numbers are stored normalized (E.164) and classified SENSITIVE.
+- **OTP**: 6 digits, HMAC-SHA256(key, session id ‖ code), 5 minutes, 5 attempts per session across channels; per-phone
+  (5 sessions per hour) and per-IP (route rate limit) limits; a verified or locked session cannot be reused. The
+  fallback chain of ADR-0015 is deterministic code: primary channel → automatic fallback when the provider refuses or no
+  delivery receipt arrives within `comms.otp.fallback_timeout_seconds` (a 5 s sweep, `comms.otp.fallback`) → manual
+  fallback after `comms.otp.manual_fallback_after_seconds` → staff-assisted verification. The voice adapter stays off.
+- **Activation delivery:** when a stay goes in house and its primary guest already has a verified WhatsApp identity at
+  the tenant, a token is minted and the activation template is sent; otherwise front desk issues a token on demand and
+  the URL (and its QR) is shown once (tokens are hashed, so they cannot be shown again; issuing a new one revokes the
+  previous one for that stay and purpose).
+- **Configuration keys** (property-overridable): `comms.otp.primary_channel`, `comms.otp.fallback_channels`,
+  `comms.otp.fallback_timeout_seconds`, `comms.otp.manual_fallback_after_seconds`, `comms.otp.staff_assist_enabled`,
+  `comms.activation.token_ttl_hours`; `guest.grant.in_stay_scopes`, `guest.grant.companion_scopes`,
+  `guest.grant.pre_arrival_scopes`, `guest.grant.post_stay_scopes`, `guest.grant.post_stay_hours`.
+- **Inbound webhooks** are stored raw first (`comms.inbound_events`, CONFIDENTIAL, purged by retention) after signature
+  verification, then normalized by the worker; a duplicate provider message id is a no-op. Raw vendor payloads are not
+  domain events (rule 6).
+- **Outbound messages** are written `QUEUED` and sent by a worker job with retries (like e-mail notifications); OTP
+  sends are the exception and go out inside the request so the guest waits on one round trip.
+- **Channel health** is the communications context's (`comms.channels.health`: HEALTHY/DEGRADED/OFFLINE/AUTH_FAILED,
+  from send outcomes); OFFLINE/AUTH_FAILED pre-empts OTP to the fallback and raises one deduplicated operations alert
+  through `OPERATIONS_API.raiseAlert`. The ops notification dispatcher gets `WHATSAPP`/`SMS` delivery through the same
+  adapters once staff phone numbers exist (Phase 5); until then they stay skipped.
+- **Inbox read model** is a query over conversations joined through public APIs (guest, stay, room, open work items,
+  SLA risk) at pilot scale; a materialized projection is introduced only if profiling shows the need.
+
+### 8.8 Migrations and tests
+
+- `0015_guest_access` (grants, grant history, sessions), `0016_comms_channels` (channels, channel identities),
+  `0017_comms_activation` (activation tokens, verification sessions, verification deliveries, room QR codes),
+  `0018_comms_conversations` (inbound events, conversations, participants, messages, delivery events); forced RLS, tenant/property FKs,
+  partial unique indexes (one ACTIVE QR per room, one open stay-bound conversation per stay, one verified identity per
+  channel type and identifier per tenant).
+- Unit: phone normalization (E.164, Egyptian local formats), OTP generation/verification and HMAC, attempt/expiry
+  rules, fallback decision table (provider error, no receipt, health pre-emption, manual fallback timing), grant scope
+  policy (primary vs companion vs pre-arrival vs post-stay), Meta Cloud webhook signature (HMAC-SHA256 `X-Hub-Signature-256`)
+  and payload parsing, BSP adapter mapping, conversation routing table.
+- Integration (real PostgreSQL/Valkey, fake providers): check-in → token → OTP → grant → session; WhatsApp error → SMS
+  receives the same code with a continuous attempt counter; OFFLINE channel → straight to SMS + one alert; brute force
+  locks; replayed token → 410; QR rotation; checkout revokes in-stay scopes and sessions, keeps post-stay scopes for the
+  window; inbound message from a verified phone lands in the stay's conversation; unverified phone gets the activation
+  prompt; staff inbox, assignment, takeover (`HANDED_OFF`, AI off), close; tenant-leak test (404 + RLS).
+- Contract tests: the same activation flow and inbound/outbound message flow run against the Meta Cloud API adapter
+  and the generic BSP adapter (recorded provider payloads, no network).
+- e2e: the guest API and staff inbox routes with the role catalog (front desk, guest relations, duty manager).
+
+### 8.9 Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 4.1 | Guest access in the guest context: grants (scopes by policy, companions narrower, pre-arrival, post-stay window), guest sessions, `GUEST_API` (issue grant, open/authenticate/revoke session), checkout revocation in the projector, `guest.grant.revoked.v1`, staff grants list/revoke; `@hotella/domain-communications` skeleton: channels CRUD with `credential_ref`, `MessagingProvider`/`SmsProvider` ports with fake adapters, channel identities, phone normalization, manifest | delivered |
+| 4.2 | Activation: tokens (on in-house stays with a verified identity, front-desk issuance/revoke), verification sessions with HMAC OTP, delivery chain WhatsApp → SMS with `verification_deliveries`, fallback sweep, health pre-emption + alert, rate limits, guest routes (`/guest/activation/*`, `/guest/me`), `GuestSessionGuard`, staff-assisted verification; room QR codes (generate, rotate, revoke, verify with last name); `guest.activated.v1` | planned |
+| 4.3 | Messaging: Meta Cloud API and generic BSP adapters (templates, text, media refs, webhook signatures, delivery receipts) with contract tests; webhooks with raw store and worker normalization; conversations, participants, messages, delivery events; routing by verified identity + active grant; activation prompt for unverified phones; outbound queue with retries; staff inbox (list/filter, detail with guest/stay/room/open work, send, assign, takeover/handoff, close); guest conversation routes; checkout closes stay conversations; `comms.*` events | planned |
+| 4.4 | `apps/realtime` WebSocket gateway (staff access token / guest session; inbox and conversation updates through Valkey pub/sub); printable room QR sheet; pilot smoke extended to activation; Phase 4 acceptance (`docs/acceptance/phase-4.md`) | planned |
+
+Reality notes for 4.1:
+- Grants carry the party role and their scopes; every change is a row in `guest.guest_access_grant_events`
+  (GRANTED/WIDENED/NARROWED/REVOKED, append-only by trigger), so history is never overwritten (rule 10). A pre-arrival
+  grant widens to the in-stay (primary) or companion scopes when the stay goes in house; check-out narrows it to the
+  post-stay scopes it holds for `guest.grant.post_stay_hours` (72 by default) and caps its sessions there — revoking the
+  grant and every session when nothing remains; cancellation and no-show revoke. This runs in the projector's
+  transaction (`GuestAccessService.followStay`), so a checked-out guest never keeps in-stay access.
+- `PAYMENT` is not in any default scope set: a property opts in through configuration.
+- One live grant per guest and stay, reused for every device; verifying again after check-out returns the post-stay
+  grant, never a wider one. Anonymization and merges revoke the guest's grants (device descriptions are cleared).
+- Guest sessions: opaque 256-bit tokens, SHA-256 at rest, 7-day sliding expiry capped at the grant, `last_seen_at`
+  written at most once a minute; `GUEST_API.authenticateGuestSession` re-checks session, grant and validity on every
+  call. The HTTP guard that uses it arrives with the guest routes in 4.2.
+- Events: `guest.grant.issued.v1` (stands in for the plan's `guest.activated.v1`; activation is one of its `granted_via`
+  values), `guest.grant.changed.v1`, `guest.grant.revoked.v1`; permission `guest.grant.revoke` (guest desks and
+  managers); staff routes `GET /properties/:p/stays/:s/grants` (with history) and `POST /properties/:p/guest-grants/:g/revoke`.
+- `@hotella/platform-settings` gained a route-free `SettingsCoreModule`/`SettingsReader`, so the worker reads property
+  policy without the configuration API.
+- Communications: channels are created for adapter-backed types (`WHATSAPP`, `SMS`) only; web and QR entry points need
+  no channel row. Adapters register in `ChannelAdapterRegistry`; the in-memory `FAKE_WHATSAPP`/`FAKE_SMS` adapters
+  serve tests and local development; Meta Cloud API and BSP adapters arrive in 4.3. Channel identities are one row per
+  identifier per tenant (the guest it was last verified for); anonymization removes them (worker consumer of
+  `guest.guest.anonymized.v1`). Phone numbers normalize to E.164 with the property's country for national forms;
+  ambiguous input is refused.
 
 ---
 

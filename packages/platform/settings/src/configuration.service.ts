@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
-import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { ConfigurationChanged } from '@hotella/contracts-events';
 import { AuditWriter } from '@hotella/platform-audit';
 import {
@@ -21,12 +21,12 @@ import { InjectLogger, type Logger, RequestContext } from '@hotella/platform-obs
 import {
   type ConfigScope,
   type EffectiveValue,
-  resolveEffective,
   type SettingDefinition,
   SettingsRegistry,
 } from './registry';
 import { configuration, configurationHistory, type ConfigurationRow } from './schema/settings';
 import { actingTenant } from './scope';
+import { SettingsReader } from './settings-reader';
 
 export interface ScopeTarget {
   readonly scope: ConfigScope;
@@ -48,6 +48,7 @@ export class ConfigurationService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly registry: SettingsRegistry,
+    private readonly reader: SettingsReader,
     private readonly gate: ActionGate,
     private readonly actors: ActorStore,
     private readonly tx: TransactionRunner,
@@ -61,33 +62,11 @@ export class ConfigurationService {
   ) {}
 
   /** Effective value for code paths (no permission check: callers already act within an authorized scope). */
-  async effective<T>(
+  effective<T>(
     def: SettingDefinition<T>,
     at: { tenantId?: string | null; propertyId?: string | null } = {},
   ): Promise<EffectiveValue<T>> {
-    const tenantId = at.tenantId ?? null;
-    const propertyId = at.propertyId ?? null;
-    const scopes = [and(eq(configuration.scope, 'PLATFORM'), isNull(configuration.scopeId))];
-    if (tenantId)
-      scopes.push(and(eq(configuration.scope, 'TENANT'), eq(configuration.scopeId, tenantId)));
-    if (tenantId && propertyId)
-      scopes.push(
-        and(
-          eq(configuration.scope, 'PROPERTY'),
-          eq(configuration.scopeId, propertyId),
-          eq(configuration.tenantId, tenantId),
-        ),
-      );
-    const rows = await executor(this.db)
-      .select()
-      .from(configuration)
-      .where(and(eq(configuration.key, def.key), or(...scopes)));
-    return resolveEffective(
-      def,
-      rows.map((r) => ({ scope: r.scope as ConfigScope, value: r.value, version: r.version })),
-      (scope) =>
-        this.logger.warn({ key: def.key, scope }, 'stored configuration value rejected by schema'),
-    );
+    return this.reader.effective(def, at);
   }
 
   /** Same as effective(), for an API caller holding config.read in that scope. */

@@ -4,5 +4,11 @@
   "guest.permission.merge": "Merge duplicate guest profiles",
   "guest.permission.data_request_manage": "Handle guest data requests (export, correction, anonymization)",
   "guest.permission.stay_read": "View stays, rooms and parties",
-  "guest.permission.stay_manage": "Annotate stays"
+  "guest.permission.stay_manage": "Annotate stays",
+  "guest.permission.grant_revoke": "Revoke a guest's access",
+  "guest.setting.grant_in_stay_scopes": "What the primary guest may do during the stay",
+  "guest.setting.grant_companion_scopes": "What accompanying guests may do during the stay",
+  "guest.setting.grant_pre_arrival_scopes": "What guests may do before arrival",
+  "guest.setting.grant_post_stay_scopes": "What guests keep after check-out",
+  "guest.setting.grant_post_stay_hours": "How many hours after check-out guests keep the post-stay access"
 }

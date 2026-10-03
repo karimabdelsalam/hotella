@@ -1,11 +1,22 @@
 import { Injectable } from '@nestjs/common';
+import { GuestAccessService } from './application/access.service';
 import { GuestRepositories } from './infrastructure/repositories';
 import type { StayRow } from './infrastructure/schema';
-import type { GuestPublicApi, StaySummary } from './public';
+import type {
+  GrantSummary,
+  GuestPrincipal,
+  GuestPublicApi,
+  IssueGrantInput,
+  OpenedGuestSession,
+  StaySummary,
+} from './public';
 
 @Injectable()
 export class GuestPublicApiService implements GuestPublicApi {
-  constructor(private readonly repo: GuestRepositories) {}
+  constructor(
+    private readonly repo: GuestRepositories,
+    private readonly access: GuestAccessService,
+  ) {}
 
   async getStay(tenantId: string, stayId: string): Promise<StaySummary | null> {
     const stay = await this.repo.stay({ tenantId }, stayId);
@@ -21,6 +32,30 @@ export class GuestPublicApiService implements GuestPublicApi {
     const out: StaySummary[] = [];
     for (const s of stays) out.push(await this.summary(tenantId, s));
     return out;
+  }
+
+  issueGrant(input: IssueGrantInput): Promise<GrantSummary> {
+    return this.access.issueGrant(input);
+  }
+  openGuestSession(
+    tenantId: string,
+    grantId: string,
+    deviceInfo: string | null,
+  ): Promise<OpenedGuestSession> {
+    return this.access.openSession(tenantId, grantId, deviceInfo);
+  }
+  authenticateGuestSession(token: string): Promise<GuestPrincipal | null> {
+    return this.access.authenticate(token);
+  }
+  revokeGuestSession(tenantId: string, sessionId: string, reason: string): Promise<boolean> {
+    return this.access.revokeSession(tenantId, sessionId, reason);
+  }
+  liveGrantAtProperty(
+    tenantId: string,
+    propertyId: string,
+    guestId: string,
+  ): Promise<GrantSummary | null> {
+    return this.access.liveGrantAtProperty(tenantId, propertyId, guestId);
   }
 
   private async summary(tenantId: string, s: StayRow): Promise<StaySummary> {

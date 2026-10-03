@@ -72,11 +72,15 @@ packages/
                                      → integrations (schema `integration`: connectors, instances, raw message inbox,
                                        parser/mapper → canonical hotel.* events, mappings, exceptions, external refs)
                                      → guest (schema `guest`: guests, stays, party, room-assignment history — written only
-                                       by the StayProjector from canonical events; staff API is read-only)
+                                       by the StayProjector from canonical events; staff API is read-only; guest access
+                                       grants and passwordless guest sessions that follow the stay)
                                      → operations (schema `ops`: the one operations engine — work items created by modules
                                        through OPERATIONS_API, tasks, assignment history, task history, SLA with business
                                        hours and escalation ladders, deduplicated alerts, immutable workflow versions,
                                        generic approvals, notification intents → deliveries (in-app, e-mail))
+                                     → communications (schema `comms`: channels bound to provider adapters — WhatsApp via
+                                       Meta Cloud API or a BSP, SMS — with SecretRef credentials, channel identities;
+                                       activation/OTP, room QR, conversations and the inbox arrive through Phase 4)
   contracts/   zod schemas shared by everything → events (incl. canonical hotel.*), api, connectors (Connector SDK v0),
                                        later ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend

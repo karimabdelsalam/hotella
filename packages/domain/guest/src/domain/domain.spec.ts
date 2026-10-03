@@ -1,4 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import {
+  decideGrant,
+  effectiveScopes,
+  type GrantPolicy,
+  grantOnStayStatus,
+  GUEST_SESSION_TTL_MS,
+  sessionExpiry,
+} from './access';
 import { maskIdentifier, normalizeEmail, normalizePhone, sameName } from './identity';
 import { reconcileInHouse } from './reconcile';
 import { type StayFacts, transition } from './stay-state';
@@ -131,5 +139,102 @@ describe('in-house reconciliation', () => {
       platform_room_id: 'r2',
     });
     expect(findings[3]!.details).toMatchObject({ field: 'status', platform: 'CHECKED_OUT' });
+  });
+});
+
+describe('guest access policy (Spec §21)', () => {
+  const policy: GrantPolicy = {
+    inStayScopes: [
+      'SERVICE_REQUEST',
+      'CHAT',
+      'ROOM_CONTROL',
+      'VIEW_BILL',
+      'LOST_FOUND',
+      'FEEDBACK',
+    ],
+    companionScopes: ['SERVICE_REQUEST', 'CHAT', 'ROOM_CONTROL', 'LOST_FOUND'],
+    preArrivalScopes: ['CHAT', 'SERVICE_REQUEST'],
+    postStayScopes: ['LOST_FOUND', 'FEEDBACK', 'INVOICE'],
+    postStayHours: 72,
+  };
+  const t = new Date('2026-10-06T09:00:00Z');
+
+  it('grants by stay state and party role; ended stays and strangers get nothing', () => {
+    const base = { expectedDeparture: '2026-10-06', policy };
+    expect(decideGrant({ ...base, status: 'EXPECTED', partyRole: 'PRIMARY' })).toEqual({
+      kind: 'GRANT',
+      scopes: ['SERVICE_REQUEST', 'CHAT'],
+      validUntil: new Date('2026-10-13T00:00:00Z'),
+    });
+    expect(decideGrant({ ...base, status: 'IN_HOUSE', partyRole: 'ACCOMPANYING' })).toMatchObject({
+      scopes: ['SERVICE_REQUEST', 'CHAT', 'ROOM_CONTROL', 'LOST_FOUND'],
+    });
+    for (const status of ['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'] as const)
+      expect(decideGrant({ ...base, status, partyRole: 'PRIMARY' })).toEqual({
+        kind: 'REFUSE',
+        reason: 'STAY_NOT_ACTIVE',
+      });
+    expect(decideGrant({ ...base, status: 'IN_HOUSE', partyRole: null })).toEqual({
+      kind: 'REFUSE',
+      reason: 'NOT_IN_PARTY',
+    });
+  });
+
+  it('follows the stay: widen on arrival, keep post-stay scopes for the window, revoke otherwise', () => {
+    const grant = {
+      scopes: ['SERVICE_REQUEST', 'CHAT'],
+      validUntil: new Date('2026-10-13T00:00:00Z'),
+      partyRole: 'PRIMARY' as const,
+    };
+    expect(grantOnStayStatus(grant, 'IN_HOUSE', t, policy)).toMatchObject({
+      kind: 'WIDENED',
+      scopes: ['SERVICE_REQUEST', 'CHAT', 'ROOM_CONTROL', 'VIEW_BILL', 'LOST_FOUND', 'FEEDBACK'],
+    });
+    const inStay = { ...grant, scopes: [...policy.inStayScopes] };
+    expect(grantOnStayStatus(inStay, 'IN_HOUSE', t, policy)).toBeNull();
+    expect(grantOnStayStatus(inStay, 'CHECKED_OUT', t, policy)).toEqual({
+      kind: 'NARROWED',
+      scopes: ['LOST_FOUND', 'FEEDBACK'],
+      validUntil: new Date('2026-10-09T09:00:00Z'),
+      reason: 'CHECKOUT',
+    });
+    // The window never extends a grant; no post-stay scope or no window means revocation.
+    const short = { ...inStay, validUntil: new Date('2026-10-07T00:00:00Z') };
+    expect(grantOnStayStatus(short, 'CHECKED_OUT', t, policy)).toMatchObject({
+      validUntil: new Date('2026-10-07T00:00:00Z'),
+    });
+    expect(grantOnStayStatus(grant, 'CHECKED_OUT', t, policy)).toEqual({
+      kind: 'REVOKED',
+      reason: 'CHECKOUT',
+    });
+    expect(grantOnStayStatus(inStay, 'CHECKED_OUT', t, { ...policy, postStayHours: 0 })).toEqual({
+      kind: 'REVOKED',
+      reason: 'CHECKOUT',
+    });
+    expect(grantOnStayStatus(grant, 'CANCELLED', t, policy)).toEqual({
+      kind: 'REVOKED',
+      reason: 'STAY_CANCELLED',
+    });
+    expect(grantOnStayStatus(grant, 'NO_SHOW', t, policy)).toMatchObject({ kind: 'REVOKED' });
+    expect(grantOnStayStatus(grant, 'EXPECTED', t, policy)).toBeNull();
+  });
+
+  it('usable scopes depend on revocation and the validity window; sessions never outlive the grant', () => {
+    const g = {
+      scopes: ['CHAT', 'BOGUS'],
+      validFrom: new Date('2026-10-01T00:00:00Z'),
+      validUntil: new Date('2026-10-06T00:00:00Z'),
+      revokedAt: null,
+    };
+    expect(effectiveScopes(g, new Date('2026-10-03T00:00:00Z'))).toEqual(['CHAT']);
+    expect(effectiveScopes(g, new Date('2026-10-06T00:00:00Z'))).toEqual([]);
+    expect(effectiveScopes(g, new Date('2026-09-30T00:00:00Z'))).toEqual([]);
+    expect(effectiveScopes({ ...g, revokedAt: t }, new Date('2026-10-03T00:00:00Z'))).toEqual([]);
+    expect(sessionExpiry(new Date('2026-10-01T00:00:00Z'), g.validUntil)).toEqual(
+      new Date('2026-10-06T00:00:00Z'),
+    );
+    expect(sessionExpiry(new Date('2026-09-01T00:00:00Z'), g.validUntil).getTime()).toBe(
+      new Date('2026-09-01T00:00:00Z').getTime() + GUEST_SESSION_TTL_MS,
+    );
   });
 });

@@ -20,6 +20,7 @@ import {
   type IntegrationsPublicApi,
 } from '@hotella/domain-integrations/public';
 import { AuditWriter } from '@hotella/platform-audit';
+import { GuestAccessService } from './access.service';
 import { currentTransaction, newId, type TenantScope } from '@hotella/platform-database';
 import { EventPublisher } from '@hotella/platform-events';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
@@ -72,6 +73,7 @@ export class StayProjector {
     @Inject(INTEGRATIONS_API) private readonly integrations: IntegrationsPublicApi,
     private readonly events: EventPublisher,
     private readonly audit: AuditWriter,
+    private readonly access: GuestAccessService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -650,6 +652,8 @@ export class StayProjector {
       before: { status: from },
       after: { status: stay.status, at: at.toISOString(), room_id: roomId },
     });
+    // Guest access follows the stay in the same transaction: no window in which a checked-out guest keeps access.
+    await this.access.followStay(stay, stay.status, at, ctx.actor);
   }
 
   private async touchReference(ctx: Ctx, stay: StayRow, ref: ReservationRef, e: EventEnvelope) {

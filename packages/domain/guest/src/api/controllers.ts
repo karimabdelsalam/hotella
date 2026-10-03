@@ -4,6 +4,7 @@ import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform
 import type { PropertyScope } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
+import { GuestAccessAdminService, revokeGrantSchema } from '../application/access.service';
 import {
   dataRequestSchema,
   GuestDataService,
@@ -164,5 +165,44 @@ export class GuestProfilesController {
     @Body() body: DataRequestDto,
   ) {
     return this.data.dataRequest(propertyScope(this.ctx, this.actors, propertyId), guestId, body);
+  }
+}
+
+class RevokeGrantDto extends createZodDto(revokeGrantSchema) {}
+
+/** Staff view of guest access (Spec §21): grants of a stay with their history, and revocation with a reason. */
+@Controller('properties/:propertyId')
+@PropertyScoped({ from: 'param' })
+export class GuestAccessController {
+  constructor(
+    private readonly access: GuestAccessAdminService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get('stays/:stayId/grants')
+  @RequirePermission('stay.read')
+  list(@Param('propertyId') propertyId: string, @Param('stayId') stayId: string) {
+    return this.access.listForStay(propertyScope(this.ctx, this.actors, propertyId), stayId);
+  }
+
+  @Post('guest-grants/:grantId/revoke')
+  @HttpCode(200)
+  @RequirePermission('guest.grant.revoke')
+  revoke(
+    @Param('propertyId') propertyId: string,
+    @Param('grantId') grantId: string,
+    @Body() body: RevokeGrantDto,
+  ) {
+    const actor = this.actors.require();
+    return this.access.revokeByStaff(
+      propertyScope(this.ctx, this.actors, propertyId),
+      grantId,
+      body,
+      {
+        type: actor.type,
+        id: actor.id,
+      },
+    );
   }
 }
