@@ -1,11 +1,13 @@
 import { sql } from 'drizzle-orm';
 import { createEnvelope, type EventEnvelope, GuestCheckedOut } from '@hotella/contracts-events';
+import type { InspectionSummary } from '@hotella/domain-inspection/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { newId } from '@hotella/platform-database';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { JobService } from './application/job.service';
 import {
+  CHECKLISTS,
   createHotel,
   type HkHarness,
   type Hotel,
@@ -304,21 +306,51 @@ describe.skipIf(needsInfra())(`Housekeeping cleaning jobs (${infraSkipReason()})
     expect(touchUp.priority).toBe('HIGH');
     await work(touchUp, 'accept', 'start', 'complete');
     expect(await housekeeping('102')).toBe('INSPECTING');
-    const passed = await h
-      .http()
-      .post(`${base()}/housekeeping/jobs/${touchUp.id}/inspection`)
-      .set('X-Test-Actor', gm())
-      .send({ result: 'PASS' })
-      .expect(201);
+    // The supervisor used the room checklist: its result decides, once it is completed, at this room only.
+    const checklist = (id: string, extra: Partial<InspectionSummary>): InspectionSummary => ({
+      id,
+      propertyId: hotel.propertyId,
+      number: 1,
+      locationId: room('102'),
+      assetId: null,
+      status: 'COMPLETED',
+      result: 'PASS',
+      score: 100,
+      completedAt: new Date().toISOString(),
+      source: 'HK_JOB',
+      sourceRef: touchUp.id,
+      ...extra,
+    });
+    const [running, elsewhere, done] = [newId(), newId(), newId()];
+    CHECKLISTS.set(running, checklist(running, { status: 'IN_PROGRESS', result: null }));
+    CHECKLISTS.set(elsewhere, checklist(elsewhere, { locationId: room('101') }));
+    CHECKLISTS.set(done, checklist(done, {}));
+    const inspectWith = (inspectionId: string) =>
+      h
+        .http()
+        .post(`${base()}/housekeeping/jobs/${touchUp.id}/inspection`)
+        .set('X-Test-Actor', gm())
+        .send({ inspectionId });
+    expect((await inspectWith(running).expect(409)).body.code).toBe(
+      'hk.inspection.checklist_not_completed',
+    );
+    await inspectWith(elsewhere).expect(404);
+    await inspectWith(newId()).expect(404);
+    const passed = await inspectWith(done).expect(201);
     expect(passed.body).toMatchObject({ job: { status: 'INSPECTED' }, touchUp: null });
     expect(await housekeeping('102')).toBe('INSPECTED');
 
     const inspections = (
       await h.db.execute(
-        sql`select result, inspector_id from hk.inspections where room_id = ${room('102')} order by inspected_at`,
+        sql`select result, inspector_id, checklist_inspection_id from hk.inspections where room_id = ${room('102')} order by inspected_at`,
       )
-    ).rows as Array<{ result: string; inspector_id: string }>;
+    ).rows as Array<{
+      result: string;
+      inspector_id: string;
+      checklist_inspection_id: string | null;
+    }>;
     expect(inspections.map((i) => i.result)).toEqual(['FAIL', 'PASS']);
+    expect(inspections.map((i) => i.checklist_inspection_id)).toEqual([null, done]);
     expect(inspections[0]!.inspector_id).toBe(gmId);
     const refused = await h.db
       .execute(sql`update hk.inspections set result = 'PASS' where room_id = ${room('102')}`)

@@ -239,6 +239,13 @@
       "when": 1791059965486,
       "tag": "0033_inspection_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791060710795,
+      "tag": "0034_hk_checklist_inspection",
+      "breakpoints": true
     }
   ]
 }

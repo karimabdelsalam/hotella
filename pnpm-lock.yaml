@@ -1276,6 +1276,9 @@ importers:
       '@hotella/domain-identity':
         specifier: workspace:*
         version: link:../identity
+      '@hotella/domain-inspection':
+        specifier: workspace:*
+        version: link:../inspection
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../integrations

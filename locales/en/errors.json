@@ -287,5 +287,6 @@
   "errors.inspection.photo.too_large": "The photo is too large (2 MB at most).",
   "errors.inspection.photo.not_found": "This photo was not found.",
   "errors.inspection.finding.not_found": "This finding does not exist.",
-  "errors.inspection.finding.not_open": "Work was already opened for this finding."
+  "errors.inspection.finding.not_open": "Work was already opened for this finding.",
+  "errors.hk.inspection.checklist_not_completed": "The checklist inspection is not completed yet."
 }

@@ -287,5 +287,6 @@
   "errors.inspection.photo.too_large": "الصورة كبيرة جداً (الحد الأقصى 2 ميجابايت).",
   "errors.inspection.photo.not_found": "هذه الصورة غير موجودة.",
   "errors.inspection.finding.not_found": "هذه الملاحظة غير موجودة.",
-  "errors.inspection.finding.not_open": "تم فتح عمل لهذه الملاحظة بالفعل."
+  "errors.inspection.finding.not_open": "تم فتح عمل لهذه الملاحظة بالفعل.",
+  "errors.hk.inspection.checklist_not_completed": "لم تكتمل عملية الفحص بقائمة الفحص بعد."
 }

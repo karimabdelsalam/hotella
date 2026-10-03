@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { z } from 'zod';
 import {
   type EventEnvelope,
@@ -10,6 +10,7 @@ import {
 } from '@hotella/contracts-events';
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { IDENTITY_API, type IdentityPublicApi } from '@hotella/domain-identity/public';
+import { INSPECTION_API, type InspectionPublicApi } from '@hotella/domain-inspection/public';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '@hotella/domain-integrations/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
@@ -86,10 +87,14 @@ export const applyAssignmentsSchema = z.object({
     .max(500),
 });
 export const skipSchema = z.object({ reason: z.string().trim().min(1).max(200) });
-export const inspectSchema = z.object({
-  result: z.enum(['PASS', 'FAIL']),
-  notes: z.string().trim().max(1000).optional(),
-});
+export const inspectSchema = z
+  .object({
+    result: z.enum(['PASS', 'FAIL']).optional(),
+    /** A completed checklist inspection of the room: its result decides (Spec §11, one checklist everywhere). */
+    inspectionId: z.uuid().optional(),
+    notes: z.string().trim().max(1000).optional(),
+  })
+  .refine((v) => v.result || v.inspectionId, { message: 'result or inspectionId' });
 export const creditRuleSchema = z.object({
   cleaningType: z.enum(CLEANING_TYPES),
   roomTypeId: z.uuid().nullable().default(null),
@@ -129,6 +134,7 @@ export class JobService {
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @Inject(IDENTITY_API) private readonly identity: IdentityPublicApi,
     @InjectLogger() private readonly logger: Logger,
+    @Optional() @Inject(INSPECTION_API) private readonly inspections?: InspectionPublicApi,
   ) {}
 
   // ---- creating ----
@@ -372,6 +378,23 @@ export class JobService {
           const room = await this.repo.stateForUpdate(scope, job.roomId);
           if (job.status !== 'DONE' || room.housekeeping !== 'INSPECTING')
             throw AppError.conflict('hk.job.not_awaiting_inspection');
+          let decided = input.result;
+          if (input.inspectionId) {
+            const checklist = await this.inspections?.getInspection(
+              scope.tenantId,
+              input.inspectionId,
+            );
+            if (
+              !checklist ||
+              checklist.propertyId !== scope.propertyId ||
+              checklist.locationId !== job.roomId
+            )
+              throw AppError.notFound('inspection.not_found');
+            if (checklist.status !== 'COMPLETED' || !checklist.result)
+              throw AppError.conflict('hk.inspection.checklist_not_completed');
+            decided = checklist.result;
+          }
+          const result = decided!;
           const now = new Date();
           await this.repo.insertInspection({
             id: newId(),
@@ -379,12 +402,13 @@ export class JobService {
             propertyId: scope.propertyId,
             jobId: job.id,
             roomId: job.roomId,
-            result: input.result,
+            result,
             notes: input.notes ?? null,
             inspectorId: actor.id && isUuid(actor.id) ? actor.id : null,
             inspectedAt: now,
+            checklistInspectionId: input.inspectionId ?? null,
           });
-          const passed = input.result === 'PASS';
+          const passed = result === 'PASS';
           const updated = await this.repo.updateJob(scope, job.id, {
             status: passed ? 'INSPECTED' : 'FAILED_INSPECTION',
             inspectedAt: now,
@@ -417,7 +441,11 @@ export class JobService {
             propertyId: scope.propertyId,
             actor: { type: actor.type as 'USER', id: actor.id },
             ...(input.notes ? { reason: input.notes } : {}),
-            after: { result: input.result, touch_up_job_id: touchUp?.id ?? null },
+            after: {
+              result,
+              touch_up_job_id: touchUp?.id ?? null,
+              checklist_inspection_id: input.inspectionId ?? null,
+            },
           });
           if (passed) passedJob = { roomId: job.roomId, jobId: job.id };
           return { job: updated, touchUp };

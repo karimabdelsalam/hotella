@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm';
 import { GuestModule } from '@hotella/domain-guest';
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { IDENTITY_API } from '@hotella/domain-identity/public';
+import { INSPECTION_API, type InspectionSummary } from '@hotella/domain-inspection/public';
 import { IntegrationsModule } from '@hotella/domain-integrations';
 import { OperationsModule } from '@hotella/domain-operations';
 import { OrganizationModule } from '@hotella/domain-organization';
@@ -69,6 +70,23 @@ export const ASSIGNABLE = new Set<string>();
 })
 class FakeIdentityModule {}
 
+/** Checklist inspections as housekeeping sees them (the inspection context is separate): set per test. */
+export const CHECKLISTS = new Map<string, InspectionSummary>();
+@Global()
+@Module({
+  providers: [
+    {
+      provide: INSPECTION_API,
+      useValue: {
+        getInspection: async (_tenantId: string, id: string) => CHECKLISTS.get(id) ?? null,
+        latestCompletedAt: async () => null,
+      },
+    },
+  ],
+  exports: [INSPECTION_API],
+})
+class FakeInspectionModule {}
+
 export interface HkHarness {
   readonly app: INestApplication;
   readonly db: Database;
@@ -116,6 +134,7 @@ export async function startHousekeepingApp(
       IntegrationsModule,
       GuestModule,
       FakeIdentityModule,
+      FakeInspectionModule,
       OperationsModule,
       HousekeepingModule,
     ],

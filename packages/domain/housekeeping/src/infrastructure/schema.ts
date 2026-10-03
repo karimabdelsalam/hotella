@@ -303,6 +303,8 @@ export const inspections = classify(
       notes: text('notes'),
       inspectorId: uuid('inspector_id'),
       inspectedAt: timestamp('inspected_at', { withTimezone: true, mode: 'date' }).notNull(),
+      /** The checklist inspection that decided the result, when one was used (inspection context). */
+      checklistInspectionId: uuid('checklist_inspection_id'),
     },
     (t) => [index('inspections_job_idx').on(t.jobId)],
   ),
@@ -316,6 +318,7 @@ export const inspections = classify(
     notes: 'INTERNAL',
     inspectorId: 'INTERNAL',
     inspectedAt: 'INTERNAL',
+    checklistInspectionId: 'INTERNAL',
   },
 );
 
