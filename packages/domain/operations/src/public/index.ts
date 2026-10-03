@@ -125,6 +125,16 @@ export interface OperationsPublicApi {
     assignee: AssigneeInput,
     reason?: string | null,
   ): Promise<TaskSummary>;
+  /**
+   * Starts or completes a task as the current actor through the task lifecycle (ActionGate, claiming an unassigned
+   * task on start, assignment history kept), e.g. an engineer closing a work order. API process only.
+   */
+  actOnTask(
+    scope: { readonly tenantId: string; readonly propertyId: string },
+    taskId: string,
+    action: 'START' | 'COMPLETE',
+    reason?: string | null,
+  ): Promise<TaskSummary>;
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary>;
   /** Declares an approval kind and the handler that runs once a person approves (Spec §8.4). */
   registerApprovalKind(kind: ApprovalKindDefinition): void;

@@ -5,8 +5,10 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgSchema,
   text,
+  timestamp,
   uniqueIndex,
   uuid,
   varchar,
@@ -251,3 +253,205 @@ export type AssetModelRow = typeof assetModels.$inferSelect;
 export type AssetRow = typeof assets.$inferSelect;
 export type AssetDocumentRow = typeof assetDocuments.$inferSelect;
 export type FailureCodeRow = typeof failureCodes.$inferSelect;
+
+// ---- work orders (Spec §10.4, BUILD_PLAN 8.2) ----
+
+export const workOrderType = eng.enum('work_order_type', [
+  'CORRECTIVE',
+  'PREVENTIVE',
+  'PREDICTIVE',
+  'INSPECTION',
+  'EMERGENCY',
+  'PROJECT',
+]);
+export const workOrderSource = eng.enum('work_order_source', [
+  'STAFF',
+  'GUEST_REQUEST',
+  'PM',
+  'INSPECTION',
+  'AI',
+]);
+export const workOrderStatus = eng.enum('work_order_status', [
+  'OPEN',
+  'IN_PROGRESS',
+  'DONE',
+  'CANCELLED',
+]);
+
+/** Engineering work on an asset or at a place; its assignment, SLA and history are its work item's. */
+export const workOrders = classify(
+  eng.table(
+    'work_orders',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      number: integer('number').notNull(),
+      workItemId: uuid('work_item_id').notNull(),
+      type: workOrderType('type').notNull(),
+      source: workOrderSource('source').notNull(),
+      assetId: uuid('asset_id').references(() => assets.id, { onDelete: 'restrict' }),
+      locationId: uuid('location_id').notNull(),
+      reportedAt: timestamp('reported_at', { withTimezone: true, mode: 'date' }).notNull(),
+      symptomCode: varchar('symptom_code', { length: 60 }),
+      /** What the engineer found, in their words (may mention the guest: CONFIDENTIAL). */
+      diagnosis: text('diagnosis'),
+      failureModeCode: varchar('failure_mode_code', { length: 60 }),
+      causeCode: varchar('cause_code', { length: 60 }),
+      resolutionCode: varchar('resolution_code', { length: 60 }),
+      downtimeStartedAt: timestamp('downtime_started_at', { withTimezone: true, mode: 'date' }),
+      downtimeEndedAt: timestamp('downtime_ended_at', { withTimezone: true, mode: 'date' }),
+      status: workOrderStatus('status').notNull().default('OPEN'),
+      completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('work_orders_work_item_uq').on(t.workItemId),
+      uniqueIndex('work_orders_number_uq').on(t.propertyId, t.number),
+      index('work_orders_asset_idx').on(t.tenantId, t.assetId),
+      index('work_orders_property_idx').on(t.tenantId, t.propertyId, t.status),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    number: 'INTERNAL',
+    workItemId: 'INTERNAL',
+    type: 'INTERNAL',
+    source: 'INTERNAL',
+    assetId: 'INTERNAL',
+    locationId: 'INTERNAL',
+    reportedAt: 'INTERNAL',
+    symptomCode: 'INTERNAL',
+    diagnosis: 'CONFIDENTIAL',
+    failureModeCode: 'INTERNAL',
+    causeCode: 'INTERNAL',
+    resolutionCode: 'INTERNAL',
+    downtimeStartedAt: 'INTERNAL',
+    downtimeEndedAt: 'INTERNAL',
+    status: 'INTERNAL',
+    completedAt: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Operational stock of a part at a property (Spec §10.8: usage and stock, not purchasing). */
+export const parts = classify(
+  eng.table(
+    'parts',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      partNumber: varchar('part_number', { length: 60 }).notNull(),
+      name: varchar('name', { length: 200 }).notNull(),
+      unit: varchar('unit', { length: 16 }).notNull().default('EA'),
+      onHand: numeric('on_hand', { precision: 12, scale: 2, mode: 'number' }).notNull().default(0),
+      reorderLevel: numeric('reorder_level', { precision: 12, scale: 2, mode: 'number' })
+        .notNull()
+        .default(0),
+      ...versioned(),
+    },
+    (t) => [uniqueIndex('parts_number_uq').on(t.propertyId, t.partNumber)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    partNumber: 'INTERNAL',
+    name: 'INTERNAL',
+    unit: 'INTERNAL',
+    onHand: 'INTERNAL',
+    reorderLevel: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** A part used on a work order, or stock received (negative usage is not allowed; receipts are their own rows). */
+export const partMovements = classify(
+  eng.table(
+    'part_movements',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      partId: uuid('part_id')
+        .notNull()
+        .references(() => parts.id, { onDelete: 'restrict' }),
+      workOrderId: uuid('work_order_id').references(() => workOrders.id, { onDelete: 'restrict' }),
+      kind: varchar('kind', { length: 16 }).notNull(),
+      quantity: numeric('quantity', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+      actorType: varchar('actor_type', { length: 16 }).notNull(),
+      actorId: uuid('actor_id'),
+      occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+    },
+    (t) => [
+      index('part_movements_part_idx').on(t.partId, t.occurredAt),
+      index('part_movements_work_order_idx').on(t.workOrderId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    partId: 'INTERNAL',
+    workOrderId: 'INTERNAL',
+    kind: 'INTERNAL',
+    quantity: 'INTERNAL',
+    actorType: 'INTERNAL',
+    actorId: 'INTERNAL',
+    occurredAt: 'INTERNAL',
+  },
+);
+
+export const warrantyStatus = eng.enum('warranty_status', [
+  'SUGGESTED',
+  'OPENED',
+  'CLOSED',
+  'DISMISSED',
+]);
+
+/** A failure of equipment still under warranty: the vendor may owe the repair (Spec §10.9). */
+export const warrantyCases = classify(
+  eng.table(
+    'warranty_cases',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      workOrderId: uuid('work_order_id')
+        .notNull()
+        .references(() => workOrders.id, { onDelete: 'restrict' }),
+      assetId: uuid('asset_id')
+        .notNull()
+        .references(() => assets.id, { onDelete: 'restrict' }),
+      warrantyUntil: date('warranty_until', { mode: 'string' }).notNull(),
+      status: warrantyStatus('status').notNull().default('SUGGESTED'),
+      note: varchar('note', { length: 500 }),
+      ...versioned(),
+    },
+    (t) => [uniqueIndex('warranty_cases_work_order_uq').on(t.workOrderId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    workOrderId: 'INTERNAL',
+    assetId: 'INTERNAL',
+    warrantyUntil: 'INTERNAL',
+    status: 'INTERNAL',
+    note: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+export type WorkOrderRow = typeof workOrders.$inferSelect;
+export type PartRow = typeof parts.$inferSelect;
+export type WarrantyCaseRow = typeof warrantyCases.$inferSelect;

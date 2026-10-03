@@ -22,6 +22,13 @@ import {
   type FailureCodeRow,
   failureCodes,
   failureCodeTranslations,
+  partMovements,
+  type PartRow,
+  parts,
+  type WarrantyCaseRow,
+  warrantyCases,
+  type WorkOrderRow,
+  workOrders,
 } from './schema';
 
 export interface Translation {
@@ -294,6 +301,192 @@ export class EngineeringRepositories {
           .orderBy(asc(failureCodeTranslations.locale))
       : [];
     return group(rows);
+  }
+
+  // ---- work orders ----
+  /** The next work order number of the property (serialized per property inside the transaction). */
+  async nextWorkOrderNumber(scope: PropertyScope): Promise<number> {
+    await this.x.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${'eng.wo.' + scope.propertyId}))`,
+    );
+    const { rows } = await this.x.execute(
+      sql`select coalesce(max(number), 0) + 1 as n from eng.work_orders where property_id = ${scope.propertyId}`,
+    );
+    return Number((rows[0] as { n: number | string }).n);
+  }
+  async insertWorkOrder(values: typeof workOrders.$inferInsert): Promise<WorkOrderRow | undefined> {
+    const [row] = await this.x.insert(workOrders).values(values).onConflictDoNothing().returning();
+    return row;
+  }
+  async workOrder(scope: TenantScope, id: string): Promise<WorkOrderRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(workOrders)
+      .where(tenantWhere(workOrders, scope, eq(workOrders.id, id)));
+    return row;
+  }
+  async workOrderForUpdate(scope: TenantScope, id: string): Promise<WorkOrderRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(workOrders)
+      .where(tenantWhere(workOrders, scope, eq(workOrders.id, id)))
+      .for('update');
+    return row;
+  }
+  async workOrderOfWorkItem(
+    scope: TenantScope,
+    workItemId: string,
+  ): Promise<WorkOrderRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(workOrders)
+      .where(tenantWhere(workOrders, scope, eq(workOrders.workItemId, workItemId)))
+      .for('update');
+    return row;
+  }
+  async updateWorkOrder(
+    scope: TenantScope,
+    id: string,
+    patch: Partial<
+      Pick<
+        WorkOrderRow,
+        | 'symptomCode'
+        | 'diagnosis'
+        | 'failureModeCode'
+        | 'causeCode'
+        | 'resolutionCode'
+        | 'downtimeStartedAt'
+        | 'downtimeEndedAt'
+        | 'status'
+        | 'completedAt'
+        | 'assetId'
+      >
+    >,
+  ): Promise<WorkOrderRow> {
+    const [row] = await this.x
+      .update(workOrders)
+      .set({ ...patch, version: sql`${workOrders.version} + 1` })
+      .where(tenantWhere(workOrders, scope, eq(workOrders.id, id)))
+      .returning();
+    return row!;
+  }
+  workOrdersOf(
+    scope: PropertyScope,
+    filter: { statuses?: readonly WorkOrderRow['status'][]; assetId?: string },
+  ): Promise<WorkOrderRow[]> {
+    return this.x
+      .select()
+      .from(workOrders)
+      .where(
+        propertyWhere(
+          workOrders,
+          scope,
+          ...(filter.statuses ? [inArray(workOrders.status, [...filter.statuses])] : []),
+          ...(filter.assetId ? [eq(workOrders.assetId, filter.assetId)] : []),
+        ),
+      )
+      .orderBy(sql`${workOrders.number} desc`)
+      .limit(200);
+  }
+
+  // ---- parts ----
+  async insertPart(values: typeof parts.$inferInsert): Promise<PartRow | undefined> {
+    const [row] = await this.x.insert(parts).values(values).onConflictDoNothing().returning();
+    return row;
+  }
+  async partForUpdate(scope: PropertyScope, id: string): Promise<PartRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(parts)
+      .where(propertyWhere(parts, scope, eq(parts.id, id)))
+      .for('update');
+    return row;
+  }
+  partsOf(scope: PropertyScope): Promise<PartRow[]> {
+    return this.x
+      .select()
+      .from(parts)
+      .where(propertyWhere(parts, scope))
+      .orderBy(asc(parts.partNumber));
+  }
+  async moveStock(
+    scope: PropertyScope,
+    partId: string,
+    delta: number,
+    movement: Omit<typeof partMovements.$inferInsert, 'tenantId' | 'propertyId' | 'partId'>,
+  ): Promise<PartRow> {
+    const [row] = await this.x
+      .update(parts)
+      .set({ onHand: sql`${parts.onHand} + ${delta}`, version: sql`${parts.version} + 1` })
+      .where(propertyWhere(parts, scope, eq(parts.id, partId)))
+      .returning();
+    await this.x
+      .insert(partMovements)
+      .values({ ...movement, tenantId: scope.tenantId, propertyId: scope.propertyId, partId });
+    return row!;
+  }
+  usagesOf(scope: TenantScope, workOrderId: string) {
+    return this.x
+      .select({
+        partId: partMovements.partId,
+        partNumber: parts.partNumber,
+        name: parts.name,
+        unit: parts.unit,
+        quantity: partMovements.quantity,
+        occurredAt: partMovements.occurredAt,
+      })
+      .from(partMovements)
+      .innerJoin(parts, eq(parts.id, partMovements.partId))
+      .where(tenantWhere(partMovements, scope, eq(partMovements.workOrderId, workOrderId)))
+      .orderBy(asc(partMovements.occurredAt));
+  }
+
+  // ---- warranty ----
+  async insertWarrantyCase(
+    values: typeof warrantyCases.$inferInsert,
+  ): Promise<WarrantyCaseRow | undefined> {
+    const [row] = await this.x
+      .insert(warrantyCases)
+      .values(values)
+      .onConflictDoNothing()
+      .returning();
+    return row;
+  }
+  async warrantyCaseForUpdate(
+    scope: PropertyScope,
+    id: string,
+  ): Promise<WarrantyCaseRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(warrantyCases)
+      .where(propertyWhere(warrantyCases, scope, eq(warrantyCases.id, id)))
+      .for('update');
+    return row;
+  }
+  async updateWarrantyCase(
+    scope: PropertyScope,
+    id: string,
+    patch: Pick<WarrantyCaseRow, 'status' | 'note'>,
+  ): Promise<WarrantyCaseRow> {
+    const [row] = await this.x
+      .update(warrantyCases)
+      .set({ ...patch, version: sql`${warrantyCases.version} + 1` })
+      .where(propertyWhere(warrantyCases, scope, eq(warrantyCases.id, id)))
+      .returning();
+    return row!;
+  }
+  warrantyCasesOf(scope: PropertyScope, statuses?: readonly WarrantyCaseRow['status'][]) {
+    return this.x
+      .select()
+      .from(warrantyCases)
+      .where(
+        propertyWhere(
+          warrantyCases,
+          scope,
+          ...(statuses ? [inArray(warrantyCases.status, [...statuses])] : []),
+        ),
+      )
+      .orderBy(asc(warrantyCases.createdAt));
   }
 }
 

@@ -41,7 +41,13 @@ const TASK_SUPERVISOR = [...TASK_WORKER, 'task.assign', 'task.cancel', 'request.
 const ALERT_DESK = ['alert.read', 'alert.ack'] as const;
 /** Housekeeping supervision (Spec §9): the board, room states and signals, jobs and inspections. */
 const HK_DESK = ['hk.board.read', 'hk.room.manage', 'hk.job.manage', 'hk.inspect'] as const;
-const ENG_DESK = ['eng.asset.read', 'eng.asset.manage'] as const;
+const ENG_DESK = [
+  'eng.asset.read',
+  'eng.asset.manage',
+  'eng.work_order.read',
+  'eng.work_order.manage',
+  'eng.parts.manage',
+] as const;
 
 export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
   {
@@ -149,7 +155,13 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
   {
     code: 'ENGINEER',
     audience: 'TENANT',
-    permissions: ['org.property.read', ...TASK_WORKER, 'eng.asset.read'],
+    permissions: [
+      'org.property.read',
+      ...TASK_WORKER,
+      'eng.asset.read',
+      'eng.work_order.read',
+      'eng.work_order.manage',
+    ],
   },
   {
     code: 'CHIEF_ENGINEER',

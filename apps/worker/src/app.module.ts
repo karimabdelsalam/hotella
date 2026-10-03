@@ -3,7 +3,7 @@ import { GuestEventsModule } from '@hotella/domain-guest';
 import { IntegrationsCoreModule, IntegrationsModule } from '@hotella/domain-integrations';
 import { IdentityDirectoryModule } from '@hotella/domain-identity';
 import { AiModule, AiWorkerModule } from '@hotella/domain-ai';
-import { EngineeringCoreModule } from '@hotella/domain-engineering';
+import { EngineeringWorkerModule } from '@hotella/domain-engineering';
 import { HousekeepingWorkerModule } from '@hotella/domain-housekeeping';
 import { KnowledgeWorkerModule } from '@hotella/domain-knowledge';
 import { CatalogServicesModule, CatalogWorkerModule } from '@hotella/domain-catalog';
@@ -65,7 +65,7 @@ const WORKER_MODULES = [
   KnowledgeWorkerModule,
   // The room projection follows the PMS (check-in/out, room moves, room statuses).
   HousekeepingWorkerModule,
-  EngineeringCoreModule,
+  EngineeringWorkerModule,
   WorkerRuntimeModule,
 ];
 

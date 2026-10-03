@@ -1692,7 +1692,7 @@ eng.warranty_cases        id, tenant_id, work_order_id, asset_id, vendor, status
 | Sprint | Scope | Status |
 |---|---|---|
 | 8.1 | `@hotella/domain-engineering`: asset types (schema, translations), models, assets with hierarchy and location, asset documents linked to Knowledge, failure code lists with starter set, APIs, events, permissions, tenant-leak tests | delivered |
-| 8.2 | Work orders on the operations engine (`ENG_WORK_ORDER`), types, taxonomy and downtime on close, guest request → work order, parts usage and stock, warranty suggestion | planned |
+| 8.2 | Work orders on the operations engine (`ENG_WORK_ORDER`), types, taxonomy and downtime on close, guest request → work order, parts usage and stock, warranty suggestion | delivered |
 | 8.3 | Meters and readings, PM procedures (versioned) and plans (CALENDAR/METER/CONDITION), due sweep creating PREVENTIVE work, room restrictions with PMS sync (`SET_ROOM_RESTRICTION`) | planned |
 | 8.4 | Engineering knowledge tool `engineering.search_manuals`, Engineering Copilot v1 (ASSIST), arrival-risk v1 (rules + explanation), staff web: work orders and asset pages (English/Arabic, Playwright), pilot smoke | planned |
 | 8.5 | Phase 8 acceptance (`docs/acceptance/phase-8.md`) | planned |
@@ -1711,6 +1711,25 @@ Reality notes for 8.1:
   resolutions, English and Arabic names) and skips codes the tenant already has.
 - `ENGINEERING_API` (`getAsset`, `assetsAtLocation`) and `KNOWLEDGE_API.getDocument` are the cross-context surfaces.
   Roles: ENGINEER reads equipment, new CHIEF_ENGINEER manages engineering, GM holds all engineering permissions.
+
+Reality notes for 8.2:
+- Migration `0031_engineering_work_orders`: `eng.work_orders` (number per property, serialized by an advisory lock;
+  unique work item; asset optional, location required; taxonomy codes; diagnosis CONFIDENTIAL; downtime timestamps
+  with an order check), `eng.parts` (stock never negative), append-only `eng.part_movements` (USAGE/RECEIPT),
+  `eng.warranty_cases`; RLS on all.
+- A staff work order creates an `ENG_WORK_ORDER` work item for department ENG (unrouted when the property has none)
+  at the asset's location, priority by type and source (EMERGENCY → URGENT, guest-reported CORRECTIVE → HIGH,
+  PREVENTIVE/PROJECT → LOW). `POST …/work-orders/from-request` adopts the guest request's own work item instead of
+  creating a second one, so completing the work order also completes the request (and the guest is told by the
+  catalog's existing follow-up); the room's single active top-level asset is picked when no asset is given.
+  Automatic conversion by service → asset type mapping is left for later; conversion is one call.
+- Codes must exist in the tenant taxonomy for their kind (never guessed). `POST …/work-orders/:id/complete` records
+  the coding, refuses CORRECTIVE/EMERGENCY work that is not fully coded (`eng.work_order.coding_missing`), ends open
+  downtime, completes the work item's tasks through the task lifecycle (`OPERATIONS_API.actOnTask`, START first for an
+  unclaimed task) and closes the order with `eng.work_order.closed.v1` (codes, downtime minutes). Work finished from
+  the generic task screen still closes the order (worker consumer `eng.work-orders`); it then shows `codingMissing`.
+- A CORRECTIVE/EMERGENCY order on an asset under warranty on the reported day creates a SUGGESTED warranty case; a
+  supervisor opens, closes or dismisses it. Nothing is sent to a vendor automatically.
 
 ### Phase 9 — Inspections, Guest Relations, Lost & Found, Logbook
 Generic inspection engine first (`inspection` schema per Spec §11, critical finding ⇒ work item via rules). Then `relations` (complaints, categories, evidence, `complaint_candidates` from AI with confidence, service recovery actions through approvals), `lostfound` (items, vision-derived metadata kept separate from staff description, match candidates with score/reasons, audited claims), `logbook` entries + AI shift summary with human acknowledgement.

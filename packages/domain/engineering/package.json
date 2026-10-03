@@ -37,12 +37,16 @@
     "@hotella/platform-i18n": "workspace:*",
     "@hotella/platform-manifest": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
+    "@hotella/platform-queue": "workspace:*",
     "@nestjs/common": "11.2.7",
     "drizzle-orm": "0.45.3",
     "nestjs-zod": "5.5.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-identity": "workspace:*",
+    "@hotella/domain-integrations": "workspace:*",
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-flags": "workspace:*",
     "@hotella/platform-http": "workspace:*",

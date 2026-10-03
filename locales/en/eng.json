@@ -1,5 +1,10 @@
 {
   "eng.permission.asset_read": "See equipment and its documents",
   "eng.permission.asset_manage": "Register and update equipment",
-  "eng.permission.config_manage": "Set up equipment types and failure codes"
+  "eng.permission.config_manage": "Set up equipment types and failure codes",
+  "eng.permission.work_order_read": "See engineering work, parts and warranty cases",
+  "eng.permission.work_order_manage": "Open, record and complete engineering work",
+  "eng.permission.parts_manage": "Manage spare parts stock",
+  "eng.work_kind.work_order": "Engineering work order",
+  "eng.work_order.title": "{type, select, CORRECTIVE {Repair} PREVENTIVE {Preventive maintenance} PREDICTIVE {Predictive maintenance} INSPECTION {Engineering inspection} EMERGENCY {Emergency repair} PROJECT {Project} other {Engineering work}} · WO-{number}"
 }

@@ -2,7 +2,11 @@ import 'reflect-metadata';
 import { Global, type INestApplication, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
+import { GuestModule } from '@hotella/domain-guest';
+import { IDENTITY_API } from '@hotella/domain-identity/public';
+import { IntegrationsModule } from '@hotella/domain-integrations';
 import { KNOWLEDGE_API } from '@hotella/domain-knowledge/public';
+import { OperationsModule } from '@hotella/domain-operations';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
 import {
@@ -26,13 +30,34 @@ import { HttpConventionsModule } from '@hotella/platform-http';
 import { I18nModule } from '@hotella/platform-i18n';
 import { ManifestModule } from '@hotella/platform-manifest';
 import { ObservabilityModule } from '@hotella/platform-observability';
-import { SecretsModule } from '@hotella/platform-secrets';
+import { EnvSecretProvider, SecretsModule } from '@hotella/platform-secrets';
 import { SettingsModule } from '@hotella/platform-settings';
 import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import { EngineeringModule } from '../engineering.module';
 
-/** Test-only composition of engineering with organization (no worker, no AI). */
+/** Test-only composition of engineering with organization and the operations engine (no worker, no AI). */
+
+/** Staff a test makes assignable (operations asks identity who holds `task.accept` at the property). */
+export const ASSIGNABLE = new Set<string>();
+
+/** Operations looks staff up through identity; nobody is notified in these tests. */
+@Global()
+@Module({
+  providers: [
+    {
+      provide: IDENTITY_API,
+      useValue: {
+        getStaffMember: async () => null,
+        usersWithPermission: async () => [...ASSIGNABLE],
+        usersWithRole: async () => [],
+        getStaffContact: async () => null,
+      },
+    },
+  ],
+  exports: [IDENTITY_API],
+})
+class FakeIdentityModule {}
 
 export const ADMIN = JSON.stringify({
   type: 'USER',
@@ -106,7 +131,9 @@ export async function startEngineeringApp(
       ConfigModule.forRoot({ env }),
       ObservabilityModule.forRoot(),
       I18nModule.forRoot(),
-      SecretsModule.forRoot(),
+      SecretsModule.forRoot({
+        providers: [new EnvSecretProvider({ COMMS_OTP_HMAC_KEY: 'test-otp-key' })],
+      }),
       HttpConventionsModule.forRoot({ store: 'memory' }),
       DatabaseModule.forRoot(),
       EventsModule.forRoot(),
@@ -118,13 +145,18 @@ export async function startEngineeringApp(
         strategy: { provide: AUTHENTICATION_STRATEGY, useClass: HeaderActorStrategy },
         resolver: { provide: PERMISSION_RESOLVER, useValue: new StaticPermissionResolver(grants) },
         propertyVerifier: OrganizationModule.propertyVerifier(),
+        stages: [IntegrationsModule.capabilityStage()],
       }),
       OrganizationModule,
+      IntegrationsModule,
+      GuestModule,
+      FakeIdentityModule,
+      OperationsModule,
       FakeKnowledgeModule,
       EngineeringModule,
     ],
   }).compile();
-  const app = ref.createNestApplication({ logger: false });
+  const app = ref.createNestApplication({ logger: false, rawBody: true });
   app.useGlobalPipes(new ZodValidationPipe());
   await app.init();
   return { app, db: app.get(DATABASE), http: () => request(app.getHttpServer()) };

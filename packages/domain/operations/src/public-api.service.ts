@@ -83,6 +83,15 @@ export class OperationsPublicApiService implements OperationsPublicApi {
       ...(reason ? { reason } : {}),
     }) as Promise<TaskSummary>;
   }
+  actOnTask(
+    scope: { readonly tenantId: string; readonly propertyId: string },
+    taskId: string,
+    action: 'START' | 'COMPLETE',
+    reason?: string | null,
+  ): Promise<TaskSummary> {
+    const tasks = this.modules.get(TaskService, { strict: false });
+    return tasks.act(scope, taskId, action, reason ? { reason } : {}) as Promise<TaskSummary>;
+  }
   cancelWorkItem(tenantId: string, workItemId: string, reason: string): Promise<WorkItemSummary> {
     return this.work.cancelWorkItem(tenantId, workItemId, reason);
   }
