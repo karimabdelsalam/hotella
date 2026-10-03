@@ -17,17 +17,20 @@ import {
   type Database,
   DatabaseModule,
   runMigrations,
+  TransactionRunner,
 } from '@hotella/platform-database';
 import { EventsModule } from '@hotella/platform-events';
 import { FeatureFlagsModule } from '@hotella/platform-flags';
 import { HttpConventionsModule, KV_STORE, MemoryKeyValueStore } from '@hotella/platform-http';
-import { I18nModule } from '@hotella/platform-i18n';
-import { ManifestModule } from '@hotella/platform-manifest';
-import { ObservabilityModule } from '@hotella/platform-observability';
+import { I18nModule, I18nService } from '@hotella/platform-i18n';
+import { defineManifest, ManifestModule, ManifestRegistry } from '@hotella/platform-manifest';
+import { LOGGER, ObservabilityModule } from '@hotella/platform-observability';
 import { SecretsModule } from '@hotella/platform-secrets';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { IdentityBootstrapService } from './application/bootstrap.service';
 import { IdentityCatalogService } from './application/catalog.service';
+import { MembershipPermissionResolver } from './auth/permission-resolver';
+import { IdentityRepositories } from './infrastructure/repositories';
 import { totp } from './domain/totp';
 import { IdentityCoreModule } from './identity-core.module';
 import { IdentityModule, identityAuthOptions, identityLocalePreferences } from './identity.module';
@@ -129,6 +132,46 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
     expect(me.body.permissions).toContain('org.tenant.manage');
     // Spec §64: no standing access beyond tenant administration
     expect(me.body.permissions).not.toContain('support.access.approve');
+  });
+
+  it('a process that loads part of the platform never strips the grants of modules it does not load', async () => {
+    const repo = app.get(IdentityRepositories);
+    const sync = (registry: ManifestRegistry) =>
+      new IdentityCatalogService(
+        repo,
+        registry,
+        app.get(I18nService),
+        app.get(TransactionRunner),
+        app.get(MembershipPermissionResolver),
+        app.get(LOGGER),
+      ).sync();
+    const adminGrants = async () => {
+      const role = await repo.systemRoleByCode('PLATFORM_ADMIN');
+      return (await repo.rolePermissionCodes([role!.id])).get(role!.id) ?? [];
+    };
+    // The API loads the integration context too…
+    const full = new ManifestRegistry();
+    for (const m of app.get(ManifestRegistry).all()) full.register(m);
+    full.register(
+      defineManifest({
+        code: 'integration',
+        schema: 'integration',
+        description: 'stand-in for the integration context',
+        permissions: [
+          'integration.read',
+          'integration.configure',
+          'integration.mapping.confirm',
+          'integration.replay',
+          'integration.reconcile',
+        ].map((code) => ({ code, descriptionKey: 'x', risk: 'LOW' as const })),
+      }),
+    );
+    await sync(full);
+    expect(await adminGrants()).toContain('integration.read');
+    // …then the admin CLI (organization + identity only) syncs: the integration grant must survive (pilot defect).
+    await sync(app.get(ManifestRegistry));
+    expect(await adminGrants()).toContain('integration.read');
+    expect(await adminGrants()).toContain('org.tenant.manage');
   });
 
   it('platform admin onboards a tenant with two properties (and a second tenant)', async () => {

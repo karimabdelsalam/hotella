@@ -218,15 +218,27 @@ export class IdentityRepositories {
     for (const r of rows) out.set(r.roleId, [...(out.get(r.roleId) ?? []), r.permissionCode]);
     return out;
   }
-  /** Replaces a role's permission set; returns what was added and removed. */
+  /**
+   * Replaces a role's permission set; returns what was added and removed. With `withinModules`, only permissions of
+   * those modules are touched (a process that loads part of the platform never strips the rest).
+   */
   async replaceRolePermissions(
     roleId: string,
     codes: readonly string[],
+    withinModules?: ReadonlySet<string>,
   ): Promise<{ added: string[]; removed: string[] }> {
     const current = new Set((await this.rolePermissionCodes([roleId])).get(roleId) ?? []);
     const next = new Set(codes);
     const added = [...next].filter((c) => !current.has(c)).sort();
-    const removed = [...current].filter((c) => !next.has(c)).sort();
+    let removed = [...current].filter((c) => !next.has(c)).sort();
+    if (withinModules && removed.length > 0) {
+      const owners = await this.x
+        .select({ code: permissions.code, module: permissions.module })
+        .from(permissions)
+        .where(inArray(permissions.code, removed));
+      const inScope = new Set(owners.filter((o) => withinModules.has(o.module)).map((o) => o.code));
+      removed = removed.filter((c) => inScope.has(c));
+    }
     if (removed.length > 0)
       await this.x
         .delete(rolePermissions)

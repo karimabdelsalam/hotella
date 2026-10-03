@@ -62,6 +62,9 @@ export class IdentityCatalogService implements OnApplicationBootstrap, OnApplica
     // the system-role unit test against every manifest.
     const loadedDomains = new Set(permissions.map((p) => p.code.split('.')[0]));
     const deployed = (codes: readonly string[]) => codes.filter((p) => known.has(p));
+    // Processes load different slices (the API everything, the admin CLI only organization and identity): each sync
+    // only adds and removes grants of the modules it knows, so a partial process never strips the others' grants.
+    const loadedModules = new Set(permissions.map((p) => p.module));
     for (const role of SYSTEM_ROLES) {
       const unknown = role.permissions.filter(
         (p) => !known.has(p) && loadedDomains.has(p.split('.')[0]),
@@ -97,7 +100,7 @@ export class IdentityCatalogService implements OnApplicationBootstrap, OnApplica
             description: this.i18n.t(roleDescriptionKey(def.code), {}, locale),
           })),
         );
-        await this.repo.replaceRolePermissions(role.id, deployed(def.permissions));
+        await this.repo.replaceRolePermissions(role.id, deployed(def.permissions), loadedModules);
       }
     });
     this.resolver.invalidate();
