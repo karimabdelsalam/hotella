@@ -15,6 +15,7 @@ import { RequestRepositories } from '../infrastructure/request-repositories';
 import { CatalogRepositories } from '../infrastructure/repositories';
 import type { RequestRow } from '../infrastructure/schema';
 import type { ServiceRequestStatus } from '../public';
+import { RequestNotifier } from './request-notifier';
 
 export const CATALOG_SOURCE = 'catalog';
 /** The operations work kind of service requests. */
@@ -32,6 +33,7 @@ export class RequestLifecycle {
     private readonly catalog: CatalogRepositories,
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
+    private readonly notifier: RequestNotifier,
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
   ) {}
 
@@ -155,6 +157,7 @@ export class RequestLifecycle {
         to,
       },
     });
+    await this.notifier.statusChanged(updated, actor.type);
     return updated;
   }
 }

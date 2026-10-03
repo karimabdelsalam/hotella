@@ -46,5 +46,11 @@
   "catalog.permission.request_manage": "Cancel guests' service requests",
   "catalog.work_kind.service_request": "Guest service request",
   "catalog.request.work_title": "{service} · room {room}",
-  "catalog.request.work_title_no_room": "{service}"
+  "catalog.request.work_title_no_room": "{service}",
+  "catalog.notification.request_in_progress": "We are on it: {service}.",
+  "catalog.notification.request_completed": "Done: {service}. Is there anything else we can do for you?",
+  "catalog.notification.request_cancelled": "Your request was cancelled: {service}.",
+  "catalog.notification.status.in_progress": "on its way",
+  "catalog.notification.status.completed": "done",
+  "catalog.notification.status.cancelled": "cancelled"
 }

@@ -46,5 +46,11 @@
   "catalog.permission.request_manage": "إلغاء طلبات خدمات النزلاء",
   "catalog.work_kind.service_request": "طلب خدمة من نزيل",
   "catalog.request.work_title": "{service} · غرفة {room}",
-  "catalog.request.work_title_no_room": "{service}"
+  "catalog.request.work_title_no_room": "{service}",
+  "catalog.notification.request_in_progress": "نعمل على طلبك: {service}.",
+  "catalog.notification.request_completed": "تم: {service}. هل يمكننا مساعدتك في شيء آخر؟",
+  "catalog.notification.request_cancelled": "تم إلغاء طلبك: {service}.",
+  "catalog.notification.status.in_progress": "في الطريق إليك",
+  "catalog.notification.status.completed": "تم",
+  "catalog.notification.status.cancelled": "أُلغي"
 }

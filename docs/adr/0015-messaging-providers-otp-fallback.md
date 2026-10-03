@@ -47,8 +47,12 @@ These refine the decision without changing it; code lives in `packages/domain/co
   logged or returned.
 - **Webhook authentication:** Meta signs with `X-Hub-Signature-256`; BSP and SMS webhooks are registered with the
   header `X-Hotella-Webhook-Secret` (BSPs relay Meta's payload unsigned). Comparison is constant-time.
-- **Templates:** each channel maps platform template codes (`otp`, `activation`) to approved provider templates in its
-  configuration; authentication templates may repeat the code in a copy-code button (`codeButton`).
+- **Templates:** each channel maps platform template codes (`otp`, `activation`, and from Sprint 5.3
+  `service_update` — parameters: service name, new status, both in the guest's language) to approved provider
+  templates in its configuration; authentication templates may repeat the code in a copy-code button (`codeButton`).
+- **Notifications (Sprint 5.3):** other contexts tell a guest something only through `COMMUNICATIONS_API.notifyGuest`:
+  a `SYSTEM` message in the stay's conversation, delivered to the guest's verified WhatsApp number as text inside the
+  24-hour window and as its template outside it (or to someone other than the conversation's last contact).
 - **Same code on every channel without storing it:** the code is derived with HMAC-SHA256 under the OTP key (a
   SecretRef) from the session id and a random seed (BUILD_PLAN §8.9, notes for 4.2).
 - **Fallback timing:** provider errors fall back immediately; a missing delivery receipt falls back after

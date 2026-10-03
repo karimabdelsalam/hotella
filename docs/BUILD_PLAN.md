@@ -1139,9 +1139,25 @@ End-to-end CI scenario: simulator check-in → activation → request EXTRA_TOWE
 |---|---|---|
 | 5.1 | `@hotella/domain-catalog`: categories, definitions, versions with translations, drafts, publish (immutable by trigger), tenant-wide vs property services, starter catalog import from the locale catalog, eligibility and availability rules, guest catalog `GET /guest/services` localized with fallback, manifest, permissions, `catalog.service_version.published.v1` | delivered |
 | 5.2 | Service requests: `createServiceRequest` entrypoint and `CATALOG_API`, fields validation, duplicate detection with locking, work item via `OPERATIONS_API` (SLA/workflow by code), status follow from ops events, guest and staff routes, requests board, history, anonymization (catalog fields; ops quoted titles), tenant-leak tests | delivered |
-| 5.3 | Guest notifications: `COMMUNICATIONS_API.notifyGuest`, `SYSTEM` messages in the stay conversation, WhatsApp text or `service_update` template by window, realtime push, `catalog.notify.statuses` | planned |
+| 5.3 | Guest notifications: `COMMUNICATIONS_API.notifyGuest`, `SYSTEM` messages in the stay conversation, WhatsApp text or `service_update` template by window, realtime push, `catalog.notify.statuses` | delivered |
 | 5.4 | `apps/guest-web` PWA: BFF guest session cookie, activation (link, room QR), catalog, request form, my requests, chat; branding + attribution; Playwright in English (LTR) and Arabic (RTL); Docker target and pilot service | planned |
 | 5.5 | M1 end-to-end scenario in CI, pilot smoke extended to a service request, Phase 5 / M1 acceptance (`docs/acceptance/phase-5.md`) | planned |
+
+Reality notes for 5.3:
+- `COMMUNICATIONS_API.notifyGuest` (joins the caller's transaction) writes a `SYSTEM` message, rendered from the locale
+  catalog in the given locale, into the stay's open conversation (opening a guest-web one if needed) and announces
+  it to the guest web at once. With a verified WhatsApp number of **that guest** and a usable WhatsApp channel the
+  message is queued there too; `comms.messages` gained `recipient_identity_id` and `template` (migration
+  `0021_comms_notifications`, both clearable by anonymization only). The outbound job sends text when the recipient is
+  the conversation's last contact inside the 24-hour window, otherwise the template; without a template it still
+  fails `OUTSIDE_WINDOW`.
+- The catalog's `RequestNotifier` runs on every status move it records (worker and API) for the statuses in
+  `catalog.notify.statuses`, in the language of the request; a guest is not told about their own cancellation.
+  Messages: `catalog.notification.request_in_progress|completed|cancelled`; template parameters: service name and
+  `catalog.notification.status.*`.
+- Fixed on the way (from 4.3): an inbound WhatsApp message into a stay conversation that began on the guest web did
+  not make the writer the conversation's contact, so staff replies had no recipient; the writer now becomes the
+  contact (replies go to whoever wrote last).
 
 Reality notes for 5.2:
 - Order of checks in `createServiceRequest`: service (published, active, guest-visible for guest-facing sources) →

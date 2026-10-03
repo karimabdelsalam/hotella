@@ -38,6 +38,7 @@ import { COMMUNICATIONS_SETTINGS } from './domain/settings';
 import { ActivationRepositories } from './infrastructure/activation-repositories';
 import { CommsRepositories } from './infrastructure/repositories';
 import { COMMUNICATIONS_MANIFEST } from './manifest';
+import { COMMUNICATIONS_API } from './public';
 
 /** Inbox consumer names: one exactly-once effect per event. */
 export const GUEST_LIFECYCLE_CONSUMER = 'comms.guest-lifecycle';
@@ -72,8 +73,10 @@ const OTP_FALLBACK_EVERY_MS = 5_000;
     ArrivalActivation,
     GuestLifecycleConsumer,
     ConversationService,
+    { provide: COMMUNICATIONS_API, useExisting: ConversationService },
   ],
   exports: [
+    COMMUNICATIONS_API,
     CommsRepositories,
     ActivationRepositories,
     ConversationRepositories,
@@ -85,7 +88,6 @@ const OTP_FALLBACK_EVERY_MS = 5_000;
     ActivationService,
     ArrivalActivation,
     GuestLifecycleConsumer,
-    ConversationRepositories,
     ConversationService,
   ],
 })

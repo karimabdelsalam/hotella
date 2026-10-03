@@ -12,6 +12,7 @@ import { GuestRequestsController, StaffRequestsController } from './api/request.
 import { CatalogAdminService } from './application/admin.service';
 import { CatalogReader } from './application/catalog-reader';
 import { RequestLifecycle, SERVICE_REQUEST_KIND } from './application/request-lifecycle';
+import { RequestNotifier } from './application/request-notifier';
 import { ServiceRequestService } from './application/request.service';
 import { StarterCatalogService } from './application/starter';
 import { CATALOG_SETTINGS } from './domain/settings';
@@ -30,7 +31,13 @@ export const SERVICE_REQUEST_CONSUMER = 'catalog.service-requests';
  */
 @Global()
 @Module({
-  providers: [CatalogRepositories, RequestRepositories, CatalogReader, RequestLifecycle],
+  providers: [
+    CatalogRepositories,
+    RequestRepositories,
+    CatalogReader,
+    RequestNotifier,
+    RequestLifecycle,
+  ],
   exports: [CatalogRepositories, RequestRepositories, CatalogReader, RequestLifecycle],
 })
 export class CatalogCoreModule implements OnModuleInit {

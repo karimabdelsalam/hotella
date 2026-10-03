@@ -555,6 +555,10 @@ export const messages = classify(
       errorCode: varchar('error_code', { length: 32 }),
       /** Shown to the guest (false for staff-only notes and system markers). */
       guestVisible: boolean('guest_visible').notNull().default(true),
+      /** Who a notification goes to when it is not the conversation's contact (FK by hand, set null on removal). */
+      recipientIdentityId: uuid('recipient_identity_id'),
+      /** The approved template to use outside the 24-hour window: `{ code, locale, parameters }`. */
+      template: jsonb('template').$type<{ code: string; locale: string; parameters: string[] }>(),
     },
     (t) => [
       index('messages_conversation_idx').on(t.conversationId, t.id),
@@ -590,6 +594,8 @@ export const messages = classify(
     nextAttemptAt: 'INTERNAL',
     errorCode: 'INTERNAL',
     guestVisible: 'INTERNAL',
+    recipientIdentityId: 'INTERNAL',
+    template: 'CONFIDENTIAL',
   },
 );
 

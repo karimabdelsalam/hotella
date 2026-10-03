@@ -343,7 +343,7 @@ export class ConversationRepositories {
   async clearGuestMessageBodies(scope: TenantScope, guestId: string): Promise<number> {
     const rows = await this.x
       .update(messages)
-      .set({ body: null, mediaRef: null, updatedAt: new Date() })
+      .set({ body: null, mediaRef: null, template: null, updatedAt: new Date() })
       .where(
         tenantWhere(
           messages,

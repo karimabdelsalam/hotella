@@ -25,6 +25,11 @@ import { CommsRepositories } from '../infrastructure/repositories';
 import { ActivationService } from './activation.service';
 import { ChannelRuntime } from './channel.service';
 import { ChannelIdentityService } from './identity.service';
+import type {
+  CommunicationsPublicApi,
+  GuestNotificationInput,
+  GuestNotificationResult,
+} from '../public';
 import { type InboundItem, ProviderError } from './providers';
 
 const COMMS = 'comms';
@@ -43,7 +48,7 @@ type Sender = { type: 'GUEST' | 'STAFF' | 'AI' | 'SYSTEM'; ref: string | null };
  * live grant with CHAT (Spec §18.3) — anyone else gets their own conversation and an activation prompt.
  */
 @Injectable()
-export class ConversationService {
+export class ConversationService implements CommunicationsPublicApi {
   constructor(
     private readonly repo: ConversationRepositories,
     private readonly comms: CommsRepositories,
@@ -174,9 +179,12 @@ export class ConversationService {
       deliveryStatus: 'DELIVERED',
     });
     if (!message) return; // the same provider message twice
+    // Replies go to whoever wrote last, on the channel they wrote on (also when the stay's conversation began on the
+    // guest web or with another party member's number).
     conversation = await this.repo.updateConversation(scope, conversation.id, {
       replyChannelId: channel.id,
       replyChannelType: 'WHATSAPP',
+      channelIdentityId: identity.id,
       lastMessageAt: item.at,
       lastInboundAt: item.at,
       ...(conversation.status === 'HANDED_OFF' ? {} : { status: 'WAITING_STAFF' as const }),
@@ -315,20 +323,30 @@ export class ConversationService {
           return false;
         };
         if (!channel || channel.status !== 'ACTIVE') return fail('CHANNEL_UNAVAILABLE');
-        if (
-          !conversation.lastInboundAt ||
-          now.getTime() - conversation.lastInboundAt.getTime() > REPLY_WINDOW_MS
-        )
-          return fail('OUTSIDE_WINDOW');
-        const to = await this.recipient(conversation);
+        // Free-form text only inside the customer-service window of the contact who wrote last; a notification to
+        // someone else, or after the window, goes out as its approved template (ADR-0015).
+        const inWindow =
+          !message.recipientIdentityId ||
+          message.recipientIdentityId === conversation.channelIdentityId
+            ? conversation.lastInboundAt !== null &&
+              now.getTime() - conversation.lastInboundAt.getTime() <= REPLY_WINDOW_MS
+            : false;
+        if (!inWindow && !message.template) return fail('OUTSIDE_WINDOW');
+        const to = await this.recipient(conversation, message.recipientIdentityId);
         if (!to) return fail('NO_RECIPIENT');
         try {
           const adapter = this.runtime.adapterFor(channel);
           if (adapter.kind !== 'MESSAGING') return fail('NOT_MESSAGING');
-          const result = await adapter.sendText(this.runtime.context(channel), {
-            to,
-            body: message.body ?? '',
-          });
+          const ctx = this.runtime.context(channel);
+          const result =
+            inWindow || !message.template
+              ? await adapter.sendText(ctx, { to, body: message.body ?? '' })
+              : await adapter.sendTemplate(ctx, {
+                  to,
+                  template: message.template.code,
+                  locale: message.template.locale,
+                  parameters: message.template.parameters,
+                });
           const updated = await this.repo.updateMessage(scope, message.id, {
             deliveryStatus: 'SENT',
             providerMessageId: result.providerMessageId,
@@ -370,13 +388,14 @@ export class ConversationService {
     return sent;
   }
 
-  /** The WhatsApp number of the conversation's contact (its channel identity). */
-  private async recipient(conversation: ConversationRow): Promise<string | null> {
-    if (!conversation.channelIdentityId) return null;
-    const identity = await this.comms.identityById(
-      { tenantId: conversation.tenantId },
-      conversation.channelIdentityId,
-    );
+  /** The WhatsApp number of the message's recipient, else of the conversation's contact (its channel identity). */
+  private async recipient(
+    conversation: ConversationRow,
+    recipientIdentityId: string | null = null,
+  ): Promise<string | null> {
+    const id = recipientIdentityId ?? conversation.channelIdentityId;
+    if (!id) return null;
+    const identity = await this.comms.identityById({ tenantId: conversation.tenantId }, id);
     return identity?.identifierNormalized ?? null;
   }
 
@@ -442,6 +461,93 @@ export class ConversationService {
       await this.announceReceived(conversation, message);
       return { conversationId: conversation.id, messageId: message.id };
     });
+  }
+
+  // ---- guest notifications (Spec §25) ----
+
+  /**
+   * Tells a guest something about their stay (a service request moved on): a `SYSTEM` message in the stay's
+   * conversation (opened for the guest web if there is none), shown at once on the guest web; when the guest has a
+   * verified WhatsApp number and the property a usable WhatsApp channel it also goes out there — as text inside the
+   * 24-hour window, otherwise as the approved template. Runs in the caller's transaction (rule 18: no context sends
+   * through a provider directly).
+   */
+  notifyGuest(input: GuestNotificationInput): Promise<GuestNotificationResult> {
+    return this.tx.run(async () => {
+      const scope = { tenantId: input.tenantId };
+      const at = { tenantId: input.tenantId, propertyId: input.propertyId };
+      const now = new Date();
+      const conversation =
+        (await this.repo.openConversationOfStay(scope, input.stayId)) ??
+        (await this.open(at, {
+          guestId: input.guestId,
+          stayId: input.stayId,
+          identityId: null,
+          replyChannelType: 'GUEST_WEB',
+        }));
+      const body = this.i18n.t(input.message.key, input.message.params ?? {}, input.locale);
+      const identity = await this.identities.verifiedOfGuest(
+        input.tenantId,
+        input.guestId,
+        'WHATSAPP',
+      );
+      const channel = identity ? await this.whatsappChannel(at, conversation) : undefined;
+      const participant = await this.repo.participant(
+        scope,
+        conversation.id,
+        'SYSTEM',
+        input.source,
+        now,
+      );
+      const message = (await this.repo.insertMessage({
+        id: newId(),
+        tenantId: input.tenantId,
+        conversationId: conversation.id,
+        channelId: channel?.id ?? null,
+        channelType: channel ? 'WHATSAPP' : 'GUEST_WEB',
+        direction: 'OUTBOUND',
+        senderParticipantId: participant.id,
+        senderType: 'SYSTEM',
+        senderRef: input.source,
+        type: 'SYSTEM',
+        body,
+        deliveryStatus: channel ? 'QUEUED' : 'SENT',
+        nextAttemptAt: channel ? now : null,
+        recipientIdentityId: channel ? identity!.id : null,
+        template: input.template
+          ? {
+              code: input.template.code,
+              locale: input.locale,
+              parameters: [...input.template.parameters],
+            }
+          : null,
+      }))!;
+      await this.repo.updateConversation(scope, conversation.id, { lastMessageAt: now });
+      // The guest web shows it at once; the WhatsApp copy is announced when it leaves.
+      await this.announceSent(conversation, { ...message, channelType: 'GUEST_WEB' });
+      return {
+        conversationId: conversation.id,
+        messageId: message.id,
+        channelType: channel ? 'WHATSAPP' : 'GUEST_WEB',
+      };
+    });
+  }
+
+  /** The conversation's WhatsApp channel when it has one, else the property's first usable WhatsApp channel. */
+  private async whatsappChannel(
+    at: { tenantId: string; propertyId: string },
+    conversation: ConversationRow,
+  ): Promise<ChannelRow | undefined> {
+    const usable = (c: ChannelRow | undefined) =>
+      c &&
+      c.status === 'ACTIVE' &&
+      c.type === 'WHATSAPP' &&
+      !['OFFLINE', 'AUTH_FAILED'].includes(c.health);
+    if (conversation.replyChannelType === 'WHATSAPP' && conversation.replyChannelId) {
+      const current = await this.comms.channelById(conversation.replyChannelId);
+      if (usable(current)) return current;
+    }
+    return (await this.comms.activeChannels(at, 'WHATSAPP')).find(usable);
   }
 
   // ---- lifecycle ----

@@ -3,6 +3,7 @@ import { Global, type INestApplication, Module, type Type } from '@nestjs/common
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
+import { CommunicationsModule } from '@hotella/domain-communications';
 import { GuestModule } from '@hotella/domain-guest';
 import { IDENTITY_API } from '@hotella/domain-identity/public';
 import { IntegrationsModule } from '@hotella/domain-integrations';
@@ -91,7 +92,11 @@ export async function startCatalogApp(
       ConfigModule.forRoot({ env }),
       ObservabilityModule.forRoot(),
       I18nModule.forRoot(),
-      SecretsModule.forRoot({ providers: [new EnvSecretProvider({ FAKE_SECRET: 'fake' })] }),
+      SecretsModule.forRoot({
+        providers: [
+          new EnvSecretProvider({ FAKE_SECRET: 'fake', COMMS_OTP_HMAC_KEY: 'test-otp-key' }),
+        ],
+      }),
       HttpConventionsModule.forRoot({ store: 'memory' }),
       DatabaseModule.forRoot(),
       EventsModule.forRoot(),
@@ -110,11 +115,12 @@ export async function startCatalogApp(
       GuestModule,
       FakeIdentityModule,
       OperationsModule,
+      CommunicationsModule,
       CatalogModule,
       ...extra,
     ],
   }).compile();
-  const app = ref.createNestApplication({ logger: false });
+  const app = ref.createNestApplication({ logger: false, rawBody: true });
   app.useGlobalPipes(new ZodValidationPipe());
   await app.init();
   return { app, db: app.get(DATABASE), http: () => request(app.getHttpServer()) };

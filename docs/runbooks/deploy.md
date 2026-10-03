@@ -31,7 +31,8 @@ infra/docker/pilot/pilot.sh backup full   # first full backup; also proves WAL a
    whatsapp_<property>='{"accessToken":"…","appSecret":"…","verifyToken":"…"}'`; BSP/SMS: `{"apiKey":"…","webhookSecret":"…"}`),
    then register the webhook URL with the provider: `https://<public host>/api/v1/webhooks/whatsapp/{channelId}`
    (Meta: same URL for the verification handshake; BSP/SMS: add the header `X-Hotella-Webhook-Secret`). Approve the
-   `otp` and `activation` templates with the provider and map them in the channel's `config.templates`. Any reverse
+   `otp`, `activation` and `service_update` (request updates: service name, status) templates with the provider and
+   map them in the channel's `config.templates`. Any reverse
    proxy in front of the API must pass WebSocket upgrades on `/api/v1/realtime` (staff inbox and guest chat updates).
    Print room QR codes from `POST /api/v1/properties/{p}/room-qr-codes/sheet` (printing rotates the codes).
 
