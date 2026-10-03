@@ -422,6 +422,16 @@ First staging environment on the on-prem target: `infra/docker/compose.pilot.yml
 
 Reality notes for 1.1: brand assets are stored as object-storage keys (`logo_asset_key`, `cover_asset_keys`, …) because the asset registry arrives with the knowledge/storage work; the public branding endpoint takes `property` (+ optional `channel`) and resolves platform → tenant → organization → property → channel.
 
+Owner request (Phase 8, between 8.3 and 8.4) — the hotel's own brand in the product: a property manager
+(`branding.manage`) edits the property layer from the staff web (`/branding`): `GET|PATCH /properties/:id/branding`
+(name and colour; `null` clears so the group's value shows) and `PUT|DELETE /properties/:id/branding/logo` (the raw
+image body; PNG/JPEG/WebP read from the bytes, SVG refused, 512 KB at most; stored in object storage under
+`brand/<tenant>/`). `GET /public/branding/logo?property=&channel=` serves only the logo the resolved brand points at,
+and a brand profile may only reference its own tenant's `brand/` keys (`org.brand_profile.invalid_asset`). Guest web
+and staff web show the logo (or the hotel's initials) in their headers and use the hotel colour; both use the Cairo
+typeface, self-hosted (`@fontsource-variable/cairo`, OFL); the `Powered by Planova` footer is smaller but keeps its
+fixed text and link and is still not a brand setting.
+
 Reality notes for 1.2 (details in ADR-0011 "Implementation notes"):
 - `iam.sessions` is the refresh-token family and `iam.refresh_tokens` holds one row per issued token; the plan's single `refresh_token_hash` column could not express reuse detection safely.
 - `mfa_secret_ref` became `mfa_secret_enc`: per-user TOTP seeds are sealed with AES-256-GCM under a SecretRef key (`IAM_MFA_KEY_REF`), because secret providers are read-only; `mfa_last_step` blocks code replay.

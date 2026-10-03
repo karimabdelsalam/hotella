@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Button, cx } from '@hotella/ui';
-import { Link } from '../i18n/navigation';
 import { api, ApiError } from '../lib/api';
 import type { Conversation } from '../lib/types';
 import { SignedOut, useGuest } from './home';
-import { ErrorText, TopBar } from './ui';
+import { BackLink, ErrorText, TopBar } from './ui';
 
 /**
  * Chat with the hotel on the guest web: the stay's one conversation, also used by WhatsApp (Spec §18.1). The session
@@ -48,13 +47,8 @@ export function Chat() {
     <>
       <TopBar title={me?.property?.name} />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-3 p-4">
-        <Link href="/" className="text-sm text-slate-600">
-          <span aria-hidden className="inline-block rtl:rotate-180">
-            ‹
-          </span>{' '}
-          {t('back')}
-        </Link>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
+        <BackLink>{t('back')}</BackLink>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <ol className="flex flex-1 flex-col gap-2" aria-live="polite">
           {thread?.messages.length === 0 && (
             <li className="text-sm text-slate-500">{t('empty')}</li>
@@ -65,12 +59,12 @@ export function Chat() {
               data-direction={m.direction}
               data-sender={m.senderType}
               className={cx(
-                'max-w-[85%] rounded-lg px-3 py-2 text-sm',
+                'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-6',
                 m.direction === 'INBOUND'
                   ? 'self-end bg-[var(--brand-primary,#1f2937)] text-white'
                   : m.senderType === 'SYSTEM'
                     ? 'self-center bg-slate-100 text-slate-700'
-                    : 'self-start bg-white shadow-sm',
+                    : 'self-start bg-white shadow-sm ring-1 ring-slate-900/5',
               )}
             >
               {m.body}
@@ -100,7 +94,7 @@ export function Chat() {
           <input
             aria-label={t('placeholder')}
             placeholder={t('placeholder')}
-            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-base text-start"
+            className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-2.5 text-base text-start focus:border-[var(--brand-primary,#1f2937)] focus:outline-none"
             value={draft}
             maxLength={2000}
             onChange={(e) => setDraft(e.target.value)}

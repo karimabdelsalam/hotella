@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { AttributionFooter, Badge, Button } from './index';
+import { AttributionFooter, Badge, BrandMark, Button, ChevronIcon, initials } from './index';
 
 describe('ui primitives', () => {
   it('the attribution footer always carries the fixed label and link; only the policy can hide it', () => {
@@ -17,8 +17,20 @@ describe('ui primitives', () => {
         <Button variant="danger">Close</Button>
         <Badge tone="warning">Waiting</Badge>
         <AttributionFooter />
+        <BrandMark name="Nile View" />
+        <BrandMark name="Nile View" logoUrl="/logo.png" />
+        <ChevronIcon />
       </div>,
     );
     expect(html).not.toMatch(/\b(?:ml|mr|pl|pr|left|right|text-left|text-right)-/);
+  });
+
+  it('the brand mark shows the logo when there is one, else the hotel initials', () => {
+    expect(initials('Nile View Hotel')).toBe('NV');
+    expect(initials('  فندق النيل ')).toBe('فا');
+    expect(renderToStaticMarkup(<BrandMark name="Nile View" />)).toContain('>NV<');
+    const logo = renderToStaticMarkup(<BrandMark name="Nile View" logoUrl="/x.png" />);
+    expect(logo).toContain('src="/x.png"');
+    expect(logo).toContain('alt="Nile View"');
   });
 });

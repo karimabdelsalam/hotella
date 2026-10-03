@@ -116,3 +116,23 @@ export interface AssignmentPlan {
     readonly jobs: ReadonlyArray<{ readonly jobId: string; readonly roomNumber: string }>;
   }>;
 }
+
+// ---- branding (see the organization context's branding resolver) ----
+
+/** The hotel's resolved brand (platform → tenant → organization → property). */
+export interface ResolvedBrand {
+  readonly propertyId: string;
+  readonly displayName: string;
+  readonly primaryColor: string;
+  readonly logoAssetKey: string | null;
+}
+
+/** The property's own brand layer and what everyone sees after inheritance. */
+export interface PropertyBrand {
+  readonly profile: {
+    readonly displayName: string | null;
+    readonly primaryColor: string | null;
+    readonly logoAssetKey: string | null;
+  } | null;
+  readonly resolved: ResolvedBrand;
+}

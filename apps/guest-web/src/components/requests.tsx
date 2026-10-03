@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { Badge, Button } from '@hotella/ui';
-import { Link } from '../i18n/navigation';
 import { api, ApiError } from '../lib/api';
 import type { GuestRequest } from '../lib/types';
 import { SignedOut, useGuest } from './home';
-import { ErrorText, Page, TopBar } from './ui';
+import { BackLink, ErrorText, Page, TopBar } from './ui';
 
 const TONE = {
   OPEN: 'info',
@@ -44,23 +43,18 @@ export function Requests() {
     <>
       <TopBar title={me?.property?.name} />
       <Page>
-        <Link href="/" className="text-sm text-slate-600">
-          <span aria-hidden className="inline-block rtl:rotate-180">
-            ‹
-          </span>{' '}
-          {t('back')}
-        </Link>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
+        <BackLink>{t('back')}</BackLink>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         {items && items.length === 0 && <p className="text-sm text-slate-500">{t('empty')}</p>}
         <ul className="flex flex-col gap-2">
           {items?.map((r) => (
             <li
               key={r.id}
-              className="flex items-center gap-3 rounded-lg bg-white p-3 shadow-sm"
+              className="flex items-center gap-3 rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-900/5"
               data-request={r.serviceCode}
             >
               <span className="flex flex-1 flex-col text-start">
-                <span className="font-medium">{r.serviceName}</span>
+                <span className="font-semibold">{r.serviceName}</span>
                 <span className="text-xs text-slate-500">
                   {format.dateTime(new Date(r.createdAt), {
                     dateStyle: 'medium',

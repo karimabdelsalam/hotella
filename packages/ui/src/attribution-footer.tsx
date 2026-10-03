@@ -9,8 +9,17 @@ export const PLANOVA_HREF = 'https://planova.com.eg';
 export function AttributionFooter({ show = true }: { readonly show?: boolean }) {
   if (!show) return null;
   return (
-    <footer className="py-3 text-center text-xs text-slate-500" data-testid="attribution">
-      <a href={PLANOVA_HREF} target="_blank" rel="noopener" dir="ltr" className="hover:underline">
+    <footer
+      className="py-1.5 text-center text-[10px] leading-4 tracking-wide text-slate-400"
+      data-testid="attribution"
+    >
+      <a
+        href={PLANOVA_HREF}
+        target="_blank"
+        rel="noopener"
+        dir="ltr"
+        className="hover:text-slate-600 hover:underline"
+      >
         {PLANOVA_LABEL}
       </a>
     </footer>

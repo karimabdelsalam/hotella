@@ -19,7 +19,12 @@ import { AuditWriter } from '@hotella/platform-audit';
 import { AttributionPolicyService } from '@hotella/platform-settings';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError, CurrentLocale } from '@hotella/platform-i18n';
-import { mergeBrand, type BrandLayer, type ResolvedBrand } from '../domain/branding';
+import {
+  brandAssetPrefix,
+  mergeBrand,
+  type BrandLayer,
+  type ResolvedBrand,
+} from '../domain/branding';
 import { CONTAINER_KINDS, normalizeCode } from '../domain/values';
 import { OrganizationRepositories } from '../infrastructure/repositories';
 import type {
@@ -664,6 +669,16 @@ export class BrandingService {
             throw AppError.notFound('org.property.not_found');
           if (input.scope === 'CHANNEL' && !input.channel)
             throw new AppError('org.brand_profile.invalid_scope', HttpStatus.UNPROCESSABLE_ENTITY);
+          // Image keys must be this tenant's uploads (never another tenant's object, never an arbitrary key).
+          const prefix = brandAssetPrefix(scope.tenantId);
+          const keys = [
+            input.logoAssetKey,
+            input.logoAltAssetKey,
+            input.faviconAssetKey,
+            ...input.coverAssetKeys,
+          ];
+          if (keys.some((k) => k && !k.startsWith(prefix)))
+            throw new AppError('org.brand_profile.invalid_asset', HttpStatus.UNPROCESSABLE_ENTITY);
           const channel = input.scope === 'CHANNEL' ? (input.channel ?? null) : null;
           const row = await this.repo.upsertBrandProfile({
             id: newId(),

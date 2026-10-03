@@ -4,8 +4,15 @@ const PROPERTY = '01900000-0000-7000-8000-000000000001';
 const TOKEN = 'link-token-0123456789abcdef';
 const QR = 'qr-token-0123456789abcdef';
 
+/** A real 1×1 PNG standing in for the hotel's uploaded logo. */
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
 const branding = {
+  propertyId: PROPERTY,
   displayName: 'Nile View Hotel',
+  logoAssetKey: 'brand/t1/logo-1.png',
   primaryColor: '#0a7d5a',
   welcomeText: null,
   attribution: { show: true, label: 'Powered by Planova', href: 'https://planova.com.eg' },
@@ -101,6 +108,7 @@ async function mockBackend(page: Page, opts: { signedIn: boolean; locale?: 'en' 
       });
     if (path === `guest/qr/${QR}/verify`) return r.fulfill({ json: { ok: true } });
     if (path === 'public/branding') return r.fulfill({ json: branding });
+    if (path === 'public/branding/logo') return r.fulfill({ body: PNG, contentType: 'image/png' });
     if (path === 'guest/activation/otp/request')
       return r.fulfill({
         json: {
@@ -187,6 +195,9 @@ test('activates by link and asks for towels in English (left-to-right)', async (
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   await expect(page.getByRole('heading', { name: 'Welcome to Nile View' })).toBeVisible();
   await expect(page.getByTestId('hotel-name')).toHaveText('Nile View Hotel');
+  // The hotel's own logo, in the header and above the activation form.
+  await expect(page.locator('header img[alt="Nile View Hotel"]')).toBeVisible();
+  await expect(page.locator('main img[alt="Nile View Hotel"]')).toBeVisible();
   await page.getByLabel('Your mobile number').fill('0100 111 2233');
   await page.getByRole('button', { name: 'Send me a code' }).click();
   await expect(page.getByText('We sent a 6-digit code to your WhatsApp.')).toBeVisible();
@@ -300,6 +311,14 @@ test('the guest app in Arabic is right-to-left and fully translated', async ({ p
     );
   }
   await expect(page.getByTestId('attribution')).toContainText('Powered by Planova');
+  // Arabic in Cairo, self-hosted.
+  expect(await page.evaluate(() => getComputedStyle(document.body).fontFamily)).toContain('Cairo');
+  // The Cairo face is bundled with the app and loads for Arabic text.
+  expect(
+    await page.evaluate(
+      async () => (await document.fonts.load('16px "Cairo Variable"', 'مرحبا')).length,
+    ),
+  ).toBeGreaterThan(0);
 });
 
 test('room QR asks for the last name first; a used link explains itself; without a session the home page says what to do', async ({

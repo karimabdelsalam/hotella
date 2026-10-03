@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Button } from '@hotella/ui';
+import { BrandMark, Button } from '@hotella/ui';
 import { useRouter } from '../i18n/navigation';
 import { api, ApiError, call } from '../lib/api';
-import { useBrand } from '../lib/brand';
+import { logoUrl, useBrand } from '../lib/brand';
 import { Card, ErrorText, Field, Page, TopBar } from './ui';
 
 type Step =
@@ -111,10 +111,17 @@ export function Activation({
         )}
         {step.kind !== 'loading' && step.kind !== 'invalid' && (
           <Card className="flex flex-col gap-4">
-            <div>
-              <h1 className="text-lg font-semibold">{t('title', { hotel: hotel?.name ?? '' })}</h1>
+            <div className="flex flex-col items-center gap-3 pt-2 text-center">
+              <BrandMark
+                name={brand.brand?.displayName || hotel?.name || ''}
+                logoUrl={logoUrl(brand.brand)}
+                size="lg"
+              />
+              <h1 className="text-xl font-bold">{t('title', { hotel: hotel?.name ?? '' })}</h1>
               {hotel?.room && (
-                <p className="text-sm text-slate-600">{t('room', { room: hotel.room })}</p>
+                <p className="bg-brand-soft text-brand rounded-full px-3 py-1 text-sm font-bold">
+                  {t('room', { room: hotel.room })}
+                </p>
               )}
             </div>
             {step.kind === 'name' && (
@@ -224,7 +231,7 @@ export function Activation({
                     ? t('resend_in', { seconds: Math.ceil((step.resendAfter - now) / 1000) })
                     : t('resend')}
                 </Button>
-                <div className="rounded-md bg-slate-100 p-3 text-sm text-slate-700">
+                <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700 ring-1 ring-slate-900/5">
                   <p>{t('front_desk')}</p>
                   <p
                     className="mt-1 text-center font-mono text-xl tracking-widest"

@@ -7,7 +7,7 @@ import { Link } from '../i18n/navigation';
 import { api, ApiError } from '../lib/api';
 import type { Service, ServiceField } from '../lib/types';
 import { SignedOut, useGuest } from './home';
-import { Card, ErrorText, Page, TopBar } from './ui';
+import { BackLink, Card, ErrorText, Page, TopBar } from './ui';
 
 type Values = Record<string, string | number | boolean>;
 
@@ -45,12 +45,7 @@ export function ServiceForm({ code }: { readonly code: string }) {
     <>
       <TopBar title={me?.property?.name} />
       <Page>
-        <Link href="/" className="text-sm text-slate-600">
-          <span aria-hidden className="inline-block rtl:rotate-180">
-            ‹
-          </span>{' '}
-          {t('back')}
-        </Link>
+        <BackLink>{t('back')}</BackLink>
         {service === 'missing' && (
           <Card>
             <p>{t('not_available')}</p>
@@ -59,7 +54,7 @@ export function ServiceForm({ code }: { readonly code: string }) {
         {service && service !== 'missing' && (
           <Card className="flex flex-col gap-4">
             <div>
-              <h1 className="text-xl font-semibold">{service.name}</h1>
+              <h1 className="text-2xl font-bold">{service.name}</h1>
               {service.description && (
                 <p className="mt-1 text-sm text-slate-600">{service.description}</p>
               )}
@@ -70,7 +65,7 @@ export function ServiceForm({ code }: { readonly code: string }) {
                 <p className="font-medium">{done === 'related' ? t('related') : t('created')}</p>
                 <Link
                   href="/requests"
-                  className="rounded-md bg-[var(--brand-primary,#1f2937)] px-3 py-2 text-center text-sm text-white"
+                  className="bg-brand rounded-lg px-3 py-2.5 text-center text-sm font-semibold text-white"
                 >
                   {t('see_requests')}
                 </Link>
@@ -124,7 +119,8 @@ function FieldInput({
 }) {
   const t = useTranslations('portal.service');
   const label = field.required ? field.label : `${field.label} ${t('optional')}`;
-  const input = 'rounded-md border border-slate-300 px-3 py-2 text-base text-start';
+  const input =
+    'rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-start focus:border-[var(--brand-primary,#1f2937)] focus:outline-none';
   switch (field.type) {
     case 'NUMBER':
       return (

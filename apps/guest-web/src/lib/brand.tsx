@@ -28,8 +28,8 @@ function safeColor(value: string | undefined): string | undefined {
 }
 
 /**
- * Branding resolves dynamically (platform → tenant → property → channel, CLAUDE.md rule 15): the hotel's name and
- * color come from the API; the attribution footer's visibility comes from the platform policy, never from the brand.
+ * Branding resolves dynamically (platform → tenant → property → channel, CLAUDE.md rule 15): the hotel's name, logo
+ * and color come from the API; the attribution footer's visibility comes from the platform policy, never from the brand.
  */
 export function BrandProvider({ children }: { readonly children: ReactNode }) {
   const locale = useLocale();
@@ -62,6 +62,12 @@ export function BrandProvider({ children }: { readonly children: ReactNode }) {
       </div>
     </BrandContext.Provider>
   );
+}
+
+/** The hotel's logo through the same-origin proxy; the key in the query changes with every upload (fresh cache). */
+export function logoUrl(brand: Branding | null): string | null {
+  if (!brand?.logoAssetKey) return null;
+  return `/hotella/public/branding/logo?property=${encodeURIComponent(brand.propertyId)}&channel=GUEST_WEB&v=${encodeURIComponent(brand.logoAssetKey)}`;
 }
 
 export function useBrand(): BrandState {

@@ -268,6 +268,9 @@ importers:
 
   apps/guest-web:
     dependencies:
+      '@fontsource-variable/cairo':
+        specifier: 5.3.0
+        version: 5.3.0
       '@hotella/platform-config':
         specifier: workspace:*
         version: link:../../packages/platform/config
@@ -435,6 +438,9 @@ importers:
 
   apps/staff-web:
     dependencies:
+      '@fontsource-variable/cairo':
+        specifier: 5.3.0
+        version: 5.3.0
       '@hotella/platform-config':
         specifier: workspace:*
         version: link:../../packages/platform/config
@@ -1860,6 +1866,9 @@ importers:
       '@hotella/platform-settings':
         specifier: workspace:*
         version: link:../../platform/settings
+      '@hotella/platform-storage':
+        specifier: workspace:*
+        version: link:../../platform/storage
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -3364,6 +3373,9 @@ packages:
   '@eslint/plugin-kit@0.7.3':
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@fontsource-variable/cairo@5.3.0':
+    resolution: {integrity: sha512-zkxIsVQ406AJXD1qaldeOj+CIsMzRMXRT2x6fkYjNJE2DFsqGMzNGFhdrZdZagq3qX9JwaMaZetMc7/oUlpfpg==}
 
   '@formatjs/fast-memoize@3.1.7':
     resolution: {integrity: sha512-zXfhLpvA6T7+efdt9JLbBwZ00tT7NsBMDVnDu8rpHeNNv8KfRZAMo2gkG0k9lK/Nzc//3kJ9pImsfuJxk3KhUA==}
@@ -9189,6 +9201,8 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
+
+  '@fontsource-variable/cairo@5.3.0': {}
 
   '@formatjs/fast-memoize@3.1.7': {}
 

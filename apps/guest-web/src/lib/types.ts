@@ -7,7 +7,9 @@ export interface Attribution {
 }
 
 export interface Branding {
+  readonly propertyId: string;
   readonly displayName: string;
+  readonly logoAssetKey: string | null;
   readonly primaryColor: string;
   readonly welcomeText: string | null;
   readonly attribution: Attribution;

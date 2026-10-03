@@ -2,7 +2,7 @@
   "name": "@hotella/domain-organization",
   "version": "0.0.0",
   "private": true,
-  "description": "Organization & Property bounded context (Spec \u00a74, Product Identity): tenants, organizations, properties, location tree with rooms, brand profiles and the guest-facing branding resolver.",
+  "description": "Organization & Property bounded context (Spec §4, Product Identity): tenants, organizations, properties, location tree with rooms, brand profiles and the guest-facing branding resolver.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -36,6 +36,7 @@
     "@hotella/platform-manifest": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
     "@hotella/platform-settings": "workspace:*",
+    "@hotella/platform-storage": "workspace:*",
     "@nestjs/common": "11.2.7",
     "drizzle-orm": "0.45.3",
     "nestjs-zod": "5.5.0",

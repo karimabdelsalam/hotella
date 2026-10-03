@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Button } from '@hotella/ui';
+import { Button, ChatIcon, ChevronIcon, cx, ListIcon, MoonIcon, SparkleIcon } from '@hotella/ui';
 import { Link, useRouter } from '../i18n/navigation';
 import { api, ApiError, call } from '../lib/api';
 import { useBrand } from '../lib/brand';
 import type { Catalog, Me } from '../lib/types';
-import { Card, Page, TopBar } from './ui';
+import { Card, Page, SectionTitle, TopBar } from './ui';
 
 /** Loads the guest (`/guest/me`); null while loading, 'signed-out' without a valid session. */
 export function useGuest(): Me | null | 'signed-out' {
@@ -86,6 +86,7 @@ function RoomSignals() {
   };
   const item = (signal: Signal, label: string, on: string) => {
     const pressed = active.includes(signal);
+    const Icon = signal === 'DND' ? MoonIcon : SparkleIcon;
     return (
       <li>
         <button
@@ -94,21 +95,30 @@ function RoomSignals() {
           disabled={busy}
           data-signal={signal}
           onClick={() => void toggle(signal)}
-          className={`w-full rounded-lg border px-3 py-2 text-start text-sm ${
-            pressed ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white'
-          }`}
+          className={cx(
+            'flex w-full items-center gap-2.5 rounded-2xl px-3.5 py-3 text-start text-sm font-semibold shadow-sm ring-1 transition',
+            pressed
+              ? 'bg-brand text-white ring-transparent'
+              : 'bg-white text-slate-800 ring-slate-900/5',
+          )}
         >
+          <span
+            className={cx(
+              'inline-flex size-8 shrink-0 items-center justify-center rounded-full',
+              pressed ? 'bg-white/20' : 'bg-brand-soft text-brand',
+            )}
+          >
+            <Icon className="size-4" />
+          </span>
           {label}
         </button>
-        {pressed && <p className="mt-1 text-xs text-slate-600">{on}</p>}
+        {pressed && <p className="mt-1.5 px-1 text-xs text-slate-600">{on}</p>}
       </li>
     );
   };
   return (
     <section aria-labelledby="room-signals" className="flex flex-col gap-2">
-      <h2 id="room-signals" className="text-sm font-semibold uppercase text-slate-500">
-        {t('room_signals')}
-      </h2>
+      <SectionTitle id="room-signals">{t('room_signals')}</SectionTitle>
       <ul className="grid grid-cols-2 gap-2">
         {item('DND', t('dnd'), t('dnd_on'))}
         {item('MAKE_UP_ROOM', t('make_up'), t('make_up_on'))}
@@ -144,7 +154,7 @@ export function Home() {
         {me && (
           <Button
             variant="ghost"
-            className="text-white hover:bg-white/10"
+            className="shrink-0 rounded-full px-2.5 py-1.5 text-xs text-white hover:bg-white/15"
             onClick={async () => {
               await call('/bff/logout', locale, { method: 'POST' }).catch(() => undefined);
               router.refresh();
@@ -159,34 +169,42 @@ export function Home() {
         {!me && <p className="text-slate-500">{t('loading')}</p>}
         {me && (
           <>
-            <Card>
-              <h1 className="text-xl font-semibold">
-                {me.guest.givenName
-                  ? t('welcome', { name: me.guest.givenName })
-                  : t('welcome_plain')}
-              </h1>
-              {me.stay?.room && (
-                <p className="mt-1 text-sm text-slate-600">
-                  {t('room', { room: me.stay.room.number })}
-                </p>
-              )}
-              {me.branding?.welcomeText && (
-                <p className="mt-2 text-sm text-slate-700">{me.branding.welcomeText}</p>
-              )}
-              <nav className="mt-3 flex flex-wrap gap-2">
+            <Card className="overflow-hidden">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-2xl font-bold leading-snug">
+                    {me.guest.givenName
+                      ? t('welcome', { name: me.guest.givenName })
+                      : t('welcome_plain')}
+                  </h1>
+                  {me.branding?.welcomeText && (
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      {me.branding.welcomeText}
+                    </p>
+                  )}
+                </div>
+                {me.stay?.room && (
+                  <span className="bg-brand-soft text-brand shrink-0 rounded-full px-3 py-1 text-sm font-bold">
+                    {t('room', { room: me.stay.room.number })}
+                  </span>
+                )}
+              </div>
+              <nav className="mt-4 grid grid-cols-2 gap-2">
                 {me.scopes.includes('SERVICE_REQUEST') && (
                   <Link
                     href="/requests"
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                    className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm font-semibold ring-1 ring-slate-900/5 hover:bg-slate-100"
                   >
+                    <ListIcon className="text-brand size-5" />
                     {t('my_requests')}
                   </Link>
                 )}
                 {me.scopes.includes('CHAT') && (
                   <Link
                     href="/chat"
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                    className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm font-semibold ring-1 ring-slate-900/5 hover:bg-slate-100"
                   >
+                    <ChatIcon className="text-brand size-5" />
                     {t('chat')}
                   </Link>
                 )}
@@ -199,31 +217,33 @@ export function Home() {
                 aria-labelledby={`cat-${c.code}`}
                 className="flex flex-col gap-2"
               >
-                <h2 id={`cat-${c.code}`} className="text-sm font-semibold uppercase text-slate-500">
-                  {c.name}
-                </h2>
+                <SectionTitle id={`cat-${c.code}`}>{c.name}</SectionTitle>
                 <ul className="flex flex-col gap-2">
                   {c.services.map((s) => (
                     <li key={s.code}>
                       <Link
                         href={`/services/${s.code}`}
-                        className="flex items-center gap-3 rounded-lg bg-white p-3 shadow-sm"
+                        className="flex items-center gap-3 rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-900/5 transition hover:shadow-md"
                         data-service={s.code}
                       >
-                        <span className="flex flex-1 flex-col text-start">
-                          <span className="font-medium">{s.name}</span>
+                        <span
+                          aria-hidden
+                          className="bg-brand-soft text-brand inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-base font-bold"
+                        >
+                          {Array.from(s.name)[0]}
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col text-start">
+                          <span className="font-semibold">{s.name}</span>
                           {s.shortDescription && (
                             <span className="text-sm text-slate-600">{s.shortDescription}</span>
                           )}
                         </span>
                         {!s.openNow && (
-                          <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
                             {t('closed_now')}
                           </span>
                         )}
-                        <span aria-hidden className="text-slate-400 rtl:rotate-180">
-                          ›
-                        </span>
+                        <ChevronIcon className="size-4 shrink-0 text-slate-400" />
                       </Link>
                     </li>
                   ))}

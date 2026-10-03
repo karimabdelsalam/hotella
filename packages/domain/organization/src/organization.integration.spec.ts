@@ -22,7 +22,35 @@ import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-te
 import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { StorageService } from '@hotella/platform-storage';
+import { Global, Module } from '@nestjs/common';
 import { OrganizationModule } from './organization.module';
+
+/** In-memory object storage standing in for SeaweedFS. */
+const objects = new Map<string, Buffer>();
+const fakeStorage = {
+  put: async (o: { key: string; body: Buffer }) => {
+    objects.set(o.key, Buffer.from(o.body));
+    return { key: o.key, bucket: 'test' };
+  },
+  getBuffer: async (key: string) => {
+    const b = objects.get(key);
+    if (!b) throw new Error('NoSuchKey');
+    return b;
+  },
+};
+@Global()
+@Module({
+  providers: [{ provide: StorageService, useValue: fakeStorage }],
+  exports: [StorageService],
+})
+class FakeStorageModule {}
+
+/** A real 1×1 PNG. */
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
 
 const admin = JSON.stringify({ type: 'USER', id: 'admin', tenantId: null, isPlatformAdmin: true });
 const user = (id: string, tenantId: string): string =>
@@ -68,6 +96,7 @@ describe.skipIf(needsInfra())(
             },
             propertyVerifier: OrganizationModule.propertyVerifier(),
           }),
+          FakeStorageModule,
           OrganizationModule,
         ],
       }).compile();
@@ -351,6 +380,83 @@ describe.skipIf(needsInfra())(
         attribution: { href: 'https://planova.com.eg' },
       });
       expect(b.body.primaryColor).not.toBe('#0B3D91');
+    });
+
+    it('a hotel manager sets the hotel name, colour and logo; the logo is served publicly and nowhere else', async () => {
+      const ua = user('ua', tenantA);
+      const http = () => request(app.getHttpServer());
+      const named = await http()
+        .patch(`/properties/${propertyA}/branding`)
+        .set('X-Test-Actor', ua)
+        .send({ displayName: 'Nile Palace Luxor', primaryColor: '#7A1F2B' })
+        .expect(200);
+      expect(named.body.profile).toMatchObject({
+        displayName: 'Nile Palace Luxor',
+        primaryColor: '#7A1F2B',
+        logoAssetKey: null,
+      });
+      expect(named.body.resolved.displayName).toBe('Nile Palace Luxor');
+      // the earlier Arabic welcome text and typography survive a name/colour change
+      const kept = await http().get(`/public/branding?property=${propertyA}&lang=ar`).expect(200);
+      expect(kept.body.welcomeText).toBe('أهلاً بك في قصر النيل');
+      expect(kept.body.typography.arabic).toBe('Cairo');
+
+      await http().get(`/public/branding/logo?property=${propertyA}`).expect(404);
+      const svg = await http()
+        .put(`/properties/${propertyA}/branding/logo`)
+        .set('X-Test-Actor', ua)
+        .set('content-type', 'image/png')
+        .send(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'))
+        .expect(415);
+      expect(svg.body.code).toBe('org.brand_asset.unsupported');
+      await http()
+        .put(`/properties/${propertyA}/branding/logo`)
+        .set('X-Test-Actor', ua)
+        .set('content-type', 'image/png')
+        .send(Buffer.concat([PNG, Buffer.alloc(600 * 1024)]))
+        .expect(413);
+      // tenant B's manager cannot touch tenant A's hotel
+      await http()
+        .put(`/properties/${propertyA}/branding/logo`)
+        .set('X-Test-Actor', user('ub', tenantB))
+        .set('content-type', 'image/png')
+        .send(PNG)
+        .expect(404);
+      const set = await http()
+        .put(`/properties/${propertyA}/branding/logo`)
+        .set('X-Test-Actor', ua)
+        .set('content-type', 'image/png')
+        .send(PNG)
+        .expect(200);
+      const key: string = set.body.profile.logoAssetKey;
+      expect(key.startsWith(`brand/${tenantA}/`)).toBe(true);
+      expect(set.body.resolved.logoAssetKey).toBe(key);
+      const served = await http()
+        .get(`/public/branding/logo?property=${propertyA}&channel=GUEST_WEB`)
+        .buffer(true)
+        .expect(200);
+      expect(served.headers['content-type']).toBe('image/png');
+      expect(served.headers['x-content-type-options']).toBe('nosniff');
+      expect(Buffer.compare(served.body as Buffer, PNG)).toBe(0);
+      // property B has no logo, and tenant B can never point its brand at tenant A's image
+      await http().get(`/public/branding/logo?property=${propertyB}`).expect(404);
+      const stolen = await http()
+        .put('/branding/profiles')
+        .set('X-Test-Actor', user('ub', tenantB))
+        .send({ scope: 'PROPERTY', scopeId: propertyB, logoAssetKey: key })
+        .expect(422);
+      expect(stolen.body.code).toBe('org.brand_profile.invalid_asset');
+      // a user without branding.manage cannot change it; clearing brings back the inherited (none)
+      await http()
+        .delete(`/properties/${propertyA}/branding/logo`)
+        .set('X-Test-Actor', user('hk', tenantA))
+        .expect(403);
+      const cleared = await http()
+        .delete(`/properties/${propertyA}/branding/logo`)
+        .set('X-Test-Actor', ua)
+        .expect(200);
+      expect(cleared.body.resolved.logoAssetKey).toBe(null);
+      await http().get(`/public/branding/logo?property=${propertyA}`).expect(404);
     });
   },
 );

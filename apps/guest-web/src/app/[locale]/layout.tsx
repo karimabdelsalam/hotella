@@ -5,6 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { routing, RTL_LOCALES } from '../../i18n/routing';
 import { BrandProvider } from '../../lib/brand';
+import '@fontsource-variable/cairo';
 import '../globals.css';
 
 export function generateStaticParams() {

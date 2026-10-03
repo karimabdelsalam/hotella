@@ -157,3 +157,10 @@ export const publicBrandingQuerySchema = z.object({
   channel: z.enum(['GUEST_WEB', 'ROOM_QR', 'WHATSAPP', 'APP', 'VOICE', 'EMAIL']).optional(),
   lang: localeSchema.optional(),
 });
+
+/** The property's own name and colour; `null` clears a field so the inherited value shows again. */
+export const updatePropertyBrandSchema = z.object({
+  displayName: z.string().trim().min(1).max(200).nullish(),
+  primaryColor: z.string().regex(HEX_COLOR_RE).nullish(),
+});
+export type UpdatePropertyBrandInput = z.infer<typeof updatePropertyBrandSchema>;

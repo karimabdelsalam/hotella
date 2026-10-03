@@ -26,7 +26,8 @@ export class ApiError extends Error {
 interface Session {
   readonly state: 'loading' | 'anonymous' | 'signed-in';
   /** Calls the Hotella API through the same-origin proxy with the in-memory access token. */
-  api<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T>;
+  /** `body` is sent as JSON; `file` is sent as is, with its own content type (an uploaded image). */
+  api<T>(path: string, init?: { method?: string; body?: unknown; file?: Blob }): Promise<T>;
   signIn(input: {
     tenantCode?: string;
     email: string;
@@ -91,16 +92,23 @@ export function SessionProvider({ children }: { readonly children: ReactNode }) 
   }, [refresh]);
 
   const api = useCallback(
-    async <T,>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> => {
+    async <T,>(
+      path: string,
+      init: { method?: string; body?: unknown; file?: Blob } = {},
+    ): Promise<T> => {
       const call = () =>
         fetch(`/hotella${path}`, {
           method: init.method ?? 'GET',
           headers: {
             'accept-language': locale,
             ...(access.current ? { authorization: `Bearer ${access.current}` } : {}),
-            ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}),
+            ...(init.file
+              ? { 'content-type': init.file.type || 'application/octet-stream' }
+              : init.body !== undefined
+                ? { 'content-type': 'application/json' }
+                : {}),
           },
-          body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+          body: init.file ?? (init.body !== undefined ? JSON.stringify(init.body) : undefined),
         });
       let res = await call();
       if (res.status === 401 && (await refresh())) res = await call();

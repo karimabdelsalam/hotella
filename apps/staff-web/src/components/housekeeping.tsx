@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge, Button, cx } from '@hotella/ui';
 import { Header } from './header';
 import { useRouter } from '../i18n/navigation';
+import { useStaffBrand } from '../lib/brand';
 import { ApiError, useSession } from '../lib/session';
 import type {
   AssignmentPlan,
@@ -67,6 +68,9 @@ export function HousekeepingApp() {
   useEffect(() => {
     if (session.state === 'anonymous') router.replace('/login');
   }, [session.state, router]);
+  // The header wears the brand of the hotel this screen works on.
+  const { show: showBrand } = useStaffBrand();
+  useEffect(() => showBrand(propertyId), [propertyId, showBrand]);
 
   const fail = useCallback(
     (e: unknown) => setError(e instanceof ApiError && e.detail ? e.detail : tStaff('inbox.error')),

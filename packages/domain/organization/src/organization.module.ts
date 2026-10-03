@@ -3,7 +3,13 @@ import { PROPERTY_SCOPE_VERIFIER, type PropertyScopeVerifier } from '@hotella/pl
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { SettingsRegistry } from '@hotella/platform-settings';
 import { ORGANIZATION_SETTINGS } from './domain/settings';
-import { BrandingController, PropertiesController, TenantsController } from './api/controllers';
+import {
+  BrandingController,
+  PropertiesController,
+  PropertyBrandController,
+  TenantsController,
+} from './api/controllers';
+import { BrandAssetService } from './application/brand-assets.service';
 import {
   BrandingService,
   DepartmentService,
@@ -36,7 +42,12 @@ export class OrganizationCoreModule {}
 /** Global so other contexts can inject ORGANIZATION_API (its only export) without importing this module. */
 @Global()
 @Module({
-  controllers: [TenantsController, PropertiesController, BrandingController],
+  controllers: [
+    TenantsController,
+    PropertiesController,
+    BrandingController,
+    PropertyBrandController,
+  ],
   providers: [
     OrganizationRepositories,
     TenantService,
@@ -46,6 +57,7 @@ export class OrganizationCoreModule {}
     RoomService,
     DepartmentService,
     BrandingService,
+    BrandAssetService,
     OrganizationPublicApiService,
     { provide: ORGANIZATION_API, useExisting: OrganizationPublicApiService },
   ],

@@ -6,7 +6,7 @@ export function cx(...names: Array<string | false | null | undefined>): string {
 }
 
 const BUTTON: Record<'primary' | 'secondary' | 'danger' | 'ghost', string> = {
-  primary: 'bg-[var(--brand-primary,#0f4c81)] text-white hover:opacity-90',
+  primary: 'bg-[var(--brand-primary,#0f4c81)] text-white shadow-sm hover:opacity-90',
   secondary: 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50',
   danger: 'bg-red-700 text-white hover:bg-red-800',
   ghost: 'text-slate-700 hover:bg-slate-100',
@@ -22,7 +22,7 @@ export function Button({
     <button
       {...props}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium',
+        'inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition',
         'disabled:cursor-not-allowed disabled:opacity-50',
         BUTTON[variant],
         className,

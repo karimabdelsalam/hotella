@@ -47,6 +47,12 @@ pnpm --filter @hotella/guest-web e2e   # Playwright, English (LTR) and Arabic (R
 The guest session token lives only in the httpOnly cookie `hotella_gs` (set by `/bff/verify` and `/bff/complete`); the
 same-origin proxy `/hotella/*` turns it into `X-Guest-Session` and forwards `guest/*` and `public/*` routes only.
 
+Both apps wear the hotel's brand at run time: its logo (`/hotella/public/branding/logo?property=…`, or its initials
+when there is none), name and colour (the `--brand-primary` CSS variable; `bg-brand`, `text-brand`, `bg-brand-soft`
+utilities). A hotel manager sets them in the staff web at `/branding`; logos go to object storage (SeaweedFS locally,
+`STORAGE_*` settings). The typeface is Cairo, bundled with each app (`@fontsource-variable/cairo`), so no page loads a
+font from the internet. Shared pieces (`BrandMark`, icons, the attribution footer) live in `packages/ui`.
+
 UI strings live in `locales/{en,ar}/staff.json` and `locales/{en,ar}/portal.json` (the shared catalog); `scripts/sync-messages.mjs` turns them into the app's
 next-intl messages at build/dev time. Layout uses logical properties only (`ms-*`, `me-*`, `text-start`, `border-e`).
 

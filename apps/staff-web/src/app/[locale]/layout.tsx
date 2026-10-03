@@ -5,7 +5,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { AttributionFooter } from '@hotella/ui';
 import { routing, RTL_LOCALES } from '../../i18n/routing';
+import { StaffBrandProvider } from '../../lib/brand';
 import { SessionProvider } from '../../lib/session';
+import '@fontsource-variable/cairo';
 import '../globals.css';
 
 export function generateStaticParams() {
@@ -38,7 +40,9 @@ export default async function LocaleLayout({
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider>
           <SessionProvider>
-            <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+            <StaffBrandProvider>
+              <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+            </StaffBrandProvider>
           </SessionProvider>
         </NextIntlClientProvider>
         <AttributionFooter />

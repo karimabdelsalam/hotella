@@ -2,11 +2,32 @@
 /* Shared components live outside this app; let Tailwind see their classes. */
 @source '../../../../packages/ui/src';
 
+/* Cairo (self-hosted, OFL) for Arabic and Latin alike; no request leaves the hotel's origin for a font. */
+@theme {
+  --font-sans: 'Cairo Variable', system-ui, 'Noto Sans Arabic', sans-serif;
+}
+
+:root {
+  --brand-primary: #1f2937;
+}
 html,
 body {
   height: 100%;
 }
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
-  font-family: system-ui, 'Noto Sans', 'Noto Sans Arabic', sans-serif;
+  @apply bg-slate-100 font-sans text-slate-900 antialiased;
+}
+
+/* Brand colour helpers: the colour itself comes from the resolved brand at run time. */
+@utility bg-brand {
+  background-color: var(--brand-primary);
+}
+@utility text-brand {
+  color: var(--brand-primary);
+}
+@utility border-brand {
+  border-color: var(--brand-primary);
+}
+@utility bg-brand-soft {
+  background-color: color-mix(in srgb, var(--brand-primary) 9%, white);
 }

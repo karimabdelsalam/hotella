@@ -1,4 +1,19 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import type { IncomingMessage } from 'node:http';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Req,
+  StreamableFile,
+} from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { uuidSchema } from '@hotella/contracts-api';
@@ -9,7 +24,7 @@ import {
   RequirePermission,
   TenantScoped,
 } from '@hotella/platform-auth';
-import { CurrentLocale } from '@hotella/platform-i18n';
+import { AppError, CurrentLocale } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import {
   createDepartmentSchema,
@@ -20,9 +35,12 @@ import {
   createRoomTypeSchema,
   createTenantSchema,
   publicBrandingQuerySchema,
+  updatePropertyBrandSchema,
   updatePropertySchema,
   upsertBrandProfileSchema,
 } from '../application/dto';
+import { BrandAssetService } from '../application/brand-assets.service';
+import { BRAND_IMAGE_MAX_BYTES } from '../domain/branding';
 import {
   BrandingService,
   DepartmentService,
@@ -254,5 +272,92 @@ export class BrandingController {
       query.channel ?? null,
       query.lang ?? this.locale.requested(),
     );
+  }
+}
+
+class UpdatePropertyBrandDto extends createZodDto(updatePropertyBrandSchema) {}
+
+/** Reads a raw request body (the image bytes) and stops as soon as it is larger than allowed. */
+async function readBody(req: IncomingMessage, max: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req as AsyncIterable<Buffer>) {
+    size += chunk.length;
+    if (size > max) throw new AppError('org.brand_asset.too_large', HttpStatus.PAYLOAD_TOO_LARGE);
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * The hotel's own brand (name, colour, logo) for its managers, and the public logo every guest and staff screen
+ * shows. The logo is uploaded as the raw image body (`image/png`, `image/jpeg`, `image/webp`).
+ */
+@Controller()
+export class PropertyBrandController {
+  constructor(
+    private readonly brand: BrandAssetService,
+    private readonly properties: PropertyService,
+    private readonly actors: ActorStore,
+    private readonly locale: CurrentLocale,
+    private readonly ctx: RequestContext,
+  ) {}
+
+  @Get('properties/:propertyId/branding')
+  @PropertyScoped({ from: 'param' })
+  @RequirePermission('branding.read')
+  async get(@Param('propertyId') propertyId: string, @Query() query: TenantQueryDto) {
+    return this.brand.get(await this.scope(propertyId, query.tenantId), this.locale.requested());
+  }
+  @Patch('properties/:propertyId/branding')
+  @PropertyScoped({ from: 'param' })
+  @RequirePermission('branding.manage')
+  async update(
+    @Param('propertyId') propertyId: string,
+    @Query() query: TenantQueryDto,
+    @Body() body: UpdatePropertyBrandDto,
+  ) {
+    return this.brand.update(
+      await this.scope(propertyId, query.tenantId),
+      body,
+      this.locale.requested(),
+    );
+  }
+  @Put('properties/:propertyId/branding/logo')
+  @PropertyScoped({ from: 'param' })
+  @RequirePermission('branding.manage')
+  async setLogo(
+    @Param('propertyId') propertyId: string,
+    @Query() query: TenantQueryDto,
+    @Req() req: IncomingMessage,
+  ) {
+    const scope = await this.scope(propertyId, query.tenantId);
+    const bytes = await readBody(req, BRAND_IMAGE_MAX_BYTES);
+    return this.brand.setLogo(scope, bytes, this.locale.requested());
+  }
+  @Delete('properties/:propertyId/branding/logo')
+  @PropertyScoped({ from: 'param' })
+  @RequirePermission('branding.manage')
+  async clearLogo(@Param('propertyId') propertyId: string, @Query() query: TenantQueryDto) {
+    return this.brand.clearLogo(
+      await this.scope(propertyId, query.tenantId),
+      this.locale.requested(),
+    );
+  }
+
+  /** Guest-facing: the resolved brand's logo (only an image a brand uses is ever served). */
+  @Public()
+  @Get('public/branding/logo')
+  @Header('cache-control', 'public, max-age=300')
+  @Header('x-content-type-options', 'nosniff')
+  async logo(@Query() query: PublicBrandingQueryDto) {
+    const { body, type } = await this.brand.logo(query.property, query.channel ?? null);
+    return new StreamableFile(body, { type, length: body.length });
+  }
+
+  private async scope(propertyId: string, named?: string) {
+    const tenantId = resolveTenantId(this.actors.require(), named ?? this.ctx.tenantId);
+    await this.properties.get({ tenantId }, propertyId);
+    return { tenantId, propertyId };
   }
 }
