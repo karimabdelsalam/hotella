@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 4 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
+# Phase 4–6 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
 # a general manager signs in, issues an activation link, the guest asks for a code (the OTP key is read from OpenBao;
 # the SMS channel here cannot deliver), front desk confirms the guest in person, the guest gets a session and sees
 # their stay (through the guest web app's BFF); the printable room QR sheet renders; the realtime gateway accepts a
@@ -101,6 +101,37 @@ grep -q 'تم: مناشف إضافية' <<<"$told"
 [ "$(psql "select count(*) from audit.audit_log where entity_id = '$request_id' and correlation_id is not null
   and ((action = 'catalog.request.create' and actor_type = 'GUEST') or (action = 'catalog.request.status' and actor_type = 'SYSTEM'))")" -ge 2 ]
 echo "M1 service request: OK"
+
+# M2 (BUILD_PLAN 6.5) on the deployed stack: the same guest writes in natural language; the worker runs the Guest
+# Concierge on background-ai through the real OPENAI_COMPATIBLE adapter (a stand-in model on the backend network),
+# which creates AC_PROBLEM for Engineering and answers in Arabic; the execution is on record.
+compose() { docker compose -p hotella-pilot -f "$DIR/../compose.pilot.yml" "$@"; }
+compose --profile tools up -d model-mock >/dev/null
+provider=$(curl -fsS "$API/ai/providers" -H "authorization: Bearer $admin" "${json[@]}" \
+  -d '{"code":"PILOT_MODEL_MOCK","kind":"OPENAI_COMPATIBLE","baseUrl":"http://model-mock:8080/v1","egress":"ON_PREM","maxDataClass":"CONFIDENTIAL"}' | jq -r .id)
+model=$(curl -fsS "$API/ai/models" -H "authorization: Bearer $admin" "${json[@]}" \
+  -d "{\"providerId\":\"$provider\",\"code\":\"concierge-mock\",\"capabilities\":[\"REASONING_HIGH\"]}" | jq -r .id)
+curl -fsS -X PUT "$API/ai/routing-rules" "${auth[@]}" -d "{\"capability\":\"REASONING_HIGH\",\"modelIds\":[\"$model\"]}" >/dev/null
+conversation=$(curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/conversation" | jq -r .conversation.id)
+curl -fsS "$API/properties/$property/conversations/$conversation/ai-mode" "${auth[@]}" -d '{"mode":"AUTO"}' |
+  jq -e '.aiMode == "AUTO"' >/dev/null
+curl -fsS "${cookie[@]}" "${json[@]}" "$GUEST_WEB/hotella/guest/conversation/messages" -d '{"body":"الجو حر أوي هنا"}' >/dev/null
+answered=""
+for _ in $(seq 1 60); do
+  answered=$(curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/conversation" |
+    jq -r '[.messages[] | select(.senderType == "AI") | .body] | last // ""')
+  [ -n "$answered" ] && break
+  sleep 1
+done
+echo "concierge answered: $answered"
+grep -q 'التكييف' <<<"$answered"
+curl -fsS "${cookie[@]}" "$GUEST_WEB/hotella/guest/requests" | jq -e '[.[] | select(.serviceCode == "AC_PROBLEM")] | length == 1' >/dev/null
+execution=$(curl -fsS "$API/properties/$property/ai/executions?conversationId=$conversation&limit=1" "${auth[@]}" | jq '.[0]')
+echo "execution: $(jq -c '{agentCode, status, tokensIn, trigger}' <<<"$execution")"
+jq -e '.status == "COMPLETED" and .agentCode == "GUEST_CONCIERGE" and .tokensIn == 360' <<<"$execution" >/dev/null
+[ "$(psql "select count(*) from audit.audit_log a join catalog.service_requests r on r.id = a.entity_id
+  where r.property_id = '$property' and r.service_code = 'AC_PROBLEM' and a.action = 'catalog.request.create' and a.actor_type = 'AI_AGENT'")" = 1 ]
+echo "M2 concierge: OK"
 # The link was single use.
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$API/guest/activation/start" "${json[@]}" -d "{\"token\":\"$token\"}")" = 410 ]
 

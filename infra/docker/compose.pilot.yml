@@ -220,6 +220,15 @@ services:
       - ./pilot/.secrets/agent/ca.crt:/run/agent-ca/ca.crt:ro
     networks: [backend]
 
+  # Development/CI only: an OpenAI-compatible model stand-in for the deployed AI smoke (smoke-guest.sh, M2).
+  model-mock:
+    image: hotella/api:${HOTELLA_VERSION:-local}
+    profiles: [tools]
+    entrypoint: ['node', '/mock/model-mock.mjs']
+    volumes:
+      - ./pilot/model-mock.mjs:/mock/model-mock.mjs:ro
+    networks: [backend]
+
   # Restore drill: restores the latest backup into a throwaway data directory (pilot.sh restore-drill).
   restore-drill:
     image: hotella/postgres:18-pgbackrest
