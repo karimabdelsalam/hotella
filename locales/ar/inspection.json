@@ -1,0 +1,7 @@
+{
+  "inspection.permission.template_manage": "كتابة قوائم الفحص ونشرها",
+  "inspection.permission.perform": "إجراء عمليات الفحص",
+  "inspection.permission.read": "عرض عمليات الفحص ونتائجها والملاحظات",
+  "inspection.work_kind.finding": "ملاحظة فحص",
+  "inspection.finding.title": "ملاحظة {severity, select, CRITICAL {حرجة} MAJOR {كبيرة} MINOR {بسيطة} other {}} {item} · فحص رقم {number}"
+}

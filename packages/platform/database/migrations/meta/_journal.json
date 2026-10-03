@@ -232,6 +232,13 @@
       "when": 1791055593522,
       "tag": "0032_engineering_maintenance",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791059965486,
+      "tag": "0033_inspection_engine",
+      "breakpoints": true
     }
   ]
 }

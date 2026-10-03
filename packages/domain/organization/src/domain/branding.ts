@@ -1,3 +1,4 @@
+import { IMAGE_EXTENSIONS, type ImageType, sniffImage } from '@hotella/platform-storage';
 import type { Attribution } from '@hotella/platform-settings';
 
 export interface BrandLayer {
@@ -117,23 +118,11 @@ export function mergeBrand(
   };
 }
 
-/** Brand images the platform accepts. SVG is refused on purpose: it can carry script. */
-export type BrandImageType = 'image/png' | 'image/jpeg' | 'image/webp';
+/** Brand images: PNG, JPEG or WebP read from the bytes (SVG refused), at most 512 KB. */
+export type BrandImageType = ImageType;
 export const BRAND_IMAGE_MAX_BYTES = 512 * 1024;
-export const BRAND_IMAGE_EXTENSIONS: Record<BrandImageType, string> = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/webp': 'webp',
-};
-
-/** The image type read from the bytes themselves (never trusted from the declared content type). */
-export function sniffBrandImage(bytes: Uint8Array): BrandImageType | null {
-  const at = (i: number, ...expected: number[]) => expected.every((b, k) => bytes[i + k] === b);
-  if (at(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
-  if (at(0, 0xff, 0xd8, 0xff)) return 'image/jpeg';
-  if (at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
-  return null;
-}
+export const BRAND_IMAGE_EXTENSIONS = IMAGE_EXTENSIONS;
+export const sniffBrandImage = sniffImage;
 
 /** Brand images live under the owning tenant's prefix; a profile may only point at its own tenant's images. */
 export function brandAssetPrefix(tenantId: string): string {

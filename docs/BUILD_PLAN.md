@@ -1793,8 +1793,114 @@ Reality notes for 8.4:
   the stand-in model (one READ tool call, execution COMPLETED); the work is coded and closed; arrival risk answers;
   the new staff pages render in both directions.
 
-### Phase 9 — Inspections, Guest Relations, Lost & Found, Logbook
-Generic inspection engine first (`inspection` schema per Spec §11, critical finding ⇒ work item via rules). Then `relations` (complaints, categories, evidence, `complaint_candidates` from AI with confidence, service recovery actions through approvals), `lostfound` (items, vision-derived metadata kept separate from staff description, match candidates with score/reasons, audited claims), `logbook` entries + AI shift summary with human acknowledgement.
+### Phase 9 — Inspections, Guest Relations, Lost & Found, Logbook (detailed)
+
+**Goal / acceptance (Spec §11–§14, §17):** one inspection engine serves room checks, kitchen hygiene, pool safety,
+fire equipment and patrols: a supervisor runs a published checklist at a location or on an asset, and a CRITICAL
+finding opens urgent work for the right department by a deterministic rule. A guest complaint is recorded as a
+complaint (not a request), with its evidence; the concierge may only *suggest* one (a candidate with confidence and
+the reason), a person confirms it; service recovery that costs money needs an approval. Found and lost items are
+logged with the staff's own description, matched with scored reasons that a person confirms, and released through an
+audited claim. Each department keeps a shift logbook; an AI-drafted handover summary is reviewed and acknowledged by
+the incoming supervisor.
+
+#### 9.A Domain model (one schema per context)
+
+```text
+inspection.templates            id, tenant_id, code, scope (ROOM|AREA|ASSET), department_code, translations (name)
+inspection.template_versions    id, template_id, version_no, status (DRAFT|PUBLISHED|SUPERSEDED), published_at —
+                                immutable once published (rule 9)
+inspection.sections / items     per version: section order + translations; item kind (PASS_FAIL|YES_NO|SCORE|NUMBER|
+                                TEXT|PHOTO|MULTI_SELECT), required, options, min/max/pass threshold, translations,
+                                finding rule (severity when failed: INFO|MINOR|MAJOR|CRITICAL)
+inspection.inspections          id, tenant_id, property_id, template_version_id (pinned), location_id, asset_id
+                                nullable, source (STAFF|SCHEDULE|HK_JOB|WORK_ORDER), source_ref, status (IN_PROGRESS|
+                                COMPLETED|CANCELLED), inspector, started_at, completed_at, score, result (PASS|FAIL),
+                                version
+inspection.responses            inspection_id, item_id, value (typed jsonb), photo asset keys, note, answered_by/at
+                                (append-only per answer; the latest counts)
+inspection.findings             id, inspection_id, item_id, severity, description, status (OPEN|LINKED|RESOLVED),
+                                work_item_id nullable
+
+relations.complaint_categories  id, tenant_id, code, default_severity, department_code, translations
+relations.complaints            id, tenant_id, property_id, number, guest_id, stay_id, category_id, severity (LOW|
+                                MEDIUM|HIGH|CRITICAL), status (OPEN|IN_PROGRESS|RESOLVED|CLOSED), source (STAFF|
+                                GUEST_WEB|CHAT|AI_CANDIDATE|SURVEY), summary, description (CONFIDENTIAL),
+                                detected_sentiment nullable, opened_at, resolved_at, closed_at, version
+relations.complaint_links       complaint_id, kind (ROOM|SERVICE_REQUEST|TASK|ASSET|WORK_ORDER|USER), ref
+relations.complaint_evidence    complaint_id, kind (MESSAGE|NOTE|PHOTO|AI_REASON), ref/text, added_by (append-only)
+relations.complaint_candidates  id, tenant_id, property_id, stay_id, conversation_id, message_id, category_code,
+                                severity, confidence (0..1), reason, status (PENDING|CONFIRMED|DISMISSED), decided_by,
+                                complaint_id
+relations.recovery_actions      id, complaint_id, kind (APOLOGY|AMENITY|MEAL|DISCOUNT|REFUND|ROOM_MOVE|OTHER),
+                                amount_minor nullable, currency, status (PROPOSED|PENDING_APPROVAL|DONE|REJECTED),
+                                approval_id
+
+lostfound.items                 id, tenant_id, property_id, number, kind (FOUND|LOST), description (staff's words,
+                                never overwritten), category, colour, brand, location_id, found_or_lost_at, reported_by
+                                (staff, or the guest for LOST), guest_id/stay_id nullable, storage_location, status
+                                (REGISTERED|MATCHED|CLAIMED|RELEASED|DISPOSED), photo keys, retention_until, version
+lostfound.ai_metadata           item_id, derived (object type, colours, brand guess) with model call ref — kept
+                                apart from the staff's description
+lostfound.match_candidates      found_item_id, lost_item_id, score, reasons[], source (RULES|AI), status (PROPOSED|
+                                CONFIRMED|REJECTED), decided_by
+lostfound.claims                id, item_id, claimant (guest id or name + id document type), verification note,
+                                released_by, released_at, signature/photo key (audited)
+
+logbook.entries                 id, tenant_id, property_id, department_code, shift_date, shift (MORNING|EVENING|NIGHT),
+                                author, kind (NOTE|INCIDENT|HANDOVER_ITEM), text, links, created_at (append-only;
+                                corrections are new entries)
+logbook.handovers               id, property_id, department_code, shift_date, shift, summary (AI draft or written),
+                                facts (the counts the summary was built from), execution_id nullable, status (DRAFT|
+                                ACKNOWLEDGED), acknowledged_by/at
+```
+
+#### 9.B Design decisions taken before coding
+
+- **One inspection engine, owned by `inspection`:** templates are tenant-wide, versioned and immutable once published;
+  an inspection pins the version it was started on. Scoring and PASS/FAIL are deterministic (rule 11): required items
+  answered, each item's own pass rule, overall FAIL when any MAJOR/CRITICAL finding exists. A failed item creates a
+  finding with the item's configured severity; a **CRITICAL finding opens an URGENT work item** (operations engine,
+  department of the template, at the inspection's location) by rule, and MAJOR ones are offered as one-click work.
+  Photos go to object storage like brand images (type read from the bytes, size-limited).
+- **Housekeeping keeps its PASS/FAIL hook** and may attach a completed generic inspection (`hk.inspection.template`
+  per property): the inspection's result decides PASS/FAIL, so supervisors use one checklist everywhere.
+- **Complaints are their own context (`relations`)** and never a service request. The concierge gets one LOW-risk tool,
+  `relations.suggest_complaint`, that records a **candidate** (category, severity, confidence, the reason, the message
+  as evidence) and never a complaint; a guest-relations person confirms (→ complaint with the evidence copied and
+  the AI reason kept) or dismisses it. Sentiment alone never creates a complaint. Complaint numbers are sequential per
+  property.
+- **Service recovery:** APOLOGY/AMENITY/ROOM_MOVE/OTHER are recorded directly; MEAL, DISCOUNT and REFUND (anything
+  with an amount) go through the approval engine (`RECOVERY_ACTION`, HIGH when above the property's threshold
+  setting). Nothing is posted to the PMS folio in Phase 9 (a later PMS command, Phase 10+).
+- **Lost & Found:** rule-based matching first (category, colour, brand, location and date window → score with
+  reasons), optional AI vision metadata through the Model Gateway (`VISION` capability) stored separately; a person
+  confirms a match; release requires a claim record (who, how verified) and is audited; unclaimed items reach
+  `retention_until` (setting) and are disposed by an explicit, audited action, never silently.
+- **Logbook:** entries are append-only per department and shift. The handover summary is a staff-assistant run
+  (`SHIFT_HANDOVER` agent, READ tools: open tasks and SLA risks, open complaints, OOO/OOS rooms, open work orders,
+  the shift's entries) that returns a draft with the **facts** (counts) it was built from; the incoming supervisor
+  edits and acknowledges it. Counts are computed by the tools, never by the model.
+- **Arrival risk** gains two reasons from these contexts: a failed room inspection today and a recurring failure on
+  the room's equipment (closed corrective work on the same asset in the last 7 days).
+- **Events:** `inspection.inspection.completed.v1`, `inspection.finding.raised.v1`, `relations.complaint.opened.v1`,
+  `relations.complaint.resolved.v1`, `lostfound.item.registered.v1`, `lostfound.item.released.v1`,
+  `logbook.handover.acknowledged.v1`. **Permissions:** `inspection.template.manage`, `inspection.perform`,
+  `inspection.read`, `complaint.read`, `complaint.manage`, `complaint.recovery.manage`, `lostfound.read`,
+  `lostfound.manage`, `lostfound.release`, `logbook.read`, `logbook.write`, `logbook.handover.acknowledge`.
+- **Staff UX:** one screen per context in the staff web (inspection run on a phone, guest relations, lost & found,
+  logbook/handover), English and Arabic, Playwright-covered; no guest-facing changes except the concierge's candidate
+  tool and a guest "lost something" form later.
+
+#### 9.C Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 9.1 | Inspection engine: templates/versions/sections/items, publish, inspections with responses, photos, deterministic scoring and findings, CRITICAL → urgent work, housekeeping bridge, staff web inspection runner | planned |
+| 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | planned |
+| 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | planned |
+| 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | planned |
+| 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | planned |
 
 ### Phase 10 — Real OPERA 5 On-Premise Integration (M4a)
 `apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.

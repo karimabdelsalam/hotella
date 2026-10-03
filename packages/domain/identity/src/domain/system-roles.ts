@@ -40,12 +40,14 @@ const TASK_SUPERVISOR = [...TASK_WORKER, 'task.assign', 'task.cancel', 'request.
 /** Who watches the alert board (Spec §15) and acts on it. */
 const ALERT_DESK = ['alert.read', 'alert.ack'] as const;
 /** Housekeeping supervision (Spec §9): the board, room states and signals, jobs and inspections. */
+const INSPECTOR = ['inspection.read', 'inspection.perform'] as const;
 const HK_DESK = [
   'hk.board.read',
   'hk.room.manage',
   'hk.job.manage',
   'hk.inspect',
   'hk.arrivals.read',
+  ...INSPECTOR,
 ] as const;
 const ENG_DESK = [
   'eng.asset.read',
@@ -55,6 +57,7 @@ const ENG_DESK = [
   'eng.parts.manage',
   'eng.pm.manage',
   'eng.restriction.manage',
+  ...INSPECTOR,
 ] as const;
 
 export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
@@ -132,6 +135,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'hk.config.manage',
       ...ENG_DESK,
       'eng.config.manage',
+      'inspection.template.manage',
     ],
   },
   {
@@ -149,6 +153,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'inbox.assign',
       'hk.board.read',
       'hk.arrivals.read',
+      'inspection.read',
     ],
   },
   {
@@ -170,6 +175,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'eng.asset.read',
       'eng.work_order.read',
       'eng.work_order.manage',
+      ...INSPECTOR,
     ],
   },
   {
@@ -182,6 +188,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...ALERT_DESK,
       ...ENG_DESK,
       'eng.config.manage',
+      'inspection.template.manage',
     ],
   },
   {

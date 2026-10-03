@@ -1,0 +1,7 @@
+{
+  "inspection.permission.template_manage": "Write and publish inspection checklists",
+  "inspection.permission.perform": "Carry out inspections",
+  "inspection.permission.read": "See inspections, their results and findings",
+  "inspection.work_kind.finding": "Inspection finding",
+  "inspection.finding.title": "{severity, select, CRITICAL {Critical} MAJOR {Major} MINOR {Minor} other {}} finding {item} · inspection {number}"
+}

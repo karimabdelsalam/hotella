@@ -7,6 +7,7 @@ import {
 } from '@hotella/domain-identity';
 import { AiModule } from '@hotella/domain-ai';
 import { EngineeringModule } from '@hotella/domain-engineering';
+import { InspectionModule } from '@hotella/domain-inspection';
 import { HousekeepingModule } from '@hotella/domain-housekeeping';
 import { KnowledgeModule } from '@hotella/domain-knowledge';
 import { CatalogModule } from '@hotella/domain-catalog';
@@ -66,6 +67,7 @@ import { MetaModule } from './meta/meta.module';
     KnowledgeModule,
     HousekeepingModule,
     EngineeringModule,
+    InspectionModule,
     HealthModule,
     MetaModule,
   ],

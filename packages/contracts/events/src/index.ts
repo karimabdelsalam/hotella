@@ -52,6 +52,11 @@ export {
   WorkOrderCreated,
 } from './eng-events';
 export {
+  INSPECTION_SEVERITIES,
+  InspectionCompleted,
+  InspectionFindingRaised,
+} from './inspection-events';
+export {
   ConversationOpened,
   DeliveryUpdated,
   HandoffRequested,
