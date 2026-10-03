@@ -23,7 +23,7 @@ invite=$(curl -fsS "$API/tenants/$tenant/users" -H "authorization: Bearer $admin
   -d "{\"email\":\"gm@pilot.example\",\"givenName\":\"Pilot GM\",\"memberships\":[{\"propertyId\":\"$property\",\"roleCodes\":[\"GENERAL_MANAGER\"]}]}" |
   jq -r .invitation.token)
 curl -fsS "$API/auth/invitations/accept" "${json[@]}" -d "{\"token\":\"$invite\",\"password\":\"$password\"}" >/dev/null
-gm=$(curl -fsS "$API/auth/login" "${json[@]}" -d "{\"email\":\"gm@pilot.example\",\"password\":\"$password\"}" | jq -r .accessToken)
+gm=$(curl -fsS "$API/auth/login" "${json[@]}" -d "{\"tenantCode\":\"PILOT\",\"email\":\"gm@pilot.example\",\"password\":\"$password\"}" | jq -r .accessToken)
 auth=(-H "authorization: Bearer $gm" "${json[@]}")
 
 # An SMS channel whose provider cannot deliver: the code is still derived (OTP key from OpenBao) and the failure is
