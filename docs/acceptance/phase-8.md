@@ -1,6 +1,6 @@
 # Phase 8 acceptance — Engineering / CMMS (completes M3 with Phase 7)
 
-**Date:** 2026-10-03 · **Branch:** `claude/hopeful-archimedes-jskowx` · **CI:** GitHub Actions workflow `CI` run RUN_ID on `c369db9` — "lint · typecheck · build · test" and "pilot deployment smoke" green (smoke output: SMOKE_OUTPUT)
+**Date:** 2026-10-03 · **Branch:** `claude/hopeful-archimedes-jskowx` · **CI:** GitHub Actions workflow `CI` run 37153769192 on `0c1b6fc` — "lint · typecheck · build · test" and "pilot deployment smoke" green (smoke output: `agent smoke: OK`, `M1 service request: OK`, `M2 concierge: OK`, `housekeeping: OK`, copilot `{"outcome":"ANSWERED",…}`, `engineering: OK`, `staff web: OK`, `guest web: OK`, `restore-drill: OK in 3s`)
 
 Goal (Spec §10; BUILD_PLAN §10 Phase 8): engineering works on real equipment. An AC complaint in a room becomes a
 CORRECTIVE work order on the room's fan-coil unit with symptom, diagnosis, failure mode, cause, resolution and

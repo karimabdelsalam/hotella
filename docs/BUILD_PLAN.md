@@ -1705,7 +1705,7 @@ eng.warranty_cases        id, tenant_id, work_order_id, asset_id, vendor, status
 | 8.2 | Work orders on the operations engine (`ENG_WORK_ORDER`), types, taxonomy and downtime on close, guest request → work order, parts usage and stock, warranty suggestion | delivered |
 | 8.3 | Meters and readings, PM procedures (versioned) and plans (CALENDAR/METER/CONDITION), due sweep creating PREVENTIVE work, room restrictions with PMS sync (`SET_ROOM_RESTRICTION`) | delivered |
 | 8.4 | Engineering knowledge tool `engineering.search_manuals`, Engineering Copilot v1 (ASSIST), arrival-risk v1 (rules + explanation), staff web: work orders and asset pages (English/Arabic, Playwright), pilot smoke | delivered |
-| 8.5 | Phase 8 acceptance (`docs/acceptance/phase-8.md`) | planned |
+| 8.5 | Phase 8 acceptance (`docs/acceptance/phase-8.md`) | delivered |
 
 Reality notes for 8.1:
 - Migration `0030_engineering_assets` creates schema `eng`: `asset_types` (+ translations) whose `properties` field list
