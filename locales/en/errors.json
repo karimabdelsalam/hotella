@@ -298,5 +298,19 @@
   "errors.relations.candidate.not_found": "This suggestion does not exist.",
   "errors.relations.candidate.version_conflict": "Someone else changed this suggestion. Refresh and try again.",
   "errors.relations.candidate.already_decided": "This suggestion was already confirmed or dismissed.",
-  "errors.relations.recovery.amount_required": "Enter the amount for this {kind, select, DISCOUNT {discount} REFUND {refund} other {recovery}}."
+  "errors.relations.recovery.amount_required": "Enter the amount for this {kind, select, DISCOUNT {discount} REFUND {refund} other {recovery}}.",
+  "errors.lostfound.item.not_found": "This item does not exist.",
+  "errors.lostfound.item.version_conflict": "Someone else changed this item. Refresh and try again.",
+  "errors.lostfound.item.in_future": "The date cannot be in the future.",
+  "errors.lostfound.item.closed": "This item was already released, claimed or disposed of.",
+  "errors.lostfound.item.not_found_item": "Only a found item can be released or disposed of.",
+  "errors.lostfound.item.retention_not_reached": "This item must be kept until {date}.",
+  "errors.lostfound.match.not_found": "This match does not exist.",
+  "errors.lostfound.match.version_conflict": "Someone else changed this match. Refresh and try again.",
+  "errors.lostfound.match.already_decided": "This match was already confirmed or rejected.",
+  "errors.lostfound.match.item_taken": "One of these items is already matched or closed.",
+  "errors.lostfound.photo.unsupported": "Use a PNG, JPEG or WebP photo.",
+  "errors.lostfound.photo.too_large": "The photo is too large (2 MB at most).",
+  "errors.lostfound.photo.too_many": "An item can have at most {max} photos.",
+  "errors.lostfound.photo.not_found": "This photo does not exist."
 }

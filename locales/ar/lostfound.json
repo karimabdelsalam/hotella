@@ -1,0 +1,8 @@
+{
+  "lostfound.permission.read": "عرض المفقودات والمعثورات والمطابقات وطلبات الاستلام",
+  "lostfound.permission.register": "تسليم غرض معثور عليه",
+  "lostfound.permission.manage": "تسجيل مفقودات النزلاء وتأكيد المطابقات وحفظ الأغراض والتصرف فيها",
+  "lostfound.permission.release": "تسليم الغرض لصاحبه مقابل سجل استلام",
+  "lostfound.setting.retention_days": "عدد أيام الاحتفاظ بالغرض غير المُطالَب به قبل التصرف فيه",
+  "lostfound.setting.ai_attributes": "السماح للذكاء الاصطناعي بقراءة وصف الأغراض للمساعدة في المطابقة"
+}

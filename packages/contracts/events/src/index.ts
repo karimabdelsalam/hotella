@@ -58,6 +58,11 @@ export {
 } from './inspection-events';
 export { ComplaintOpened, ComplaintResolved } from './relations-events';
 export {
+  LostFoundItemDisposed,
+  LostFoundItemRegistered,
+  LostFoundItemReleased,
+} from './lostfound-events';
+export {
   ConversationOpened,
   DeliveryUpdated,
   HandoffRequested,

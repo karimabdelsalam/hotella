@@ -43,6 +43,13 @@ const ALERT_DESK = ['alert.read', 'alert.ack'] as const;
 const INSPECTOR = ['inspection.read', 'inspection.perform'] as const;
 /** Guest relations (Spec §12): complaints, AI candidates and service recovery. */
 const COMPLAINT_DESK = ['complaint.read', 'complaint.manage', 'complaint.recovery.manage'] as const;
+/** Lost & Found (Spec §13): anyone on the floor hands items in; the desk matches, releases and disposes. */
+const LOSTFOUND_DESK = [
+  'lostfound.read',
+  'lostfound.register',
+  'lostfound.manage',
+  'lostfound.release',
+] as const;
 const HK_DESK = [
   'hk.board.read',
   'hk.room.manage',
@@ -140,6 +147,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'inspection.template.manage',
       ...COMPLAINT_DESK,
       'complaint.category.manage',
+      ...LOSTFOUND_DESK,
     ],
   },
   {
@@ -159,17 +167,27 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'hk.arrivals.read',
       'inspection.read',
       ...COMPLAINT_DESK,
+      ...LOSTFOUND_DESK,
     ],
   },
   {
     code: 'HK_SUPERVISOR',
     audience: 'TENANT',
-    permissions: [...PROPERTY_READ, 'iam.user.read', ...TASK_SUPERVISOR, ...ALERT_DESK, ...HK_DESK],
+    permissions: [
+      ...PROPERTY_READ,
+      'iam.user.read',
+      ...TASK_SUPERVISOR,
+      ...ALERT_DESK,
+      ...HK_DESK,
+      'lostfound.read',
+      'lostfound.register',
+      'lostfound.manage',
+    ],
   },
   {
     code: 'ROOM_ATTENDANT',
     audience: 'TENANT',
-    permissions: ['org.property.read', ...TASK_WORKER, 'hk.board.read'],
+    permissions: ['org.property.read', ...TASK_WORKER, 'hk.board.read', 'lostfound.register'],
   },
   {
     code: 'ENGINEER',
@@ -181,6 +199,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'eng.work_order.read',
       'eng.work_order.manage',
       ...INSPECTOR,
+      'lostfound.register',
     ],
   },
   {
@@ -208,6 +227,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       // The desk hears complaints first and records them; recovery stays with guest relations.
       'complaint.read',
       'complaint.manage',
+      ...LOSTFOUND_DESK,
     ],
   },
   {
@@ -219,6 +239,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...TASK_WORKER,
       ...COMPLAINT_DESK,
       'approval.read',
+      ...LOSTFOUND_DESK,
     ],
   },
 ];

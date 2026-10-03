@@ -298,5 +298,19 @@
   "errors.relations.candidate.not_found": "هذا الاقتراح غير موجود.",
   "errors.relations.candidate.version_conflict": "قام شخص آخر بتعديل هذا الاقتراح. حدّث الصفحة وحاول مرة أخرى.",
   "errors.relations.candidate.already_decided": "تم تأكيد هذا الاقتراح أو رفضه بالفعل.",
-  "errors.relations.recovery.amount_required": "أدخل مبلغ {kind, select, DISCOUNT {الخصم} REFUND {الاسترداد} other {الترضية}}."
+  "errors.relations.recovery.amount_required": "أدخل مبلغ {kind, select, DISCOUNT {الخصم} REFUND {الاسترداد} other {الترضية}}.",
+  "errors.lostfound.item.not_found": "هذا الغرض غير موجود.",
+  "errors.lostfound.item.version_conflict": "قام شخص آخر بتعديل هذا الغرض. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.lostfound.item.in_future": "لا يمكن أن يكون التاريخ في المستقبل.",
+  "errors.lostfound.item.closed": "تم تسليم هذا الغرض أو المطالبة به أو التصرف فيه بالفعل.",
+  "errors.lostfound.item.not_found_item": "يمكن تسليم أو التصرف في الأغراض المعثور عليها فقط.",
+  "errors.lostfound.item.retention_not_reached": "يجب الاحتفاظ بهذا الغرض حتى {date}.",
+  "errors.lostfound.match.not_found": "هذه المطابقة غير موجودة.",
+  "errors.lostfound.match.version_conflict": "قام شخص آخر بتعديل هذه المطابقة. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.lostfound.match.already_decided": "تم تأكيد هذه المطابقة أو رفضها بالفعل.",
+  "errors.lostfound.match.item_taken": "أحد هذين الغرضين مطابق بالفعل أو مغلق.",
+  "errors.lostfound.photo.unsupported": "استخدم صورة PNG أو JPEG أو WebP.",
+  "errors.lostfound.photo.too_large": "الصورة كبيرة جدًا (2 ميجابايت كحد أقصى).",
+  "errors.lostfound.photo.too_many": "يمكن إرفاق {max} صور كحد أقصى لكل غرض.",
+  "errors.lostfound.photo.not_found": "هذه الصورة غير موجودة."
 }
