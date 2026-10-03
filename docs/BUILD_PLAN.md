@@ -756,7 +756,7 @@ Reality notes for 3.1:
 
 **Goal / acceptance (Spec §85):** a checked-in guest activates without OPERA modification and is later recognized automatically on the verified channel.
 
-> **Status: accepted on 2026-10-03** — evidence in `docs/acceptance/phase-4.md`; design decisions in §8.7, sprints and reality notes in §8.9. Package `@hotella/domain-communications` (context code `comms`); grants and guest sessions in `@hotella/domain-guest`.
+> **Status: accepted on 2026-10-03** — evidence in `docs/acceptance/phase-4.md` (the staff inbox UI that ADR-0009 places in this phase landed in Sprint 4.5). Design decisions in §8.7, sprints and reality notes in §8.9. Package `@hotella/domain-communications` (context code `comms`); grants and guest sessions in `@hotella/domain-guest`.
 
 ### 8.1 Domain model (schema `comms`, plus `guest` additions)
 
@@ -896,6 +896,24 @@ Events: `comms.conversation.opened.v1`, `comms.message.received.v1`, `comms.mess
 | 4.2 | Activation: tokens (on in-house stays with a verified identity, front-desk issuance/revoke), verification sessions with HMAC OTP, delivery chain WhatsApp → SMS with `verification_deliveries`, fallback sweep, health pre-emption + alert, rate limits, guest routes (`/guest/activation/*`, `/guest/me`), `GuestSessionGuard`, staff-assisted verification; room QR codes (generate, rotate, revoke, verify with last name); `guest.activated.v1` | delivered |
 | 4.3 | Messaging: Meta Cloud API and generic BSP adapters (templates, text, media refs, webhook signatures, delivery receipts) with contract tests; webhooks with raw store and worker normalization; conversations, participants, messages, delivery events; routing by verified identity + active grant; activation prompt for unverified phones; outbound queue with retries; staff inbox (list/filter, detail with guest/stay/room/open work, send, assign, takeover/handoff, close); guest conversation routes; checkout closes stay conversations; `comms.*` events | delivered |
 | 4.4 | `apps/realtime` WebSocket gateway (staff access token / guest session; inbox and conversation updates through Valkey pub/sub); printable room QR sheet; pilot smoke extended to activation; Phase 4 acceptance (`docs/acceptance/phase-4.md`) | delivered |
+| 4.5 | `apps/staff-web` (ADR-0009: Next.js 16, next-intl on the shared catalog, Tailwind 4 logical properties) with `packages/ui` (RTL-tested primitives, the non-removable attribution footer): staff sign-in (BFF: refresh token in an httpOnly cookie, access token in memory), the unified inbox (property picker, conversation list, thread with guest/stay/room and open work, reply, take over, close) with realtime refresh; Playwright checks in English (LTR) and Arabic (RTL) | delivered |
+
+Reality notes for 4.5:
+- `apps/staff-web`: Next.js 16 App Router with next-intl 4 (locale routing `/en`, `/ar`; `lang`/`dir` per locale), Tailwind
+  4 (logical properties only), `@hotella/ui` (`packages/ui`: Button, Badge and the attribution footer whose label and
+  link are fixed; only the platform policy can hide it). UI strings are `locales/{en,ar}/staff.json` in the shared
+  catalog (parity-checked); a build step nests them for next-intl.
+- Sign-in through a small BFF in the web server (`/bff/login|mfa|refresh|logout`): the refresh token lives only in an
+  `HttpOnly; Secure; SameSite=Strict` cookie scoped to `/bff`, the access token only in page memory and is renewed a
+  minute before expiry. API calls go through a same-origin proxy route (`/hotella/*` → `WEB_API_URL`, resolved at run
+  time so one image serves every environment); no CORS. The web server's configuration comes from
+  `@hotella/platform-config/web` (rule 13).
+- The inbox: property picker (properties where the person holds `inbox.read`), filters (waiting for us, all open,
+  closed), the thread with guest, stay, room and the stay's open work, reply, take over, close; the realtime gateway
+  refreshes list and thread. Messages mirror in Arabic (inbound on the start side).
+- Tests: Playwright in English and Arabic with the API, BFF and WebSocket mocked in the browser (CI installs Chromium);
+  the pilot image gains a `staff-web` target and service, and the pilot smoke checks both directions, the BFF sign-in
+  against the deployed API (cookie flags, no refresh token in the body) and the proxy.
 
 Reality notes for 4.4:
 - The realtime gateway runs **inside the API process** (`CommunicationsRealtimeModule`, WebSocket on

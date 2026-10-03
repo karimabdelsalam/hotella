@@ -155,6 +155,22 @@ services:
       valkey: { condition: service_healthy }
     networks: [backend]
 
+  # Staff web portal (ADR-0009). Behind the host reverse proxy like the API; the browser's WebSocket goes to the API's
+  # realtime endpoint (HOTELLA_PUBLIC_WS_URL, e.g. wss://ops.example.com/api/v1/realtime).
+  staff-web:
+    image: hotella/staff-web:${HOTELLA_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: staff-web }
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      WEB_API_URL: http://api:3000/api/v1
+      WEB_REALTIME_URL: ${HOTELLA_PUBLIC_WS_URL:-ws://localhost:3000/api/v1/realtime}
+    ports:
+      - '127.0.0.1:${HOTELLA_STAFF_WEB_PORT:-3100}:3100'
+    depends_on:
+      api: { condition: service_started }
+    networks: [backend]
+
   # Hotel agents connect OUT to this endpoint over the internet (ADR-0017): TLS 1.3 with client certificates
   # terminates in the gateway itself, so it is published directly (not through the host reverse proxy).
   agent-gateway:

@@ -14,6 +14,9 @@ Goal (Spec §85, BUILD_PLAN §8): a checked-in guest activates without OPERA mod
 | 6 | QR rotation: the old printed token is rejected, the new one accepted; the QR payload is only an opaque token | ✅ | `activation.integration.spec.ts` "room QR: opaque token → room; last name + phone + code → access; rotation invalidates the printed code"; `realtime.integration.spec.ts` "prints a localized, RTL-aware sheet of fresh room codes; earlier codes stop working". |
 | 7 | The staff inbox shows guest/stay/room/open work items for the conversation; takeover marks `HANDED_OFF` and stops any auto mode | ✅ | `messaging.integration.spec.ts` "staff inbox: guest, stay, room and open work beside the thread; reply, receipts, takeover, assign" (`comms.handoff.requested.v1`, audited). |
 
+## Staff inbox UI (ADR-0009, Sprint 4.5)
+✅ `apps/staff-web`: sign-in (BFF, refresh token only in an httpOnly cookie), the unified inbox with guest/stay/room/open work, reply, take over, close and realtime refresh. Playwright (`apps/staff-web/e2e/inbox.spec.ts`) runs it in English (left-to-right) and Arabic (right-to-left: mirrored layout, translated strings, attribution footer); the pilot smoke checks the deployed portal's pages in both directions, its sign-in against the deployed API and the API proxy. It was missing from the first Phase 4 record and was added before Phase 5 started.
+
 ## Also verified
 - Security (Spec §66, BUILD_PLAN §8.3): OTP derived with HMAC-SHA256 under a SecretRef key and never stored, 6 digits, 5 minutes, 5 attempts across channels, per-phone and per-IP limits, single use; activation links 256-bit, hashed, single purpose, revocable, replay → 410; guest sessions hashed, re-checked per request; webhook signatures verified over the raw body; no phone, code or token in logs or events.
 - Staff-assisted verification with a reason (audited) when no code arrives; arrival sends the link to an already verified WhatsApp number.
@@ -29,7 +32,7 @@ Goal (Spec §85, BUILD_PLAN §8): a checked-in guest activates without OPERA mod
 
 ## Open items carried forward
 - 🟡 Pilot providers: create the Meta app (or choose the BSP) and the SMS aggregator, approve the `otp` and `activation` templates, put the credentials into OpenBao and register the webhooks (deploy.md step 6); add the `otp_hmac_key` to existing pilot hosts before upgrading (deploy.md, "Upgrade").
-- Staff and guest web applications (inbox, activation and chat screens; ADR-0009) — Phase 5 with the catalog, which gives the guest something to order.
+- `apps/guest-web` (activation and chat screens for guests) — Phase 5, as ADR-0009 says.
 - Inbound media download into the asset registry; staff WhatsApp/SMS notifications (needs staff phone numbers); templated re-engagement outside the 24-hour window; retention purge of processed `comms.inbound_events`.
 - Run the realtime gateway as its own deployable (Spec §71) when load requires it; it only depends on Valkey pub/sub.
 - Carried from earlier phases: pin non-transactional reads in the organization and identity contexts; object-storage data exports; agent enrollment runbook on the pilot host; product owner confirmation of OpenBao; SMTP for the pilot host.

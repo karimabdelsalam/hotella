@@ -1,0 +1,25 @@
+{
+  "name": "@hotella/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared web UI primitives (ADR-0009): RTL-safe components built on logical CSS properties, and the Planova attribution footer that brand settings cannot remove (CLAUDE.md rule 15). Consumed as TypeScript source by the Next.js apps (transpilePackages).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "19.3.0"
+  },
+  "devDependencies": {
+    "@hotella/tooling": "workspace:*",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "vitest": "4.1.11"
+  }
+}

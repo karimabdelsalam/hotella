@@ -6,3 +6,8 @@ pnpm-lock.yaml
 docs/spec/HOTELLA_MASTER_SPEC.md
 docs/
 **/__snapshots__/
+.next
+test-results
+playwright-report
+apps/staff-web/src/messages
+apps/staff-web/next-env.d.ts

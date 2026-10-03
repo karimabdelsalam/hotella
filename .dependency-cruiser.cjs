@@ -37,6 +37,8 @@ module.exports = {
           '(^|/)\\.[^/]+\\.(js|cjs|mjs|ts|json)$',
           '(^|/)tsconfig\\.json$',
           '\\.spec\\.ts$',
+          // Framework entry points loaded by convention (Next.js, PostCSS, Playwright).
+          '^apps/[^/]+/(postcss|next|playwright)\\.config\\.(mjs|ts)$',
         ],
       },
       to: {},
@@ -45,7 +47,13 @@ module.exports = {
   options: {
     doNotFollow: { path: ['node_modules'] },
     exclude: {
-      path: ['\\.(spec|e2e-spec)\\.ts$', '/dist/', '/coverage/', '^tooling/lint-fixtures/'],
+      path: [
+        '\\.(spec|e2e-spec)\\.tsx?$',
+        '/dist/',
+        '/coverage/',
+        '/\\.next/',
+        '^tooling/lint-fixtures/',
+      ],
     },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.json' },

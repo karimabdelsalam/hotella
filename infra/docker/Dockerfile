@@ -4,6 +4,7 @@
 #   docker build -f infra/docker/Dockerfile --target worker -t hotella/worker:<version> .
 #   docker build -f infra/docker/Dockerfile --target agent-gateway -t hotella/agent-gateway:<version> .
 #   docker build -f infra/docker/Dockerfile --target pms-simulator -t hotella/pms-simulator:<version> .
+#   docker build -f infra/docker/Dockerfile --target staff-web -t hotella/staff-web:<version> .
 ARG NODE_IMAGE=node:24-bookworm-slim
 
 FROM ${NODE_IMAGE} AS build
@@ -17,16 +18,19 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY apps/agent-gateway/package.json apps/agent-gateway/package.json
 COPY apps/pms-simulator/package.json apps/pms-simulator/package.json
+COPY apps/staff-web/package.json apps/staff-web/package.json
 COPY packages ./packages
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm turbo run build --filter=@hotella/api... --filter=@hotella/worker... \
-  --filter=@hotella/agent-gateway... --filter=@hotella/pms-simulator...
+  --filter=@hotella/agent-gateway... --filter=@hotella/pms-simulator... --filter=@hotella/staff-web...
 # Self-contained production bundles: dist + production dependencies, workspace packages copied in.
 RUN pnpm --filter @hotella/api deploy --prod --legacy /out/api \
  && pnpm --filter @hotella/worker deploy --prod --legacy /out/worker \
  && pnpm --filter @hotella/agent-gateway deploy --prod --legacy /out/agent-gateway \
  && pnpm --filter @hotella/pms-simulator deploy --prod --legacy /out/pms-simulator \
+ && pnpm --filter @hotella/staff-web deploy --prod --legacy /out/staff-web \
+ && cp -r apps/staff-web/.next /out/staff-web/.next && rm -rf /out/staff-web/.next/cache \
  && for app in api worker agent-gateway; do cp -r locales /out/$app/locales; done
 
 FROM ${NODE_IMAGE} AS runtime
@@ -60,3 +64,12 @@ CMD ["node", "dist/main.js"]
 FROM runtime AS pms-simulator
 COPY --from=build --chown=node:node /out/pms-simulator /app
 ENTRYPOINT ["node", "dist/main.js"]
+
+# Staff web portal (ADR-0009): Next.js server; reaches the API on the internal network (WEB_API_URL).
+FROM runtime AS staff-web
+COPY --from=build --chown=node:node /out/staff-web /app
+ENV NEXT_TELEMETRY_DISABLED=1
+EXPOSE 3100
+HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3100/en/login').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+CMD ["node", "node_modules/next/dist/bin/next", "start", "--port", "3100", "--hostname", "0.0.0.0"]

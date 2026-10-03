@@ -3,6 +3,7 @@ packages:
   - packages/platform/*
   - packages/domain/*
   - packages/contracts/*
+  - packages/ui
   - tooling
 
 # pnpm settings (pnpm 10 reads them from here; keeps npm from warning about unknown .npmrc keys)

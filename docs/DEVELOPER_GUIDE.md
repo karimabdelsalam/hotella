@@ -29,6 +29,16 @@ curl -s localhost:3000/api/v1/ready    # readiness: 200 when PostgreSQL + Valkey
 pnpm test                    # unit + e2e + integration (Testcontainers starts PostgreSQL/Valkey/SeaweedFS; without Docker those suites skip with a reason)
 ```
 
+Staff web portal (`apps/staff-web`, ADR-0009) against the running API:
+
+```bash
+pnpm --filter @hotella/staff-web dev   # http://localhost:3100/en (or /ar); WEB_API_URL defaults to localhost:3000/api/v1
+pnpm --filter @hotella/staff-web e2e   # Playwright, English (LTR) and Arabic (RTL), API mocked in the browser
+```
+
+UI strings live in `locales/{en,ar}/staff.json` (the shared catalog); `scripts/sync-messages.mjs` turns them into the app's
+next-intl messages at build/dev time. Layout uses logical properties only (`ms-*`, `me-*`, `text-start`, `border-e`).
+
 > Integration suites print `TEST_INFRA_UNAVAILABLE` and skip when no container runtime is reachable; CI always runs them against real services.
 > Without Docker you can still run the database suites against any PostgreSQL 16+ you have: `TEST_DATABASE_URL=postgresql://user@host:5432/empty_db pnpm test` (turbo passes the `TEST_*` variables through; CI's PostgreSQL 18 stays the authority).
 
@@ -57,8 +67,9 @@ Everything above is a `package.json` script; if a script name changes, this sect
 
 ```text
 apps/          things you run        → api (:3000), worker (:3001), agent-gateway (:8443, TLS + client certificates),
-                                       pms-simulator (reference hotel agent + simulated PMS); later guest-web, staff-web,
-                                       hotel-agent (.NET). The realtime WebSocket gateway runs inside api for now.
+                                       pms-simulator (reference hotel agent + simulated PMS), staff-web (:3100, Next.js
+                                       inbox with a BFF for sign-in); later guest-web, hotel-agent (.NET). The realtime
+                                       WebSocket gateway runs inside api for now.
 packages/
   platform/    infrastructure        → config, secrets, pki (agent CA, device certificates, command signatures), observability (logs, request context, tracing), database, events (outbox/inbox),
                                        queue (BullMQ on Valkey), http (Problem Details, idempotency, rate limit, OpenAPI), i18n,

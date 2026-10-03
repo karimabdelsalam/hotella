@@ -64,6 +64,10 @@ jobs:
       - name: Migrations apply to a real PostgreSQL 18
         run: pnpm db:migrate
       - run: pnpm test
+      - name: Staff web in English (LTR) and Arabic (RTL) — Playwright, API mocked in the browser
+        run: |
+          pnpm --filter @hotella/staff-web exec playwright install --with-deps chromium
+          pnpm --filter @hotella/staff-web e2e
       - name: Readiness against real PostgreSQL 18 + Valkey 9
         run: |
           node apps/api/dist/main.js & echo $! > api.pid
@@ -93,7 +97,7 @@ jobs:
         run: infra/docker/pilot/pilot.sh vault-init
       - name: Migrate as admin, grant the application role
         run: infra/docker/pilot/pilot.sh migrate
-      - name: Start api, worker and agent gateway
+      - name: Start api, worker, agent gateway and staff web
         run: infra/docker/pilot/pilot.sh start
       - name: Create the first platform administrator and sign in
         run: |

@@ -61,4 +61,15 @@ status=$(curl -s --http1.1 -o /dev/null -w '%{http_code}' --max-time 3 "$API/rea
   -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' || true)
 echo "realtime upgrade: $status"
 [ "$status" = 101 ]
+# The staff web portal: both directions render, and its BFF signs the manager in against the deployed API (refresh
+# token only in an httpOnly cookie) and proxies API calls on the same origin.
+WEB="${HOTELLA_STAFF_WEB:-http://localhost:3100}"
+curl -fsS "$WEB/en/login" | grep -q 'dir="ltr"'
+curl -fsS "$WEB/ar/login" | grep -q 'dir="rtl"'
+bff=$(curl -fsS -D "$DIR/.bff-headers" "$WEB/bff/login" "${json[@]}" \
+  -d "{\"tenantCode\":\"PILOT\",\"email\":\"gm@pilot.example\",\"password\":\"$password\"}")
+grep -qi '^set-cookie: hotella_rt=.*httponly' "$DIR/.bff-headers"; rm -f "$DIR/.bff-headers"
+jq -e 'has("refreshToken") | not' <<<"$bff" >/dev/null
+curl -fsS "$WEB/hotella/properties/$property/conversations" -H "authorization: Bearer $(jq -r .accessToken <<<"$bff")" | jq -e 'type == "array"' >/dev/null
+echo "staff web: OK"
 echo "guest smoke: OK"
