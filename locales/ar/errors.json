@@ -194,5 +194,16 @@
   "errors.ai.model.not_found": "لم يتم العثور على نموذج الذكاء الاصطناعي.",
   "errors.ai.model.code_taken": "لدى هذا المزوّد نموذج بهذا الرمز بالفعل.",
   "errors.ai.model.version_conflict": "قام شخص آخر بتعديل هذا النموذج؛ أعد التحميل وحاول مرة أخرى.",
-  "errors.ai.routing.model_unsuitable": "يجب أن يكون كل نموذج نشطًا ويخدم القدرة {capability}."
+  "errors.ai.routing.model_unsuitable": "يجب أن يكون كل نموذج نشطًا ويخدم القدرة {capability}.",
+  "errors.comms.conversation.handed_off": "يتولى أحد أفراد الفريق هذه المحادثة.",
+  "errors.ai.policy.no_execution": "لا يتصرّف مساعد الذكاء الاصطناعي إلا داخل استدعاء أداة معتمد.",
+  "errors.ai.policy.critical": "لا يُنفّذ مساعد الذكاء الاصطناعي هذا الإجراء أبدًا.",
+  "errors.ai.policy.approval_required": "يحتاج هذا الإجراء إلى موافقة شخص قبل أن ينفّذه مساعد الذكاء الاصطناعي.",
+  "errors.ai.policy.risk_exceeded": "هذا الإجراء أعلى خطورة مما يُسمح لأداة الذكاء الاصطناعي \"{tool}\" بتنفيذه.",
+  "errors.ai.tool.invalid_arguments": "استُدعيت أداة الذكاء الاصطناعي بمدخلات غير صالحة.",
+  "errors.ai.tool.context_missing": "تحتاج أداة الذكاء الاصطناعي هذه إلى ضيف أو محادثة غير متوفرين.",
+  "errors.ai.tool.failed": "تعذّر على أداة الذكاء الاصطناعي إكمال العملية. حاول مرة أخرى.",
+  "errors.ai.tool.disabled": "أداة الذكاء الاصطناعي \"{tool}\" متوقفة.",
+  "errors.ai.proposal.not_pending": "تم البتّ في اقتراح الذكاء الاصطناعي هذا بالفعل.",
+  "errors.ai.proposal.not_executable": "لم يعد من الممكن تنفيذ اقتراح الذكاء الاصطناعي هذا."
 }

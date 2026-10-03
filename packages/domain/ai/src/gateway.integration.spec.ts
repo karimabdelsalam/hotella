@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { Global, type INestApplication, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
+import { CatalogModule } from '@hotella/domain-catalog';
+import { CommunicationsModule } from '@hotella/domain-communications';
 import { GuestModule } from '@hotella/domain-guest';
 import { IDENTITY_API } from '@hotella/domain-identity/public';
 import { IntegrationsModule } from '@hotella/domain-integrations';
@@ -121,13 +123,18 @@ describe.skipIf(needsInfra())(`Model Gateway against PostgreSQL (${infraSkipReas
       LOG_LEVEL: 'silent',
       DATABASE_URL: await applicationRoleUrl(url, 'hotella_app_ai'),
       VALKEY_URL: 'redis://127.0.0.1:1',
+      PUBLIC_BASE_URL: 'https://guest.example.test',
     };
     const ref = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ env }),
         ObservabilityModule.forRoot(),
         I18nModule.forRoot(),
-        SecretsModule.forRoot({ providers: [new EnvSecretProvider({ CLOUD_KEY: 'k' })] }),
+        SecretsModule.forRoot({
+          providers: [
+            new EnvSecretProvider({ CLOUD_KEY: 'k', COMMS_OTP_HMAC_KEY: 'test-otp-key' }),
+          ],
+        }),
         HttpConventionsModule.forRoot({ store: 'memory' }),
         DatabaseModule.forRoot(),
         EventsModule.forRoot(),
@@ -142,13 +149,15 @@ describe.skipIf(needsInfra())(`Model Gateway against PostgreSQL (${infraSkipReas
             useValue: new StaticPermissionResolver(grants),
           },
           propertyVerifier: OrganizationModule.propertyVerifier(),
-          stages: [IntegrationsModule.capabilityStage()],
+          stages: [IntegrationsModule.capabilityStage(), ...AiModule.gateStages()],
         }),
         OrganizationModule,
         IntegrationsModule,
         GuestModule,
         FakeIdentityModule,
         OperationsModule,
+        CommunicationsModule,
+        CatalogModule,
         AiModule,
       ],
     }).compile();

@@ -1,4 +1,22 @@
-export { AiCoreModule, AiModule } from './ai.module';
+export {
+  AI_PROPOSAL_SETTLE_CONSUMER,
+  AiCoreModule,
+  AiModule,
+  AiToolsModule,
+  AiWorkerModule,
+} from './ai.module';
+export { AI_ACTION_APPROVAL, ToolExecutor } from './application/tools/executor';
+export type {
+  ExecutionHandle,
+  StartExecutionInput,
+  ToolOutcome,
+} from './application/tools/executor';
+export { ProposalSettler } from './application/tools/proposal-settler';
+export { toModelName, ToolRegistry } from './application/tools/registry';
+export type { AiToolDefinition, ToolContext } from './application/tools/registry';
+export { aiExecutionScope, AiPolicyStage, ScopedAgentAuthorizer } from './application/tools/scope';
+export { decide, NO_AUTONOMY, riskRank } from './domain/policy';
+export type { AutonomyPolicy, Decision, Risk } from './domain/policy';
 export { ModelGatewayService } from './application/gateway.service';
 export { ModelProviderRegistry } from './application/provider-registry';
 export { AnthropicProvider } from './application/providers/anthropic';

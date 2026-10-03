@@ -3,7 +3,12 @@ import { FeatureFlagService } from '@hotella/platform-flags';
 import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { ActorStore, type RequestActor } from './actor';
-import { PERMISSION_RESOLVER, type PermissionResolver } from './contracts';
+import {
+  AI_AGENT_AUTHORIZER,
+  type AiAgentAuthorizer,
+  PERMISSION_RESOLVER,
+  type PermissionResolver,
+} from './contracts';
 
 /** What an application service is about to do (Spec §60 unified action gate). */
 export interface ActionRequest {
@@ -66,15 +71,19 @@ export class ActionGate {
     @Optional()
     @Inject(AI_POLICY_STAGE)
     private readonly aiPolicy: GateStage = new PassThroughStage('aiPolicy'),
+    @Optional()
+    @Inject(AI_AGENT_AUTHORIZER)
+    private readonly agents?: AiAgentAuthorizer,
   ) {}
 
   async execute<T>(request: ActionRequest, handler: () => Promise<T>): Promise<T> {
     const actor = request.actor ?? this.actors.require();
-    // 1. authorization
-    const allowed = await this.permissions.hasPermission(actor, request.action, {
-      tenantId: request.tenantId,
-      propertyId: request.propertyId ?? null,
-    });
+    // 1. authorization (AI agents by the AI context: only what their tools need; refused without it)
+    const scope = { tenantId: request.tenantId, propertyId: request.propertyId ?? null };
+    const allowed =
+      actor.type === 'AI_AGENT'
+        ? ((await this.agents?.hasPermission(actor, request.action, scope)) ?? false)
+        : await this.permissions.hasPermission(actor, request.action, scope);
     if (!allowed) throw AppError.forbidden('platform.forbidden', { permission: request.action });
     // 2. entitlement
     await this.entitlement.check(request, actor);

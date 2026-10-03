@@ -1315,8 +1315,8 @@ ai.feedback             id, tenant_id, execution_id, kind (DRAFT_EDIT|REASSIGNME
 | Sprint | Scope | Status |
 |---|---|---|
 | 6.1 | `@hotella/domain-ai`: providers, models, routing rules, `MODEL_GATEWAY` (`complete`, `embed`) with `OPENAI_COMPATIBLE`, `ANTHROPIC` and `FAKE` adapters, fallback, cost/latency in `ai.model_calls`, egress policy (data class filter + identifier masking), budgets and kill switches, admin API (platform admin for providers/models, tenant for routing overrides) | delivered |
-| 6.2 | Tool registry + AI policy stage: tool definitions from manifests, handlers registered by owning contexts, execution through the ActionGate as `AI_AGENT`, risk decisions, `ai.action_proposals` + approval kind `AI_ACTION`; tools v1 `guest.get_current_stay`, `operations.find_open_requests`, `operations.create_service_request`, `catalog.list_services`, `communication.send_message`, `knowledge.search` (stub) | planned |
-| 6.3 | Agents and prompts (immutable versions), Context Engine with context policies, execution audit (`executions`, `execution_steps`), Guest Concierge v1 runtime triggered by guest messages (AUTO/ASSIST), language rule, handoff → inbox, drafts with edit-distance feedback, staff inbox shows AI drafts | planned |
+| 6.2 | Tool registry + AI policy stage: tool definitions declared in the AI manifest, execution through the ActionGate as `AI_AGENT`, risk decisions, `ai.executions`/`ai.execution_steps`, `ai.action_proposals` + approval kind `AI_ACTION`; tools v1 `guest.get_current_stay`, `catalog.list_services`, `operations.find_open_requests`, `operations.create_service_request`, `operations.cancel_service_request`, `communication.send_message` (`knowledge.search` moves to 6.4) | delivered |
+| 6.3 | Agents and prompts (immutable versions), Context Engine with context policies, execution audit read API, Guest Concierge v1 runtime triggered by guest messages (AUTO/ASSIST), language rule, handoff → inbox, drafts with edit-distance feedback, staff inbox shows AI drafts | planned |
 | 6.4 | Knowledge v1 (`knowledge` schema: documents, versions, chunks, embeddings with pgvector; scope tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank with document version references; retrieved text framed as untrusted data) | planned |
 | 6.5 | M2 acceptance: "الجو حر أوي هنا" end to end with the `FAKE` provider scripted, HIGH-risk proposal → approval → execution, execution audit complete, the no-direct-write rule enforced by depcruise + test; `docs/acceptance/phase-6.md` | planned |
 
@@ -1336,6 +1336,30 @@ Reality notes for 6.1:
 - Administration: `/ai/providers`, `/ai/models`, `PUT /ai/routing-rules/platform` (platform administrators,
   `ai.provider.manage`); `GET|PUT /ai/routing-rules` and `GET /ai/usage` for a tenant (`ai.routing.manage`,
   `ai.usage.read`, general managers).
+
+Reality notes for 6.2:
+- Migration `0023_ai_executions`: `ai.executions`, `ai.execution_steps` (append-only by trigger; summaries hold tool
+  codes, decisions, outcomes and argument *names*, never values or guest text), `ai.action_proposals` (arguments and
+  context CONFIDENTIAL, one per approval). All three tenant-scoped with RLS. The execution tables arrive here rather
+  than in 6.3 because every tool call is recorded as a step.
+- Tools v1 live in the AI context (`application/tools/v1.ts`) and act only through the public APIs of guest, catalog,
+  communications and organization, so the dependency stays one-way (no context imports the AI package). They are
+  declared in `AI_MANIFEST.aiTools`; the manifest registry now refuses duplicate tool codes and tools whose
+  permission no module declares. The guest, stay and conversation come from the execution, never from the model.
+- `ToolExecutor.invoke`: tool in the agent version's list → kill switches (`ai.kill.agent.<code>`,
+  `ai.kill.tool.<code>`) → zod arguments (issues report paths only) → `decide()` (READ/LOW auto, MEDIUM auto only for
+  tools the agent version lists, HIGH proposes, CRITICAL refused, `ai.kill.auto_actions` turns everything but reading
+  into proposals) → the handler runs in a fresh request context whose actor is `AI_AGENT` with the execution id, inside
+  `ActionGate.execute({ action: tool.requiredPermission, aiRisk })`. Errors come back to the model as codes.
+- The ActionGate authorizes AI actors through `AI_AGENT_AUTHORIZER` (only the permissions of the agent's tools, only
+  in the execution's tenant and property, only inside a tool call) and step 6 `AI_POLICY_STAGE` (no tool call → 403,
+  CRITICAL never, HIGH only when approved, never riskier than the tool declares). Without these providers
+  (`AiModule.gateStages()`) every AI actor is refused.
+- Proposals: `operations.cancel_service_request` (HIGH) prechecks that the request is the guest's and open, then
+  creates the proposal and an `AI_ACTION` approval requested by the AI actor (four-eyes and human-only decisions come
+  from the approval engine). Approving runs the call as proposed inside the deciding transaction (a failure rolls the
+  approval back); the worker's `ai.proposal-settle` consumer of `ops.approval.decided` closes rejected or expired ones.
+  `ApprovalSummary` gained `tenantId` so handlers can load their tenant-scoped records.
 
 ### Phase 7 — Housekeeping
 `hk` schema: `room_operational_states` projection (+version), `housekeeping_jobs` via work items, `credit_rules`, `room_signals` (DND/MUR/PRIVACY/SERVICE_REQUESTED with source), assignment boards, inspection hook (Phase 9 engine, early minimal version here), arrival readiness v0 (configurable dimensions, Spec §16). Consumes `hotel.guest.checked_out.v1` → CHECKOUT job; `hotel.room.status_changed.v1`. Housekeeping Copilot recommendations (assignment balancing by credits/location/history) as proposals only.

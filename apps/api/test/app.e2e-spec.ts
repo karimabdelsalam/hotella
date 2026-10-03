@@ -71,7 +71,7 @@ describe('api skeleton (e2e)', () => {
         AuthModule.forRoot({
           ...identityAuthOptions(),
           propertyVerifier: OrganizationModule.propertyVerifier(),
-          stages: [IntegrationsModule.capabilityStage()],
+          stages: [IntegrationsModule.capabilityStage(), ...AiModule.gateStages()],
         }),
         OrganizationModule,
         IdentityModule,

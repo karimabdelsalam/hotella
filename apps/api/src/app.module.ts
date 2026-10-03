@@ -49,7 +49,7 @@ import { MetaModule } from './meta/meta.module';
     AuthModule.forRoot({
       ...identityAuthOptions(),
       propertyVerifier: OrganizationModule.propertyVerifier(),
-      stages: [IntegrationsModule.capabilityStage()],
+      stages: [IntegrationsModule.capabilityStage(), ...AiModule.gateStages()],
     }),
     OrganizationModule,
     IdentityModule,

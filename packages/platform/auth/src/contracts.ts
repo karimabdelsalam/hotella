@@ -21,6 +21,15 @@ export interface PermissionResolver {
 export const PERMISSION_RESOLVER = Symbol('PERMISSION_RESOLVER');
 
 /**
+ * Authorization of AI agents (Spec §31–§32): an agent holds only the permissions its registered tools require, in the
+ * tenant and property of its execution. Implemented by the AI context; without it AI agents are refused.
+ */
+export interface AiAgentAuthorizer {
+  hasPermission(actor: RequestActor, permission: string, scope: PermissionScope): Promise<boolean>;
+}
+export const AI_AGENT_AUTHORIZER = Symbol('AI_AGENT_AUTHORIZER');
+
+/**
  * Confirms a property belongs to a tenant, so a tenant user naming another tenant's (or a non-existent) property gets
  * 404 before any permission check — cross-tenant probing never learns more than "not found" (CLAUDE.md rule 1).
  * Implemented by the organization context.

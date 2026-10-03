@@ -150,5 +150,11 @@ describe('AuthGuard + ActionGate', () => {
       .set('X-Test-Actor', actor({ id: 'nobody' }))
       .expect(403);
     expect(denied.body.params.permission).toBe('org.property.manage');
+    // An AI agent is never authorized by staff memberships, not even a wildcard: only the AI context's authorizer
+    // (absent here) may grant it what its tools need.
+    await request(app.getHttpServer())
+      .post('/t/gate')
+      .set('X-Test-Actor', actor({ type: 'AI_AGENT', id: 'u2' }))
+      .expect(403);
   });
 });

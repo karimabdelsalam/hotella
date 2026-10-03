@@ -47,9 +47,41 @@ export interface CreatedServiceRequest {
   readonly related: boolean;
 }
 
+/** A service a guest may ask for, in their language (what the guest web lists; the AI concierge reads the same). */
+export interface GuestServiceSummary {
+  readonly code: string;
+  readonly name: string;
+  readonly shortDescription: string | null;
+  readonly openNow: boolean;
+  readonly fields: ReadonlyArray<{
+    readonly code: string;
+    readonly type: 'TEXT' | 'NUMBER' | 'CHOICE' | 'DATETIME' | 'BOOLEAN';
+    readonly required: boolean;
+    readonly label: string;
+    readonly options?: ReadonlyArray<{ readonly code: string; readonly label: string }>;
+    readonly min?: number;
+    readonly max?: number;
+  }>;
+}
+
 /** The single entrypoint for service requests (BUILD_PLAN §9.2): staff UI, guest web, and the AI tool in Phase 6. */
 export interface CatalogPublicApi {
   createServiceRequest(input: CreateServiceRequestInput): Promise<CreatedServiceRequest>;
+  /** Withdraws an open or started request (`request.manage`); the work is cancelled with it. */
+  cancelServiceRequest(
+    tenantId: string,
+    propertyId: string,
+    id: string,
+    reason: string,
+  ): Promise<ServiceRequestSummary>;
+  /** The eligible, guest-visible services of the guest's stay, translated (fallback chain). */
+  servicesForGuest(input: {
+    readonly tenantId: string;
+    readonly propertyId: string;
+    readonly stayId: string;
+    readonly guestId: string;
+    readonly locale: string;
+  }): Promise<readonly GuestServiceSummary[]>;
   getServiceRequest(tenantId: string, id: string): Promise<ServiceRequestSummary | null>;
   serviceRequestsOfStay(
     tenantId: string,

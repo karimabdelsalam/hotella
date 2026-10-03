@@ -46,10 +46,10 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 28 | Single model gateway; capability-based routing; fallback; cost/latency/policy | BP §10 P6; ADR-0018; Sprint 6.1 (`domain-ai`: `MODEL_GATEWAY`, `pickRule` tests, OpenAI-compatible/Anthropic contract tests, fallback and routing in `gateway.integration.spec.ts`); CM 12 | P6 (6.1 ✔) |
 | 29 | Logical agents; agent = prompt+tools+context+memory+routing+autonomy+output contract; immutable versions | BP §10 P6 `agents/agent_versions` | P6 |
 | 30 | Versioned prompts; layered composition | BP §10 P6 prompt layering | P6 |
-| 31 | Tool registry fields; AI never writes tables; execution through validation/authz/entitlement/workflow/SLA/audit/events | BP §10 P6 tools via action gate; CM 12 | P6 |
-| 32 | Risk levels READ…CRITICAL; policy matrix; decision depends on agent/tool/risk/actor/property/context | BP §10 P6 AI policy stage; CM 12 | P6 |
-| 33 | Action proposals with args/reason/evidence/risk/expiry/status via approval engine | BP §10 P6 `action_proposals`; §7.1 approvals | P3, P6 |
-| 34 | Execution audit fields and step types | BP §10 P6 `executions/execution_steps/model_calls`; CM 12 | P6 |
+| 31 | Tool registry fields; AI never writes tables; execution through validation/authz/entitlement/workflow/SLA/audit/events | BP §10 P6 tools via action gate; Sprint 6.2 (`ToolRegistry`, `ToolExecutor`, tools v1 over public APIs, `AI_MANIFEST.aiTools` + manifest registry checks, `tools.integration.spec.ts`); CM 12 | P6 (6.2 ✔) |
+| 32 | Risk levels READ…CRITICAL; policy matrix; decision depends on agent/tool/risk/actor/property/context | BP §10 P6 AI policy stage; Sprint 6.2 (`decide()` + `policy.spec.ts`, `AI_POLICY_STAGE` and `AI_AGENT_AUTHORIZER` in the ActionGate, `scope.spec.ts`, kill switches); CM 12 | P6 (6.2 ✔) |
+| 33 | Action proposals with args/reason/evidence/risk/expiry/status via approval engine | BP §10 P6 `action_proposals`; §7.1 approvals; Sprint 6.2 (`AI_ACTION` approval kind, approve → execute, reject/expire → `ProposalSettler`) | P3, P6 (6.2 ✔) |
+| 34 | Execution audit fields and step types | BP §10 P6 `executions/execution_steps/model_calls`; Sprint 6.2 (migration 0023, append-only steps, audit actor = execution); CM 12 | P6 (6.2 partial; read API in 6.3) |
 | 35 | Context engine with per-agent policies; minimum necessary data | BP §10 P6 | P6 |
 | 36 | Short-term vs durable memory; candidate → policy → accept/reject/expire; stay facts not permanent prefs | BP §10 P6 `memory_candidates/memories`; `guest_preferences.source/expires_at` (BP §6.1) | P2, P6 |
 | 37 | Knowledge sources & scoping; hybrid retrieval; structured live data via tools not RAG | BP §10 P6 knowledge module, P8 engineering manuals; CM 12 | P6, P8 |

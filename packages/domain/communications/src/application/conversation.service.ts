@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   ConversationOpened,
   DeliveryUpdated,
+  HandoffRequested,
   type EventEnvelope,
   GuestAnonymized,
   MessageReceived,
@@ -10,6 +11,7 @@ import {
 } from '@hotella/contracts-events';
 import { GUEST_API, type GuestPrincipal, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
+import { AuditWriter } from '@hotella/platform-audit';
 import { newId, TransactionRunner } from '@hotella/platform-database';
 import { EventPublisher } from '@hotella/platform-events';
 import { AppError, I18nService } from '@hotella/platform-i18n';
@@ -58,6 +60,7 @@ export class ConversationService implements CommunicationsPublicApi {
     private readonly events: EventPublisher,
     private readonly i18n: I18nService,
     private readonly tx: TransactionRunner,
+    private readonly audit: AuditWriter,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @InjectLogger() private readonly logger: Logger,
@@ -530,6 +533,64 @@ export class ConversationService implements CommunicationsPublicApi {
         messageId: message.id,
         channelType: channel ? 'WHATSAPP' : 'GUEST_WEB',
       };
+    });
+  }
+
+  // ---- AI (Spec §23–§24) ----
+
+  replyAsAi(input: {
+    tenantId: string;
+    conversationId: string;
+    agentCode: string;
+    body: string;
+  }): Promise<{ messageId: string; deliveryStatus: string }> {
+    return this.tx.run(async () => {
+      const conversation = await this.repo.conversation(
+        { tenantId: input.tenantId },
+        input.conversationId,
+      );
+      if (!conversation) throw AppError.notFound('comms.conversation.not_found');
+      if (conversation.status === 'CLOSED') throw AppError.conflict('comms.conversation.closed');
+      // Once a person has the conversation, the AI stays quiet.
+      if (conversation.status === 'HANDED_OFF')
+        throw AppError.conflict('comms.conversation.handed_off');
+      const message = await this.queue(
+        conversation,
+        { type: 'AI', ref: input.agentCode },
+        input.body,
+      );
+      return { messageId: message.id, deliveryStatus: message.deliveryStatus };
+    });
+  }
+
+  handOff(input: { tenantId: string; conversationId: string; reason: string }): Promise<void> {
+    return this.tx.run(async () => {
+      const scope = { tenantId: input.tenantId };
+      const c = await this.repo.conversation(scope, input.conversationId);
+      if (!c) throw AppError.notFound('comms.conversation.not_found');
+      if (c.status === 'CLOSED' || c.status === 'HANDED_OFF') return;
+      const updated = await this.repo.updateConversation(scope, c.id, {
+        status: 'HANDED_OFF',
+        aiMode: 'OFF',
+        handoffReason: input.reason,
+      });
+      await this.events.publish(HandoffRequested, {
+        tenantId: c.tenantId,
+        propertyId: c.propertyId,
+        source: COMMS,
+        aggregate: { type: 'conversation', id: c.id },
+        payload: { conversation_id: c.id, stay_id: c.stayId, by: 'AI', assigned_user_id: null },
+      });
+      await this.audit.record({
+        action: 'comms.conversation.handoff',
+        entityType: 'conversation',
+        entityId: c.id,
+        tenantId: c.tenantId,
+        propertyId: c.propertyId,
+        reason: input.reason,
+        before: { status: c.status, ai_mode: c.aiMode },
+        after: { status: updated.status, ai_mode: updated.aiMode },
+      });
     });
   }
 

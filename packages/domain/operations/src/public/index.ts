@@ -137,6 +137,7 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface ApprovalSummary {
   readonly id: string;
+  readonly tenantId: string;
   readonly propertyId: string;
   readonly kind: string;
   readonly status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';

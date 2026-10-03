@@ -11,6 +11,8 @@ export interface ManifestProblem {
     | 'UNKNOWN_EVENT'
     | 'UNDECLARED_EVENT'
     | 'EVENT_OWNERSHIP'
+    | 'DUPLICATE_AI_TOOL'
+    | 'UNKNOWN_PERMISSION'
     | 'UNCLASSIFIED_TABLE';
   readonly message: string;
 }
@@ -20,6 +22,7 @@ export interface ManifestProblem {
  *  - module codes unique; permission codes declared by exactly one module;
  *  - every declared event exists in the event registry and belongs to the module's namespace;
  *  - every registered event in a module's namespace is declared by that module (nothing published undeclared);
+ *  - AI tool codes are unique and each tool's required permission is declared by some module;
  *  - every classified table in the module's schema exists (data classes are enforced at load by classify()).
  * `assertValid()` runs at app boot and fails fast (CLAUDE.md rule 22).
  */
@@ -61,6 +64,25 @@ export class ManifestRegistry {
           });
         }
         permissionOwner.set(p.code, m.code);
+      }
+    }
+    const toolOwner = new Map<string, string>();
+    for (const m of manifests) {
+      for (const t of m.aiTools) {
+        const owner = toolOwner.get(t.code);
+        if (owner)
+          problems.push({
+            module: m.code,
+            kind: 'DUPLICATE_AI_TOOL',
+            message: `AI tool "${t.code}" is also declared by "${owner}"`,
+          });
+        toolOwner.set(t.code, m.code);
+        if (!permissionOwner.has(t.requiredPermission))
+          problems.push({
+            module: m.code,
+            kind: 'UNKNOWN_PERMISSION',
+            message: `AI tool "${t.code}" requires "${t.requiredPermission}", which no module declares`,
+          });
       }
     }
     const known = new Map(listEventDefinitions().map((d) => [d.name, d]));

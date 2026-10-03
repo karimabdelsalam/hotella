@@ -194,5 +194,16 @@
   "errors.ai.model.not_found": "AI model not found.",
   "errors.ai.model.code_taken": "This provider already has a model with this code.",
   "errors.ai.model.version_conflict": "Someone else changed this model; reload and try again.",
-  "errors.ai.routing.model_unsuitable": "Every model must be active and serve the capability {capability}."
+  "errors.ai.routing.model_unsuitable": "Every model must be active and serve the capability {capability}.",
+  "errors.comms.conversation.handed_off": "A team member is handling this conversation.",
+  "errors.ai.policy.no_execution": "An AI assistant can only act inside a cleared tool call.",
+  "errors.ai.policy.critical": "This action is never performed by an AI assistant.",
+  "errors.ai.policy.approval_required": "This action needs a person's approval before an AI assistant may perform it.",
+  "errors.ai.policy.risk_exceeded": "This action is riskier than the AI tool \"{tool}\" is allowed to perform.",
+  "errors.ai.tool.invalid_arguments": "The AI tool was called with invalid arguments.",
+  "errors.ai.tool.context_missing": "This AI tool needs a guest or conversation it does not have.",
+  "errors.ai.tool.failed": "The AI tool could not complete. Please try again.",
+  "errors.ai.tool.disabled": "The AI tool \"{tool}\" is switched off.",
+  "errors.ai.proposal.not_pending": "This AI proposal has already been decided.",
+  "errors.ai.proposal.not_executable": "This AI proposal can no longer be carried out."
 }

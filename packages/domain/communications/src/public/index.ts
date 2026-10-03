@@ -30,6 +30,22 @@ export interface GuestNotificationResult {
 export interface CommunicationsPublicApi {
   /** Joins the caller's transaction. */
   notifyGuest(input: GuestNotificationInput): Promise<GuestNotificationResult>;
+  /**
+   * An AI agent's reply in a conversation (Spec §23): queued on the conversation's reply channel like a staff reply,
+   * with the AI as sender. Refused when the conversation is closed or handed off to staff.
+   */
+  replyAsAi(input: {
+    readonly tenantId: string;
+    readonly conversationId: string;
+    readonly agentCode: string;
+    readonly body: string;
+  }): Promise<{ readonly messageId: string; readonly deliveryStatus: string }>;
+  /** Hands the conversation to staff with a reason (Spec §24): `HANDED_OFF`, AI mode off, the inbox is told. */
+  handOff(input: {
+    readonly tenantId: string;
+    readonly conversationId: string;
+    readonly reason: string;
+  }): Promise<void>;
 }
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */

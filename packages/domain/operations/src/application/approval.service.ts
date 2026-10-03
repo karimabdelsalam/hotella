@@ -26,6 +26,7 @@ type SettledListener = (approval: ApprovalRequestRow, outcome: ApprovalOutcome) 
 export function approvalSummary(a: ApprovalRequestRow): ApprovalSummary {
   return {
     id: a.id,
+    tenantId: a.tenantId,
     propertyId: a.propertyId,
     kind: a.kind,
     status: a.status,

@@ -67,4 +67,18 @@ describe('ModuleManifest', () => {
     expect(() => r.assertValid()).toThrow(/invalid/);
     void Stray;
   });
+
+  it('flags AI tools declared twice or requiring a permission no module declares', () => {
+    const r = new ManifestRegistry();
+    r.register(PLATFORM_MANIFEST);
+    const tool = { code: 'x.do_it', risk: 'LOW' as const, requiredPermission: 'x.thing.do' };
+    r.register(defineManifest({ code: 'xa', schema: 'ai', description: 'x', aiTools: [tool] }));
+    r.register(defineManifest({ code: 'xb', schema: 'ai', description: 'x', aiTools: [tool] }));
+    expect(
+      r
+        .validate()
+        .map((p) => p.kind)
+        .sort(),
+    ).toEqual(['DUPLICATE_AI_TOOL', 'UNKNOWN_PERMISSION', 'UNKNOWN_PERMISSION']);
+  });
 });

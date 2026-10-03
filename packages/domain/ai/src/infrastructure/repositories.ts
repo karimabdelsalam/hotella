@@ -8,6 +8,11 @@ import {
   tenantWhere,
 } from '@hotella/platform-database';
 import {
+  type ActionProposalRow,
+  actionProposals,
+  type ExecutionRow,
+  executions,
+  executionSteps,
   type ModelRow,
   modelCalls,
   models,
@@ -189,5 +194,82 @@ export class AiRepositories {
         modelCalls.currency,
       )
       .orderBy(asc(modelCalls.capability));
+  }
+
+  // ---- executions (Spec §34) ----
+  async insertExecution(values: typeof executions.$inferInsert): Promise<ExecutionRow> {
+    const [row] = await this.x.insert(executions).values(values).returning();
+    return row!;
+  }
+  async execution(scope: TenantScope, id: string): Promise<ExecutionRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(executions)
+      .where(tenantWhere(executions, scope, eq(executions.id, id)));
+    return row;
+  }
+  async updateExecution(
+    scope: TenantScope,
+    id: string,
+    patch: Partial<Pick<ExecutionRow, 'status' | 'finishedAt'>>,
+  ): Promise<void> {
+    await this.x
+      .update(executions)
+      .set(patch)
+      .where(tenantWhere(executions, scope, eq(executions.id, id)));
+  }
+  async insertStep(values: typeof executionSteps.$inferInsert): Promise<void> {
+    await this.x.insert(executionSteps).values(values);
+  }
+  steps(scope: TenantScope, executionId: string) {
+    return this.x
+      .select()
+      .from(executionSteps)
+      .where(tenantWhere(executionSteps, scope, eq(executionSteps.executionId, executionId)))
+      .orderBy(asc(executionSteps.id));
+  }
+
+  // ---- action proposals (Spec §33) ----
+  async insertProposal(values: typeof actionProposals.$inferInsert): Promise<ActionProposalRow> {
+    const [row] = await this.x.insert(actionProposals).values(values).returning();
+    return row!;
+  }
+  async proposal(scope: TenantScope, id: string): Promise<ActionProposalRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(actionProposals)
+      .where(tenantWhere(actionProposals, scope, eq(actionProposals.id, id)));
+    return row;
+  }
+  async proposalForUpdate(scope: TenantScope, id: string): Promise<ActionProposalRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(actionProposals)
+      .where(tenantWhere(actionProposals, scope, eq(actionProposals.id, id)))
+      .for('update');
+    return row;
+  }
+  async proposalOfApproval(
+    scope: TenantScope,
+    approvalId: string,
+  ): Promise<ActionProposalRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(actionProposals)
+      .where(tenantWhere(actionProposals, scope, eq(actionProposals.approvalId, approvalId)))
+      .for('update');
+    return row;
+  }
+  async updateProposal(
+    scope: TenantScope,
+    id: string,
+    patch: Partial<Pick<ActionProposalRow, 'approvalId' | 'status' | 'decidedAt' | 'result'>>,
+  ): Promise<ActionProposalRow> {
+    const [row] = await this.x
+      .update(actionProposals)
+      .set({ ...patch, updatedAt: new Date(), version: sql`${actionProposals.version} + 1` })
+      .where(tenantWhere(actionProposals, scope, eq(actionProposals.id, id)))
+      .returning();
+    return row!;
   }
 }

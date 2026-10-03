@@ -13,6 +13,7 @@ export { AuthGuard } from './auth.guard';
 export { AuthModule } from './auth.module';
 export type { AuthModuleOptions } from './auth.module';
 export {
+  AI_AGENT_AUTHORIZER,
   AnonymousStrategy,
   AUTHENTICATION_STRATEGY,
   DenyAllResolver,
@@ -20,6 +21,7 @@ export {
   PROPERTY_SCOPE_VERIFIER,
 } from './contracts';
 export type {
+  AiAgentAuthorizer,
   AuthenticationStrategy,
   PermissionResolver,
   PermissionScope,
