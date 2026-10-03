@@ -12,6 +12,14 @@ import { AuthService } from './auth.service';
  * Creates platform staff accounts outside HTTP (the first administrator of a fresh installation). Used by the
  * `iam:bootstrap-admin` CLI; there is deliberately no HTTP endpoint that can create a platform administrator.
  */
+export interface PlatformStaffInput {
+  email: string;
+  password: string;
+  givenName: string;
+  familyName?: string | null;
+  localePref?: string | null;
+}
+
 @Injectable()
 export class IdentityBootstrapService {
   constructor(
@@ -22,13 +30,15 @@ export class IdentityBootstrapService {
     private readonly audit: AuditWriter,
   ) {}
 
-  async createPlatformAdmin(input: {
-    email: string;
-    password: string;
-    givenName: string;
-    familyName?: string | null;
-    localePref?: string | null;
-  }): Promise<{ userId: string }> {
+  createPlatformAdmin(input: PlatformStaffInput): Promise<{ userId: string }> {
+    return this.createPlatformStaff({ ...input, kind: 'ADMIN' });
+  }
+
+  /** Platform staff: administrators (PLATFORM_ADMIN role) or support engineers (SUPPORT role, grant-based access). */
+  async createPlatformStaff(
+    input: PlatformStaffInput & { kind: 'ADMIN' | 'SUPPORT' },
+  ): Promise<{ userId: string }> {
+    const isPlatformAdmin = input.kind === 'ADMIN';
     const email = input.email.trim().toLowerCase();
     await this.auth.assertPasswordPolicy(input.password, email, null);
     const passwordHash = await hashPassword(input.password);
@@ -50,13 +60,18 @@ export class IdentityBootstrapService {
         passwordHash,
         passwordChangedAt: new Date(),
         status: 'ACTIVE',
-        isPlatformAdmin: true,
+        isPlatformAdmin,
       });
       await this.events.publish(UserCreated, {
         tenantId: null,
         source: 'iam',
         aggregate: { type: 'user', id: user.id },
-        payload: { user_id: user.id, tenant_id: null, status: 'ACTIVE', is_platform_admin: true },
+        payload: {
+          user_id: user.id,
+          tenant_id: null,
+          status: 'ACTIVE',
+          is_platform_admin: isPlatformAdmin,
+        },
       });
       await this.audit.record({
         action: 'iam.user.create',
@@ -65,8 +80,8 @@ export class IdentityBootstrapService {
         tenantId: null,
         propertyId: null,
         actor: { type: 'SYSTEM', id: null },
-        reason: 'bootstrap-admin CLI',
-        after: { email, isPlatformAdmin: true, status: 'ACTIVE' },
+        reason: 'bootstrap CLI',
+        after: { email, isPlatformAdmin, status: 'ACTIVE' },
       });
       return { userId: user.id };
     });

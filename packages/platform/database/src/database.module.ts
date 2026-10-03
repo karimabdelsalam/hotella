@@ -4,7 +4,9 @@ import {
   Inject,
   Module,
   type OnApplicationShutdown,
+  Optional,
 } from '@nestjs/common';
+import { RequestContext } from '@hotella/platform-observability';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import type { Pool } from 'pg';
 import { createDatabase, type Database, type DatabaseHandle } from './client';
@@ -16,11 +18,17 @@ const DATABASE_HANDLE = Symbol('DATABASE_HANDLE');
 
 export const InjectDatabase = (): ParameterDecorator => Inject(DATABASE);
 
-/** Injectable unit-of-work runner; application services start transactions here. */
+/**
+ * Injectable unit-of-work runner; application services start transactions here. When the request acts within a
+ * tenant (set by the auth guard), the transaction is pinned to it for row-level security.
+ */
 export class TransactionRunner {
-  constructor(@Inject(DATABASE) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE) private readonly db: Database,
+    @Optional() private readonly ctx?: RequestContext,
+  ) {}
   run<T>(fn: (tx: Transaction) => Promise<T>): Promise<T> {
-    return withTransaction(this.db, fn);
+    return withTransaction(this.db, fn, { tenantId: this.ctx?.tenantId ?? null });
   }
 }
 

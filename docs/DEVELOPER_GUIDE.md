@@ -41,7 +41,7 @@ curl -s localhost:3000/api/v1/auth/login -H 'content-type: application/json' \
 curl -s localhost:3000/api/v1/me -H "authorization: Bearer <accessToken>"
 ```
 
-The password is read from stdin so it never lands in shell history. Hotel staff sign in with their tenant code (`"tenantCode": "NILE"`); they are created by an administrator through `POST /api/v1/tenants/{tenantId}/users`, which returns a one-time invitation token for `POST /api/v1/auth/invitations/accept` (e-mail/WhatsApp delivery arrives with the comms context). In development, leaving `IAM_JWT_SIGNING_KEY_REF`/`IAM_MFA_KEY_REF` empty makes the API generate ephemeral keys, so sessions end when it restarts.
+The password is read from stdin so it never lands in shell history. `--role support` creates a support engineer instead: no access of their own, only time-limited grants a hotel approves (`POST /api/v1/tenants/{tenantId}/support-access`). Hotel staff sign in with their tenant code (`"tenantCode": "NILE"`); they are created by an administrator through `POST /api/v1/tenants/{tenantId}/users`, which returns a one-time invitation token for `POST /api/v1/auth/invitations/accept` (e-mail/WhatsApp delivery arrives with the comms context). In development, leaving `IAM_JWT_SIGNING_KEY_REF`/`IAM_MFA_KEY_REF` empty makes the API generate ephemeral keys, so sessions end when it restarts.
 
 Full verification exactly as CI runs it:
 
@@ -61,7 +61,8 @@ packages/
   platform/    infrastructure        → config, secrets, observability (logs, request context, tracing), database, events (outbox/inbox),
                                        queue (BullMQ on Valkey), http (Problem Details, idempotency, rate limit, OpenAPI), i18n,
                                        flags, manifest, storage (S3), testing (Testcontainers),
-                                       auth (request actor, permission guard, ActionGate)
+                                       auth (request actor, permission guard, ActionGate), audit (append-only audit log),
+                                       settings (typed hierarchical configuration, retention, attribution policy)
   domain/      business (one folder per bounded context, one PostgreSQL schema each)
                                      → organization (schema `org`: tenants, properties, location tree, rooms, branding)
                                      → identity (schema `iam`: staff users, memberships, roles/permissions, sessions, MFA)
@@ -97,6 +98,11 @@ Authorization: Bearer <jwt> → JwtAuthenticationStrategy (signature + live sess
 
 Use `@RequirePermission(code, { checkedBy: 'gate' })` only when the scope is known after loading the resource (e.g. a membership's property); the service's ActionGate then checks it.
 
+Two more layers sit under that pipeline:
+
+- **Row-level security.** `TransactionRunner.run()` pins every transaction of a tenant-scoped request to its tenant (`app.tenant_id`); PostgreSQL policies then hide other tenants' rows even if a query forgets its filter. Superusers bypass RLS, so the API must connect as an ordinary database role everywhere except local throwaway setups.
+- **Configuration.** A tunable value is a setting, not a constant and not a feature flag: declare it with `defineSetting({ key: '<ctx>.<entity>.<name>', scopes, schema, default, descriptionKey })`, register it in your module's `onModuleInit` (`SettingsRegistry.register`), read it with `ConfigurationService.effective(setting, { tenantId, propertyId })` (property → tenant → platform → default). Writes go through `PUT /api/v1/config/values/{key}` with history, event and audit.
+
 Dependency direction (enforced by dependency-cruiser; see the graph in `docs/architecture/dependency-graph.svg`):
 
 ```text
@@ -116,7 +122,7 @@ Full list in `CLAUDE.md`; these are the ones that bite newcomers:
 4. Localized business data lives in `<entity>_translations` tables, never `name_en`/`name_ar` columns.
 5. Cross-context side effects are events through the outbox (`EventPublisher.publish()` inside the transaction), not direct calls into another context's repository.
 6. Mutating endpoints declare a permission and run through `ActionGate`.
-7. Important mutations write an audit row. If you ask "is this important?", it is.
+7. Important mutations write an audit row: `AuditWriter.record({ action, entityType, entityId, before, after, reason })` inside the same `tx.run(...)` as the change (it refuses to run outside one). Actor, tenant, property and correlation id come from the request; sensitive columns are redacted by data class. If you ask "is this important?", it is.
 8. Never read `process.env` outside `platform-config`/`platform-secrets`. Never `console.log`. Never `require` or `__dirname` (source is ESM-ready even though it compiles to CommonJS today).
 9. Published definitions (service versions, workflow versions, prompts…) are immutable; edits create a new version.
 10. AI code never touches a provider SDK or a business table directly; it goes through the Model Gateway and registered tools.

@@ -12,7 +12,7 @@ Candidates: Prisma (multi-schema still preview-grade, weak raw SQL/RLS ergonomic
 - Each bounded context defines its tables in `packages/domain/<ctx>/src/infrastructure/schema.ts` inside its own PostgreSQL schema via `pgSchema('<ctx>')`. Platform tables (outbox, inbox, configuration, feature flags) live in schema `platform`.
 - `packages/platform/database` aggregates all schema modules for drizzle-kit and owns the single migration journal `migrations/`. File naming `<timestamp>_<ctx>_<description>.sql`.
 - Generated SQL is **always hand-reviewed** before commit; CI runs `db:check` to fail on schema/migration drift.
-- Shared column helpers (`baseColumns`, `tenantScoped`, `versioned`, `translationTable`) live in `platform/database` and are the only way to declare ids/timestamps.
+- Shared column helpers (`baseColumns`, `tenantScoped`, `versioned`, `translationColumns` + `translationUnique`) live in `platform/database` and are the only way to declare ids/timestamps.
 - Destructive changes follow expand → deploy → migrate → contract across separate releases.
 - pgvector via a custom Drizzle column type; `ltree` for location paths.
 

@@ -42,7 +42,7 @@ interface ResolvedTarget {
   readonly propertyId: string | null;
 }
 
-/** Spec §72 hierarchical configuration with history, events and audit. */
+/** Spec §73 hierarchical configuration with history, events and audit. */
 @Injectable()
 export class ConfigurationService {
   constructor(

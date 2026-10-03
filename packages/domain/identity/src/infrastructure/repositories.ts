@@ -11,6 +11,7 @@ import {
   roles,
   roleTranslations,
   sessions,
+  supportAccessGrants,
   userInvitations,
   users,
   type MembershipRow,
@@ -19,6 +20,7 @@ import {
   type RefreshTokenRow,
   type RoleRow,
   type SessionRow,
+  type SupportAccessGrantRow,
   type UserRow,
 } from './schema';
 
@@ -394,6 +396,60 @@ export class IdentityRepositories {
         ),
       )
       .then((r) => r.map((x) => x.id));
+  }
+
+  // ---- support access grants (Spec §64) ----
+  async insertSupportGrant(
+    values: typeof supportAccessGrants.$inferInsert,
+  ): Promise<SupportAccessGrantRow> {
+    const [row] = await this.x.insert(supportAccessGrants).values(values).returning();
+    return row!;
+  }
+  supportGrantById(scope: TenantScope, id: string): Promise<SupportAccessGrantRow | undefined> {
+    return this.x
+      .select()
+      .from(supportAccessGrants)
+      .where(and(eq(supportAccessGrants.tenantId, scope.tenantId), eq(supportAccessGrants.id, id)))
+      .then((r) => r[0]);
+  }
+  supportGrantsOfTenant(scope: TenantScope): Promise<SupportAccessGrantRow[]> {
+    return this.x
+      .select()
+      .from(supportAccessGrants)
+      .where(eq(supportAccessGrants.tenantId, scope.tenantId))
+      .orderBy(asc(supportAccessGrants.createdAt));
+  }
+  /** Grants held by a support user (all tenants) — the requester's own view and the resolver's input. */
+  supportGrantsOfUser(userId: string, tenantId?: string): Promise<SupportAccessGrantRow[]> {
+    return this.x
+      .select()
+      .from(supportAccessGrants)
+      .where(
+        and(
+          eq(supportAccessGrants.grantedToUserId, userId),
+          tenantId ? eq(supportAccessGrants.tenantId, tenantId) : undefined,
+        ),
+      )
+      .orderBy(asc(supportAccessGrants.createdAt));
+  }
+  async updateSupportGrant(
+    scope: TenantScope,
+    id: string,
+    expectedVersion: number,
+    values: Partial<typeof supportAccessGrants.$inferInsert>,
+  ): Promise<SupportAccessGrantRow | undefined> {
+    const [row] = await this.x
+      .update(supportAccessGrants)
+      .set({ ...values, version: sql`${supportAccessGrants.version} + 1` })
+      .where(
+        and(
+          eq(supportAccessGrants.tenantId, scope.tenantId),
+          eq(supportAccessGrants.id, id),
+          eq(supportAccessGrants.version, expectedVersion),
+        ),
+      )
+      .returning();
+    return row;
   }
 
   // ---- sessions & refresh tokens ----

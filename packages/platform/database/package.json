@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@hotella/platform-config": "workspace:*",
+    "@hotella/platform-observability": "workspace:*",
     "@nestjs/common": "11.2.7",
     "drizzle-orm": "0.45.3",
     "pg": "8.23.1",

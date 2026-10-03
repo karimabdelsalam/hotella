@@ -34,8 +34,11 @@ import {
   refreshSchema,
   replaceMembershipRolesSchema,
   replaceRolePermissionsSchema,
+  supportAccessRequestSchema,
+  supportAccessRevokeSchema,
   updateUserStatusSchema,
 } from '../application/dto';
+import { SupportAccessService } from '../application/support-access.service';
 import { ProfileService } from '../application/profile.service';
 
 class LoginDto extends createZodDto(loginSchema) {}
@@ -49,6 +52,8 @@ class GrantMembershipDto extends createZodDto(grantMembershipSchema) {}
 class ReplaceMembershipRolesDto extends createZodDto(replaceMembershipRolesSchema) {}
 class CreateRoleDto extends createZodDto(createRoleSchema) {}
 class ReplaceRolePermissionsDto extends createZodDto(replaceRolePermissionsSchema) {}
+class SupportAccessRequestDto extends createZodDto(supportAccessRequestSchema) {}
+class SupportAccessRevokeDto extends createZodDto(supportAccessRevokeSchema) {}
 
 function clientMeta(req: Request): ClientMeta {
   const ua = req.headers['user-agent'];
@@ -138,10 +143,54 @@ export class PermissionsController {
   }
 }
 
+@Controller('support-access')
+export class SupportAccessController {
+  constructor(private readonly support: SupportAccessService) {}
+  /** A support engineer's own grants across tenants. */
+  @Get('mine')
+  mine() {
+    return this.support.mine();
+  }
+}
+
 @Controller('tenants/:tenantId')
 @TenantScoped({ from: 'param' })
 export class TenantIdentityController {
-  constructor(private readonly admin: IdentityAdminService) {}
+  constructor(
+    private readonly admin: IdentityAdminService,
+    private readonly support: SupportAccessService,
+  ) {}
+
+  // ---- support access (Spec §64) ----
+  @Post('support-access')
+  @RequirePermission('support.access.request', { checkedBy: 'gate' })
+  requestSupportAccess(@Param('tenantId') tenantId: string, @Body() body: SupportAccessRequestDto) {
+    return this.support.request({ tenantId }, body);
+  }
+
+  @Get('support-access')
+  @RequirePermission('support.access.approve', { checkedBy: 'gate' })
+  listSupportAccess(@Param('tenantId') tenantId: string) {
+    return this.support.listForTenant({ tenantId });
+  }
+
+  @Post('support-access/:grantId/approve')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('support.access.approve', { checkedBy: 'gate' })
+  approveSupportAccess(@Param('tenantId') tenantId: string, @Param('grantId') grantId: string) {
+    return this.support.approve({ tenantId }, grantId);
+  }
+
+  @Post('support-access/:grantId/revoke')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('support.access.approve', { checkedBy: 'gate' })
+  revokeSupportAccess(
+    @Param('tenantId') tenantId: string,
+    @Param('grantId') grantId: string,
+    @Body() body: SupportAccessRevokeDto,
+  ) {
+    return this.support.revoke({ tenantId }, grantId, body.reason ?? null);
+  }
 
   @Get('users')
   @RequirePermission('iam.user.read')

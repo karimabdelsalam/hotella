@@ -415,7 +415,8 @@ First staging environment on the on-prem target: `infra/docker/compose.pilot.yml
 |---|---|---|
 | 1.1 | `@hotella/platform-auth` (RequestActor in CLS, `@Public`/`@RequirePermission`/`@PropertyScoped`/`@TenantScoped`, global `AuthGuard`, `ActionGate` with pluggable stages, test strategy/resolver); `@hotella/domain-organization` (schema `org`, migration `0002_org_phase1` incl. `ltree`, tenant/property foreign keys on every scoped table, services, controllers, public API, manifest, branding resolver with non-removable attribution); `runMigrations` serialized by a PostgreSQL advisory lock | delivered |
 | 1.2 | `@hotella/domain-identity` (schema `iam`, migration `0003_iam_phase1` with hand-reviewed FKs to `org`): persons, users, invitations, roles + translations, permission catalog synced from manifests, system roles (Platform admin, Support, General manager, Duty manager, HK supervisor, Room attendant, Engineer, Front desk, Guest relations — en/ar), memberships (tenant-wide or per property), sessions + refresh-token chain with reuse detection, TOTP MFA, lockout, real `AuthenticationStrategy` + `PermissionResolver`, anti-escalation, `pnpm iam:bootstrap-admin`; platform-auth: property-scope verifier (foreign property → 404), `checkedBy: 'gate'`, optional property scope | delivered |
-| 1.3 | Audit log, hierarchical configuration + history, retention policies, attribution policy table, support-access request/approve/revoke API, RLS, pilot compose, Phase 1 acceptance | next |
+| 1.3 | `@hotella/platform-audit` (append-only `audit.audit_log`, migration 0004, triggers reject UPDATE/DELETE/TRUNCATE; `AuditWriter` with data-class redaction; `GET /audit`) retrofitted into every org/iam mutation and security event; `@hotella/platform-settings` (migration 0005: typed hierarchical configuration + append-only history, retention policies, attribution policy with CHECK constraint; `/config`, `/retention-policies`); support-access request/approve/revoke with SUPPORT actor, grant-based permissions and per-request audit; RLS (migration 0006) with `FORCE` and transaction-local `app.tenant_id` | delivered |
+| 1.4 | Pilot deployment (§5.8): API/worker images, `compose.pilot.yml`, Vault secret provider, application database role (non-superuser, RLS-bound), pgBackRest backup + restore drill, runbooks; CI image build + pilot smoke; Phase 1 acceptance (`docs/acceptance/phase-1.md`) | next |
 
 Reality notes for 1.1: brand assets are stored as object-storage keys (`logo_asset_key`, `cover_asset_keys`, …) because the asset registry arrives with the knowledge/storage work; the public branding endpoint takes `property` (+ optional `channel`) and resolves platform → tenant → organization → property → channel.
 
@@ -426,6 +427,13 @@ Reality notes for 1.2 (details in ADR-0011 "Implementation notes"):
 - Platform administrators get exactly the `PLATFORM_ADMIN` role's permissions; staff below tenant-wide level cannot list properties (`GET /properties` is tenant-level) — they see their properties through `GET /me`.
 - Invitation tokens are returned once to the inviting administrator until the comms context (Phase 5) delivers them.
 - Support-access grants: table only in 1.2; request/approve/revoke endpoints land in 1.3 with the audit log they depend on.
+
+Reality notes for 1.3:
+- `GET /audit` is tenant- or property-scoped (`audit.read`): general managers hold it, platform administrators do not (audit snapshots may contain hotel data, Spec §64).
+- Configuration keys are declared in code (`defineSetting`: zod schema, default, allowed scopes, localized description) and registered by their module; unknown keys cannot be written. DEPARTMENT and MODULE scopes exist in the enum and wait for the operations phases. First keys: `iam.password.min_length` (tenant may raise the floor), `org.property.checkout_time`.
+- The attribution policy has no HTTP route yet (control plane, Phase 11); the table refuses a hidden attribution without an entitlement reference.
+- Support engineers are platform staff without the administrator flag (`pnpm iam:bootstrap-admin --role support`); they act as actor type `SUPPORT`, only through approved grants, and every request they make is audited (`support.access.use`).
+- RLS details and the "application must not connect as a superuser" requirement: ADR-0007 implementation notes.
 
 ---
 

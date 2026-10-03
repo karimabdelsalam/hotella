@@ -33,6 +33,8 @@ export interface OrganizationPublicApi {
   /** Login and activation flows name a tenant by its stable code. */
   findTenantByCode(code: string): Promise<TenantSummary | null>;
   getTenant(tenantId: string): Promise<TenantSummary | null>;
+  /** Owning tenant of a property (platform-level lookup; never exposes the property itself). */
+  findPropertyTenant(propertyId: string): Promise<string | null>;
   getProperty(tenantId: string, propertyId: string): Promise<PropertySummary | null>;
   listProperties(tenantId: string): Promise<readonly PropertySummary[]>;
   getRoomByNumber(

@@ -11,7 +11,7 @@ const CHECKOUT = defineSetting({
   descriptionKey: 'org.setting.checkout_time',
 });
 
-describe('configuration resolution (Spec §72)', () => {
+describe('configuration resolution (Spec §73)', () => {
   it('most specific scope wins: property → tenant → platform → default', () => {
     expect(resolveEffective(CHECKOUT, [])).toEqual({
       value: '12:00',

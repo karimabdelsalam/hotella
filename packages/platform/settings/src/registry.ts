@@ -5,7 +5,7 @@ export type ConfigScope = 'PLATFORM' | 'TENANT' | 'PROPERTY';
 export const SCOPE_ORDER: readonly ConfigScope[] = ['PROPERTY', 'TENANT', 'PLATFORM'];
 
 /**
- * A configuration key as code declares it (Spec §72): typed by a zod schema, with a default, a description in the
+ * A configuration key as code declares it (Spec §73): typed by a zod schema, with a default, a description in the
  * locale catalog, and the scopes at which it may be overridden. Values are validated on write and again on read.
  * Configuration ≠ entitlement ≠ feature flag ≠ permission (CLAUDE.md rule 14).
  */

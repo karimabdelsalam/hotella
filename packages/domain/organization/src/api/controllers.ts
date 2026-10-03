@@ -10,6 +10,7 @@ import {
   TenantScoped,
 } from '@hotella/platform-auth';
 import { CurrentLocale } from '@hotella/platform-i18n';
+import { RequestContext } from '@hotella/platform-observability';
 import {
   createLocationSchema,
   createOrganizationSchema,
@@ -88,6 +89,8 @@ export class PropertiesController {
     private readonly rooms: RoomService,
     private readonly actors: ActorStore,
     private readonly locale: CurrentLocale,
+    /** Tenant derived by the guard from the property (platform staff act on a property without naming its tenant). */
+    private readonly ctx: RequestContext,
   ) {}
 
   @Post()
@@ -110,7 +113,7 @@ export class PropertiesController {
   @RequirePermission('org.property.read')
   get(@Param('propertyId') propertyId: string, @Query() query: TenantQueryDto) {
     return this.properties.get(
-      { tenantId: resolveTenantId(this.actors.require(), query.tenantId) },
+      { tenantId: resolveTenantId(this.actors.require(), query.tenantId ?? this.ctx.tenantId) },
       propertyId,
     );
   }
@@ -123,7 +126,7 @@ export class PropertiesController {
     @Body() body: UpdatePropertyDto,
   ) {
     return this.properties.update(
-      { tenantId: resolveTenantId(this.actors.require(), query.tenantId) },
+      { tenantId: resolveTenantId(this.actors.require(), query.tenantId ?? this.ctx.tenantId) },
       propertyId,
       body,
     );
@@ -189,7 +192,7 @@ export class PropertiesController {
 
   /** Confirms the property belongs to the acting tenant (404 otherwise) and returns the scope. */
   private async scope(propertyId: string, named?: string) {
-    const tenantId = resolveTenantId(this.actors.require(), named);
+    const tenantId = resolveTenantId(this.actors.require(), named ?? this.ctx.tenantId);
     const property = await this.properties.get({ tenantId }, propertyId);
     return { scope: { tenantId, propertyId }, property };
   }

@@ -27,6 +27,8 @@ export const PERMISSION_RESOLVER = Symbol('PERMISSION_RESOLVER');
  */
 export interface PropertyScopeVerifier {
   propertyBelongsToTenant(propertyId: string, tenantId: string): Promise<boolean>;
+  /** The owning tenant, for platform staff who act on a property without being a member of its tenant. */
+  tenantOfProperty(propertyId: string): Promise<string | null>;
 }
 export const PROPERTY_SCOPE_VERIFIER = Symbol('PROPERTY_SCOPE_VERIFIER');
 

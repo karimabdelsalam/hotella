@@ -1,7 +1,9 @@
 import 'reflect-metadata';
+import { randomBytes } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ZodValidationPipe } from 'nestjs-zod';
+import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OrganizationModule } from '@hotella/domain-organization';
@@ -35,6 +37,37 @@ class ToggleRateLimitStore extends MemoryKeyValueStore {
 }
 
 const stamp = Date.now().toString(36).toUpperCase();
+const APP_ROLE = 'hotella_app_test';
+
+/**
+ * The application under test connects as an ordinary role, like every deployed environment must: superusers bypass
+ * row-level security, so running as one would hide RLS problems. Migrations still run as the superuser.
+ */
+async function appRoleUrl(adminUrl: string): Promise<string> {
+  const password = randomBytes(12).toString('hex');
+  const c = new Client({ connectionString: adminUrl });
+  await c.connect();
+  try {
+    await c.query(
+      `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${APP_ROLE}') THEN CREATE ROLE ${APP_ROLE}; END IF; END $$`,
+    );
+    await c.query(
+      `ALTER ROLE ${APP_ROLE} WITH LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`,
+    );
+    for (const schema of ['org', 'iam', 'audit', 'platform']) {
+      await c.query(`GRANT USAGE ON SCHEMA ${schema} TO ${APP_ROLE}`);
+      await c.query(
+        `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${APP_ROLE}`,
+      );
+    }
+  } finally {
+    await c.end();
+  }
+  const u = new URL(adminUrl);
+  u.username = APP_ROLE;
+  u.password = password;
+  return u.toString();
+}
 const ADMIN = {
   email: `root-${stamp.toLowerCase()}@planova.example`,
   password: 'platform admin passphrase 1',
@@ -43,6 +76,7 @@ const ADMIN = {
 describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkipReason()})`, () => {
   const url = readTestInfra().databaseUrl!;
   const store = new ToggleRateLimitStore();
+  let appUrl: string;
   let app: INestApplication;
   const api = () => request(app.getHttpServer());
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -57,13 +91,14 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
 
   beforeAll(async () => {
     await runMigrations(url);
+    appUrl = await appRoleUrl(url);
     const ref = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
           env: {
             NODE_ENV: 'test',
             LOG_LEVEL: 'silent',
-            DATABASE_URL: url,
+            DATABASE_URL: appUrl,
             VALKEY_URL: 'redis://127.0.0.1:1',
             IAM_LOGIN_MAX_ATTEMPTS: '5',
           },
@@ -342,7 +377,7 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
     expect(JSON.stringify(all.body)).not.toMatch(/argon2|inv_|rt_/);
   });
 
-  it('configuration inherits platform → tenant → property, respects scopes and is audited (Spec §72)', async () => {
+  it('configuration inherits platform → tenant → property, respects scopes and is audited (Spec §73)', async () => {
     const key = 'org.property.checkout_time';
     const defs = await api().get('/config/definitions').set(bearer(adminToken)).expect(200);
     expect(defs.body.map((d: { key: string }) => d.key)).toEqual(
@@ -521,6 +556,108 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
     await db.execute(sql`delete from platform.attribution_policies where tenant_id = ${tenantId}`);
   });
 
+  it('support access is explicit, scoped, time-limited, read-only by default, approved, audited and revocable (Spec §64)', async () => {
+    const supportEmail = `support-${stamp.toLowerCase()}@planova.example`;
+    await app.get(IdentityBootstrapService).createPlatformStaff({
+      kind: 'SUPPORT',
+      email: supportEmail,
+      password: 'support engineer passphrase',
+      givenName: 'Sara',
+    });
+    const sup = (
+      await api()
+        .post('/auth/login')
+        .send({ email: supportEmail, password: 'support engineer passphrase' })
+        .expect(200)
+    ).body.accessToken as string;
+    // no standing access
+    await api().get(`/properties/${propA}`).set(bearer(sup)).expect(403);
+    // request: read-only grants may only carry READ permissions
+    const tooMuch = await api()
+      .post(`/tenants/${tenantId}/support-access`)
+      .set(bearer(sup))
+      .send({
+        propertyId: propA,
+        reason: 'Investigating a room sync issue',
+        scopes: ['org.property.manage'],
+      })
+      .expect(422);
+    expect(tooMuch.body.code).toBe('iam.support.scope_not_read_only');
+    const requested = await api()
+      .post(`/tenants/${tenantId}/support-access`)
+      .set(bearer(sup))
+      .send({
+        propertyId: propA,
+        reason: 'Investigating a room sync issue',
+        scopes: ['org.property.read'],
+        durationMinutes: 60,
+      })
+      .expect(201);
+    expect(requested.body).toMatchObject({ status: 'PENDING', readOnly: true, approvedBy: null });
+    const grantId = requested.body.id as string;
+    await api().get(`/properties/${propA}`).set(bearer(sup)).expect(403); // pending grants give nothing
+    // only the hotel approves: not the requester, not a platform administrator
+    await api()
+      .post(`/tenants/${tenantId}/support-access/${grantId}/approve`)
+      .set(bearer(sup))
+      .expect(403);
+    await api()
+      .post(`/tenants/${tenantId}/support-access/${grantId}/approve`)
+      .set(bearer(adminToken))
+      .expect(403);
+    const pending = await api()
+      .get(`/tenants/${tenantId}/support-access`)
+      .set(bearer(gm.access))
+      .expect(200);
+    expect(pending.body.map((g: { id: string }) => g.id)).toContain(grantId);
+    const approved = await api()
+      .post(`/tenants/${tenantId}/support-access/${grantId}/approve`)
+      .set(bearer(gm.access))
+      .expect(200);
+    expect(approved.body).toMatchObject({ status: 'ACTIVE', approvedBy: gm.userId });
+    expect(
+      new Date(approved.body.expiresAt).getTime() - new Date(approved.body.startsAt).getTime(),
+    ).toBe(3_600_000);
+    // within the grant: read property A only
+    await api().get(`/properties/${propA}`).set(bearer(sup)).expect(200);
+    await api().get(`/properties/${propB}`).set(bearer(sup)).expect(403);
+    await api()
+      .patch(`/properties/${propA}`)
+      .set(bearer(sup))
+      .send({ version: 3, name: 'x' })
+      .expect(403);
+    await api().get(`/properties/${foreignProp}`).set(bearer(sup)).expect(403);
+    // every support request is audited with actor type SUPPORT
+    const trail = await api()
+      .get(`/audit?propertyId=${propA}&action=support.`)
+      .set(bearer(gm.access))
+      .expect(200);
+    expect(trail.body.data[0]).toMatchObject({
+      action: 'support.access.use',
+      actorType: 'SUPPORT',
+      entityId: 'GET /properties/:propertyId',
+    });
+    const lifecycle = await api()
+      .get(`/audit?propertyId=${propA}&action=iam.support_access.`)
+      .set(bearer(gm.access))
+      .expect(200);
+    expect(lifecycle.body.data.map((e: { action: string }) => e.action)).toEqual([
+      'iam.support_access.approve',
+      'iam.support_access.request',
+    ]);
+    // revocable at any time
+    await api()
+      .post(`/tenants/${tenantId}/support-access/${grantId}/revoke`)
+      .set(bearer(gm.access))
+      .send({ reason: 'issue resolved' })
+      .expect(200);
+    await api().get(`/properties/${propA}`).set(bearer(sup)).expect(403);
+    const mine = await api().get('/support-access/mine').set(bearer(sup)).expect(200);
+    expect(mine.body.find((g: { id: string }) => g.id === grantId)).toMatchObject({
+      status: 'REVOKED',
+    });
+  });
+
   it('refresh tokens rotate; reusing a rotated token revokes the whole session', async () => {
     const s = await login(`gm-${stamp}@nile.example`, 'nile palace sunrise');
     const r1 = await api().post('/auth/refresh').send({ refreshToken: s.refresh }).expect(200);
@@ -635,6 +772,48 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
       expect(last).toBe(429);
     } finally {
       store.enforce = false;
+    }
+  });
+
+  it("row-level security: inside a tenant transaction other tenants' rows are invisible and unwritable", async () => {
+    const c = new Client({ connectionString: appUrl });
+    await c.connect();
+    try {
+      const count = async (tenant: string | null, table: string, id: string) => {
+        await c.query('BEGIN');
+        if (tenant) await c.query(`select set_config('app.tenant_id', $1, true)`, [tenant]);
+        const r = await c.query(`select count(*)::int as n from ${table} where id = $1`, [id]);
+        await c.query('ROLLBACK');
+        return r.rows[0].n as number;
+      };
+      // the application role is subject to RLS (not a superuser, no BYPASSRLS)
+      const role = await c.query(
+        `select rolsuper, rolbypassrls from pg_roles where rolname = current_user`,
+      );
+      expect(role.rows[0]).toEqual({ rolsuper: false, rolbypassrls: false });
+      expect(await count(tenantId, 'org.properties', foreignProp)).toBe(0);
+      expect(await count(otherTenantId, 'org.properties', foreignProp)).toBe(1);
+      expect(await count(null, 'org.properties', foreignProp)).toBe(1); // platform-level work is not restricted
+      expect(await count(tenantId, 'org.tenants', otherTenantId)).toBe(0);
+      expect(await count(tenantId, 'iam.users', gm.userId)).toBe(1);
+      expect(await count(otherTenantId, 'iam.users', gm.userId)).toBe(0);
+      // a write that targets another tenant fails the policy check
+      await c.query('BEGIN');
+      await c.query(`select set_config('app.tenant_id', $1, true)`, [tenantId]);
+      await expect(
+        c
+          .query(`update org.properties set name = 'hijack' where id = $1`, [foreignProp])
+          .then((r) => r.rowCount),
+      ).resolves.toBe(0);
+      await expect(
+        c.query(
+          `insert into org.organizations (id, tenant_id, code, name) values ($1, $2, 'HIJACK', 'x')`,
+          ['01a10000-0000-7000-8000-00000000abcd', otherTenantId],
+        ),
+      ).rejects.toThrow(/row-level security/);
+      await c.query('ROLLBACK');
+    } finally {
+      await c.end();
     }
   });
 

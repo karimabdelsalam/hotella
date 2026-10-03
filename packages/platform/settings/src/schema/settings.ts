@@ -16,7 +16,7 @@ import { baseColumns, classify, newId, platform, versioned } from '@hotella/plat
 const { platformSchema } = platform;
 const tz = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 
-/** Spec §72 scopes. DEPARTMENT and MODULE are reserved until the operations phases introduce departments. */
+/** Spec §73 scopes. DEPARTMENT and MODULE are reserved until the operations phases introduce departments. */
 export const configScope = platformSchema.enum('config_scope', [
   'PLATFORM',
   'TENANT',

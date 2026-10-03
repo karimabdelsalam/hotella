@@ -61,6 +61,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
 ];
 
 export const PLATFORM_ADMIN_ROLE = 'PLATFORM_ADMIN';
+export const SUPPORT_ROLE = 'SUPPORT';
 
 /** Locale keys for a role code (`GENERAL_MANAGER` → `iam.role.general_manager.name`). */
 export function roleNameKey(code: string): string {

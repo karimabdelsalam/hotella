@@ -81,14 +81,25 @@ export class AuthGuard implements CanActivate {
         // Optional only for tenant users (their own tenant is implied); platform staff must always name it.
         throw new AppError('platform.validation_failed', HttpStatus.BAD_REQUEST, { count: 1 });
       }
+    } else if (!actor.tenantId) {
+      // Platform staff name the tenant they act on with ?tenantId= on routes that are not tenant-scoped by path.
+      tenantId = readId(req, { from: 'query', key: 'tenantId' });
     }
     const propertyId = propertySource ? readId(req, propertySource) : null;
     if (propertySource && !propertyId && !propertySource.optional)
       throw new AppError('platform.validation_failed', HttpStatus.BAD_REQUEST, { count: 1 });
     // A tenant user naming a property outside their tenant (or one that does not exist) gets 404, never 403.
-    if (propertyId && actor.tenantId && this.properties) {
-      if (!(await this.properties.propertyBelongsToTenant(propertyId, actor.tenantId)))
-        throw AppError.notFound('org.property.not_found');
+    if (propertyId && this.properties) {
+      if (actor.tenantId) {
+        if (!(await this.properties.propertyBelongsToTenant(propertyId, actor.tenantId)))
+          throw AppError.notFound('org.property.not_found');
+      } else {
+        // Platform staff: the property determines the tenant (support grants are checked against it).
+        const owner = await this.properties.tenantOfProperty(propertyId);
+        if (!owner || (tenantId && tenantId !== owner))
+          throw AppError.notFound('org.property.not_found');
+        tenantId = owner;
+      }
     }
     this.ctx.setScope({ tenantId, propertyId });
 

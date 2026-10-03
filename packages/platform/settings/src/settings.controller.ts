@@ -47,7 +47,7 @@ class RetentionDto extends createZodDto(
 class TenantQueryDto extends createZodDto(z.object({ tenantId: uuidSchema.optional() })) {}
 
 /**
- * Configuration API (Spec §72). Scope checks need the scope from the body/query (PLATFORM is admin-only, PROPERTY
+ * Configuration API (Spec §73). Scope checks need the scope from the body/query (PLATFORM is admin-only, PROPERTY
  * needs the property), so permissions are declared here and enforced by the service's ActionGate.
  */
 @Controller('config')

@@ -35,6 +35,9 @@ export class OrganizationPublicApiService implements OrganizationPublicApi {
     const t = await this.repo.tenantById(tenantId);
     return t ? toTenantSummary(t) : null;
   }
+  async findPropertyTenant(propertyId: string): Promise<string | null> {
+    return (await this.repo.propertyByIdUnscoped(propertyId))?.tenantId ?? null;
+  }
   async getProperty(tenantId: string, propertyId: string): Promise<PropertySummary | null> {
     const p = await this.repo.propertyById({ tenantId }, propertyId);
     return p

@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ExtractTablesWithRelations } from 'drizzle-orm';
 import type { PgTransaction } from 'drizzle-orm/pg-core';
@@ -22,12 +23,17 @@ const txStorage = new AsyncLocalStorage<Transaction>();
 export async function withTransaction<T>(
   db: Database,
   fn: (tx: Transaction) => Promise<T>,
+  options: { readonly tenantId?: string | null } = {},
 ): Promise<T> {
   const existing = txStorage.getStore();
   if (existing) return fn(existing);
-  return db.transaction(async (tx) =>
-    txStorage.run(tx as Transaction, () => fn(tx as Transaction)),
-  );
+  return db.transaction(async (tx) => {
+    // Row-level security (ADR-0002, migration 0006): tenant-scoped transactions carry the tenant in a
+    // transaction-local setting; policies then hide every other tenant's rows even if a query forgets its filter.
+    if (options.tenantId)
+      await tx.execute(sql`select set_config('app.tenant_id', ${options.tenantId}, true)`);
+    return txStorage.run(tx as Transaction, () => fn(tx as Transaction));
+  });
 }
 
 /** The ambient transaction if one is active. */

@@ -58,5 +58,9 @@
   "errors.platform.config.unknown_key": "إعداد غير معروف: {key}.",
   "errors.platform.config.invalid_value": "القيمة غير صالحة للإعداد {key}.",
   "errors.platform.config.scope_not_allowed": "لا يمكن تغيير هذا الإعداد على مستوى {scope}.",
-  "errors.platform.attribution.entitlement_required": "إخفاء إشارة المنصة يتطلب ترخيص العلامة البيضاء."
+  "errors.platform.attribution.entitlement_required": "إخفاء إشارة المنصة يتطلب ترخيص العلامة البيضاء.",
+  "errors.iam.support.requester_not_support": "يمكن لمهندسي الدعم الفني بالمنصة فقط طلب وصول الدعم.",
+  "errors.iam.support.scope_not_read_only": "طلب القراءة فقط يجب أن يتضمن صلاحيات العرض فقط.",
+  "errors.iam.support.not_pending": "طلب وصول الدعم هذا لم يعد بانتظار الموافقة.",
+  "errors.iam.support.not_found": "طلب وصول الدعم غير موجود."
 }

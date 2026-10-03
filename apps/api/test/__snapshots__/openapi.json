@@ -1372,6 +1372,187 @@
         ]
       }
     },
+    "/api/v1/support-access/mine": {
+      "get": {
+        "operationId": "SupportAccessController_mine",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SupportAccess"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenantId}/support-access": {
+      "post": {
+        "operationId": "TenantIdentityController_requestSupportAccess",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportAccessRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TenantIdentity"
+        ]
+      },
+      "get": {
+        "operationId": "TenantIdentityController_listSupportAccess",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TenantIdentity"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenantId}/support-access/{grantId}/approve": {
+      "post": {
+        "operationId": "TenantIdentityController_approveSupportAccess",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "grantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TenantIdentity"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenantId}/support-access/{grantId}/revoke": {
+      "post": {
+        "operationId": "TenantIdentityController_revokeSupportAccess",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "grantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportAccessRevokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TenantIdentity"
+        ]
+      }
+    },
     "/api/v1/tenants/{tenantId}/users": {
       "get": {
         "operationId": "TenantIdentityController_listUsers",
@@ -2931,6 +3112,55 @@
         "required": [
           "code"
         ]
+      },
+      "SupportAccessRequestDto": {
+        "type": "object",
+        "properties": {
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "scopes": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*){1,2}$"
+            }
+          },
+          "readOnly": {
+            "default": true,
+            "type": "boolean"
+          },
+          "durationMinutes": {
+            "default": 120,
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 1440
+          }
+        },
+        "required": [
+          "reason",
+          "scopes"
+        ]
+      },
+      "SupportAccessRevokeDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "nullable": true
+          }
+        }
       },
       "CreateUserDto": {
         "type": "object",

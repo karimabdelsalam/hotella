@@ -2,7 +2,7 @@
   "name": "@hotella/platform-settings",
   "version": "0.0.0",
   "private": true,
-  "description": "Hierarchical configuration (Spec §72: platform → tenant → property, typed and versioned with history), data retention policies (Spec §69) and the platform attribution policy (Spec invariant 33).",
+  "description": "Hierarchical configuration (Spec §73: platform → tenant → property, typed and versioned with history), data retention policies (Spec §69) and the platform attribution policy (Spec invariant 33).",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

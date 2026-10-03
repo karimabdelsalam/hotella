@@ -415,3 +415,4 @@ export type MembershipRow = typeof memberships.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
 export type PermissionRow = typeof permissions.$inferSelect;
+export type SupportAccessGrantRow = typeof supportAccessGrants.$inferSelect;

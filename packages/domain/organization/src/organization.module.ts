@@ -43,6 +43,7 @@ export class OrganizationModule implements OnModuleInit {
       useFactory: (org: OrganizationPublicApi): PropertyScopeVerifier => ({
         propertyBelongsToTenant: async (propertyId, tenantId) =>
           (await org.getProperty(tenantId, propertyId)) !== null,
+        tenantOfProperty: (propertyId) => org.findPropertyTenant(propertyId),
       }),
     };
   }

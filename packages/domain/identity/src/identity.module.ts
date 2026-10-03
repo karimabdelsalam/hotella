@@ -1,4 +1,5 @@
 import { Global, Module, type OnModuleInit } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import {
   AUTHENTICATION_STRATEGY,
   type AuthModuleOptions,
@@ -12,8 +13,11 @@ import {
   AuthController,
   MeController,
   PermissionsController,
+  SupportAccessController,
   TenantIdentityController,
 } from './api/controllers';
+import { SupportAccessService } from './application/support-access.service';
+import { SupportAccessAuditInterceptor } from './auth/support-audit.interceptor';
 import { IdentityAdminService } from './application/admin.service';
 import { AuthService } from './application/auth.service';
 import { IdentityBootstrapService } from './application/bootstrap.service';
@@ -28,7 +32,13 @@ import { IdentityPublicApiService } from './public-api.service';
 /** Global so other contexts can inject IDENTITY_API. Needs ORGANIZATION_API (OrganizationModule) in the app. */
 @Global()
 @Module({
-  controllers: [AuthController, MeController, PermissionsController, TenantIdentityController],
+  controllers: [
+    AuthController,
+    MeController,
+    PermissionsController,
+    SupportAccessController,
+    TenantIdentityController,
+  ],
   providers: [
     AuthService,
     IdentityAdminService,
@@ -36,6 +46,8 @@ import { IdentityPublicApiService } from './public-api.service';
     IdentityCatalogService,
     IdentityBootstrapService,
     IdentityPublicApiService,
+    SupportAccessService,
+    { provide: APP_INTERCEPTOR, useClass: SupportAccessAuditInterceptor },
     { provide: IDENTITY_API, useExisting: IdentityPublicApiService },
   ],
   exports: [IDENTITY_API, IdentityBootstrapService, IdentityCatalogService],

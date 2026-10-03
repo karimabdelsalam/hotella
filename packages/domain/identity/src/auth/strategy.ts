@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import type { AuthenticationStrategy, RequestActor } from '@hotella/platform-auth';
 import type { LocalePreferenceProvider } from '@hotella/platform-i18n';
 import { TokenService } from '../application/token.service';
+import { staffActorType } from '../domain/access';
 import { IdentityRepositories } from '../infrastructure/repositories';
 
 export function bearerToken(req: Request): string | null {
@@ -31,7 +32,7 @@ export class JwtAuthenticationStrategy implements AuthenticationStrategy {
     const live = await this.repo.liveSession(claims.sessionId, new Date());
     if (!live || live.user.id !== claims.userId) return null;
     return {
-      type: 'USER',
+      type: staffActorType(live.user),
       id: live.user.id,
       tenantId: live.user.tenantId,
       isPlatformAdmin: live.user.isPlatformAdmin,

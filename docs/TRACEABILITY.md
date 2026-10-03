@@ -9,10 +9,10 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 0 | Intelligence is horizontal; no redesign of core for new modules/PMS/AI/channels | BP §1.2 action gate spine, §1.4; ADR-0001 boundaries; BP §10 Phase 13 "no core redesign" | all |
 | Identity & Branding | Hierarchy platform → tenant → property → channel; per-property brand profile fields; nothing hardcoded; consistent across channels | BP §5.2 `brand_profiles`, `brand_profile_translations`, scope incl. CHANNEL; §5.3 `GET /public/branding`; CM 15 | P1 |
 | Identity & Branding | WhatsApp provider-controlled profile linked to property/channel | BP §8.1 `comms.channels.brand_profile_id`; ADR-0015 | P4 |
-| Identity & Branding | `Powered by Planova` → https://planova.com.eg, LTR/RTL, not removable by brand settings | BP §5.2 `platform.attribution_policy` (entitlement-gated only); §5.7 test; ADR-0009 footer component; CM 15 | P1, P4/5 UI |
+| Identity & Branding | `Powered by Planova` → https://planova.com.eg, LTR/RTL, not removable by brand settings | BP §5.2 `platform.attribution_policies` (CHECK: hidden only with an entitlement ref) + `AttributionPolicyService` used by the branding resolver; tests in `branding.spec.ts`, `settings.spec.ts`, `identity.integration.spec.ts`; ADR-0009 footer component; CM 15 | P1 ✔ (1.3), P4/5 UI |
 | 1 | Single hotels and groups, multi-tenant/property, module licensing, AI-native, simple staff UX, OPERA 5 first-class without being the model, no OPERA modification, WhatsApp = channel, future channels/devices, provider-independent AI, isolation/audit/explainability, ar+en, future languages | BP §1 synthesis; ADR-0007; BP §10 P11; CM 1, 12, 13, 15, 18, 19, 23; BP §4 i18n | all |
 | 2.1 | TypeScript, NestJS, modular monolith, bounded contexts, REST v1, async events, OpenAPI | BP §2 rows 1, 4, 5, 12; ADR-0001/0004/0005/0012 | P0 |
-| 2.2 | PostgreSQL; UUIDv7 app-generated; TIMESTAMPTZ UTC; tenant_id/property_id; FKs; JSONB sparingly; version fields; RLS defense-in-depth only | ADR-0002/0003/0007; BP §4 0.2.1–0.2.3; §5.4 RLS; CM 1, 2 | P0, P1 |
+| 2.2 | PostgreSQL; UUIDv7 app-generated; TIMESTAMPTZ UTC; tenant_id/property_id; FKs; JSONB sparingly; version fields; RLS defense-in-depth only | ADR-0002/0003/0007 (+ Phase 1 notes); BP §4 0.2.1–0.2.3; §5.4 RLS → migration 0006 + RLS smoke test in `identity.integration.spec.ts`; CM 1, 2 | P0, P1 ✔ (1.3) |
 | 2.3 | Redis for cache, rate limit, coordination, ephemeral state, queues, entitlement cache | ADR-0004; BP §4 0.3.5, 0.3.9; ADR-0011 permission cache | P0 |
 | 2.4 | S3-compatible storage; no large binaries in PG | BP §4 0.2.8; ADR-0013 MinIO | P0 |
 | 2.5 | Vector abstraction; pgvector first; vector store never source of truth | ADR-0002 pgvector type; BP §10 P6 knowledge module, P8 | P6, P8 |
@@ -79,16 +79,16 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 61 | Usage metrics; idempotent usage events; aggregates | BP §10 P11; ADR-0015 `OTP_SMS_SENT` | P11 |
 | 62 | Signed offline license tokens with grace; public-key validation on agent | BP §10 P10/P11; ADR-0017 §6 | P10, P11 |
 | 63 | Control plane functions; data plane separation; admins no automatic guest data access | BP §10 P11; §5.2 support grants; ADR-0007 audited bypass role; CM 20 | P1, P11 |
-| 64 | Support access explicit/scoped/time-limited/read-only/audited/reason/revocable | BP §5.2 `iam.support_access_grants`; CM 20 | P1 |
+| 64 | Support access explicit/scoped/time-limited/read-only/audited/reason/revocable | BP §5.2 `iam.support_access_grants`, §5.9 Sprint 1.3 (`SupportAccessService`, `SupportAccessAuditInterceptor`, grant-based resolver path); CM 20 | P1 ✔ (1.3) |
 | 65 | Security scope; staff password/MFA now, OIDC/SAML later; guest passwordless | ADR-0011 (+ Sprint 1.2 implementation notes: argon2id, TOTP, lockout, rate limits) | P1 ✔ (1.2), P4 |
 | 66 | Staff token model; guest activation token properties; OTP properties | ADR-0011 (staff: EdDSA access ≤ 15 min + rotating refresh with reuse detection, live-session check per request); BP §8.3 | P1 ✔ (1.2), P4 |
 | 67 | TLS, encryption at rest, field-level encryption, secret manager; no plaintext production secrets; data classifications; AI respects classification | ADR-0010/0013; BP §4 0.3.13; CM 13, 21 | P0, P6 |
-| 68 | Audit actor types; who/approved/policy/changed/integration ack/AI involved; append-only tamper-resistant | BP §5.2 `audit.audit_log`, §5.7 grant test; CM 5 | P1 |
-| 69 | Consent history, export, correction, retention, anonymization, deletion; integrity preserved; configurable retention | BP §5.2 `platform.retention_policies`; §6.1 `guest_data_requests`, §6.6; DoD §12.15; CM 21 | P1, P2 |
+| 68 | Audit actor types; who/approved/policy/changed/integration ack/AI involved; append-only tamper-resistant | BP §5.2 `audit.audit_log` → `@hotella/platform-audit` (migration 0004 triggers, `AuditWriter`, redaction by data class); CM 5 | P1 ✔ (1.3) |
+| 69 | Consent history, export, correction, retention, anonymization, deletion; integrity preserved; configurable retention | BP §5.2 `platform.retention_policies` → `RetentionPolicyService` (framework ✔ 1.3); §6.1 `guest_data_requests`, §6.6; DoD §12.15; CM 21 | P1 (framework ✔), P2 |
 | 70 | Logs/metrics/traces; correlation by correlation_id/trace_id/tenant/property; no PII in logs | ADR-0006; BP §4 0.2.4–0.2.5; CM 17 | P0 |
 | 71 | Deployables; isolated worker pools; five queue priorities; guest realtime isolation; stateless | ADR-0004/0013; BP §3 worker mapping; §4 0.3.5 | P0, P1 |
 | 72 | Backups, PITR, replicas, restore tests, RPO/RTO, DR; expand/contract migrations | ADR-0013 pgBackRest; ADR-0002; BP §5.8 | P1 |
-| 73 | Config inheritance; audited/versioned critical config; flags ≠ licensing | BP §5.2 `platform.configuration(+history)`; §4 0.3.11 | P0, P1 |
+| 73 | Config inheritance; audited/versioned critical config; flags ≠ licensing | BP §5.2 `platform.configuration(+history)` → `@hotella/platform-settings` (typed keys, property → tenant → platform → default, history, event, audit); §4 0.3.11 | P0, P1 ✔ (1.3) |
 | 74 | Versioned APIs; idempotency keys; signed webhooks with retry/DLQ/replay; rate limiting dimensions | ADR-0012; BP §4 0.3.9; §10 P11 webhooks | P0, P11 |
 | 75 | Developer platform later; no untrusted plugins; contract-based extension | BP §10 P11 developer platform v1 | P11 |
 | 76 | Module manifest concept | BP §4 0.3.12 `ModuleManifest` (brought forward as enforcement); DoD §12.16; CM 22 | P0 |

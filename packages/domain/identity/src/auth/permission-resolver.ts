@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { PermissionResolver, PermissionScope, RequestActor } from '@hotella/platform-auth';
-import { effectivePermissions, hasPermission, type MembershipGrant } from '../domain/access';
-import { PLATFORM_ADMIN_ROLE } from '../domain/system-roles';
+import {
+  effectivePermissions,
+  hasPermission,
+  type MembershipGrant,
+  supportGrantAllows,
+} from '../domain/access';
+import { PLATFORM_ADMIN_ROLE, SUPPORT_ROLE } from '../domain/system-roles';
 import { IdentityRepositories } from '../infrastructure/repositories';
 
 const PLATFORM_CACHE_MS = 30_000;
@@ -14,6 +19,8 @@ const PLATFORM_CACHE_MS = 30_000;
 @Injectable()
 export class MembershipPermissionResolver implements PermissionResolver {
   private platformAdmin: { codes: ReadonlySet<string>; at: number } | null = null;
+  private support: { codes: ReadonlySet<string>; at: number } | null = null;
+  private risks: { map: ReadonlyMap<string, string>; at: number } | null = null;
 
   constructor(private readonly repo: IdentityRepositories) {}
 
@@ -23,6 +30,7 @@ export class MembershipPermissionResolver implements PermissionResolver {
     scope: PermissionScope,
   ): Promise<boolean> {
     if (actor.isPlatformAdmin) return (await this.platformAdminPermissions()).has(permission);
+    if (actor.type === 'SUPPORT') return this.supportHas(actor, permission, scope);
     if (actor.type !== 'USER' || !actor.tenantId) return false;
     if (scope.tenantId && scope.tenantId !== actor.tenantId) return false;
     const grants = await this.grants(actor.id, actor.tenantId);
@@ -34,6 +42,26 @@ export class MembershipPermissionResolver implements PermissionResolver {
 
   async permissionsFor(actor: RequestActor, scope: PermissionScope): Promise<readonly string[]> {
     if (actor.isPlatformAdmin) return [...(await this.platformAdminPermissions())].sort();
+    if (actor.type === 'SUPPORT') {
+      const own = await this.supportRolePermissions();
+      if (!scope.tenantId) return [...own].sort();
+      const grants = await this.repo.supportGrantsOfUser(actor.id, scope.tenantId);
+      const risk = await this.riskMap();
+      const out = new Set<string>();
+      for (const g of grants)
+        for (const p of g.scopes)
+          if (
+            supportGrantAllows(
+              [g],
+              p,
+              { tenantId: scope.tenantId, propertyId: scope.propertyId ?? null },
+              new Date(),
+              (x) => risk.get(x),
+            )
+          )
+            out.add(p);
+      return [...out].sort();
+    }
     if (actor.type !== 'USER' || !actor.tenantId) return [];
     if (scope.tenantId && scope.tenantId !== actor.tenantId) return [];
     return effectivePermissions(await this.grants(actor.id, actor.tenantId), {
@@ -72,7 +100,48 @@ export class MembershipPermissionResolver implements PermissionResolver {
     return codes;
   }
 
+  /**
+   * Spec §64: platform support staff hold only the SUPPORT role (request access) outside a tenant; inside a tenant
+   * they act exclusively through an approved, unexpired, unrevoked grant for that scope.
+   */
+  private async supportHas(
+    actor: RequestActor,
+    permission: string,
+    scope: PermissionScope,
+  ): Promise<boolean> {
+    if (!scope.tenantId) return (await this.supportRolePermissions()).has(permission);
+    const grants = await this.repo.supportGrantsOfUser(actor.id, scope.tenantId);
+    const risk = await this.riskMap();
+    return supportGrantAllows(
+      grants,
+      permission,
+      { tenantId: scope.tenantId, propertyId: scope.propertyId ?? null },
+      new Date(),
+      (p) => risk.get(p),
+    );
+  }
+
+  private async supportRolePermissions(): Promise<ReadonlySet<string>> {
+    if (this.support && Date.now() - this.support.at < PLATFORM_CACHE_MS) return this.support.codes;
+    const role = await this.repo.systemRoleByCode(SUPPORT_ROLE);
+    const codes = new Set(
+      role ? ((await this.repo.rolePermissionCodes([role.id])).get(role.id) ?? []) : [],
+    );
+    this.support = { codes, at: Date.now() };
+    return codes;
+  }
+
+  /** Permission → risk level, from the catalog (READ-only grants admit READ permissions only). */
+  async riskMap(): Promise<ReadonlyMap<string, string>> {
+    if (this.risks && Date.now() - this.risks.at < PLATFORM_CACHE_MS) return this.risks.map;
+    const map = new Map((await this.repo.listPermissions()).map((p) => [p.code, p.risk as string]));
+    this.risks = { map, at: Date.now() };
+    return map;
+  }
+
   invalidate(): void {
     this.platformAdmin = null;
+    this.support = null;
+    this.risks = null;
   }
 }

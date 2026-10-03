@@ -63,3 +63,42 @@ export function staffActorType(user: {
 }): 'USER' | 'SUPPORT' {
   return user.tenantId === null && !user.isPlatformAdmin ? 'SUPPORT' : 'USER';
 }
+
+/** An approved, time-boxed support grant (Spec §64) as the access rules see it. */
+export interface SupportGrant {
+  readonly tenantId: string;
+  /** null = the whole tenant. */
+  readonly propertyId: string | null;
+  readonly scopes: readonly string[];
+  readonly readOnly: boolean;
+  readonly startsAt: Date;
+  readonly expiresAt: Date;
+  readonly approvedAt: Date | null;
+  readonly revokedAt: Date | null;
+}
+
+export function grantIsActive(g: SupportGrant, now: Date): boolean {
+  return !!g.approvedAt && !g.revokedAt && g.startsAt <= now && now < g.expiresAt;
+}
+
+/**
+ * Support staff act only through an active grant for that tenant (and property, when the grant names one), only
+ * with the permissions it lists, and — when read-only — only with READ-risk permissions.
+ */
+export function supportGrantAllows(
+  grants: readonly SupportGrant[],
+  permission: string,
+  scope: AccessScope,
+  now: Date,
+  riskOf: (permission: string) => string | undefined,
+): boolean {
+  if (!scope.tenantId) return false;
+  return grants.some(
+    (g) =>
+      grantIsActive(g, now) &&
+      g.tenantId === scope.tenantId &&
+      (g.propertyId === null || g.propertyId === scope.propertyId) &&
+      g.scopes.includes(permission) &&
+      (!g.readOnly || riskOf(permission) === 'READ'),
+  );
+}

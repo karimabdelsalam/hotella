@@ -26,7 +26,7 @@ export const ConfigurationChanged = defineEvent({
   type: 'platform.configuration.changed',
   version: 1,
   description:
-    'A configuration value was set or removed at a scope; consumers re-read the effective value (Spec §72).',
+    'A configuration value was set or removed at a scope; consumers re-read the effective value (Spec §73).',
   payload: z.object({
     key: z.string().min(1),
     scope: z.enum(['PLATFORM', 'TENANT', 'PROPERTY', 'DEPARTMENT', 'MODULE']),

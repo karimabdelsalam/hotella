@@ -85,3 +85,16 @@ export type CreateRoleInput = z.infer<typeof createRoleSchema>;
 export const replaceRolePermissionsSchema = z.object({
   permissions: z.array(permissionCode).min(1).max(500),
 });
+
+export const supportAccessRequestSchema = z.object({
+  propertyId: uuidSchema.nullish(),
+  /** Why access is needed — shown to the approving hotel and kept in the audit trail. */
+  reason: z.string().trim().min(10).max(1000),
+  scopes: z.array(permissionCode).min(1).max(50),
+  readOnly: z.boolean().default(true),
+  durationMinutes: z.number().int().min(15).max(1440).default(120),
+});
+export type SupportAccessRequestInput = z.infer<typeof supportAccessRequestSchema>;
+export const supportAccessRevokeSchema = z.object({
+  reason: z.string().trim().max(1000).nullish(),
+});
