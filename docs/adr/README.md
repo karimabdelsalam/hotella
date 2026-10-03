@@ -23,3 +23,4 @@ Format: Context → Decision → Consequences. Status is one of `Proposed`, `Acc
 | [0015](0015-messaging-providers-otp-fallback.md) | WhatsApp providers (Meta Cloud API and BSP) and OTP fallback policy | Accepted |
 | [0016](0016-technology-currency-and-longevity.md) | Technology currency & longevity policy — Maturity Gate, ADOPT/HOLD baseline Oct 2026 (supersedes version statements in 0001/0002/0004/0005/0008/0009/0013) | Accepted (revised) |
 | [0017](0017-hotel-agent-connectivity.md) | Hotel Agent ↔ online platform connectivity: outbound-only, enrollment + mTLS, WSS/HTTPS, durable ordered idempotent link, signed commands, offline licence, signed updates | Accepted |
+| [0018](0018-ai-model-gateway-and-data-egress.md) | AI Model Gateway, provider adapters (OpenAI-compatible incl. on-prem, Anthropic, fake) and data egress policy; external providers and budget pending owner decision (Q8) | Accepted (engineering); Q8 open |

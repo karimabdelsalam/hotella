@@ -1237,8 +1237,88 @@ Reality notes for 5.1:
 
 ## 10. Phases 6–13 (outline; expanded before each starts)
 
-### Phase 6 — AI Foundation (M2)
-Deliver: `ai` schema (providers, models, capabilities, routing rules, agents, agent_versions (immutable), prompts, prompt_versions, tools, tool_versions, policies, action_proposals, executions, execution_steps, model_calls, memory_candidates, memories, feedback). Model Gateway with capability-based routing (`REASONING_HIGH, FAST_CLASSIFICATION, VISION, TRANSLATION, EMBEDDING, AUDIO, STRUCTURED_OUTPUT`), providers behind one interface (Anthropic, OpenAI, Google, local), fallback, cost/latency recording, kill switches. Tool Registry executing through the **action gate** with risk levels and AI policy stage now real. Context Engine with per-agent context policies. Guest Concierge v1 with tools `guest.get_current_stay`, `operations.find_open_requests`, `operations.create_service_request`, `knowledge.search` (stub), `communication.send_message`. Prompt composition in layers (Spec §30: platform → agent → tenant policy → property context → actor role → current task), prompt and agent versions immutable once published. Handoff reasons → inbox; AI drafts in the inbox with human edits recorded (`ai_feedback`, edit distance) for evaluation (Spec §24, §40). Language detection → respond in guest language. Data classification/redaction before provider calls using the Phase 0 classification registry. Knowledge module v1 (`knowledge` schema: documents, versions, chunks, embeddings, scope = tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank; retrieval results carry document version references, Spec §37–§38). Rule: structured live data (open tasks, stay state) is served by tools, never RAG (Spec §82.10). Acceptance: "الجو حر أوي هنا" scenario; HIGH-risk tool produces an `action_proposal` routed to approvals; execution audit complete; no AI code path has a DB write outside tool handlers (lint + test).
+### Phase 6 — AI Foundation (M2, detailed)
+
+**Goal / acceptance (Spec §85, M2):** the same guest flow in natural language. A guest writes "الجو حر أوي هنا"; the
+Guest Concierge (over the tools that already exist) finds the stay and room, sees no open AC request, creates
+`AC_PROBLEM` (or relates it to an open one), the work goes to Engineering, and the guest is answered in Arabic.
+HIGH-risk tools become approval proposals; CRITICAL ones are refused; every execution is fully recorded; no AI code
+path writes a business table outside a tool handler. Providers, data egress and budgets per ADR-0018 (Q8 open: until
+the product owner enables an external provider, CI and local runs use the `FAKE` provider and pilots may use an
+on-prem model server).
+
+#### 6.A Domain model (schema `ai`; `knowledge` in 6.4)
+
+```text
+ai.providers            id, code, kind (OPENAI_COMPATIBLE|ANTHROPIC|FAKE), base_url, credential_ref, egress
+                        (ON_PREM|EXTERNAL), max_data_class, status, version
+ai.models               id, provider_id, code (provider's model name), capabilities text[], context_window,
+                        input/output/cached price per million tokens (minor units), status, version
+ai.routing_rules        id, tenant_id nullable, property_id nullable, capability, model_ids uuid[] (ordered), version
+ai.agents               id, code (GUEST_CONCIERGE…), status            ai.agent_versions  id, agent_id, version_no,
+                        status DRAFT|PUBLISHED|SUPERSEDED, capability, prompt_version_id, tool_codes text[],
+                        context_policy jsonb, autonomy_policy jsonb, output_contract jsonb, max_steps (immutable once
+                        published, trigger)
+ai.prompts              id, code         ai.prompt_versions  id, prompt_id, version_no, status, layers jsonb
+                        (platform/agent instructions as locale keys or text), published_at (immutable once published)
+ai.tools                id, code, domain, description_key, input_schema jsonb, output_schema jsonb, risk,
+                        required_permission, status (registry mirror of the module manifests, synced at boot)
+ai.executions           id, tenant_id, property_id, agent_version_id, trigger (USER|EVENT), actor, conversation_id,
+                        status, started_at, finished_at, tokens, estimated_cost_minor, correlation_id
+ai.execution_steps      id, tenant_id, execution_id, seq, type (CONTEXT|MODEL_CALL|TOOL_CALL|RETRIEVAL|DECISION|
+                        APPROVAL|RESPONSE), summary jsonb, latency_ms, outcome (append-only)
+ai.model_calls          id, tenant_id, execution_id, provider, model, capability, tokens_in/out/cached, latency_ms,
+                        cost_minor, fallback_from, outcome, correlation_id
+ai.action_proposals     id, tenant_id, property_id, execution_id, tool_code, arguments jsonb, reason, evidence jsonb,
+                        risk, approval_id, status (PENDING|APPROVED|REJECTED|EXPIRED|EXECUTED|FAILED), expires_at
+ai.feedback             id, tenant_id, execution_id, kind (DRAFT_EDIT|REASSIGNMENT|GUEST_CORRECTION|RATING),
+                        edit_distance, details jsonb, actor
+```
+
+#### 6.B Design decisions taken before coding
+
+- **One context, one gateway.** `@hotella/domain-ai` (context code `ai`) owns the gateway, registry, policy,
+  runtime and audit. Modules contribute tools by implementing a handler and declaring it in their manifest's
+  `aiTools`; the ai context never imports another context's internals — tool handlers live in the owning context and
+  register into `AI_TOOL_REGISTRY` at boot (like work item kinds).
+- **No business writes from AI code.** The ai context's own tables are the only ones it writes; a dependency-cruiser
+  rule forbids `packages/domain/ai` from importing any other context except through `public`, and a test asserts that
+  every mutating tool call passes the ActionGate with an `AI_AGENT` actor.
+- **Tool execution path** (Spec §42): schema validation (zod from the registered schema) → business validation (the
+  owning service) → ActionGate with `AI_AGENT` actor (authorization → entitlement → feature → configuration →
+  connector → **AI policy stage, now real**) → execute → audit → events. The AI policy stage decides from tool risk,
+  agent autonomy policy, property policy and context: `READ`/`LOW` auto; `MEDIUM` auto when the agent's policy allows
+  it for that tool (default: allowed for the Guest Concierge's own-stay actions); `HIGH` → `ai.action_proposals` +
+  approval request of kind `AI_ACTION` (the approval handler executes the tool as the approving human's decision,
+  audited); `CRITICAL` refused (already enforced by the approval engine).
+- **Guest identity in AI actions.** When the concierge acts for a guest, tools receive the guest principal of the
+  conversation (stay, scopes) and enforce it exactly as the guest web does; the AI cannot reach another stay.
+- **Prompts are layers, not monoliths** (Spec §30): platform → agent → tenant policy → property context → actor role
+  → current task, each a short block; texts that guests may see come from the locale catalog. Prompt and agent
+  versions are immutable once published (trigger, like catalog versions).
+- **Context Engine:** per-agent context policies list context providers (`guest.current_stay`, `catalog.services`,
+  `catalog.open_requests`, `conversation.recent`, `knowledge.guest_safe`); each provider returns labelled parts with a
+  data class; the gateway applies the egress policy of ADR-0018. Structured live data comes from tools, never RAG.
+- **Runtime:** a bounded loop (max steps per agent version) of model call → tool calls → model call, with structured
+  output for the reply. Language: the reply language is the guest's message language (deterministic detection of
+  Arabic script vs Latin, then the conversation locale), never guessed by a second model call.
+- **Triggering** (Spec §39): `comms.message.received.v1` for a stay conversation whose AI mode is `AUTO` (or `ASSIST`
+  for drafts) runs the concierge in the `background-ai` queue; nothing else triggers an LLM in Phase 6.
+- **Handoff** (Spec §24): the model's structured output may request a handoff with a reason
+  (`GUEST_REQUESTED_HUMAN`, `LOW_CONFIDENCE`, `COMPLAINT`, `SENSITIVE_REQUEST`, `PAYMENT_ISSUE`, `POLICY_REQUIRED`,
+  `AI_FAILURE`); the runtime then switches the conversation to `HANDED_OFF` through the comms public API (no AI write).
+  In `ASSIST` mode the reply is stored as a draft; when staff send it, the edit distance is recorded in `ai.feedback`.
+- **Kill switches and budgets** per ADR-0018 as feature flags and settings; a disabled guest AI hands off.
+
+#### 6.C Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 6.1 | `@hotella/domain-ai`: providers, models, routing rules, `MODEL_GATEWAY` (`complete`, `embed`) with `OPENAI_COMPATIBLE`, `ANTHROPIC` and `FAKE` adapters, fallback, cost/latency in `ai.model_calls`, egress policy (data class filter + identifier masking), budgets and kill switches, admin API (platform admin for providers/models, tenant for routing overrides) | planned |
+| 6.2 | Tool registry + AI policy stage: tool definitions from manifests, handlers registered by owning contexts, execution through the ActionGate as `AI_AGENT`, risk decisions, `ai.action_proposals` + approval kind `AI_ACTION`; tools v1 `guest.get_current_stay`, `operations.find_open_requests`, `operations.create_service_request`, `catalog.list_services`, `communication.send_message`, `knowledge.search` (stub) | planned |
+| 6.3 | Agents and prompts (immutable versions), Context Engine with context policies, execution audit (`executions`, `execution_steps`), Guest Concierge v1 runtime triggered by guest messages (AUTO/ASSIST), language rule, handoff → inbox, drafts with edit-distance feedback, staff inbox shows AI drafts | planned |
+| 6.4 | Knowledge v1 (`knowledge` schema: documents, versions, chunks, embeddings with pgvector; scope tenant/property/department/language/audience/effective dates/classification; hybrid retrieval metadata + keyword + vector + rerank with document version references; retrieved text framed as untrusted data) | planned |
+| 6.5 | M2 acceptance: "الجو حر أوي هنا" end to end with the `FAKE` provider scripted, HIGH-risk proposal → approval → execution, execution audit complete, the no-direct-write rule enforced by depcruise + test; `docs/acceptance/phase-6.md` | planned |
 
 ### Phase 7 — Housekeeping
 `hk` schema: `room_operational_states` projection (+version), `housekeeping_jobs` via work items, `credit_rules`, `room_signals` (DND/MUR/PRIVACY/SERVICE_REQUESTED with source), assignment boards, inspection hook (Phase 9 engine, early minimal version here), arrival readiness v0 (configurable dimensions, Spec §16). Consumes `hotel.guest.checked_out.v1` → CHECKOUT job; `hotel.room.status_changed.v1`. Housekeeping Copilot recommendations (assignment balancing by credits/location/history) as proposals only.
@@ -1316,7 +1396,7 @@ A module/phase is accepted only when all of the following are true:
 | Q5 | OPERA 5 interface | — | **Answered:** FIAS primary; OWS secondary where licensed; optional read-only DB views for reconciliation (ADR-0014). Pilot to confirm IFC8/OWS licenses |
 | Q6 | Hosting target | — | **Answered:** on-premises (ADR-0013): Compose → k3s/RKE2, OpenBao (Vault API), SeaweedFS, Grafana stack, pgBackRest |
 | Q7 | Data residency / region constraints | — | **Answered by Q6:** data stays within the on-prem installation; multi-region = multiple installations |
-| Q8 | First AI provider(s) and budget caps | Phase 6 | Anthropic + OpenAI behind gateway |
+| Q8 | First AI provider(s), data egress to them, and budget caps (ADR-0018) | Phase 6 | Anthropic + OpenAI behind gateway; until answered: `FAKE` in CI, on-prem model server or AI off in pilots |
 | Q9 | Initial platform role catalog (GM, Duty Manager, HK Supervisor, Room Attendant, Engineer, Front Desk, Guest Relations, Platform Admin, Support) — confirm names and Arabic labels | Phase 1 | as listed |
 | Q10 | Pilot property: IFC8 interface license, OWS license status, read-only DB account possibility (ADR-0014) | before Phase 10 | FIAS available; OWS unknown |
 | Q11 | Concrete BSP and SMS aggregator for the pilot (ADR-0015) | Phase 4 end | Meta Cloud API adapter first; BSP/SMS adapters implemented against fakes until chosen |
