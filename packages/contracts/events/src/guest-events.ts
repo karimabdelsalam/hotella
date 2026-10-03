@@ -56,3 +56,19 @@ export const GuestStayRoomChanged = defineEvent({
     at: z.iso.datetime({ offset: true }),
   }),
 });
+
+export const GuestMerged = defineEvent({
+  type: 'guest.guest.merged',
+  version: 1,
+  description:
+    'A duplicate guest profile was merged into a surviving one; references to the merged id should follow the survivor.',
+  payload: z.object({ merged_guest_id: z.uuid(), surviving_guest_id: z.uuid() }),
+});
+
+export const GuestAnonymized = defineEvent({
+  type: 'guest.guest.anonymized',
+  version: 1,
+  description:
+    'A guest was anonymized on request (Spec §69): identifying data is gone; operational history stays. Contexts holding copies of guest data must drop them.',
+  payload: z.object({ guest_id: z.uuid() }),
+});

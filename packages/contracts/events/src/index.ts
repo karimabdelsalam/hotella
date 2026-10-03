@@ -21,8 +21,19 @@ export {
   SessionRevoked,
   UserCreated,
 } from './iam-events';
-export { StayCreated, GuestStayRoomChanged, StayStatusChanged } from './guest-events';
-export { IntegrationExceptionOpened, IntegrationHealthChanged } from './integration-events';
+export {
+  GuestAnonymized,
+  GuestMerged,
+  GuestStayRoomChanged,
+  StayCreated,
+  StayStatusChanged,
+} from './guest-events';
+export {
+  IntegrationExceptionOpened,
+  IntegrationHealthChanged,
+  ReconciliationCompleted,
+  ReconciliationSnapshotCompleted,
+} from './integration-events';
 export {
   CANONICAL_ROOM_STATUSES,
   GuestCheckedIn,

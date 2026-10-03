@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   date,
   index,
   integer,
+  jsonb,
   pgSchema,
   text,
   timestamp,
@@ -289,3 +291,143 @@ export type StayRow = typeof stays.$inferSelect;
 export type ReservationReferenceRow = typeof reservationReferences.$inferSelect;
 export type StayPartyMemberRow = typeof stayPartyMembers.$inferSelect;
 export type RoomAssignmentRow = typeof roomAssignments.$inferSelect;
+
+export const preferenceSource = guest.enum('preference_source', ['EXPLICIT', 'INFERRED', 'PMS']);
+export const consentType = guest.enum('consent_type', [
+  'SERVICE_COMMUNICATION',
+  'MARKETING_WHATSAPP',
+  'MARKETING_EMAIL',
+  'PERSONALIZATION',
+]);
+export const dataRequestKind = guest.enum('data_request_kind', [
+  'EXPORT',
+  'CORRECTION',
+  'ANONYMIZE',
+  'DELETE',
+]);
+export const dataRequestStatus = guest.enum('data_request_status', [
+  'REQUESTED',
+  'COMPLETED',
+  'REJECTED',
+]);
+
+/** What a guest likes (Spec §6): one current value per (guest, category, key); INFERRED values need a confidence. */
+export const guestPreferences = classify(
+  guest.table(
+    'guest_preferences',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      guestId: uuid('guest_id')
+        .notNull()
+        .references(() => guests.id, { onDelete: 'cascade' }),
+      category: varchar('category', { length: 64 }).notNull(),
+      key: varchar('key', { length: 64 }).notNull(),
+      value: jsonb('value').notNull(),
+      source: preferenceSource('source').notNull(),
+      /** 0–100; required for INFERRED, 100 for EXPLICIT/PMS. */
+      confidence: integer('confidence').notNull().default(100),
+      expiresAt: tz('expires_at'),
+      recordedByType: varchar('recorded_by_type', { length: 16 }).notNull(),
+      recordedById: varchar('recorded_by_id', { length: 64 }),
+      ...versioned(),
+    },
+    (t) => [unique('guest_preferences_key_uq').on(t.guestId, t.category, t.key)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    guestId: 'INTERNAL',
+    category: 'INTERNAL',
+    key: 'INTERNAL',
+    value: 'CONFIDENTIAL',
+    source: 'INTERNAL',
+    confidence: 'INTERNAL',
+    expiresAt: 'INTERNAL',
+    recordedByType: 'INTERNAL',
+    recordedById: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Consent decisions (Spec §26), append-only history: the latest row per type is the current state. */
+export const guestConsents = classify(
+  guest.table(
+    'guest_consents',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      guestId: uuid('guest_id')
+        .notNull()
+        .references(() => guests.id, { onDelete: 'cascade' }),
+      type: consentType('type').notNull(),
+      granted: boolean('granted').notNull(),
+      channel: varchar('channel', { length: 32 }).notNull(),
+      capturedAt: tz('captured_at').notNull(),
+      /** How it was captured (form version, message id, staff note) — never the guest's contact data. */
+      evidence: jsonb('evidence').notNull().default({}),
+      capturedByType: varchar('captured_by_type', { length: 16 }).notNull(),
+      capturedById: varchar('captured_by_id', { length: 64 }),
+    },
+    (t) => [index('guest_consents_current_idx').on(t.guestId, t.type, t.capturedAt)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    guestId: 'INTERNAL',
+    type: 'INTERNAL',
+    granted: 'INTERNAL',
+    channel: 'INTERNAL',
+    capturedAt: 'INTERNAL',
+    evidence: 'CONFIDENTIAL',
+    capturedByType: 'INTERNAL',
+    capturedById: 'INTERNAL',
+  },
+);
+
+/** Data-subject requests (Spec §69): export, correction, anonymization; deletion is executed as anonymization. */
+export const guestDataRequests = classify(
+  guest.table(
+    'guest_data_requests',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      guestId: uuid('guest_id')
+        .notNull()
+        .references(() => guests.id),
+      kind: dataRequestKind('kind').notNull(),
+      status: dataRequestStatus('status').notNull().default('REQUESTED'),
+      reason: text('reason').notNull(),
+      requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
+      requestedById: varchar('requested_by_id', { length: 64 }),
+      completedAt: tz('completed_at'),
+      /** Outcome summary (counts, SHA-256 of an export) — never the exported data itself. */
+      result: jsonb('result').notNull().default({}),
+      ...versioned(),
+    },
+    (t) => [index('guest_data_requests_guest_idx').on(t.tenantId, t.guestId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    guestId: 'INTERNAL',
+    kind: 'INTERNAL',
+    status: 'INTERNAL',
+    reason: 'CONFIDENTIAL',
+    requestedByType: 'INTERNAL',
+    requestedById: 'INTERNAL',
+    completedAt: 'INTERNAL',
+    result: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+export type GuestPreferenceRow = typeof guestPreferences.$inferSelect;
+export type GuestConsentRow = typeof guestConsents.$inferSelect;
+export type GuestDataRequestRow = typeof guestDataRequests.$inferSelect;

@@ -88,6 +88,16 @@ export const inboundRecordSchema = z.discriminatedUnion('kind', [
     profile: inboundProfileSchema,
     occurred_at: instant,
   }),
+  // Database sync (FIAS DS/DR/DE or an OWS in-house query): a PMS snapshot for reconciliation (Spec §52), never
+  // applied as check-ins — differences become reconciliation results and exceptions.
+  z.object({ kind: z.literal('SYNC_START'), occurred_at: instant }),
+  z.object({
+    kind: z.literal('IN_HOUSE_ENTRY'),
+    reservation: inboundReservationSchema,
+    room_code: code.nullable().default(null),
+    occurred_at: instant,
+  }),
+  z.object({ kind: z.literal('SYNC_END'), occurred_at: instant }),
   z.object({
     kind: z.literal('ROOM_STATUS'),
     room_code: code,
@@ -109,6 +119,9 @@ export const RECORD_CAPABILITY = {
   RESERVATION_CANCELLED: 'RESERVATION_READ',
   PROFILE_UPDATE: 'PROFILE_EVENT',
   ROOM_STATUS: 'ROOM_STATUS_READ',
+  SYNC_START: 'RECONCILIATION_READ',
+  IN_HOUSE_ENTRY: 'RECONCILIATION_READ',
+  SYNC_END: 'RECONCILIATION_READ',
 } as const satisfies Record<InboundRecordKind, ConnectorCapability>;
 
 /**
@@ -119,6 +132,10 @@ export function orderingKeyOf(record: InboundRecord): string {
   switch (record.kind) {
     case 'ROOM_STATUS':
       return `room:${record.room_code}`;
+    case 'SYNC_START':
+    case 'IN_HOUSE_ENTRY':
+    case 'SYNC_END':
+      return 'sync';
     case 'PROFILE_UPDATE':
       return record.reservation
         ? `reservation:${record.reservation.external_id}`

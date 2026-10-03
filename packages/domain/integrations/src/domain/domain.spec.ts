@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { inboundRecordSchema } from '@hotella/contracts-connectors';
 import { simPmsAdapter } from '../connectors/sim-pms';
 import { classifyHealth, effectiveCapabilities, HEALTH_WINDOW, recordOutcome } from './instance';
-import { codesOf, toCanonical } from './mapping';
+import { type CanonicalRecord, codesOf, toCanonical } from './mapping';
 
 const ctx = { timezone: 'Africa/Cairo', receivedAt: '2026-10-03T10:00:00.000Z' };
 const fias = (record: string) =>
@@ -152,7 +152,7 @@ describe('mapper', () => {
   });
   it('builds the canonical payload from confirmed mappings only', () => {
     const roomId = '01920000-0000-7000-8000-0000000000aa';
-    const draft = toCanonical(record, '01920000-0000-7000-8000-0000000000bb', {
+    const draft = toCanonical(record as CanonicalRecord, '01920000-0000-7000-8000-0000000000bb', {
       get: (type, code) => (type === 'ROOM' && code === '504' ? roomId : undefined),
       roomNumber: () => '504',
     });

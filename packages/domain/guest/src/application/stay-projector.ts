@@ -512,8 +512,8 @@ export class StayProjector {
         tenantId: ctx.tenantId,
         propertyId: ctx.propertyId,
         actor: ctx.actor,
-        before: Object.fromEntries(changed.map((k) => [k, guest[k]])),
-        after: Object.fromEntries(changed.map((k) => [k, next[k]])),
+        // Field names only: guest personal data never enters the append-only audit log (Spec §69 anonymization).
+        after: { changed },
       });
     }
     await this.addIdentifiers(ctx, guest.id, p);

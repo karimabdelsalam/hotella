@@ -58,6 +58,12 @@ export function codesOf(record: InboundRecord): CodeNeed[] {
       add('ROOM', record.room_code);
       break;
     case 'RESERVATION_CANCELLED':
+    case 'SYNC_START':
+    case 'SYNC_END':
+      break;
+    case 'IN_HOUSE_ENTRY':
+      // Reported as found; an unmapped room is itself a reconciliation finding, so it never blocks.
+      if (record.room_code) out.push({ type: 'ROOM', code: record.room_code, required: false });
       break;
   }
   return out;
@@ -79,8 +85,21 @@ export interface CanonicalDraft {
  * Builds the canonical event for a record whose required codes are all resolved. Pure: same record + same mappings ⇒
  * same payload. Optional codes without a mapping become null (never guessed); the caller records the gap.
  */
+/** Database-sync records feed reconciliation (Spec §52), not canonical events. */
+export type SyncRecord = Extract<
+  InboundRecord,
+  { kind: 'SYNC_START' | 'IN_HOUSE_ENTRY' | 'SYNC_END' }
+>;
+export type CanonicalRecord = Exclude<InboundRecord, SyncRecord>;
+
+export function isSyncRecord(record: InboundRecord): record is SyncRecord {
+  return (
+    record.kind === 'SYNC_START' || record.kind === 'IN_HOUSE_ENTRY' || record.kind === 'SYNC_END'
+  );
+}
+
 export function toCanonical(
-  record: InboundRecord,
+  record: CanonicalRecord,
   instanceId: string,
   codes: ResolvedCodes,
 ): CanonicalDraft {

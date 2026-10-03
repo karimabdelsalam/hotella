@@ -599,6 +599,44 @@ export class IntegrationRepositories {
       )
       .then((r) => r[0]);
   }
+  async deleteReferences(
+    scope: TenantScope,
+    internalEntityType: string,
+    internalEntityId: string,
+  ): Promise<number> {
+    const rows = await this.x
+      .delete(externalReferences)
+      .where(
+        tenantWhere(
+          externalReferences,
+          scope,
+          eq(externalReferences.internalEntityType, internalEntityType),
+          eq(externalReferences.internalEntityId, internalEntityId),
+        ),
+      )
+      .returning({ id: externalReferences.id });
+    return rows.length;
+  }
+  async scrubMessages(
+    scope: TenantScope,
+    instanceId: string,
+    orderingKeys: readonly string[],
+  ): Promise<number> {
+    if (orderingKeys.length === 0) return 0;
+    const rows = await this.x
+      .update(integrationMessages)
+      .set({ payload: { scrubbed: true, reason: 'data_subject_request' } })
+      .where(
+        tenantWhere(
+          integrationMessages,
+          scope,
+          eq(integrationMessages.instanceId, instanceId),
+          sql`${integrationMessages.orderingKeys} && ${toTextArray(orderingKeys)}`,
+        ),
+      )
+      .returning({ id: integrationMessages.id });
+    return rows.length;
+  }
 }
 
 /** A `text[]` literal bound as one parameter. */

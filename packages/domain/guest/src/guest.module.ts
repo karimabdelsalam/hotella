@@ -2,9 +2,11 @@ import { Global, Module, type OnModuleInit } from '@nestjs/common';
 import { IdempotentConsumer } from '@hotella/platform-events';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { EventConsumerRegistry } from '@hotella/platform-queue';
-import { StaysController } from './api/controllers';
+import { GuestProfilesController, StaysController } from './api/controllers';
 import { GuestQueryService, StayQueryService } from './application/queries';
 import { StayProjector } from './application/stay-projector';
+import { StayReconciler } from './application/stay-reconciler';
+import { GuestDataService } from './application/guest-data.service';
 import { GuestRepositories } from './infrastructure/repositories';
 import { GUEST_MANIFEST } from './manifest';
 import { GUEST_API } from './public';
@@ -12,6 +14,7 @@ import { GuestPublicApiService } from './public-api.service';
 
 /** Consumer name in the inbox: one exactly-once effect per canonical event for the stay projection. */
 export const STAY_PROJECTOR_CONSUMER = 'guest.stay-projector';
+export const STAY_RECONCILER_CONSUMER = 'guest.stay-reconciler';
 
 /**
  * The guest context without HTTP routes: repositories, the stay projector and GUEST_API. Global so other contexts
@@ -22,18 +25,19 @@ export const STAY_PROJECTOR_CONSUMER = 'guest.stay-projector';
   providers: [
     GuestRepositories,
     StayProjector,
+    StayReconciler,
     GuestPublicApiService,
     { provide: GUEST_API, useExisting: GuestPublicApiService },
   ],
-  exports: [GUEST_API, StayProjector, GuestRepositories],
+  exports: [GUEST_API, StayProjector, StayReconciler, GuestRepositories],
 })
 export class GuestCoreModule {}
 
 /** Staff read API and manifest, for the API process. */
 @Module({
   imports: [GuestCoreModule],
-  controllers: [StaysController],
-  providers: [StayQueryService, GuestQueryService],
+  controllers: [StaysController, GuestProfilesController],
+  providers: [StayQueryService, GuestQueryService, GuestDataService],
 })
 export class GuestModule implements OnModuleInit {
   constructor(private readonly manifests: ManifestRegistry) {}
@@ -48,13 +52,24 @@ export class GuestEventsModule implements OnModuleInit {
   constructor(
     private readonly consumers: EventConsumerRegistry,
     private readonly projector: StayProjector,
+    private readonly reconciler: StayReconciler,
   ) {}
   onModuleInit(): void {
     for (const def of StayProjector.consumes)
       this.consumers.on(def.name, STAY_PROJECTOR_CONSUMER, (envelope) =>
         this.projector.apply(envelope),
       );
+    for (const def of StayReconciler.consumes)
+      this.consumers.on(def.name, STAY_RECONCILER_CONSUMER, (envelope) =>
+        this.reconciler.apply(envelope),
+      );
   }
+}
+
+/** Test and tooling helper: run the reconciler exactly once for an envelope, as the worker does. */
+export function reconcileOnce(idempotency: IdempotentConsumer, reconciler: StayReconciler) {
+  return (envelope: Parameters<StayReconciler['apply']>[0]) =>
+    idempotency.once(STAY_RECONCILER_CONSUMER, envelope, (e) => reconciler.apply(e));
 }
 
 /** Test and tooling helper: apply one canonical envelope exactly once, as the worker does. */

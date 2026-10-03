@@ -21,6 +21,7 @@ import {
   InstanceService,
   MappingService,
 } from '../application/admin.services';
+import { ReconciliationService } from '../application/reconciliation.service';
 import { ReplayService } from '../application/replay.service';
 import { EnrollmentService } from '../link/enrollment.service';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '../public';
@@ -55,6 +56,7 @@ export class IntegrationInstancesController {
     private readonly mappings: MappingService,
     private readonly replays: ReplayService,
     private readonly enrollment: EnrollmentService,
+    private readonly reconciliation: ReconciliationService,
     private readonly ctx: RequestContext,
     private readonly actors: ActorStore,
   ) {}
@@ -128,6 +130,39 @@ export class IntegrationInstancesController {
       propertyScope(this.ctx, this.actors, propertyId),
       instanceId,
       body.reason,
+    );
+  }
+
+  /** Spec §52: ask the PMS for its in-house list and compare it with the platform's stays. */
+  @Post(':instanceId/reconciliations')
+  @RequirePermission('integration.reconcile')
+  startReconciliation(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+  ) {
+    return this.reconciliation.start(propertyScope(this.ctx, this.actors, propertyId), instanceId);
+  }
+
+  @Get(':instanceId/reconciliations')
+  @RequirePermission('integration.read')
+  reconciliations(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+  ) {
+    return this.reconciliation.list(propertyScope(this.ctx, this.actors, propertyId), instanceId);
+  }
+
+  @Get(':instanceId/reconciliations/:runId')
+  @RequirePermission('integration.read')
+  reconciliationRun(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+    @Param('runId') runId: string,
+  ) {
+    return this.reconciliation.get(
+      propertyScope(this.ctx, this.actors, propertyId),
+      instanceId,
+      runId,
     );
   }
 

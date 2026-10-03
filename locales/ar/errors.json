@@ -86,5 +86,12 @@
   "errors.integration.agent.connector_mismatch": "وكيل الفندق يعمل بموصل مختلف عن هذا الربط.",
   "errors.integration.agent.unauthorized": "يلزم وجود شهادة صالحة لوكيل الفندق.",
   "errors.integration.command.unknown": "الموصل لا يعرّف الأمر {command}.",
-  "errors.integration.command.invalid_payload": "بيانات الأمر غير صحيحة."
+  "errors.integration.command.invalid_payload": "بيانات الأمر غير صحيحة.",
+  "errors.guest.preference.not_found": "لم يتم العثور على التفضيل.",
+  "errors.guest.guest.merge_self": "لا يمكن دمج ملف النزيل مع نفسه.",
+  "errors.guest.guest.not_active": "ملف النزيل هذا {status, select, MERGED {مدمج في ملف آخر} ANONYMIZED {مجهول الهوية} other {غير نشط}}.",
+  "errors.guest.guest.already_anonymized": "تم إخفاء هوية هذا النزيل بالفعل.",
+  "errors.guest.guest.active_stay": "لدى هذا النزيل إقامة متوقعة أو حالية؛ يمكن إخفاء الهوية بعد المغادرة.",
+  "errors.integration.reconciliation.unsupported": "هذا الربط لا يستطيع إرسال قائمة المقيمين للمطابقة.",
+  "errors.integration.reconciliation.not_found": "لم يتم العثور على عملية المطابقة."
 }

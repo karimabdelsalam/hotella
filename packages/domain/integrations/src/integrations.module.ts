@@ -11,6 +11,7 @@ import {
 import { ConnectorCapabilityStage } from './application/capability-stage';
 import { HealthService } from './application/health.service';
 import { IngestService } from './application/ingest.service';
+import { ReconciliationService } from './application/reconciliation.service';
 import { ReplayService } from './application/replay.service';
 import { ConnectorRegistry } from './connectors/registry';
 import { AgentKeys } from './link/agent-keys';
@@ -18,6 +19,7 @@ import { EnrollmentService } from './link/enrollment.service';
 import { AgentGatewayServer } from './link/gateway-server';
 import { AgentLinkService } from './link/link.service';
 import { LinkRepositories } from './infrastructure/link-repositories';
+import { ReconciliationRepositories } from './infrastructure/reconciliation-repositories';
 import { IntegrationRepositories } from './infrastructure/repositories';
 import { INTEGRATIONS_MANIFEST } from './manifest';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from './public';
@@ -33,10 +35,17 @@ import { IntegrationsPublicApiService } from './public-api.service';
     { provide: ConnectorRegistry, useValue: new ConnectorRegistry() },
     IntegrationRepositories,
     LinkRepositories,
+    ReconciliationRepositories,
     IntegrationsPublicApiService,
     { provide: INTEGRATIONS_API, useExisting: IntegrationsPublicApiService },
   ],
-  exports: [INTEGRATIONS_API, ConnectorRegistry, IntegrationRepositories, LinkRepositories],
+  exports: [
+    INTEGRATIONS_API,
+    ConnectorRegistry,
+    IntegrationRepositories,
+    LinkRepositories,
+    ReconciliationRepositories,
+  ],
 })
 export class IntegrationsCoreModule {}
 
@@ -52,6 +61,7 @@ export class IntegrationsCoreModule {}
     HealthService,
     IngestService,
     ReplayService,
+    ReconciliationService,
     AgentKeys,
     EnrollmentService,
   ],

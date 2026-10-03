@@ -92,8 +92,8 @@ const ROOM_STATUS: Record<string, { status: 'DIRTY' | 'CLEAN' | 'INSPECTED'; occ
     '6': { status: 'INSPECTED', occupied: true },
   };
 
-/** Link-control and database-sync framing records: accepted, produce no business record. */
-const CONTROL_RECORDS = new Set(['LS', 'LA', 'LE', 'LD', 'LR', 'DS', 'DE']);
+/** Link-control records: accepted, produce no business record. */
+const CONTROL_RECORDS = new Set(['LS', 'LA', 'LE', 'LD', 'LR']);
 
 export function parseFiasRecord(
   record: string,
@@ -103,9 +103,7 @@ export function parseFiasRecord(
   if (CONTROL_RECORDS.has(id)) return [];
   const at = fiasInstant(fields, context.timezone, context.receivedAt);
   switch (id) {
-    // GI = check-in; DR = database-sync record of an in-house guest (same shape, replayed at link start).
-    case 'GI':
-    case 'DR': {
+    case 'GI': {
       const arrival = fields.get('GA') ? fiasDate(fields.get('GA'), 'GA') : at.slice(0, 10);
       return [
         {
@@ -119,6 +117,20 @@ export function parseFiasRecord(
         },
       ];
     }
+    // Database sync: DS (start) / DR (one in-house reservation) / DE (end) — a snapshot for reconciliation.
+    case 'DS':
+      return [{ kind: 'SYNC_START', occurred_at: at }];
+    case 'DR':
+      return [
+        {
+          kind: 'IN_HOUSE_ENTRY',
+          reservation: { external_id: required(fields, 'G#', 'reservation number') },
+          room_code: fields.get('RN')?.trim() || null,
+          occurred_at: at,
+        },
+      ];
+    case 'DE':
+      return [{ kind: 'SYNC_END', occurred_at: at }];
     case 'GO':
       return [
         {

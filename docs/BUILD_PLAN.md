@@ -443,7 +443,7 @@ Reality notes for 1.3:
 
 **Goal:** core guest/stay model driven by canonical PMS events, fully testable with a simulator; no OPERA required (Spec §85 Phase 2).
 
-> **Status: in progress** — sprints and reality notes in §6.7.
+> **Status: accepted on 2026-10-03** — evidence in `docs/acceptance/phase-2.md`; sprints and reality notes in §6.7.
 
 ### 6.1 Domain model (schema `guest`, `integration`)
 
@@ -525,7 +525,7 @@ Connector `SIM_PMS` implementing the Connector SDK contract v0 **and the agent l
 | 2.1 | `@hotella/contracts-connectors` (Connector SDK v0: categories, capabilities, `defineConnector`, raw message, `ParseContext`, connector-neutral `InboundRecord`, `RECORD_CAPABILITY`, ordering keys, wall-clock → UTC helper); canonical `hotel.*` events + `integration.exception.opened.v1` / `integration.health.changed.v1`; `@hotella/domain-integrations` (schema `integration`, migration `0007_integration_phase2` with hand-reviewed FKs to `org` and forced RLS): connector catalog synced at boot, instances with enabled ∩ reported capabilities, raw inbox with replay-safe ingest, `SIM_PMS` adapter (FIAS-shaped records + OWS-shaped JSON), mapper with required/optional mapping types, deduplicated exceptions, HELD successors, replay, external references API, health counters, action-gate connector-capability stage; `TransactionRunner.read()` and tenant-pinned event consumers; RLS coverage test | delivered |
 | 2.2 | `@hotella/domain-guest` (schema `guest`, migration `0008_guest_phase2` with FKs to `org`/`integration`, period CHECKs, forced RLS): guests, identifiers, stays, reservation references, party, room-assignment history; `StayProjector` = the only writer of stays (pure state machine, out-of-order safety, PMS reinstatements, per-reservation advisory locks), `guest.stay.created/status_changed/room_changed.v1`; read-only staff API (`/properties/:id/stays`, `/stays/:id`, `/rooms/:roomId/current-stay`, `/guests`, `/guests/:id` with masked contacts); worker runs the projector (`GuestEventsModule`); `AuditCoreModule` / `IntegrationsCoreModule` / `GuestCoreModule` without HTTP routes for background processes | delivered |
 | 2.3 | Agent link (ADR-0017): `@hotella/platform-pki` (agent CA, CSR → device certificate, Ed25519 canonical signatures); link frames in `contracts-connectors`; migration `0009_agent_link` (`agent_links`, `enrollment_tokens`); `EnrollmentService` (single-use tokens, enroll, renew, revoke), `AgentLinkService` (hello/capabilities, ordered cumulative acks, resend, gap exception, heartbeats → health, signed command delivery/results), `INTEGRATIONS_API.requestCommand`; `apps/agent-gateway` (TLS 1.3 + client certificates, no staff routes); `apps/pms-simulator` (reference agent: durable queue, reconnect, chaos, FIAS/OWS faces, YAML scenarios, `RESYNC_IN_HOUSE`); pilot: gateway service, agent PKI in OpenBao, `pilot.sh simulate`, CI smoke through the deployed worker | delivered |
-| 2.4 | Reconciliation runs/results, preferences & consents, guest merge, guest data requests (export/anonymize), integration commands service, Phase 2 acceptance record | planned |
+| 2.4 | Reconciliation (Spec §52): database-sync records (FIAS DS/DR/DE) become a PMS snapshot on a run started by staff (`POST …/reconciliations` → `RESYNC_IN_HOUSE` command), the guest context's `StayReconciler` compares it deterministically (`reconcileInHouse`) and reports MATCH / MISSING_INTERNAL / MISSING_EXTERNAL / DIFFERENT back; non-matches open exceptions, nothing is auto-corrected. Guest data: preferences (EXPLICIT/INFERRED with confidence), append-only consent history (DB trigger), merge of duplicates (stays, party, identifiers, preferences, consents and PMS profile links follow the survivor; MERGED tombstone), data-subject requests (EXPORT returned once with only its SHA-256 kept; ANONYMIZE/DELETE anonymize, unlink PMS profiles and scrub raw vendor payloads; CORRECTION recorded for the PMS). Migration `0010`. Phase 2 acceptance record | delivered |
 
 Reality notes for 2.1:
 - `integration_instances` stores `enabled_capabilities` (administrator) and `reported_capabilities` (agent, from 2.3); the effective set is their intersection, and only for `ACTIVE` instances. The plan's single `negotiated_capabilities` column could not tell the two apart.
@@ -548,6 +548,13 @@ Reality notes for 2.3 (details in ADR-0017 "Implementation notes"):
 - `ReplayService` was split from `IngestService`, and `HealthService` from both, so the ingest path needs no staff action gate.
 - Rate limiting is a per-instance throttle frame (200 frames/s); hard limits arrive with the licensing/metering work (Phase 11).
 - Gate defect found and fixed: `pnpm db:check` passed vacuously since Phase 0 — drizzle-kit could not open the absolute temporary `out` path, printed the error and exited 0, so no drift migration was ever generated. The scratch journal now lives under the package (relative path), any drizzle-kit error fails the check, and drift was proven to be detected (temporary column → exit 2). The existing schema had no drift.
+
+Reality notes for 2.4:
+- FIAS `DR` records are no longer applied as check-ins: a database sync is a snapshot for reconciliation, and differences become exceptions (ADR-0017 §4: never silent fixes). A sync the platform did not request still gets its own run.
+- The comparison runs in the guest context (owner of stays) and reports back through `INTEGRATIONS_API.completeReconciliation`, so the dependency stays guest → integrations.
+- Guest audit entries record which fields changed, never their values: the audit log is append-only, so personal data in it could not be anonymized (Spec §69). The projector was corrected accordingly.
+- Data exports are returned in the response and not stored (only their SHA-256); an object-storage export with expiring links arrives with the asset registry. `DELETE` requests are executed as anonymization to keep operational and audit integrity (CLAUDE.md rule 21).
+- Published outbox rows still hold canonical payloads (names) until a retention job purges published events (scheduled with the operations scheduler in Phase 3).
 
 ---
 

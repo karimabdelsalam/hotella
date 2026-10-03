@@ -552,3 +552,126 @@ export const enrollmentTokens = classify(
 
 export type AgentLinkRow = typeof agentLinks.$inferSelect;
 export type EnrollmentTokenRow = typeof enrollmentTokens.$inferSelect;
+
+export const reconciliationStatus = integration.enum('reconciliation_status', [
+  'RUNNING',
+  'COMPLETED',
+  'FAILED',
+]);
+export const reconciliationOutcome = integration.enum('reconciliation_outcome', [
+  'MATCH',
+  'MISSING_INTERNAL',
+  'MISSING_EXTERNAL',
+  'DIFFERENT',
+]);
+
+/**
+ * Reconciliation runs (Spec §52): the PMS reports its in-house list (database sync) and the platform compares it
+ * with its own stays. Differences become results and exceptions for a human — never silent fixes.
+ */
+export const reconciliationRuns = classify(
+  integration.table(
+    'reconciliation_runs',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => integrationInstances.id),
+      status: reconciliationStatus('status').notNull().default('RUNNING'),
+      requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
+      requestedById: varchar('requested_by_id', { length: 64 }),
+      commandId: uuid('command_id'),
+      snapshotStartedAt: tz('snapshot_started_at'),
+      snapshotCompletedAt: tz('snapshot_completed_at'),
+      completedAt: tz('completed_at'),
+      /** Counts by outcome. */
+      summary: jsonb('summary').notNull().default({}),
+      ...versioned(),
+    },
+    (t) => [index('reconciliation_runs_instance_idx').on(t.instanceId, t.status)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    status: 'INTERNAL',
+    requestedByType: 'INTERNAL',
+    requestedById: 'INTERNAL',
+    commandId: 'INTERNAL',
+    snapshotStartedAt: 'INTERNAL',
+    snapshotCompletedAt: 'INTERNAL',
+    completedAt: 'INTERNAL',
+    summary: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** The PMS side of a run: one row per in-house reservation the PMS reported. */
+export const reconciliationEntries = classify(
+  integration.table(
+    'reconciliation_entries',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      runId: uuid('run_id')
+        .notNull()
+        .references(() => reconciliationRuns.id, { onDelete: 'cascade' }),
+      externalId: varchar('external_id', { length: 128 }).notNull(),
+      roomCode: varchar('room_code', { length: 64 }),
+      /** Internal room, when the code has a confirmed mapping. */
+      roomId: uuid('room_id'),
+    },
+    (t) => [unique('reconciliation_entries_uq').on(t.runId, t.externalId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    runId: 'INTERNAL',
+    externalId: 'CONFIDENTIAL',
+    roomCode: 'INTERNAL',
+    roomId: 'INTERNAL',
+  },
+);
+
+export const reconciliationResults = classify(
+  integration.table(
+    'reconciliation_results',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      runId: uuid('run_id')
+        .notNull()
+        .references(() => reconciliationRuns.id, { onDelete: 'cascade' }),
+      entityType: varchar('entity_type', { length: 32 }).notNull(),
+      externalId: varchar('external_id', { length: 128 }),
+      internalId: uuid('internal_id'),
+      outcome: reconciliationOutcome('outcome').notNull(),
+      /** What differs (field, PMS value, platform value) — ids and codes only, no guest data. */
+      details: jsonb('details').notNull().default({}),
+    },
+    (t) => [index('reconciliation_results_run_idx').on(t.runId, t.outcome)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    runId: 'INTERNAL',
+    entityType: 'INTERNAL',
+    externalId: 'CONFIDENTIAL',
+    internalId: 'INTERNAL',
+    outcome: 'INTERNAL',
+    details: 'INTERNAL',
+  },
+);
+
+export type ReconciliationRunRow = typeof reconciliationRuns.$inferSelect;
+export type ReconciliationEntryRow = typeof reconciliationEntries.$inferSelect;
+export type ReconciliationResultRow = typeof reconciliationResults.$inferSelect;

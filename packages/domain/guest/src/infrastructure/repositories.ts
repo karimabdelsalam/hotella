@@ -4,19 +4,26 @@ import {
   DATABASE,
   type Database,
   executor,
+  newId,
   type PropertyScope,
   propertyWhere,
   type TenantScope,
   tenantWhere,
 } from '@hotella/platform-database';
 import {
+  guestConsents,
+  guestDataRequests,
   guestIdentifiers,
+  guestPreferences,
   guests,
   reservationReferences,
   roomAssignments,
   stayPartyMembers,
   stays,
+  type GuestConsentRow,
+  type GuestDataRequestRow,
   type GuestIdentifierRow,
+  type GuestPreferenceRow,
   type GuestRow,
   type ReservationReferenceRow,
   type RoomAssignmentRow,
@@ -261,5 +268,181 @@ export class GuestRepositories {
       )
       .orderBy(asc(roomAssignments.assignedAt))
       .then((r) => r.map((x) => x.stay));
+  }
+
+  /** Every in-house stay of the property (reconciliation, dashboards). */
+  inHouseStays(scope: PropertyScope): Promise<StayRow[]> {
+    return this.x
+      .select()
+      .from(stays)
+      .where(propertyWhere(stays, scope, eq(stays.status, 'IN_HOUSE')))
+      .orderBy(asc(stays.id));
+  }
+  /** Stays where the guest is the primary guest (merge re-points them). */
+  staysWithPrimary(scope: TenantScope, guestId: string): Promise<StayRow[]> {
+    return this.x
+      .select()
+      .from(stays)
+      .where(tenantWhere(stays, scope, eq(stays.primaryGuestId, guestId)));
+  }
+  /** Every stay the guest belongs to, at any property of the tenant. */
+  staysOfGuestAnywhere(scope: TenantScope, guestId: string): Promise<StayRow[]> {
+    return this.x
+      .selectDistinct({ stay: stays })
+      .from(stays)
+      .innerJoin(stayPartyMembers, eq(stayPartyMembers.stayId, stays.id))
+      .where(and(tenantWhere(stays, scope), eq(stayPartyMembers.guestId, guestId)))
+      .then((r) => r.map((x) => x.stay));
+  }
+  async repointPrimary(scope: TenantScope, fromGuest: string, toGuest: string): Promise<number> {
+    const rows = await this.x
+      .update(stays)
+      .set({ primaryGuestId: toGuest, version: sql`${stays.version} + 1` })
+      .where(tenantWhere(stays, scope, eq(stays.primaryGuestId, fromGuest)))
+      .returning({ id: stays.id });
+    return rows.length;
+  }
+  /** Active party rows of the merged guest move to the survivor (unless already in that party). */
+  async repointParty(scope: TenantScope, fromGuest: string, toGuest: string): Promise<number> {
+    const rows = await this.x.execute<{ id: string }>(sql`
+      update guest.stay_party_members m set guest_id = ${toGuest}, updated_at = now()
+       where m.tenant_id = ${scope.tenantId} and m.guest_id = ${fromGuest} and m.left_at is null
+         and not exists (select 1 from guest.stay_party_members o
+                          where o.stay_id = m.stay_id and o.guest_id = ${toGuest} and o.left_at is null)
+      returning m.id`);
+    return rows.rows.length;
+  }
+  /** Identifiers of the merged guest move to the survivor (duplicates collapse). */
+  async moveIdentifiers(scope: TenantScope, fromGuest: string, toGuest: string): Promise<void> {
+    for (const i of await this.identifiers(scope, fromGuest)) {
+      await this.x
+        .insert(guestIdentifiers)
+        .values({
+          id: newId(),
+          tenantId: i.tenantId,
+          guestId: toGuest,
+          kind: i.kind,
+          valueNormalized: i.valueNormalized,
+          source: i.source,
+          verifiedAt: i.verifiedAt,
+        })
+        .onConflictDoNothing();
+    }
+    await this.deleteIdentifiers(scope, fromGuest);
+  }
+  async deleteIdentifiers(scope: TenantScope, guestId: string): Promise<number> {
+    const rows = await this.x
+      .delete(guestIdentifiers)
+      .where(tenantWhere(guestIdentifiers, scope, eq(guestIdentifiers.guestId, guestId)))
+      .returning({ id: guestIdentifiers.id });
+    return rows.length;
+  }
+
+  // ---- preferences ----
+  preferences(scope: TenantScope, guestId: string): Promise<GuestPreferenceRow[]> {
+    return this.x
+      .select()
+      .from(guestPreferences)
+      .where(tenantWhere(guestPreferences, scope, eq(guestPreferences.guestId, guestId)))
+      .orderBy(asc(guestPreferences.category), asc(guestPreferences.key));
+  }
+  async upsertPreference(
+    values: typeof guestPreferences.$inferInsert,
+  ): Promise<GuestPreferenceRow> {
+    const [row] = await this.x
+      .insert(guestPreferences)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [guestPreferences.guestId, guestPreferences.category, guestPreferences.key],
+        set: {
+          value: values.value,
+          source: values.source,
+          confidence: values.confidence,
+          expiresAt: values.expiresAt,
+          recordedByType: values.recordedByType,
+          recordedById: values.recordedById,
+          updatedAt: new Date(),
+          version: sql`${guestPreferences.version} + 1`,
+        },
+      })
+      .returning();
+    return row!;
+  }
+  async deletePreference(
+    scope: TenantScope,
+    guestId: string,
+    id: string,
+  ): Promise<GuestPreferenceRow | undefined> {
+    const [row] = await this.x
+      .delete(guestPreferences)
+      .where(
+        tenantWhere(
+          guestPreferences,
+          scope,
+          eq(guestPreferences.guestId, guestId),
+          eq(guestPreferences.id, id),
+        ),
+      )
+      .returning();
+    return row;
+  }
+  async movePreferences(scope: TenantScope, fromGuest: string, toGuest: string): Promise<void> {
+    // The survivor's own value wins on a clash; the merged guest's duplicates are dropped with it.
+    await this.x.execute(sql`
+      update guest.guest_preferences p set guest_id = ${toGuest}, updated_at = now()
+       where p.tenant_id = ${scope.tenantId} and p.guest_id = ${fromGuest}
+         and not exists (select 1 from guest.guest_preferences o
+                          where o.guest_id = ${toGuest} and o.category = p.category and o.key = p.key)`);
+    await this.x
+      .delete(guestPreferences)
+      .where(tenantWhere(guestPreferences, scope, eq(guestPreferences.guestId, fromGuest)));
+  }
+  async deletePreferences(scope: TenantScope, guestId: string): Promise<number> {
+    const rows = await this.x
+      .delete(guestPreferences)
+      .where(tenantWhere(guestPreferences, scope, eq(guestPreferences.guestId, guestId)))
+      .returning({ id: guestPreferences.id });
+    return rows.length;
+  }
+
+  // ---- consents (append-only) ----
+  consents(scope: TenantScope, guestId: string): Promise<GuestConsentRow[]> {
+    return this.x
+      .select()
+      .from(guestConsents)
+      .where(tenantWhere(guestConsents, scope, eq(guestConsents.guestId, guestId)))
+      .orderBy(asc(guestConsents.type), desc(guestConsents.capturedAt), desc(guestConsents.id));
+  }
+  async insertConsent(values: typeof guestConsents.$inferInsert): Promise<GuestConsentRow> {
+    const [row] = await this.x.insert(guestConsents).values(values).returning();
+    return row!;
+  }
+  /** Consent history follows the survivor of a merge (evidence is kept, nothing is rewritten). */
+  async moveConsents(scope: TenantScope, fromGuest: string, toGuest: string): Promise<void> {
+    await this.x
+      .update(guestConsents)
+      .set({ guestId: toGuest })
+      .where(tenantWhere(guestConsents, scope, eq(guestConsents.guestId, fromGuest)));
+  }
+  async clearConsentEvidence(scope: TenantScope, guestId: string): Promise<void> {
+    await this.x
+      .update(guestConsents)
+      .set({ evidence: { anonymized: true } })
+      .where(tenantWhere(guestConsents, scope, eq(guestConsents.guestId, guestId)));
+  }
+
+  // ---- data requests ----
+  async insertDataRequest(
+    values: typeof guestDataRequests.$inferInsert,
+  ): Promise<GuestDataRequestRow> {
+    const [row] = await this.x.insert(guestDataRequests).values(values).returning();
+    return row!;
+  }
+  dataRequests(scope: TenantScope, guestId: string): Promise<GuestDataRequestRow[]> {
+    return this.x
+      .select()
+      .from(guestDataRequests)
+      .where(tenantWhere(guestDataRequests, scope, eq(guestDataRequests.guestId, guestId)))
+      .orderBy(desc(guestDataRequests.createdAt));
   }
 }

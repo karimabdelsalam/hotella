@@ -52,6 +52,9 @@ const PERMS = [
   'integration.configure',
   'integration.mapping.confirm',
   'guest.read',
+  'guest.manage',
+  'guest.merge',
+  'guest.data_request.manage',
   'stay.read',
 ];
 
@@ -93,6 +96,12 @@ describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReaso
     for (const r of rows) outcomes.push(await project(r.envelope as EventEnvelope));
     return outcomes;
   }
+  const guestNamed = async (givenName: string) => {
+    const r = await http().get(`${base()}/guests`).set('X-Test-Actor', gm()).expect(200);
+    return (r.body as Array<{ id: string; givenName: string }>).find(
+      (g) => g.givenName === givenName,
+    )!.id;
+  };
   const guestEvents = (type: string) =>
     db
       .select()
@@ -408,6 +417,162 @@ describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReaso
     await http().get(`${base()}/stays`).set('X-Test-Actor', user('other', tenantB)).expect(404);
   });
 
+  it('staff keep preferences and an append-only consent history', async () => {
+    const amira = await guestNamed('Amira');
+    const g = `${base()}/guests/${amira}`;
+    await http()
+      .put(`${g}/preferences`)
+      .set('X-Test-Actor', gm())
+      .send({ category: 'room', key: 'pillow', value: 'firm' })
+      .expect(200);
+    const inferred = await http()
+      .put(`${g}/preferences`)
+      .set('X-Test-Actor', gm())
+      .send({ category: 'dining', key: 'diet', value: 'vegetarian', source: 'INFERRED' })
+      .expect(400);
+    expect(inferred.body.code).toBe('platform.validation_failed');
+    const prefs = await http().get(`${g}/preferences`).set('X-Test-Actor', gm()).expect(200);
+    expect(prefs.body).toMatchObject([
+      { category: 'room', key: 'pillow', value: 'firm', confidence: 100 },
+    ]);
+
+    for (const granted of [true, false])
+      await http()
+        .post(`${g}/consents`)
+        .set('X-Test-Actor', gm())
+        .send({ type: 'MARKETING_EMAIL', granted, channel: 'FRONT_DESK', evidence: { form: 'v1' } })
+        .expect(201);
+    const consents = await http().get(`${g}/consents`).set('X-Test-Actor', gm()).expect(200);
+    expect(consents.body.current).toMatchObject([{ type: 'MARKETING_EMAIL', granted: false }]);
+    expect(consents.body.history).toHaveLength(2);
+    // The database refuses to rewrite or delete consent history.
+    const dbError = (fn: () => Promise<unknown>) =>
+      fn().then(
+        () => 'no error',
+        (e: { cause?: { message?: string } }) => e.cause?.message ?? String(e),
+      );
+    expect(
+      await dbError(() =>
+        db.execute(sql`update guest.guest_consents set granted = true where guest_id = ${amira}`),
+      ),
+    ).toMatch(/immutable/);
+    expect(
+      await dbError(() =>
+        db.execute(sql`delete from guest.guest_consents where guest_id = ${amira}`),
+      ),
+    ).toMatch(/append-only/);
+  });
+
+  it('merges a duplicate walk-in profile into the surviving guest', async () => {
+    // The same person checks in twice under separate reservations without a PMS profile id: two guests.
+    await fias(`GI|RN505|G#W2-${stamp}|GNStone|GFLina|GD261008|DA261005|TI210000|`);
+    await drain();
+    const search = await http()
+      .get(`${base()}/guests?q=stone`)
+      .set('X-Test-Actor', gm())
+      .expect(200);
+    const linas = (search.body as Array<{ id: string }>).map((g) => g.id);
+    expect(linas).toHaveLength(2);
+    const [survivor, duplicate] = linas as [string, string];
+    await http()
+      .post(`${base()}/guests/${duplicate}/merge`)
+      .set('X-Test-Actor', gm())
+      .send({ intoGuestId: duplicate, reason: 'same passport' })
+      .expect(422);
+    const merged = await http()
+      .post(`${base()}/guests/${duplicate}/merge`)
+      .set('X-Test-Actor', gm())
+      .send({ intoGuestId: survivor, reason: 'same passport, confirmed at the desk' })
+      .expect(200);
+    expect(merged.body.moved.primaryStays).toBe(1);
+    const after = await http()
+      .get(`${base()}/guests?q=stone`)
+      .set('X-Test-Actor', gm())
+      .expect(200);
+    expect((after.body as Array<{ id: string }>).map((g) => g.id)).toEqual([survivor]);
+    const detail = await http()
+      .get(`${base()}/guests/${survivor}`)
+      .set('X-Test-Actor', gm())
+      .expect(200);
+    expect(detail.body.stays).toHaveLength(2);
+    // The merged tombstone is no longer reachable through a stay at the property.
+    await http()
+      .post(`${base()}/guests/${duplicate}/merge`)
+      .set('X-Test-Actor', gm())
+      .send({ intoGuestId: survivor, reason: 'again' })
+      .expect(404);
+    const tombstone = await db.execute<{ status: string; merged_into_guest_id: string }>(
+      sql`select status, merged_into_guest_id from guest.guests where id = ${duplicate}`,
+    );
+    expect(tombstone.rows[0]).toEqual({ status: 'MERGED', merged_into_guest_id: survivor });
+  });
+
+  it('exports and anonymizes on request while stays, room history and audit remain', async () => {
+    const amira = await guestNamed('Amira');
+    const g = `${base()}/guests/${amira}`;
+    const exported = await http()
+      .post(`${g}/data-requests`)
+      .set('X-Test-Actor', gm())
+      .send({ kind: 'EXPORT', reason: 'guest asked by e-mail' })
+      .expect(201);
+    expect(exported.body.export.identifiers).toEqual(
+      expect.arrayContaining([{ kind: 'EMAIL', value: 'amira.nile@example.com', verified: false }]),
+    );
+    expect(exported.body.request.result.sha256).toMatch(/^[0-9a-f]{64}$/);
+
+    const lina = (
+      (await http().get(`${base()}/guests?q=stone`).set('X-Test-Actor', gm()).expect(200))
+        .body as Array<{ id: string }>
+    )[0]!.id;
+    const busy = await http()
+      .post(`${base()}/guests/${lina}/data-requests`)
+      .set('X-Test-Actor', gm())
+      .send({ kind: 'ANONYMIZE', reason: 'guest asked' })
+      .expect(409);
+    expect(busy.body.code).toBe('guest.guest.active_stay');
+
+    const anonymized = await http()
+      .post(`${g}/data-requests`)
+      .set('X-Test-Actor', gm())
+      .send({ kind: 'DELETE', reason: 'erasure request ticket 42' })
+      .expect(201);
+    expect(anonymized.body.request.result).toMatchObject({
+      identifiers: 2,
+      preferences: 1,
+      unlinkedProfiles: 1,
+    });
+    expect(anonymized.body.request.result.scrubbedMessages).toBeGreaterThan(0);
+
+    const detail = await http().get(g).set('X-Test-Actor', gm()).expect(200);
+    expect(detail.body).toMatchObject({
+      givenName: 'ANONYMIZED',
+      familyName: null,
+      status: 'ANONYMIZED',
+    });
+    expect(detail.body.identifiers).toEqual([]);
+    const stay = await stayByConfirmation(`C1-${stamp}`);
+    expect(stay).toMatchObject({ status: 'CHECKED_OUT' });
+    expect(stay.roomAssignments).toHaveLength(3);
+    // No trace of the guest's name in raw vendor messages or in the append-only audit log.
+    const raw = await db.execute<{ n: number }>(
+      sql`select count(*)::int as n from integration.integration_messages
+            where tenant_id = ${tenantA} and payload::text like ${'%Amira%'}`,
+    );
+    expect(raw.rows[0]!.n).toBe(0);
+    const audit = await db.execute<{ n: number; total: number }>(
+      sql`select count(*) filter (where coalesce(before::text,'') || coalesce(after::text,'') like ${'%Amira%'})::int as n,
+                 count(*)::int as total
+            from audit.audit_log where tenant_id = ${tenantA}`,
+    );
+    expect(audit.rows[0]!.n).toBe(0);
+    expect(audit.rows[0]!.total).toBeGreaterThan(5);
+    await http()
+      .post(`${g}/data-requests`)
+      .set('X-Test-Actor', gm())
+      .send({ kind: 'ANONYMIZE', reason: 'again' })
+      .expect(409);
+  });
+
   it('stays change only through PMS events: the staff API has no mutating route', () => {
     const proto = StaysController.prototype as unknown as Record<string, unknown>;
     const methods = Object.getOwnPropertyNames(proto)
@@ -421,7 +586,12 @@ describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReaso
     const cols = await db.execute<{ table_name: string; column_name: string; data_type: string }>(
       sql`select table_name, column_name, data_type from information_schema.columns where table_schema = 'guest'`,
     );
-    const ids = cols.rows.filter((c) => c.column_name === 'id' || c.column_name.endsWith('_id'));
+    // Entity keys and references (actor references `*_by_id` name who acted, not an entity).
+    const ids = cols.rows.filter(
+      (c) =>
+        (c.column_name === 'id' || c.column_name.endsWith('_id')) &&
+        !c.column_name.endsWith('_by_id'),
+    );
     expect(ids.length).toBeGreaterThan(10);
     // Every id-like column is a UUID minted by Hotella, so a vendor id cannot be stored as one.
     expect(ids.filter((c) => c.data_type !== 'uuid')).toEqual([]);

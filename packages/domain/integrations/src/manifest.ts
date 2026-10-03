@@ -2,6 +2,8 @@ import {
   HOTEL_EVENTS,
   IntegrationExceptionOpened,
   IntegrationHealthChanged,
+  ReconciliationCompleted,
+  ReconciliationSnapshotCompleted,
 } from '@hotella/contracts-events';
 import { defineManifest } from '@hotella/platform-manifest';
 
@@ -42,6 +44,8 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
     ...HOTEL_EVENTS.map((e) => e.name),
     IntegrationExceptionOpened.name,
     IntegrationHealthChanged.name,
+    ReconciliationSnapshotCompleted.name,
+    ReconciliationCompleted.name,
   ],
   localeNamespaces: ['integrations'],
 });

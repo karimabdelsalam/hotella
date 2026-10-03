@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { maskIdentifier, normalizeEmail, normalizePhone, sameName } from './identity';
+import { reconcileInHouse } from './reconcile';
 import { type StayFacts, transition } from './stay-state';
 
 const t = (iso: string) => new Date(`2026-10-0${iso}Z`);
@@ -86,5 +87,49 @@ describe('guest identity helpers', () => {
     expect(maskIdentifier('EMAIL', 'amira@example.com')).toBe('a***@example.com');
     expect(maskIdentifier('PHONE', '+201001234567')).toBe('+20********67');
     expect(maskIdentifier('LOYALTY', '123')).toBe('***');
+  });
+});
+
+describe('in-house reconciliation', () => {
+  it('classifies every reservation deterministically', () => {
+    const stay = (
+      stayId: string,
+      externalId: string | null,
+      status: string,
+      roomId: string | null,
+    ) => ({
+      stayId,
+      externalId,
+      status,
+      roomId,
+    });
+    const known = new Map([
+      ['A', stay('s-a', 'A', 'IN_HOUSE', 'r1')],
+      ['B', stay('s-b', 'B', 'IN_HOUSE', 'r2')],
+      ['E', stay('s-e', 'E', 'CHECKED_OUT', null)],
+    ]);
+    const findings = reconcileInHouse(
+      [
+        { externalId: 'A', roomId: 'r1', roomCode: '101' },
+        { externalId: 'B', roomId: 'r3', roomCode: '103' },
+        { externalId: 'D', roomId: null, roomCode: '999' },
+        { externalId: 'E', roomId: 'r5', roomCode: '105' },
+      ],
+      known,
+      [known.get('A')!, known.get('B')!, stay('s-c', 'C', 'IN_HOUSE', 'r4')],
+    );
+    expect(findings.map((f) => [f.externalId, f.outcome])).toEqual([
+      ['A', 'MATCH'],
+      ['B', 'DIFFERENT'],
+      ['D', 'MISSING_INTERNAL'],
+      ['E', 'DIFFERENT'],
+      ['C', 'MISSING_EXTERNAL'],
+    ]);
+    expect(findings[1]!.details).toMatchObject({
+      field: 'room',
+      pms_room_id: 'r3',
+      platform_room_id: 'r2',
+    });
+    expect(findings[3]!.details).toMatchObject({ field: 'status', platform: 'CHECKED_OUT' });
   });
 });

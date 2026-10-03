@@ -1,13 +1,18 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { ReconciliationCompleted } from '@hotella/contracts-events';
+import { EventPublisher } from '@hotella/platform-events';
 import type { ConnectorCapability } from '@hotella/contracts-connectors';
 import { newId } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { ConnectorRegistry } from './connectors/registry';
 import { effectiveCapabilities } from './domain/instance';
 import { LinkRepositories } from './infrastructure/link-repositories';
+import { ReconciliationRepositories } from './infrastructure/reconciliation-repositories';
 import { IntegrationRepositories } from './infrastructure/repositories';
 import type { IntegrationCommandRow } from './infrastructure/schema';
 import type {
+  ReconciliationFinding,
+  ReconciliationSnapshot,
   CommandRequest,
   CommandSummary,
   ExternalReferenceSummary,
@@ -22,7 +27,106 @@ export class IntegrationsPublicApiService implements IntegrationsPublicApi {
     private readonly repo: IntegrationRepositories,
     private readonly links: LinkRepositories,
     private readonly connectors: ConnectorRegistry,
+    private readonly reconciliation: ReconciliationRepositories,
+    private readonly events: EventPublisher,
   ) {}
+
+  unlinkExternalIdentity(
+    tenantId: string,
+    internalEntityType: string,
+    internalEntityId: string,
+  ): Promise<number> {
+    return this.repo.deleteReferences({ tenantId }, internalEntityType, internalEntityId);
+  }
+
+  scrubRawMessages(
+    tenantId: string,
+    integrationInstanceId: string,
+    reservationExternalIds: readonly string[],
+  ): Promise<number> {
+    return this.repo.scrubMessages(
+      { tenantId },
+      integrationInstanceId,
+      reservationExternalIds.map((id) => `reservation:${id}`),
+    );
+  }
+
+  async reconciliationSnapshot(
+    tenantId: string,
+    runId: string,
+  ): Promise<ReconciliationSnapshot | null> {
+    const run = await this.reconciliation.run({ tenantId }, runId);
+    if (!run) return null;
+    const entries = await this.reconciliation.entries({ tenantId }, runId);
+    return {
+      runId: run.id,
+      integrationInstanceId: run.instanceId,
+      propertyId: run.propertyId,
+      status: run.status,
+      entries: entries.map((e) => ({
+        externalId: e.externalId,
+        roomId: e.roomId,
+        roomCode: e.roomCode,
+      })),
+    };
+  }
+
+  async completeReconciliation(
+    tenantId: string,
+    runId: string,
+    findings: readonly ReconciliationFinding[],
+  ): Promise<void> {
+    const scope = { tenantId };
+    const run = await this.reconciliation.runForUpdate(scope, runId);
+    if (!run || run.status !== 'RUNNING') return;
+    await this.reconciliation.insertResults(
+      findings.map((f) => ({
+        id: newId(),
+        tenantId,
+        runId,
+        entityType: f.entityType,
+        outcome: f.outcome,
+        externalId: f.externalId,
+        internalId: f.internalId,
+        details: f.details,
+      })),
+    );
+    for (const f of findings.filter((x) => x.outcome !== 'MATCH'))
+      await this.repo.insertException({
+        id: newId(),
+        tenantId,
+        propertyId: run.propertyId,
+        instanceId: run.instanceId,
+        kind: 'CONFLICT',
+        detail: {
+          reason: 'reconciliation',
+          run_id: runId,
+          outcome: f.outcome,
+          external_id: f.externalId,
+          internal_id: f.internalId,
+          ...f.details,
+        },
+      });
+    const summary: Record<string, number> = {
+      MATCH: 0,
+      MISSING_INTERNAL: 0,
+      MISSING_EXTERNAL: 0,
+      DIFFERENT: 0,
+    };
+    for (const f of findings) summary[f.outcome] = (summary[f.outcome] ?? 0) + 1;
+    await this.reconciliation.updateRun(scope, runId, {
+      status: 'COMPLETED',
+      completedAt: new Date(),
+      summary,
+    });
+    await this.events.publish(ReconciliationCompleted, {
+      tenantId,
+      propertyId: run.propertyId,
+      source: 'integration',
+      aggregate: { type: 'reconciliation_run', id: runId },
+      payload: { run_id: runId, instance_id: run.instanceId, summary },
+    });
+  }
 
   async requestCommand(input: CommandRequest): Promise<CommandSummary> {
     const scope = { tenantId: input.tenantId };

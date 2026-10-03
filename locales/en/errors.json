@@ -86,5 +86,12 @@
   "errors.integration.agent.connector_mismatch": "The hotel agent runs a different connector than this integration.",
   "errors.integration.agent.unauthorized": "A valid hotel-agent certificate is required.",
   "errors.integration.command.unknown": "The connector does not define the command {command}.",
-  "errors.integration.command.invalid_payload": "The command payload is invalid."
+  "errors.integration.command.invalid_payload": "The command payload is invalid.",
+  "errors.guest.preference.not_found": "Preference not found.",
+  "errors.guest.guest.merge_self": "A guest cannot be merged into itself.",
+  "errors.guest.guest.not_active": "This guest profile is {status, select, MERGED {merged into another profile} ANONYMIZED {anonymized} other {not active}}.",
+  "errors.guest.guest.already_anonymized": "This guest is already anonymized.",
+  "errors.guest.guest.active_stay": "This guest has an expected or in-house stay; anonymize after check-out.",
+  "errors.integration.reconciliation.unsupported": "This integration cannot report its in-house list for reconciliation.",
+  "errors.integration.reconciliation.not_found": "Reconciliation run not found."
 }

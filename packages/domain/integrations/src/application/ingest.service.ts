@@ -19,9 +19,10 @@ import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { ConnectorRegistry } from '../connectors/registry';
 import { effectiveCapabilities } from '../domain/instance';
-import { codesOf, toCanonical } from '../domain/mapping';
+import { codesOf, isSyncRecord, toCanonical } from '../domain/mapping';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import { HealthService } from './health.service';
+import { ReconciliationService } from './reconciliation.service';
 import type { IntegrationInstanceRow, IntegrationMessageRow } from '../infrastructure/schema';
 
 export interface IngestResult {
@@ -45,6 +46,7 @@ export class IngestService {
     private readonly events: EventPublisher,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     private readonly health: HealthService,
+    private readonly reconciliation: ReconciliationService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -233,6 +235,14 @@ export class IngestService {
 
     const eventIds: string[] = [];
     for (const [i, record] of records.entries()) {
+      if (isSyncRecord(record)) {
+        const roomId =
+          record.kind === 'IN_HOUSE_ENTRY' && record.room_code
+            ? (resolved.get(`ROOM:${record.room_code}`)?.internalValue ?? null)
+            : null;
+        await this.reconciliation.onSync(instance, record, roomId);
+        continue;
+      }
       const draft = toCanonical(record, instance.id, {
         get: (type, code) => resolved.get(`${type}:${code}`)?.internalValue,
         roomNumber: (roomId) => roomNumbers.get(roomId)!,

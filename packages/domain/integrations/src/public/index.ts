@@ -74,6 +74,57 @@ export interface IntegrationsPublicApi {
    */
   requestCommand(input: CommandRequest): Promise<CommandSummary>;
   getCommand(tenantId: string, commandId: string): Promise<CommandSummary | null>;
+  /** Removes every external link of an internal entity (anonymization: the PMS profile no longer resolves to it). */
+  unlinkExternalIdentity(
+    tenantId: string,
+    internalEntityType: string,
+    internalEntityId: string,
+  ): Promise<number>;
+  /**
+   * Replaces the raw payload of every stored vendor message about these reservations with a tombstone (data-subject
+   * requests, Spec §69); message metadata, statuses and canonical event ids stay for traceability.
+   */
+  scrubRawMessages(
+    tenantId: string,
+    integrationInstanceId: string,
+    reservationExternalIds: readonly string[],
+  ): Promise<number>;
+  /** The PMS in-house snapshot of a reconciliation run (Spec §52), for the stay owner to compare. */
+  reconciliationSnapshot(tenantId: string, runId: string): Promise<ReconciliationSnapshot | null>;
+  /**
+   * Records the comparison; every non-MATCH finding opens an integration exception. Idempotent: a run that is
+   * already complete is left unchanged.
+   */
+  completeReconciliation(
+    tenantId: string,
+    runId: string,
+    findings: readonly ReconciliationFinding[],
+  ): Promise<void>;
+}
+
+export interface ReconciliationSnapshot {
+  readonly runId: string;
+  readonly integrationInstanceId: string;
+  readonly propertyId: string;
+  readonly status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  readonly entries: ReadonlyArray<{
+    readonly externalId: string;
+    readonly roomId: string | null;
+    readonly roomCode: string | null;
+  }>;
+}
+
+export type ReconciliationOutcome = 'MATCH' | 'MISSING_INTERNAL' | 'MISSING_EXTERNAL' | 'DIFFERENT';
+
+export interface ReconciliationFinding {
+  readonly entityType: 'STAY';
+  readonly outcome: ReconciliationOutcome;
+  /** Reservation id in the source system, when the PMS reported it. */
+  readonly externalId: string | null;
+  /** Internal stay, when the platform has one. */
+  readonly internalId: string | null;
+  /** What differs — ids, codes and states only, never guest data. */
+  readonly details: Readonly<Record<string, string | number | boolean | null>>;
 }
 
 export interface CommandRequest {

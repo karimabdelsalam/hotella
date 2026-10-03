@@ -1,4 +1,10 @@
-import { GuestStayRoomChanged, StayCreated, StayStatusChanged } from '@hotella/contracts-events';
+import {
+  GuestAnonymized,
+  GuestMerged,
+  GuestStayRoomChanged,
+  StayCreated,
+  StayStatusChanged,
+} from '@hotella/contracts-events';
 import { defineManifest } from '@hotella/platform-manifest';
 
 export const GUEST_MANIFEST = defineManifest({
@@ -18,7 +24,13 @@ export const GUEST_MANIFEST = defineManifest({
     { code: 'stay.read', descriptionKey: 'guest.permission.stay_read', risk: 'READ' },
     { code: 'stay.manage', descriptionKey: 'guest.permission.stay_manage', risk: 'MEDIUM' },
   ],
-  events: [StayCreated.name, StayStatusChanged.name, GuestStayRoomChanged.name],
+  events: [
+    StayCreated.name,
+    StayStatusChanged.name,
+    GuestStayRoomChanged.name,
+    GuestMerged.name,
+    GuestAnonymized.name,
+  ],
   localeNamespaces: ['guest'],
   integrationCapabilities: [
     'CHECKIN_EVENT',

@@ -5,7 +5,13 @@ import { join } from 'node:path';
 import { and, asc, eq, like, sql } from 'drizzle-orm';
 import { WebSocket } from 'ws';
 import type { EventEnvelope } from '@hotella/contracts-events';
-import { GuestModule, projectOnce, StayProjector } from '@hotella/domain-guest';
+import {
+  GuestModule,
+  projectOnce,
+  reconcileOnce,
+  StayProjector,
+  StayReconciler,
+} from '@hotella/domain-guest';
 import {
   AgentGatewayModule,
   AgentGatewayServer,
@@ -105,6 +111,7 @@ describe.skipIf(needsInfra())(
         'integration.read',
         'integration.configure',
         'integration.mapping.confirm',
+        'integration.reconcile',
         'stay.read',
         'guest.read',
       ],
@@ -368,6 +375,111 @@ describe.skipIf(needsInfra())(
           requestedBy: { type: 'SYSTEM', id: null },
         }),
       ).rejects.toMatchObject({ code: 'integration.command.unknown' });
+    });
+
+    it('reconciles the PMS in-house list with the platform: MATCH and every discrepancy', async () => {
+      const project = projectOnce(app.get(IdempotentConsumer), app.get(StayProjector));
+      const reconcile = reconcileOnce(app.get(IdempotentConsumer), app.get(StayReconciler));
+      const projectAll = async () => {
+        const rows = await db
+          .select()
+          .from(eventsSchema.outbox)
+          .where(
+            and(
+              eq(eventsSchema.outbox.tenantId, tenant),
+              like(eventsSchema.outbox.eventType, 'hotel.%'),
+            ),
+          )
+          .orderBy(asc(eventsSchema.outbox.createdAt), asc(eventsSchema.outbox.id));
+        for (const r of rows) await project(r.envelope as EventEnvelope);
+      };
+      const id = (x: string) => `REC-${x}-${stamp}`;
+      for (const [x, room] of [
+        ['A', '504'],
+        ['B', '505'],
+        ['C', '506'],
+      ] as const) {
+        pms.reserve({
+          id: id(x),
+          guest: { first: 'Rec', last: x },
+          arrival: '2026-10-05',
+          departure: '2026-10-07',
+        });
+        pms.checkIn(id(x), room);
+      }
+      await client.drained();
+      await projectAll();
+      // Discrepancies that exist only in the PMS (nothing was sent): B moved, C left, D unknown to the platform.
+      pms.reservations.get(id('B'))!.room = '506';
+      pms.reservations.get(id('C'))!.status = 'CHECKED_OUT';
+      pms.reservations.set(id('D'), {
+        id: id('D'),
+        confirmation: 'D',
+        guest: { first: 'Rec', last: 'D' },
+        sharers: [],
+        arrival: '2026-10-05',
+        departure: '2026-10-06',
+        adults: 1,
+        children: 0,
+        room: '504',
+        status: 'IN_HOUSE',
+      });
+
+      const run = await http()
+        .post(`${base()}/integrations/${instanceId}/reconciliations`)
+        .set('X-Test-Actor', gm())
+        .expect(201);
+      const snapshot = await until(async () => {
+        const rows = await db
+          .select()
+          .from(eventsSchema.outbox)
+          .where(
+            and(
+              eq(eventsSchema.outbox.aggregateId, run.body.id),
+              eq(eventsSchema.outbox.eventType, 'integration.reconciliation.snapshot_completed'),
+            ),
+          );
+        return rows[0];
+      });
+      expect(await reconcile(snapshot.envelope as EventEnvelope)).toBe('processed');
+      expect(await reconcile(snapshot.envelope as EventEnvelope)).toBe('duplicate');
+
+      const result = await http()
+        .get(`${base()}/integrations/${instanceId}/reconciliations/${run.body.id}`)
+        .set('X-Test-Actor', gm())
+        .expect(200);
+      expect(result.body).toMatchObject({
+        status: 'COMPLETED',
+        reportedInHouse: 3,
+        summary: { MATCH: 1, DIFFERENT: 1, MISSING_INTERNAL: 1, MISSING_EXTERNAL: 1 },
+      });
+      const byOutcome = Object.fromEntries(
+        (
+          result.body.results as Array<{ outcome: string; externalId: string; details: object }>
+        ).map((r) => [r.outcome, r]),
+      );
+      expect(byOutcome['MATCH']?.externalId).toBe(id('A'));
+      expect(byOutcome['DIFFERENT']).toMatchObject({
+        externalId: id('B'),
+        details: { field: 'room' },
+      });
+      expect(byOutcome['MISSING_INTERNAL']?.externalId).toBe(id('D'));
+      expect(byOutcome['MISSING_EXTERNAL']?.externalId).toBe(id('C'));
+      // Differences are a human's job: three exceptions, and no stay was changed by the reconciliation.
+      const exceptions = await http()
+        .get(`${base()}/integration-exceptions?status=OPEN`)
+        .set('X-Test-Actor', gm())
+        .expect(200);
+      expect(
+        (exceptions.body as Array<{ detail: { reason?: string } }>).filter(
+          (e) => e.detail.reason === 'reconciliation',
+        ),
+      ).toHaveLength(3);
+      const stays = await http()
+        .get(`${base()}/stays?status=IN_HOUSE`)
+        .set('X-Test-Actor', gm())
+        .expect(200);
+      expect(stays.body).toHaveLength(3);
     });
 
     it('accepts HTTPS batches for large resyncs, in order and idempotently', async () => {

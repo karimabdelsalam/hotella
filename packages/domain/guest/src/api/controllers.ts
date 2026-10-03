@@ -1,9 +1,16 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform-auth';
 import type { PropertyScope } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
+import {
+  dataRequestSchema,
+  GuestDataService,
+  mergeGuestSchema,
+  recordConsentSchema,
+  upsertPreferenceSchema,
+} from '../application/guest-data.service';
 import {
   GuestQueryService,
   listStaysQuerySchema,
@@ -13,6 +20,10 @@ import {
 
 class ListStaysQueryDto extends createZodDto(listStaysQuerySchema) {}
 class SearchGuestsQueryDto extends createZodDto(searchGuestsQuerySchema) {}
+class UpsertPreferenceDto extends createZodDto(upsertPreferenceSchema) {}
+class RecordConsentDto extends createZodDto(recordConsentSchema) {}
+class MergeGuestDto extends createZodDto(mergeGuestSchema) {}
+class DataRequestDto extends createZodDto(dataRequestSchema) {}
 
 function propertyScope(ctx: RequestContext, actors: ActorStore, propertyId: string): PropertyScope {
   const tenantId = ctx.tenantId ?? actors.require().tenantId;
@@ -62,5 +73,96 @@ export class StaysController {
   @RequirePermission('guest.read')
   guest(@Param('propertyId') propertyId: string, @Param('guestId') guestId: string) {
     return this.guests.get(propertyScope(this.ctx, this.actors, propertyId), guestId);
+  }
+}
+
+/**
+ * What staff maintain about a guest who stays at the property: preferences, consents, merges of duplicates and
+ * data-subject requests. Nothing here creates a guest or changes a stay (CLAUDE.md rule 19).
+ */
+@Controller('properties/:propertyId/guests/:guestId')
+@PropertyScoped({ from: 'param' })
+export class GuestProfilesController {
+  constructor(
+    private readonly data: GuestDataService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get('preferences')
+  @RequirePermission('guest.read')
+  preferences(@Param('propertyId') propertyId: string, @Param('guestId') guestId: string) {
+    return this.data.preferences(propertyScope(this.ctx, this.actors, propertyId), guestId);
+  }
+
+  @Put('preferences')
+  @RequirePermission('guest.manage')
+  upsertPreference(
+    @Param('propertyId') propertyId: string,
+    @Param('guestId') guestId: string,
+    @Body() body: UpsertPreferenceDto,
+  ) {
+    return this.data.upsertPreference(
+      propertyScope(this.ctx, this.actors, propertyId),
+      guestId,
+      body,
+    );
+  }
+
+  @Delete('preferences/:preferenceId')
+  @RequirePermission('guest.manage')
+  deletePreference(
+    @Param('propertyId') propertyId: string,
+    @Param('guestId') guestId: string,
+    @Param('preferenceId') preferenceId: string,
+  ) {
+    return this.data.deletePreference(
+      propertyScope(this.ctx, this.actors, propertyId),
+      guestId,
+      preferenceId,
+    );
+  }
+
+  @Get('consents')
+  @RequirePermission('guest.read')
+  consents(@Param('propertyId') propertyId: string, @Param('guestId') guestId: string) {
+    return this.data.consents(propertyScope(this.ctx, this.actors, propertyId), guestId);
+  }
+
+  @Post('consents')
+  @RequirePermission('guest.manage')
+  recordConsent(
+    @Param('propertyId') propertyId: string,
+    @Param('guestId') guestId: string,
+    @Body() body: RecordConsentDto,
+  ) {
+    return this.data.recordConsent(propertyScope(this.ctx, this.actors, propertyId), guestId, body);
+  }
+
+  @Post('merge')
+  @HttpCode(200)
+  @RequirePermission('guest.merge')
+  merge(
+    @Param('propertyId') propertyId: string,
+    @Param('guestId') guestId: string,
+    @Body() body: MergeGuestDto,
+  ) {
+    return this.data.merge(propertyScope(this.ctx, this.actors, propertyId), guestId, body);
+  }
+
+  @Get('data-requests')
+  @RequirePermission('guest.data_request.manage')
+  dataRequests(@Param('propertyId') propertyId: string, @Param('guestId') guestId: string) {
+    return this.data.dataRequests(propertyScope(this.ctx, this.actors, propertyId), guestId);
+  }
+
+  @Post('data-requests')
+  @RequirePermission('guest.data_request.manage')
+  dataRequest(
+    @Param('propertyId') propertyId: string,
+    @Param('guestId') guestId: string,
+    @Body() body: DataRequestDto,
+  ) {
+    return this.data.dataRequest(propertyScope(this.ctx, this.actors, propertyId), guestId, body);
   }
 }

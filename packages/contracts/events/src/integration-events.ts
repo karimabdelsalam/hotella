@@ -28,3 +28,26 @@ export const IntegrationHealthChanged = defineEvent({
     to: z.enum(['HEALTHY', 'DEGRADED', 'OFFLINE', 'MISCONFIGURED', 'AUTH_FAILED']),
   }),
 });
+
+export const ReconciliationSnapshotCompleted = defineEvent({
+  type: 'integration.reconciliation.snapshot_completed',
+  version: 1,
+  description:
+    'The PMS finished reporting its in-house list for a reconciliation run; the stay owner compares and reports results back (Spec §52).',
+  payload: z.object({
+    run_id: z.uuid(),
+    instance_id: z.uuid(),
+    entries: z.number().int().min(0),
+  }),
+});
+
+export const ReconciliationCompleted = defineEvent({
+  type: 'integration.reconciliation.completed',
+  version: 1,
+  description: 'A reconciliation run finished; non-matching results opened integration exceptions.',
+  payload: z.object({
+    run_id: z.uuid(),
+    instance_id: z.uuid(),
+    summary: z.record(z.string(), z.number().int()),
+  }),
+});
