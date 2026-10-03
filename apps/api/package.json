@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@hotella/contracts-api": "workspace:*",
+    "@hotella/domain-organization": "workspace:*",
+    "@hotella/platform-auth": "workspace:*",
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",
     "@hotella/platform-events": "workspace:*",

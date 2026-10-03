@@ -6,7 +6,8 @@ export {
   nowSql,
   propertyScoped,
   tenantScoped,
-  translationTable,
+  translationColumns,
+  translationUnique,
   versioned,
 } from './columns';
 export { classify, getDataClassRegistry, sensitiveColumnNames } from './data-class';
@@ -19,7 +20,16 @@ export {
   TransactionRunner,
 } from './database.module';
 export { isUuid, newId } from './ids';
-export { MIGRATIONS_SCHEMA, MIGRATIONS_TABLE, migrationsFolder, runMigrations } from './migrate';
+export {
+  MIGRATION_LOCK_KEY,
+  MIGRATIONS_SCHEMA,
+  MIGRATIONS_TABLE,
+  migrationsFolder,
+  runMigrations,
+} from './migrate';
 export * as platform from './schema';
 export { currentTransaction, executor, withTransaction } from './transaction';
 export type { Executor, Transaction } from './transaction';
+export { MissingTenantScopeError, propertyWhere, tenantWhere } from './scope';
+export type { PropertyScope, TenantScope } from './scope';
+export { ltree, ltreeLabel } from './types';

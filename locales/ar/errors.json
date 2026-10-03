@@ -20,5 +20,19 @@
   "errors.platform.http_503": "الخدمة غير متاحة مؤقتًا.",
   "errors.platform.invalid_cursor": "مؤشر الصفحات غير صالح.",
   "errors.platform.idempotency_key_invalid": "ترويسة Idempotency-Key غير صالحة.",
-  "errors.platform.idempotency_in_progress": "لا يزال طلب يحمل نفس Idempotency-Key قيد المعالجة."
+  "errors.platform.idempotency_in_progress": "لا يزال طلب يحمل نفس Idempotency-Key قيد المعالجة.",
+  "errors.platform.feature_disabled": "هذه الميزة غير مفعّلة هنا.",
+  "errors.org.tenant.not_found": "العميل غير موجود.",
+  "errors.org.tenant.code_taken": "يوجد عميل بهذا الرمز بالفعل.",
+  "errors.org.organization.not_found": "الكيان غير موجود.",
+  "errors.org.property.not_found": "الفندق غير موجود.",
+  "errors.org.property.code_taken": "يوجد فندق بهذا الرمز بالفعل لدى هذا العميل.",
+  "errors.org.location.not_found": "الموقع غير موجود.",
+  "errors.org.location.code_taken": "يوجد موقع بهذا الرمز بالفعل تحت نفس الموقع الأب.",
+  "errors.org.location.invalid_parent": "الموقع الأب يتبع فندقًا آخر أو لا يمكنه احتواء هذا النوع.",
+  "errors.org.room.not_found": "الغرفة غير موجودة.",
+  "errors.org.room.number_taken": "توجد غرفة بهذا الرقم بالفعل في هذا الفندق.",
+  "errors.org.room_type.not_found": "نوع الغرفة غير موجود.",
+  "errors.org.brand_profile.not_found": "ملف العلامة غير موجود.",
+  "errors.org.brand_profile.invalid_scope": "نطاق ملف العلامة لا يطابق الهدف."
 }

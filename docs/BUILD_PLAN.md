@@ -272,7 +272,7 @@ packages/domain/<ctx>/src/
 | 0.3.4 | `platform.inbox` table + `@Idempotent(consumerName)` decorator for consumers (keyed by `event_id + consumer`) | duplicate delivery processes once (test) |
 | 0.3.5 | `@hotella/platform-queue`: BullMQ on Valkey, queues `critical-operational`, `guest-realtime`, `normal`, `analytics`, `background-ai` with separate worker concurrency settings (Spec §71); job base class with retry/backoff/DLQ | jobs land in the right queue by declared priority |
 | 0.3.6 | In-process `DomainEventBus` for same-transaction side effects (used only within a bounded context) | documented when to use which (ADR-0004) |
-| 0.3.7 | `@hotella/platform-i18n`: own `I18nService` on ICU MessageFormat (`intl-messageformat`) loading `/locales/{en,ar}/*.json` (the same files `next-intl` will load on the frontend); `LocaleResolver` implementing the chain *explicit → user/guest preference → detected → property default → platform default (en)*; `Accept-Language` + `?lang=` + per-actor preference hooks (Phase 1 wires the preference); `translationTable()` schema helper producing `<entity>_translations(entity_id, locale, …)` with unique `(entity_id, locale)` | test: same key resolves differently per locale; CI check that `ar` and `en` key sets are identical |
+| 0.3.7 | `@hotella/platform-i18n`: own `I18nService` on ICU MessageFormat (`intl-messageformat`) loading `/locales/{en,ar}/*.json` (the same files `next-intl` will load on the frontend); `LocaleResolver` implementing the chain *explicit → user/guest preference → detected → property default → platform default (en)*; `Accept-Language` + `?lang=` + per-actor preference hooks (Phase 1 wires the preference); `translationColumns()` + `translationUnique()` schema helpers (split so Drizzle keeps column types) producing `<entity>_translations(entity_id, locale, …)` with unique `(entity_id, locale)` | test: same key resolves differently per locale; CI check that `ar` and `en` key sets are identical |
 | 0.3.8 | Error model: `AppError(code, params)` → RFC 9457 Problem Details with `code` (stable, e.g. `guest.activation.token_expired`) and localized `detail`; error codes documented in `locales/*/errors.json` | unknown code fails tests |
 | 0.3.9 | API conventions: versioned routes, `IdempotencyInterceptor` (`Idempotency-Key` header, Valkey-backed, 24h, replays stored response), Valkey rate limiting (per IP now; per actor/tenant in Phase 1), cursor pagination helper, OpenAPI from zod 4 (`nestjs-zod` + `@nestjs/swagger` 11) served at `/api/docs` in non-prod and snapshot-tested | replayed POST returns identical body and `Idempotent-Replayed: true` |
 | 0.3.10 | Scheduler base in `apps/worker` (BullMQ repeatable jobs) for later SLA timers, reconciliation, PM | a heartbeat job runs every minute in dev |
@@ -407,7 +407,17 @@ support.access.request  support.access.approve
 
 ### 5.8 Deployment deliverable at end of Phase 1 (ADR-0013)
 
-First staging environment on the on-prem target: `infra/docker/compose.pilot.yml` (api, worker, scheduler, realtime placeholder, PostgreSQL 16 + pgvector, Redis, SeaweedFS, Vault dev-mode replaced by a real Vault, OTel collector + Grafana stack), pgBackRest backup job with a documented restore drill, and operations runbooks (deploy, rollback, backup/restore, secret rotation). Helm charts for Kubernetes follow when the second property/tenant is onboarded.
+First staging environment on the on-prem target: `infra/docker/compose.pilot.yml` (api, worker, scheduler, realtime placeholder, PostgreSQL 18 + pgvector, Valkey 9, SeaweedFS, Vault dev-mode replaced by a real Vault, OTel collector + Grafana stack), pgBackRest backup job with a documented restore drill, and operations runbooks (deploy, rollback, backup/restore, secret rotation). Helm charts for Kubernetes follow when the second property/tenant is onboarded.
+
+### 5.9 Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 1.1 | `@hotella/platform-auth` (RequestActor in CLS, `@Public`/`@RequirePermission`/`@PropertyScoped`/`@TenantScoped`, global `AuthGuard`, `ActionGate` with pluggable stages, test strategy/resolver); `@hotella/domain-organization` (schema `org`, migration `0002_org_phase1` incl. `ltree`, tenant/property foreign keys on every scoped table, services, controllers, public API, manifest, branding resolver with non-removable attribution); `runMigrations` serialized by a PostgreSQL advisory lock | delivered |
+| 1.2 | Identity & Access (schema `iam`): persons, users, memberships, roles + translations, permission catalog from manifests, sessions with rotating refresh tokens and reuse detection, TOTP MFA, real `AuthenticationStrategy` + `PermissionResolver`, first-admin bootstrap CLI | next |
+| 1.3 | Audit log, hierarchical configuration + history, retention policies, attribution policy table, RLS, pilot compose, Phase 1 acceptance | planned |
+
+Reality notes for 1.1: brand assets are stored as object-storage keys (`logo_asset_key`, `cover_asset_keys`, …) because the asset registry arrives with the knowledge/storage work; the public branding endpoint takes `property` (+ optional `channel`) and resolves platform → tenant → organization → property → channel.
 
 ---
 

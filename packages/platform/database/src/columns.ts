@@ -1,14 +1,5 @@
 import { sql } from 'drizzle-orm';
-import {
-  type AnyPgColumn,
-  integer,
-  type PgColumnBuilderBase,
-  type PgSchema,
-  timestamp,
-  unique,
-  uuid,
-  varchar,
-} from 'drizzle-orm/pg-core';
+import { type AnyPgColumn, integer, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core';
 import { newId } from './ids';
 
 /**
@@ -49,29 +40,26 @@ export function localeColumn(name = 'locale') {
 }
 
 /**
- * Normalized translation table (Spec §79.2): `<entity>_translations(entity_id, locale, …)` with a unique
- * `(entity_id, locale)` constraint. `entityRef` is the parent id column (FK, cascade on delete).
- * `extra` holds the translated columns (name, description, …).
+ * Normalized translation tables (Spec §79.2): `<entity>_translations(entity_id, locale, …)`.
+ * Build them as `schema.table('<entity>_translations', { ...translationColumns(() => parent.id), name: … },
+ * (t) => [translationUnique('<entity>_translations', t)])`. Drizzle's column typing cannot survive a generic
+ * wrapper around `schema.table`, so the helper is split into the column set and the unique constraint.
  */
-export function translationTable<TExtra extends Record<string, PgColumnBuilderBase>>(
-  schema: PgSchema,
-  name: string,
-  entityRef: () => AnyPgColumn,
-  extra: TExtra,
-) {
-  const columns = {
+export function translationColumns(entityRef: () => AnyPgColumn) {
+  return {
     entityId: uuid('entity_id').notNull().references(entityRef, { onDelete: 'cascade' }),
     locale: localeColumn(),
-    ...extra,
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
   };
-  return schema.table(name, columns, (t) => [
-    unique(`${name}_entity_locale_uq`).on(t.entityId, t.locale),
-  ]);
+}
+
+/** Unique `(entity_id, locale)` for a translation table; `name` is the table name. */
+export function translationUnique(name: string, t: { entityId: AnyPgColumn; locale: AnyPgColumn }) {
+  return unique(`${name}_entity_locale_uq`).on(t.entityId, t.locale);
 }
 
 /** `now()` for raw SQL fragments. */

@@ -47,6 +47,12 @@ importers:
       '@hotella/contracts-api':
         specifier: workspace:*
         version: link:../../packages/contracts/api
+      '@hotella/domain-organization':
+        specifier: workspace:*
+        version: link:../../packages/domain/organization
+      '@hotella/platform-auth':
+        specifier: workspace:*
+        version: link:../../packages/platform/auth
       '@hotella/platform-config':
         specifier: workspace:*
         version: link:../../packages/platform/config
@@ -267,6 +273,146 @@ importers:
       '@hotella/tooling':
         specifier: workspace:*
         version: link:../../../tooling
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.1)(vite@8.3.2(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/domain/organization:
+    dependencies:
+      '@hotella/contracts-api':
+        specifier: workspace:*
+        version: link:../../contracts/api
+      '@hotella/contracts-events':
+        specifier: workspace:*
+        version: link:../../contracts/events
+      '@hotella/platform-auth':
+        specifier: workspace:*
+        version: link:../../platform/auth
+      '@hotella/platform-database':
+        specifier: workspace:*
+        version: link:../../platform/database
+      '@hotella/platform-events':
+        specifier: workspace:*
+        version: link:../../platform/events
+      '@hotella/platform-i18n':
+        specifier: workspace:*
+        version: link:../../platform/i18n
+      '@hotella/platform-manifest':
+        specifier: workspace:*
+        version: link:../../platform/manifest
+      '@hotella/platform-observability':
+        specifier: workspace:*
+        version: link:../../platform/observability
+      '@nestjs/common':
+        specifier: 11.2.7
+        version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      drizzle-orm:
+        specifier: 0.45.3
+        version: 0.45.3(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)
+      nestjs-zod:
+        specifier: 5.5.0
+        version: 5.5.0(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/swagger@11.4.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(reflect-metadata@0.2.2))(rxjs@7.8.2)(zod@4.6.5)
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@hotella/platform-config':
+        specifier: workspace:*
+        version: link:../../platform/config
+      '@hotella/platform-flags':
+        specifier: workspace:*
+        version: link:../../platform/flags
+      '@hotella/platform-http':
+        specifier: workspace:*
+        version: link:../../platform/http
+      '@hotella/platform-testing':
+        specifier: workspace:*
+        version: link:../../platform/testing
+      '@hotella/tooling':
+        specifier: workspace:*
+        version: link:../../../tooling
+      '@nestjs/core':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)
+      '@nestjs/testing':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(@nestjs/platform-express@11.2.7)
+      '@types/express':
+        specifier: 5.0.6
+        version: 5.0.6
+      '@types/supertest':
+        specifier: 7.2.1
+        version: 7.2.1
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: 7.8.2
+        version: 7.8.2
+      supertest:
+        specifier: 7.3.1
+        version: 7.3.1
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.1)(vite@8.3.2(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/platform/auth:
+    dependencies:
+      '@hotella/platform-config':
+        specifier: workspace:*
+        version: link:../config
+      '@hotella/platform-flags':
+        specifier: workspace:*
+        version: link:../flags
+      '@hotella/platform-i18n':
+        specifier: workspace:*
+        version: link:../i18n
+      '@hotella/platform-observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@nestjs/common':
+        specifier: 11.2.7
+        version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      nestjs-cls:
+        specifier: 6.3.1
+        version: 6.3.1(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: 7.8.2
+        version: 7.8.2
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@hotella/platform-http':
+        specifier: workspace:*
+        version: link:../http
+      '@hotella/tooling':
+        specifier: workspace:*
+        version: link:../../../tooling
+      '@nestjs/platform-express':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)
+      '@nestjs/testing':
+        specifier: 11.2.7
+        version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(@nestjs/platform-express@11.2.7)
+      '@types/express':
+        specifier: 5.0.6
+        version: 5.0.6
+      '@types/supertest':
+        specifier: 7.2.1
+        version: 7.2.1
+      supertest:
+        specifier: 7.3.1
+        version: 7.3.1
       vitest:
         specifier: 4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.1)(vite@8.3.2(@types/node@24.19.1)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))

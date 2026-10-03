@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Public } from '@hotella/platform-auth';
 import { AppError } from '@hotella/platform-i18n';
 import { ManifestRegistry, type ModuleManifest } from '@hotella/platform-manifest';
 import { createZodDto } from 'nestjs-zod';
@@ -11,6 +12,7 @@ export const echoSchema = z.object({
 });
 export class EchoDto extends createZodDto(echoSchema) {}
 
+@Public()
 @Controller('meta')
 export class MetaController {
   constructor(private readonly manifests: ManifestRegistry) {}

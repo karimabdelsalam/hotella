@@ -52,6 +52,12 @@
     },
     {
       "path": "packages/platform/manifest"
+    },
+    {
+      "path": "packages/platform/auth"
+    },
+    {
+      "path": "packages/domain/organization"
     }
   ]
 }

@@ -1,0 +1,8 @@
+{
+  "org.permission.tenant_manage": "إدارة العملاء والكيانات",
+  "org.permission.property_read": "عرض الفنادق والمواقع والغرف",
+  "org.permission.property_manage": "إنشاء الفنادق وتعديلها",
+  "org.permission.location_manage": "إدارة شجرة المواقع وأنواع الغرف والغرف",
+  "org.permission.branding_read": "عرض ملفات العلامة",
+  "org.permission.branding_manage": "تعديل ملفات العلامة"
+}

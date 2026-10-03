@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { OrganizationModule } from '@hotella/domain-organization';
+import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
 import { EventsModule } from '@hotella/platform-events';
@@ -26,6 +28,9 @@ import { MetaModule } from './meta/meta.module';
     FeatureFlagsModule,
     ManifestModule.forRoot(),
     StorageModule.forRoot(),
+    // Phase 1.2 wires the identity context's strategy and resolver; until then nobody is authenticated.
+    AuthModule.forRoot(),
+    OrganizationModule,
     HealthModule,
     MetaModule,
   ],

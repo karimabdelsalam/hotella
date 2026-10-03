@@ -20,5 +20,19 @@
   "errors.platform.http_503": "The service is temporarily unavailable.",
   "errors.platform.invalid_cursor": "The pagination cursor is invalid.",
   "errors.platform.idempotency_key_invalid": "The Idempotency-Key header is invalid.",
-  "errors.platform.idempotency_in_progress": "A request with this Idempotency-Key is still being processed."
+  "errors.platform.idempotency_in_progress": "A request with this Idempotency-Key is still being processed.",
+  "errors.platform.feature_disabled": "This feature is not enabled here.",
+  "errors.org.tenant.not_found": "Tenant not found.",
+  "errors.org.tenant.code_taken": "A tenant with this code already exists.",
+  "errors.org.organization.not_found": "Organization not found.",
+  "errors.org.property.not_found": "Property not found.",
+  "errors.org.property.code_taken": "A property with this code already exists in this tenant.",
+  "errors.org.location.not_found": "Location not found.",
+  "errors.org.location.code_taken": "A location with this code already exists under the same parent.",
+  "errors.org.location.invalid_parent": "The parent location belongs to another property or cannot contain this kind.",
+  "errors.org.room.not_found": "Room not found.",
+  "errors.org.room.number_taken": "A room with this number already exists in this property.",
+  "errors.org.room_type.not_found": "Room type not found.",
+  "errors.org.brand_profile.not_found": "Brand profile not found.",
+  "errors.org.brand_profile.invalid_scope": "The brand profile scope does not match the target."
 }

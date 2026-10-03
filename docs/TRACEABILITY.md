@@ -95,7 +95,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 77 | Repository structure; `/domain` not a blob | BP §3; ADR-0001 (mapping of extra contexts) | P0 |
 | 78 | Schema ownership `org.* … audit.*` | BP §0.8 schema list (+ catalog, lostfound, logbook, knowledge, platform); ADR-0002 | P0+ |
 | 79.1 | No hardcoded UI strings; `/locales/{en,ar}` namespaces; stable keys | BP §4 0.3.7–0.3.8; CM 7 | P0 |
-| 79.2 | No `*_en/*_ar` columns; normalized translation tables | BP §4 0.3.7 `translationTable()`; every `*_translations` table in §5–§9; CM 7 | P0+ |
+| 79.2 | No `*_en/*_ar` columns; normalized translation tables | BP §4 0.3.7 `translationColumns()`/`translationUnique()` (`org.location_translations`, `org.room_type_translations`, `org.brand_profile_translations`); every `*_translations` table in §5–§9; CM 7 | P0+ |
 | 79.3 | Locale resolution order | BP §4 0.3.7 `LocaleResolver` | P0 |
 | 79.4 | True RTL across staff/guest/admin UIs | ADR-0009 logical properties; DoD §12.8; CM 8 | P4+ |
 | 79.5 | AI detects/responds in user language; ar/en documents; cross-language retrieval | BP §10 P6 language detection; P8 manuals cross-language | P6, P8 |

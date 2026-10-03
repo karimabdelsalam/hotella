@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import type { OpenAPIObject } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
+import { OrganizationModule } from '@hotella/domain-organization';
+import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
 import { EventsModule } from '@hotella/platform-events';
@@ -49,6 +51,8 @@ describe('api skeleton (e2e)', () => {
         FeatureFlagsModule,
         ManifestModule.forRoot(),
         StorageModule.forRoot(),
+        AuthModule.forRoot(),
+        OrganizationModule,
         HealthModule,
         MetaModule,
       ],
@@ -112,7 +116,14 @@ describe('api skeleton (e2e)', () => {
     const res = await request(app.getHttpServer()).get('/api/docs/json').expect(200);
     expect(res.body.openapi).toMatch(/^3\./);
     expect(Object.keys(res.body.paths)).toEqual(
-      expect.arrayContaining(['/api/v1/health', '/api/v1/ready', '/api/v1/meta/echo']),
+      expect.arrayContaining([
+        '/api/v1/health',
+        '/api/v1/ready',
+        '/api/v1/meta/echo',
+        '/api/v1/tenants',
+        '/api/v1/properties/{propertyId}/locations',
+        '/api/v1/public/branding',
+      ]),
     );
     expect(
       res.body.paths['/api/v1/meta/echo'].post.requestBody.content['application/json'].schema,
@@ -125,8 +136,22 @@ describe('api skeleton (e2e)', () => {
 
   it('exposes validated module manifests', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/meta/manifests').expect(200);
-    expect(res.body.map((m: { code: string }) => m.code)).toEqual(['platform']);
-    expect(res.body[0].events).toContain('platform.feature_flag.changed.v1');
+    const byCode = new Map(
+      (res.body as { code: string; events: string[] }[]).map((m) => [m.code, m]),
+    );
+    expect([...byCode.keys()].sort()).toEqual(['org', 'platform']);
+    expect(byCode.get('platform')?.events).toContain('platform.feature_flag.changed.v1');
+    expect(byCode.get('org')?.events).toContain('org.property.created.v1');
+  });
+
+  it('protected organization routes reject anonymous callers with a localized 401', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/properties')
+      .set('Accept-Language', 'ar')
+      .expect(401);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body).toMatchObject({ status: 401, code: 'platform.unauthorized' });
+    await request(app.getHttpServer()).post('/api/v1/tenants').send({}).expect(401);
   });
 
   it('unknown route → Problem Details 404, localized detail from the request locale', async () => {

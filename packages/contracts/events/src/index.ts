@@ -8,6 +8,14 @@ export {
 export type { DeliveryQueue, EventEnvelope } from './envelope';
 export { FeatureFlagChanged, PlatformPing } from './platform-events';
 export {
+  BrandProfileUpdated,
+  LocationCreated,
+  PropertyCreated,
+  PropertyUpdated,
+  RoomCreated,
+  TenantCreated,
+} from './org-events';
+export {
   createEnvelope,
   defineEvent,
   EventDefinitionError,

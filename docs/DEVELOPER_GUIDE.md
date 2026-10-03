@@ -48,8 +48,10 @@ apps/          things you run        → api (:3000), worker (:3001), later real
 packages/
   platform/    infrastructure        → config, secrets, observability (logs, request context, tracing), database, events (outbox/inbox),
                                        queue (BullMQ on Valkey), http (Problem Details, idempotency, rate limit, OpenAPI), i18n,
-                                       flags, manifest, storage (S3), testing (Testcontainers)
-  domain/      business (one folder per bounded context, one PostgreSQL schema each) — starts in Phase 1
+                                       flags, manifest, storage (S3), testing (Testcontainers),
+                                       auth (request actor, permission guard, ActionGate)
+  domain/      business (one folder per bounded context, one PostgreSQL schema each)
+                                     → organization (schema `org`: tenants, properties, location tree, rooms, branding)
   contracts/   zod schemas shared by everything → events, api, later connectors, ai-tools
 locales/       ONE ICU MessageFormat catalog (en, ar) used by backend and frontend
 docs/          spec, plan, ADRs, traceability, this guide, architecture diagrams
@@ -111,7 +113,7 @@ Open a PR; the template is the four quality gates (automated checks, spec review
 
 1. **Plan first.** Add a section to `docs/BUILD_PLAN.md` with scope, domain model, migrations, APIs, events, permissions, tests, acceptance (Spec §84.5). Add rows to `docs/TRACEABILITY.md`.
 2. `pnpm gen:context spa` (scaffold generator planned for Sprint 0.3) scaffolds `packages/domain/spa` with the folder layout above, a `pgSchema('spa')`, an empty `ModuleManifest`, locale namespaces `locales/{en,ar}/spa.json`, and a tenant-leak test.
-3. Define tables in `infrastructure/schema.ts` using the helpers from `@hotella/platform-database` (`baseColumns()`, `tenantScoped()`/`propertyScoped()`, `versioned()`, `translationTable()`), wrap each table in `classify(table, { col: 'INTERNAL' | 'CONFIDENTIAL' | … })` (a missing column fails at load), add the file to `drizzle.config.ts` `schema` if it is a new package, run `pnpm db:generate <name>`, review the SQL, commit the migration.
+3. Define tables in `infrastructure/schema.ts` using the helpers from `@hotella/platform-database` (`baseColumns()`, `tenantScoped()`/`propertyScoped()`, `versioned()`, and `translationColumns()` + `translationUnique()` for `<entity>_translations` tables), wrap each table in `classify(table, { col: 'INTERNAL' | 'CONFIDENTIAL' | … })` (a missing column fails at load), add the file to `drizzle.config.ts` `schema` if it is a new package, run `pnpm db:generate <name>`, review the SQL, commit the migration.
 4. Write the domain model in `domain/` (pure TypeScript, unit-tested).
 5. Write use cases in `application/`; start transactions with `withTransaction()`; publish events with `EventPublisher`; write audit rows with `AuditWriter`.
 6. Declare events in `packages/contracts/events` (`defineEvent('spa.booking.created', 1, schema)`), permissions in the manifest (`spa.read`, `spa.book`), entitlement codes (`SPA`), AI tools if any (`spa.search_availability`).

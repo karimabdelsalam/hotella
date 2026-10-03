@@ -1,8 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
+import { Public } from '@hotella/platform-auth';
 import { HealthCheck, HealthCheckService, type HealthCheckResult } from '@nestjs/terminus';
 import { PostgresHealthIndicator } from './postgres.health';
 import { ValkeyHealthIndicator } from './valkey.health';
 
+@Public()
 @Controller()
 export class HealthController {
   constructor(
