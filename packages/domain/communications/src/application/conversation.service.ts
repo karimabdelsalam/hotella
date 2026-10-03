@@ -409,7 +409,7 @@ export class ConversationService {
 
   guestPost(p: GuestPrincipal, body: string) {
     return this.tx.run(async () => {
-      if (!p.stayId) throw AppError.forbidden('comms.guest.scope_missing', { scope: 'CHAT' });
+      if (!p.stayId) throw AppError.forbidden('guest.session.scope_missing', { scope: 'CHAT' });
       const scope = { tenantId: p.tenantId };
       const now = new Date();
       let conversation =

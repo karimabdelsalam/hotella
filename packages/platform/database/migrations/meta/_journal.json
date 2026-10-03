@@ -134,6 +134,13 @@
       "when": 1791039423022,
       "tag": "0018_comms_conversations",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791042460277,
+      "tag": "0019_catalog",
+      "breakpoints": true
     }
   ]
 }

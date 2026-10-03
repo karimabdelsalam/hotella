@@ -49,6 +49,8 @@ module.exports = {
     exclude: {
       path: [
         '\\.(spec|e2e-spec)\\.tsx?$',
+        // Test harnesses of integration specs (excluded from builds like the specs themselves).
+        '^packages/domain/[^/]+/src/testing/',
         '/dist/',
         '/coverage/',
         '/\\.next/',

@@ -8,13 +8,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Request } from 'express';
-import {
-  GUEST_API,
-  type GuestPrincipal,
-  type GuestPublicApi,
-  type GuestScope,
-} from '@hotella/domain-guest/public';
+import { GUEST_API, type GuestPrincipal, type GuestScope } from './tokens';
 import { ActorStore } from '@hotella/platform-auth';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
@@ -27,7 +21,16 @@ const GUEST_SCOPE_KEY = 'hotella:guest-scope';
 export const RequireGuestScope = (scope: GuestScope): MethodDecorator & ClassDecorator =>
   SetMetadata(GUEST_SCOPE_KEY, scope);
 
-type GuestRequest = Request & { guestPrincipal?: GuestPrincipal };
+/** The one GUEST_API call the guard makes (typed here to keep this file independent of the full API). */
+interface SessionAuthenticator {
+  authenticateGuestSession(token: string): Promise<GuestPrincipal | null>;
+}
+
+/** The part of the HTTP request the guard needs (no dependency on the HTTP framework's types). */
+interface GuestRequest {
+  header(name: string): string | undefined;
+  guestPrincipal?: GuestPrincipal;
+}
 
 /** The authenticated guest of the request (set by GuestSessionGuard). */
 export const CurrentGuest = createParamDecorator(
@@ -46,7 +49,7 @@ export const CurrentGuest = createParamDecorator(
 @Injectable()
 export class GuestSessionGuard implements CanActivate {
   constructor(
-    @Inject(GUEST_API) private readonly guests: GuestPublicApi,
+    @Inject(GUEST_API) private readonly guests: SessionAuthenticator,
     private readonly actors: ActorStore,
     private readonly ctx: RequestContext,
     private readonly reflector: Reflector,
@@ -62,7 +65,7 @@ export class GuestSessionGuard implements CanActivate {
       context.getClass(),
     ]);
     if (needed && !principal.scopes.includes(needed))
-      throw AppError.forbidden('comms.guest.scope_missing', { scope: needed });
+      throw AppError.forbidden('guest.session.scope_missing', { scope: needed });
     req.guestPrincipal = principal;
     this.actors.set({
       type: 'GUEST',

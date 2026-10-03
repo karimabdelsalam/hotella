@@ -22,6 +22,14 @@ export {
   UserCreated,
 } from './iam-events';
 export {
+  SERVICE_REQUEST_SOURCES,
+  SERVICE_REQUEST_STATUSES,
+  ServiceRequestCreated,
+  ServiceRequestRelated,
+  ServiceRequestStatusChanged,
+  ServiceVersionPublished,
+} from './catalog-events';
+export {
   ConversationOpened,
   DeliveryUpdated,
   HandoffRequested,

@@ -1,4 +1,5 @@
 /** The ONLY surface other bounded contexts may import from this package (ADR-0001). */
+import type { GuestPrincipal, GuestScope } from './tokens';
 
 export type StayStatus = 'EXPECTED' | 'IN_HOUSE' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
 
@@ -13,19 +14,6 @@ export interface StaySummary {
   /** Guests currently in the party (primary first). */
   readonly partyGuestIds: readonly string[];
 }
-
-export type GuestScope =
-  | 'SERVICE_REQUEST'
-  | 'CHAT'
-  | 'DINING'
-  | 'CONCIERGE'
-  | 'ROOM_CONTROL'
-  | 'VIEW_BILL'
-  | 'PAYMENT'
-  | 'LOST_FOUND'
-  | 'FEEDBACK'
-  | 'INVOICE'
-  | 'SUPPORT';
 
 /** Who issues or changes a grant (audit actor). */
 export interface GrantActor {
@@ -67,17 +55,6 @@ export interface OpenedGuestSession {
   readonly token: string;
   readonly sessionId: string;
   readonly expiresAt: string;
-}
-
-/** An authenticated guest request (resolved per request from the session token). */
-export interface GuestPrincipal {
-  readonly tenantId: string;
-  readonly propertyId: string;
-  readonly guestId: string;
-  readonly stayId: string | null;
-  readonly grantId: string;
-  readonly sessionId: string;
-  readonly scopes: readonly GuestScope[];
 }
 
 /** A current member of a stay's party, for verification flows (names and PMS contact numbers are CONFIDENTIAL). */
@@ -122,7 +99,13 @@ export interface GuestPublicApi {
   ): Promise<GrantSummary | null>;
 }
 
-/** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */
-export const GUEST_API = Symbol.for('hotella.domain.guest.api');
+export { GUEST_API } from './tokens';
+export type { GuestPrincipal, GuestScope } from './tokens';
 
 export { GUEST_MANIFEST } from '../manifest';
+export {
+  CurrentGuest,
+  GUEST_SESSION_HEADER,
+  GuestSessionGuard,
+  RequireGuestScope,
+} from './guest-session.guard';

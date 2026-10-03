@@ -25,6 +25,7 @@ const GUEST_DESK = [
   'inbox.read',
   'inbox.reply',
   'inbox.takeover',
+  'catalog.read',
 ] as const;
 /** Every staff member's own notifications and channel choices (Spec §25). */
 const MY_NOTIFICATIONS = ['notification.read', 'notification.preferences.manage'] as const;
@@ -98,6 +99,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'channel.manage',
       'qr.manage',
       'inbox.assign',
+      'catalog.manage',
+      'catalog.publish',
     ],
   },
   {

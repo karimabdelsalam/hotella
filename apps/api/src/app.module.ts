@@ -5,6 +5,7 @@ import {
   identityAuthOptions,
   identityLocalePreferences,
 } from '@hotella/domain-identity';
+import { CatalogModule } from '@hotella/domain-catalog';
 import { CommunicationsModule, CommunicationsRealtimeModule } from '@hotella/domain-communications';
 import { GuestModule } from '@hotella/domain-guest';
 import { IntegrationsModule } from '@hotella/domain-integrations';
@@ -56,6 +57,7 @@ import { MetaModule } from './meta/meta.module';
     OperationsModule,
     CommunicationsModule,
     CommunicationsRealtimeModule,
+    CatalogModule,
     HealthModule,
     MetaModule,
   ],

@@ -1,6 +1,13 @@
 import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
-import { GUEST_API, type GuestPrincipal, type GuestPublicApi } from '@hotella/domain-guest/public';
+import {
+  CurrentGuest,
+  GUEST_API,
+  type GuestPrincipal,
+  type GuestPublicApi,
+  GuestSessionGuard,
+  RequireGuestScope,
+} from '@hotella/domain-guest/public';
 import { Public } from '@hotella/platform-auth';
 import { RateLimit } from '@hotella/platform-http';
 import { CurrentLocale } from '@hotella/platform-i18n';
@@ -17,7 +24,6 @@ import {
 import { GuestPortalService } from '../application/guest-portal.service';
 import { ConversationService } from '../application/conversation.service';
 import { guestMessageSchema } from '../application/inbox.service';
-import { CurrentGuest, GuestSessionGuard, RequireGuestScope } from './guest-session.guard';
 
 class StartActivationDto extends createZodDto(startActivationSchema) {}
 class RequestOtpDto extends createZodDto(requestOtpSchema) {}

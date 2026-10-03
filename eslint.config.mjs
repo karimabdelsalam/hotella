@@ -174,9 +174,10 @@ export default tseslint.config(
       ],
     },
   },
-  // Integration specs compose other contexts' Nest modules the way an app does (main entry only, never internals).
+  // Integration specs (and their shared test harness, never built into dist) compose other contexts' Nest modules the
+  // way an app does (main entry only, never internals).
   {
-    files: ['packages/domain/**/*.integration.spec.ts'],
+    files: ['packages/domain/**/*.integration.spec.ts', 'packages/domain/*/src/testing/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

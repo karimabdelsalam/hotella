@@ -24,7 +24,7 @@ import { JsonHttpSmsAdapter } from './application/adapters/sms-http';
 import { ConversationService } from './application/conversation.service';
 import { InboxService } from './application/inbox.service';
 import { ConversationRepositories } from './infrastructure/conversation-repositories';
-import { GuestSessionGuard } from './api/guest-session.guard';
+import { GuestSessionGuard } from '@hotella/domain-guest/public';
 import { ActivationAdminService, RoomQrAdminService } from './application/activation-admin.service';
 import { ActivationService } from './application/activation.service';
 import { ArrivalActivation } from './application/arrival-activation';

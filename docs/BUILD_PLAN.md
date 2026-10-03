@@ -1030,37 +1030,138 @@ Reality notes for 4.1:
 
 ## 9. Phase 5 — Guest Service Catalog (detailed)
 
-### 9.1 Domain model (schema `catalog`, plus `ops` usage)
+**Goal / acceptance (Spec §85, closes M1):** a verified guest opens the property's localized catalog, requests a service,
+the right department gets the work with its SLA, and the guest is told on their verified channel when it is done.
+Package `@hotella/domain-catalog` (context code `catalog`, schema `catalog`); guest notifications in the communications
+context; `apps/guest-web` per ADR-0009.
+
+### 9.1 Domain model (schema `catalog`)
 
 ```text
-catalog.service_categories           id, tenant_id, property_id nullable, code, parent_id, sort_order, icon, status
-catalog.service_category_translations category_id, locale, name, description
-catalog.service_definitions          id, tenant_id, property_id nullable, code (EXTRA_TOWELS…), category_id, status
-catalog.service_versions             id, definition_id, version, department_code, workflow_version_id, sla_policy_id,
-                                     required_fields jsonb (zod-like schema), eligibility jsonb (scopes, stay status, room types),
-                                     availability jsonb (hours, lead time, capacity), guest_visible bool, automation_policy jsonb,
-                                     price jsonb nullable, published_at (immutable after)
-catalog.service_version_translations version_id, locale, name, short_description, description, guest_prompt_hints
-catalog.service_requests             id, tenant_id, property_id, service_version_id, guest_id, stay_id, room_id,
-                                     conversation_id nullable, work_item_id, status, fields jsonb, requested_for_at nullable,
-                                     source (GUEST_WEB|WHATSAPP|STAFF|AI|QR), created_by_actor, version
+catalog.service_categories            id, tenant_id, property_id nullable (null = every property of the tenant), code,
+                                      parent_id, sort_order, icon, status ACTIVE|INACTIVE, version
+catalog.service_category_translations entity_id, locale, name, description
+catalog.service_definitions           id, tenant_id, property_id nullable, code (EXTRA_TOWELS…), category_id,
+                                      status ACTIVE|RETIRED, published_version_id nullable, version
+catalog.service_versions              id, tenant_id, definition_id, version_no, status DRAFT|PUBLISHED|SUPERSEDED,
+                                      department_code, priority, workflow_code nullable, required_fields jsonb,
+                                      eligibility jsonb, availability jsonb, guest_visible, automation_policy jsonb,
+                                      price jsonb nullable, duplicate_window_minutes, published_at, published_by, version
+catalog.service_version_translations  entity_id, locale, name, short_description, description, guest_prompt_hints,
+                                      field_labels jsonb ({field: {label, options: {code: label}}})
+catalog.service_requests              id, tenant_id, property_id, definition_id, service_version_id, service_code,
+                                      guest_id, stay_id, room_id, conversation_id nullable, work_item_id, status
+                                      OPEN|IN_PROGRESS|COMPLETED|CANCELLED, fields jsonb, requested_for_at nullable,
+                                      locale, source GUEST_WEB|WHATSAPP|STAFF|AI|QR, created_by_type, created_by_id,
+                                      related_count, last_related_at, closed_at, version
+catalog.service_request_events        id, tenant_id, request_id, type CREATED|RELATED|STATUS_CHANGED, from, to,
+                                      actor_type, actor_id, fields jsonb nullable, reason, occurred_at   (append-only)
 ```
 
-### 9.2 Behaviour
+### 9.2 Design decisions taken before coding
 
-- Publishing a version freezes it; editing creates a draft of the next version. Requests reference the exact version.
-- `createServiceRequest()` is the single application entrypoint used by staff UI, guest web, and later the AI tool `operations.create_service_request`; it runs eligibility (grant scopes + stay state + availability), **duplicate detection** (same stay + same service open within window ⇒ relate instead of create, Spec §23), then creates the work item via the Operations Engine public API and binds SLA/workflow.
-- Guest-facing catalog is localized from translation tables with the locale resolution chain; untranslated locale falls back to property default then `en`.
+- **Versions are immutable once published** (CLAUDE.md rule 9): a database trigger refuses any change to a published
+  version except its status moving to `SUPERSEDED`; editing a published service creates the next `DRAFT` (copying the
+  current one and its translations); publishing supersedes the previous version and moves
+  `service_definitions.published_version_id`. Requests keep the exact version they were made under.
+- **SLA and workflow are bound by code, not by foreign id**: the operations context owns SLA policies and workflow
+  versions. A request creates its work item with `serviceCode`, `departmentCode`, `priority` and, if set,
+  `workflowCode`; the SLA engine picks the most specific policy (service > department > priority > kind, Phase 3) and
+  the workflow engine starts the property's published workflow. This replaces the plan's `sla_policy_id` /
+  `workflow_version_id` columns, which would have reached into another context's tables (rule "no domain writes
+  another domain's tables").
+- **Tenant-wide and property services**: a definition without `property_id` serves every property of the tenant; a
+  property definition with the same code replaces it there. Categories follow the same rule.
+- **Required fields** are a small declarative schema (`TEXT` up to 500 chars, `NUMBER` with bounds, `CHOICE` of option
+  codes, `DATETIME`, `BOOLEAN`, each `required` or not), validated in code; labels and option labels are translations
+  (rule 7). `TEXT` values are the guest's own words: CONFIDENTIAL, never in events, logs or work titles, cleared on
+  anonymization.
+- **Eligibility** (`{ stayStatuses, partyRoles, roomTypeIds }`, defaults: in house, any party member, any room type)
+  and the guest scope `SERVICE_REQUEST`; **availability** (`{ hours: [{ days, from, to }], leadTimeMinutes,
+  allowScheduling, maxPerStayPerDay }`) in the property's time zone via `@hotella/platform-time`. All deterministic
+  code (rule 11). Ineligible services are not listed to guests; a request for one gets a localized 422 with the reason.
+- **Duplicate detection** (Spec §23): an `OPEN`/`IN_PROGRESS` request of the same stay and service created within the
+  version's `duplicate_window_minutes` (default 30) is **related**, not duplicated: `related_count` grows, a `RELATED`
+  event keeps who asked and the new field values, `catalog.service_request.related.v1` is published, and the caller
+  gets the existing request with `related: true`. Rows are locked (`FOR UPDATE` on the stay's open requests of that
+  service) so two concurrent asks cannot both create.
+- **One entrypoint**: `CatalogPublicApi.createServiceRequest()` (also `CATALOG_API` for the Phase 6 AI tool
+  `operations.create_service_request`) runs scope → eligibility → availability → fields → duplicates → request +
+  work item (`OPERATIONS_API.createWorkItem` in the same transaction, kind `SERVICE_REQUEST`, source
+  `catalog/service_request/<id>`) → audit → `catalog.service_request.created.v1`. Staff on behalf of a guest use the same
+  path with actor USER and source `STAFF` (gate `request.create`).
+- **Work titles** are a locale key with the service name in the property's default locale and the room number
+  (`catalog.request.work_title`); guest words never become titles. This settles the Phase 3 open item: requests never
+  quote a guest in a title, and the operations context now also clears quoted free-text titles of a guest's work
+  items on `guest.guest.anonymized.v1`.
+- **Status follows the work**: a worker consumer of `ops.work_item.status_changed.v1` for `SERVICE_REQUEST` maps
+  `IN_PROGRESS → IN_PROGRESS`, `RESOLVED → COMPLETED`, `CANCELLED → CANCELLED`, writes a `STATUS_CHANGED` event and
+  publishes `catalog.service_request.status_changed.v1`. A guest may cancel only an `OPEN` request (the work item is
+  cancelled through `OPERATIONS_API.cancelWorkItem`).
+- **Guest notifications** (Spec §25, rule 18): the catalog asks the communications context
+  (`COMMUNICATIONS_API.notifyGuest`) on the statuses listed in `catalog.notify.statuses` (property-overridable; default
+  `IN_PROGRESS`, `COMPLETED`, `CANCELLED`), in the locale the guest made the request in. Communications writes a
+  `SYSTEM` message into the stay's conversation (opening a guest-web one if none) and pushes it to the guest web in
+  real time; when the guest has a verified WhatsApp identity and the property an active WhatsApp channel, it also goes
+  out there: as text inside the 24-hour window, otherwise as the `service_update` template (ADR-0015). Service
+  notifications are transactional (about the guest's own request), so no marketing consent is needed.
+- **Localization**: guest-facing names come from the translation tables with the chain request locale → property
+  default → `en`; a service without any usable translation is not listed. A **starter catalog** (the Spec §7 examples:
+  EXTRA_TOWELS, ROOM_CLEANING, AC_PROBLEM, WIFI_HELP, AIRPORT_TRANSFER, LATE_CHECKOUT_REQUEST, with categories) can be
+  imported into a property; its texts come from `locales/{en,ar}/catalog.json`, so nothing user-facing is hardcoded.
+- **Guest web** (`apps/guest-web`, ADR-0009): Next.js 16 PWA on the shared catalog, branding from
+  `GET /public/branding` with the non-removable attribution footer; the guest session token lives in an HttpOnly cookie
+  set by a BFF route (never in script-readable storage); activation by link and room QR, catalog, request form, my
+  requests, chat with realtime updates.
+- **Not in Phase 5:** charging (price is display only; posting to the PMS folio is Phase 10), AI-created requests
+  (Phase 6 over the same entrypoint), staff WhatsApp/SMS notifications (Phase 7 with the staff mobile flows and staff
+  phone numbers; staff keep in-app, e-mail and realtime).
 
 ### 9.3 APIs / permissions / events
 
-Guest: `GET /guest/services` (eligible, localized), `POST /guest/requests`, `GET /guest/requests`. Staff: catalog CRUD + publish, requests board, create on behalf of guest.
-Permissions: `catalog.read catalog.manage catalog.publish request.read request.create request.manage`
-Events: `catalog.service_version.published.v1`, `catalog.service_request.created.v1`, `catalog.service_request.status_changed.v1`, `catalog.service_request.related.v1`
+Guest (session guard, scope `SERVICE_REQUEST`): `GET /guest/services` (eligible, localized, by category),
+`GET /guest/services/:code`, `POST /guest/requests`, `GET /guest/requests`, `POST /guest/requests/:id/cancel`.
+Staff: categories and services CRUD, drafts and publish (`/catalog/...` with `propertyId` for property items),
+`POST /properties/:p/catalog/starter` (import), requests board `GET /properties/:p/service-requests`, detail with
+history, `POST /properties/:p/stays/:s/service-requests` (on behalf of a guest), cancel.
+Permissions: `catalog.read catalog.manage catalog.publish request.read request.create request.manage`.
+Events: `catalog.service_version.published.v1`, `catalog.service_request.created.v1`,
+`catalog.service_request.status_changed.v1`, `catalog.service_request.related.v1`.
+Configuration: `catalog.notify.statuses`, `catalog.request.default_duplicate_window_minutes`.
 
 ### 9.4 Acceptance (closes **M1**)
 
 End-to-end CI scenario: simulator check-in → activation → request EXTRA_TOWELS from guest web API in Arabic → task appears for Housekeeping department with SLA → staff completes → guest receives localized notification (fake WhatsApp provider) → audit trail links every step by `correlation_id`. A second identical request within the window is related to the first, not duplicated.
+
+### 9.5 Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 5.1 | `@hotella/domain-catalog`: categories, definitions, versions with translations, drafts, publish (immutable by trigger), tenant-wide vs property services, starter catalog import from the locale catalog, eligibility and availability rules, guest catalog `GET /guest/services` localized with fallback, manifest, permissions, `catalog.service_version.published.v1` | delivered |
+| 5.2 | Service requests: `createServiceRequest` entrypoint and `CATALOG_API`, fields validation, duplicate detection with locking, work item via `OPERATIONS_API` (SLA/workflow by code), status follow from ops events, guest and staff routes, requests board, history, anonymization (catalog fields; ops quoted titles), tenant-leak tests | planned |
+| 5.3 | Guest notifications: `COMMUNICATIONS_API.notifyGuest`, `SYSTEM` messages in the stay conversation, WhatsApp text or `service_update` template by window, realtime push, `catalog.notify.statuses` | planned |
+| 5.4 | `apps/guest-web` PWA: BFF guest session cookie, activation (link, room QR), catalog, request form, my requests, chat; branding + attribution; Playwright in English (LTR) and Arabic (RTL); Docker target and pilot service | planned |
+| 5.5 | M1 end-to-end scenario in CI, pilot smoke extended to a service request, Phase 5 / M1 acceptance (`docs/acceptance/phase-5.md`) | planned |
+
+Reality notes for 5.1:
+- Schema `catalog` (migration `0019_catalog`) holds the whole context, including the request tables 5.2 fills. Triggers:
+  a published version only moves to `SUPERSEDED` and is never deleted; translations of a non-draft version cannot be
+  written; request history is append-only except the guest's words (cleared on anonymization).
+- A property row replaces the tenant-wide row with the same code once it is **published**; a **retired** property row
+  opts the property out of the chain's service; an unpublished property draft leaves the chain's service in place.
+  Categories follow the same code rule.
+- Tenant-wide items need a tenant-wide membership (the ActionGate checks the permission without a property); the
+  admin routes declare `catalog.*` with `checkedBy: 'gate'` because the level is known only once the item is loaded.
+- Publishing checks that every translation labels every field and choice option, and (for property services) that the
+  department exists and is active; tenant-wide services are checked per property when a request is made (5.2).
+- Guests see a service only if it is published, active, guest-visible, eligible for them (stay status, party role,
+  room type) and translated in some locale of the chain; `openNow` tells the guest web whether it can be asked for now.
+- `GuestSessionGuard`, `RequireGuestScope` and `CurrentGuest` moved from the communications context to
+  `@hotella/domain-guest/public` (the guest context owns sessions); the error key became `guest.session.scope_missing`.
+- Starter import: categories HOUSEKEEPING, MAINTENANCE, FRONT_DESK, TRANSPORT; services EXTRA_TOWELS, ROOM_CLEANING
+  (housekeeping), AC_PROBLEM (engineering, high), WIFI_HELP, AIRPORT_TRANSFER (also before arrival),
+  LATE_CHECKOUT_REQUEST (primary guest only; front office); department codes default to HK/ENG/FO and can be mapped.
+  Roles: guest desks get `catalog.read`; general managers `catalog.manage` and `catalog.publish`.
 
 ---
 
