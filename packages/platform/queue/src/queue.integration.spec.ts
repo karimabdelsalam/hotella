@@ -104,4 +104,34 @@ describe.skipIf(!infra.valkeyUrl)('BullMQ on Valkey', () => {
     expect(handled).toEqual(['hello']);
     expect(seen.some((s) => s.correlation === 'corr-q-1')).toBe(true);
   });
+
+  it('runs plain jobs (scheduler ticks, background work) through their handler with the enqueuing context', async () => {
+    await worker?.close();
+    const consumers = new EventConsumerRegistry();
+    const ran: unknown[] = [];
+    consumers.onJob<{ n: number }>('test.tick', async (data) => {
+      ran.push(data);
+    });
+    worker = createQueueWorker('normal', {
+      connection: connection!,
+      ctx,
+      logger,
+      consumers,
+      idempotency,
+    });
+    await worker.waitUntilReady();
+    seen.length = 0;
+    await registry.enqueue('normal', 'test.tick', { n: 7 });
+    await new Promise<void>((resolve) => {
+      const t = setInterval(() => {
+        if (ran.length >= 1) {
+          clearInterval(t);
+          resolve();
+        }
+      }, 50);
+    });
+    expect(ran).toEqual([{ n: 7 }]);
+    // The job ran inside the context captured when it was enqueued.
+    expect(seen).toContainEqual({ consumer: '_ctx', correlation: 'enq-1' });
+  });
 });

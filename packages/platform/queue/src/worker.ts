@@ -67,6 +67,12 @@ export function createQueueWorker(
     async (job: Job<JobEnvelope>) => {
       const seed = job.data.context ?? {};
       await deps.ctx.run(seed, async () => {
+        // A plain job (scheduler tick, maintenance, background work) has one handler; BullMQ retries apply.
+        const plain = deps.consumers.jobHandler(job.name);
+        if (plain) {
+          await plain(job.data.data, job);
+          return;
+        }
         const subscribers = deps.consumers.for(job.name);
         if (subscribers.length === 0) {
           deps.logger.debug(
