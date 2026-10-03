@@ -24,6 +24,7 @@ infra/docker/pilot/pilot.sh backup full   # first full backup; also proves WAL a
 2. Revoke the root token once configuration is done: `bao token revoke <root>`; create a new one only with `bao operator generate-root` when needed (see secret-rotation.md).
 3. Back up `infra/docker/pilot/.secrets` (encrypted, offline). It contains the admin database password and the material OpenBao was seeded from.
 4. Install the backup schedule (backup-restore.md) and confirm the first scheduled run in `pilot.sh status`.
+5. Staff e-mail (escalations, approvals): add `NOTIFY_SMTP_HOST`, `NOTIFY_SMTP_PORT`, `NOTIFY_SMTP_USER`, `NOTIFY_EMAIL_FROM` and `NOTIFY_SMTP_PASSWORD_REF: vault://kv/hotella/app#smtp_password` to the app environment of `compose.pilot.yml` and put the password into OpenBao (`bao kv patch kv/hotella/app smtp_password=…`). Until then e-mail deliveries are recorded as skipped (`channel_not_configured`) and staff rely on the in-app inbox; nothing else changes.
 
 ## Upgrade to a new release
 ```bash

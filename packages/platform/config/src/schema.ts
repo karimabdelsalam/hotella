@@ -123,6 +123,20 @@ export const envSchema = z.object({
   AGENT_CERT_VALIDITY_DAYS: z.coerce.number().int().min(1).max(397).default(90),
   AGENT_ENROLLMENT_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   AGENT_HEARTBEAT_SECONDS: z.coerce.number().int().min(5).max(300).default(30),
+
+  /**
+   * E-mail channel of staff notifications (Spec §25). Unset host = the channel is off (deliveries are recorded as
+   * skipped). Mailpit locally: NOTIFY_SMTP_HOST=localhost, NOTIFY_SMTP_PORT=1025.
+   */
+  NOTIFY_SMTP_HOST: z.string().min(1).optional(),
+  NOTIFY_SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  NOTIFY_SMTP_SECURE: z.stringbool().default(false),
+  NOTIFY_SMTP_USER: z.string().min(1).optional(),
+  NOTIFY_SMTP_PASSWORD_REF: secretRef('vault://kv/hotella/app#smtp_password').optional(),
+  NOTIFY_EMAIL_FROM: z.string().min(3).default('no-reply@localhost'),
+  /** Retention of delivered events: published outbox rows and processed inbox rows are purged after these days. */
+  EVENTS_OUTBOX_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+  EVENTS_INBOX_RETENTION_DAYS: z.coerce.number().int().min(7).max(365).default(30),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -187,6 +201,20 @@ export interface AppConfig {
     readonly loginMaxAttempts: number;
     readonly loginLockMinutes: number;
     readonly inviteTtlHours: number;
+  };
+  readonly notifications: {
+    readonly smtp: {
+      readonly host: string;
+      readonly port: number;
+      readonly secure: boolean;
+      readonly user: string | null;
+      readonly passwordRef: string | null;
+    } | null;
+    readonly emailFrom: string;
+  };
+  readonly retention: {
+    readonly outboxDays: number;
+    readonly inboxDays: number;
   };
   readonly agent: {
     readonly caCertRef: string | null;
@@ -312,6 +340,22 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
       loginMaxAttempts: e.IAM_LOGIN_MAX_ATTEMPTS,
       loginLockMinutes: e.IAM_LOGIN_LOCK_MINUTES,
       inviteTtlHours: e.IAM_INVITE_TTL_HOURS,
+    },
+    notifications: {
+      smtp: e.NOTIFY_SMTP_HOST
+        ? {
+            host: e.NOTIFY_SMTP_HOST,
+            port: e.NOTIFY_SMTP_PORT,
+            secure: e.NOTIFY_SMTP_SECURE,
+            user: e.NOTIFY_SMTP_USER ?? null,
+            passwordRef: e.NOTIFY_SMTP_PASSWORD_REF ?? null,
+          }
+        : null,
+      emailFrom: e.NOTIFY_EMAIL_FROM,
+    },
+    retention: {
+      outboxDays: e.EVENTS_OUTBOX_RETENTION_DAYS,
+      inboxDays: e.EVENTS_INBOX_RETENTION_DAYS,
     },
     agent: {
       caCertRef: e.AGENT_CA_CERT_REF ?? null,

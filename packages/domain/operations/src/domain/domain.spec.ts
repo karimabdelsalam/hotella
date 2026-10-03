@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TASK_STATUSES } from '@hotella/contracts-events';
 import { OPERATIONS_MANIFEST } from '../manifest';
+import { channelsFor, retryDelayMs } from './notification';
 import {
   ACTION_PERMISSION,
   deriveWorkItemStatus,
@@ -77,5 +78,18 @@ describe('work item kinds', () => {
       expect(ok).toMatch(WORK_ITEM_KIND_RE);
     for (const bad of ['hk_job', 'X', '1JOB', 'HK-JOB', ''])
       expect(bad).not.toMatch(WORK_ITEM_KIND_RE);
+  });
+});
+
+describe('notification channels', () => {
+  it('follow priority, honour preferences, and let critical policy override them', () => {
+    const off = [{ category: 'ESCALATION', channel: 'EMAIL' as const, enabled: false }];
+    expect(channelsFor('NORMAL', false, 'TASK', [])).toEqual(['IN_APP']);
+    expect(channelsFor('HIGH', false, 'ESCALATION', [])).toEqual(['IN_APP', 'EMAIL']);
+    expect(channelsFor('HIGH', false, 'ESCALATION', off)).toEqual(['IN_APP']);
+    expect(channelsFor('HIGH', false, 'APPROVAL', off)).toEqual(['IN_APP', 'EMAIL']);
+    expect(channelsFor('CRITICAL', true, 'ESCALATION', off)).toEqual(['IN_APP', 'EMAIL']);
+    expect(channelsFor('CRITICAL', false, 'ESCALATION', off)).toEqual(['IN_APP']);
+    expect([1, 2, 3, 4].map(retryDelayMs)).toEqual([60_000, 120_000, 240_000, 480_000]);
   });
 });

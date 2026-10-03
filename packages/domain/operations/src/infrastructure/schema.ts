@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -760,6 +761,143 @@ export const approvalRequests = classify(
   },
 );
 
+export const notificationRecipientType = ops.enum('notification_recipient_type', [
+  'USER',
+  'ROLE',
+  'PERMISSION',
+]);
+export const notificationPriority = ops.enum('notification_priority', [
+  'NORMAL',
+  'HIGH',
+  'CRITICAL',
+]);
+export const notificationChannel = ops.enum('notification_channel', [
+  'IN_APP',
+  'EMAIL',
+  'PUSH',
+  'WHATSAPP',
+  'SMS',
+]);
+export const deliveryStatus = ops.enum('delivery_status', ['PENDING', 'SENT', 'FAILED', 'SKIPPED']);
+
+/**
+ * What should be told to whom (Spec §25) — separate from how it is delivered. Recipients are a user, everyone holding
+ * a role, or everyone holding a permission at the property; the dispatcher expands them into deliveries.
+ */
+export const notificationIntents = classify(
+  ops.table(
+    'notification_intents',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      category: varchar('category', { length: 32 }).notNull(),
+      templateKey: varchar('template_key', { length: 128 }).notNull(),
+      params: jsonb('params').$type<Record<string, string | number>>().notNull().default({}),
+      recipientType: notificationRecipientType('recipient_type').notNull(),
+      recipientRef: varchar('recipient_ref', { length: 128 }).notNull(),
+      priority: notificationPriority('priority').notNull().default('NORMAL'),
+      /** Critical operational policy (Spec §25): delivered even on channels the person switched off. */
+      criticalOverride: boolean('critical_override').notNull().default(false),
+      sourceType: varchar('source_type', { length: 64 }),
+      sourceId: uuid('source_id'),
+      dispatchedAt: tz('dispatched_at'),
+    },
+    (t) => [index('notification_intents_property_idx').on(t.propertyId, t.createdAt)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    category: 'INTERNAL',
+    templateKey: 'INTERNAL',
+    params: 'CONFIDENTIAL',
+    recipientType: 'INTERNAL',
+    recipientRef: 'INTERNAL',
+    priority: 'INTERNAL',
+    criticalOverride: 'INTERNAL',
+    sourceType: 'INTERNAL',
+    sourceId: 'INTERNAL',
+    dispatchedAt: 'INTERNAL',
+  },
+);
+
+/** One notification to one person on one channel, with its delivery state (the in-app inbox reads these). */
+export const notificationDeliveries = classify(
+  ops.table(
+    'notification_deliveries',
+    {
+      ...baseColumns(),
+      ...propertyScoped(),
+      intentId: uuid('intent_id')
+        .notNull()
+        .references(() => notificationIntents.id, { onDelete: 'cascade' }),
+      userId: uuid('user_id').notNull(),
+      channel: notificationChannel('channel').notNull(),
+      status: deliveryStatus('status').notNull().default('PENDING'),
+      attempts: integer('attempts').notNull().default(0),
+      nextAttemptAt: tz('next_attempt_at'),
+      lastError: text('last_error'),
+      providerRef: varchar('provider_ref', { length: 200 }),
+      sentAt: tz('sent_at'),
+      readAt: tz('read_at'),
+    },
+    (t) => [
+      uniqueIndex('notification_deliveries_once_uq').on(t.intentId, t.userId, t.channel),
+      index('notification_deliveries_inbox_idx').on(t.userId, t.channel, t.createdAt),
+      index('notification_deliveries_pending_idx')
+        .on(t.nextAttemptAt)
+        .where(sql`${t.status} = 'PENDING'`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    intentId: 'INTERNAL',
+    userId: 'INTERNAL',
+    channel: 'INTERNAL',
+    status: 'INTERNAL',
+    attempts: 'INTERNAL',
+    nextAttemptAt: 'INTERNAL',
+    lastError: 'INTERNAL',
+    providerRef: 'INTERNAL',
+    sentAt: 'INTERNAL',
+    readAt: 'INTERNAL',
+  },
+);
+
+/** A person's choice to receive a category of notifications on a channel or not (default: on). */
+export const notificationPreferences = classify(
+  ops.table(
+    'notification_preferences',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      userId: uuid('user_id').notNull(),
+      category: varchar('category', { length: 32 }).notNull(),
+      channel: notificationChannel('channel').notNull(),
+      enabled: boolean('enabled').notNull(),
+    },
+    (t) => [
+      uniqueIndex('notification_preferences_uq').on(t.tenantId, t.userId, t.category, t.channel),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    userId: 'INTERNAL',
+    category: 'INTERNAL',
+    channel: 'INTERNAL',
+    enabled: 'INTERNAL',
+  },
+);
+
 export type WorkItemRow = typeof workItems.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type TaskAssignmentRow = typeof taskAssignments.$inferSelect;
@@ -775,3 +913,6 @@ export type WorkflowVersionRow = typeof workflowVersions.$inferSelect;
 export type WorkflowInstanceRow = typeof workflowInstances.$inferSelect;
 export type WorkflowTransitionRow = typeof workflowTransitions.$inferSelect;
 export type ApprovalRequestRow = typeof approvalRequests.$inferSelect;
+export type NotificationIntentRow = typeof notificationIntents.$inferSelect;
+export type NotificationDeliveryRow = typeof notificationDeliveries.$inferSelect;
+export type NotificationPreferenceRow = typeof notificationPreferences.$inferSelect;

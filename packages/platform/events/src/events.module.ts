@@ -1,4 +1,5 @@
 import { type DynamicModule, Global, Module, type Provider } from '@nestjs/common';
+import { EventRetention } from './retention';
 import { DomainEventBus } from './domain-event-bus';
 import { IdempotentConsumer } from './idempotency';
 import { EventPublisher } from './publisher';
@@ -18,8 +19,22 @@ export class EventsModule {
     };
     return {
       module: EventsModule,
-      providers: [DomainEventBus, EventPublisher, IdempotentConsumer, transport, OutboxRelay],
-      exports: [DomainEventBus, EventPublisher, IdempotentConsumer, OutboxRelay, EVENT_TRANSPORT],
+      providers: [
+        DomainEventBus,
+        EventPublisher,
+        IdempotentConsumer,
+        transport,
+        OutboxRelay,
+        EventRetention,
+      ],
+      exports: [
+        DomainEventBus,
+        EventPublisher,
+        IdempotentConsumer,
+        OutboxRelay,
+        EventRetention,
+        EVENT_TRANSPORT,
+      ],
     };
   }
 }

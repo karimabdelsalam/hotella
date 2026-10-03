@@ -6,7 +6,7 @@ import { LOGGER, type Logger, PinoNestLogger } from '@hotella/platform-observabi
 import { WorkerAppModule } from './app.module';
 
 async function main(): Promise<void> {
-  const app = await NestFactory.create(WorkerAppModule, { bufferLogs: true });
+  const app = await NestFactory.create(WorkerAppModule.forRoot(), { bufferLogs: true });
   app.useLogger(app.get(PinoNestLogger));
   const config = app.get<AppConfig>(APP_CONFIG);
   const logger = app.get<Logger>(LOGGER);

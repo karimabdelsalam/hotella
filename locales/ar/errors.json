@@ -126,5 +126,6 @@
   "errors.ops.approval.expired": "انتهت صلاحية طلب الموافقة قبل البت فيه.",
   "errors.ops.approval.human_required": "لا يبت في طلب الموافقة إلا شخص.",
   "errors.ops.approval.four_eyes": "لا يمكنك البت في طلبك؛ يجب أن يقرر شخص آخر.",
-  "errors.ops.approval.critical_not_for_ai": "لا يمكن لوكيل الذكاء الاصطناعي طلب إجراء حرج."
+  "errors.ops.approval.critical_not_for_ai": "لا يمكن لوكيل الذكاء الاصطناعي طلب إجراء حرج.",
+  "errors.ops.notification.not_found": "لم يتم العثور على الإشعار."
 }

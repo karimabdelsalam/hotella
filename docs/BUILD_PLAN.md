@@ -562,7 +562,7 @@ Reality notes for 2.4:
 
 **Goal / acceptance (Spec §85):** multiple future modules create work through one engine; SLA deterministic; approvals generic.
 
-> **Status: in progress** — sprints and reality notes in §7.7. Package `@hotella/domain-operations` (context code `ops`).
+> **Status: accepted on 2026-10-03** — evidence in `docs/acceptance/phase-3.md`; sprints and reality notes in §7.7. Package `@hotella/domain-operations` (context code `ops`).
 
 ### 7.1 Domain model (schema `ops`)
 
@@ -662,7 +662,33 @@ tasks terminal, at least one DONE) or CANCELLED (all cancelled). Every transitio
 | 3.1 | `org.departments` (+ translations, API, `ORGANIZATION_API.getDepartment`); `@hotella/domain-operations`: work items, tasks, assignment history, task events; kind registry; `OPERATIONS_API.createWorkItem/addTask`; task lifecycle API (assign/unassign/accept/reject/start/pause/resume/complete/cancel); `my tasks`/department/property lists; events `ops.work_item.created.v1`, `ops.work_item.status_changed.v1`, `ops.task.assigned.v1`, `ops.task.status_changed.v1`; permissions; role grants | delivered |
 | 3.2 | `@hotella/platform-time` (IANA wall clock ↔ UTC); business hours; SLA policies with property/department/service overrides; `computeSlaDeadlines`; SLA instances started by work items, paused/resumed by task pauses with policy pause rules; timers on `critical-operational` + a sweep; breach → escalation ladder → deduplicated alert; `ops.sla.breached.v1`, `ops.escalation.triggered.v1`, `ops.alert.raised.v1` | delivered |
 | 3.3 | Workflow definitions/versions (immutable once published), deterministic interpreter with code-registered guards and actions (create task, start SLA, notify, request approval); generic approval engine (risk level, expiry job, audited decisions, handler registry); `ops.approval.requested.v1`, `ops.approval.decided.v1` | delivered |
-| 3.4 | Notification intents (from escalations and alerts) and deliveries; `IN_APP` inbox and `EMAIL` (SMTP, Mailpit locally) adapters; preferences with critical-policy override; outbox retention purge; Phase 3 acceptance (`docs/acceptance/phase-3.md`) | planned |
+| 3.4 | Notification intents (from escalations and alerts) and deliveries; `IN_APP` inbox and `EMAIL` (SMTP, Mailpit locally) adapters; preferences with critical-policy override; outbox retention purge; Phase 3 acceptance (`docs/acceptance/phase-3.md`) | delivered |
+
+Reality notes for 3.4:
+- Notification intents name a user, everyone holding a role, or everyone holding a permission at the property; the
+  worker's dispatcher (an inbox consumer of `ops.notification.requested.v1`) expands them into one delivery per person
+  and channel, idempotently (unique per intent, person and channel). Rules turn engine events into intents:
+  escalations → the ladder's roles (severity sets the priority; CRITICAL overrides preferences), approval requests →
+  holders of `approval.decide`, task assignments → the assignee.
+- Channels by priority: NORMAL in-app; HIGH and CRITICAL in-app + e-mail. Preferences are per user, category and channel
+  (`notification_preferences`, keyed by user instead of the plan's actor type/id: guests get channels in Phase 4).
+  `PUSH` arrives with the staff app, `WHATSAPP`/`SMS` with the Phase 4 adapters; until then they are recorded as
+  skipped. `DEPARTMENT` recipients wait for department membership (see 3.1 notes).
+- E-mail goes through `EMAIL_CHANNEL` (SMTP via `nodemailer` 8, ADR-0016 row; Mailpit locally). A 10 s job sends due
+  deliveries with retries (1, 2, 4, 8 minutes, then FAILED); a delivery records the transport error code, never its
+  message (it can echo the address). Subjects and bodies are ICU templates rendered per recipient locale; the inbox
+  renders them in the reader's locale; intents store keys and parameters only.
+- Retention of delivered events (Phase 2 open item): `EventRetention` purges published outbox rows after
+  `EVENTS_OUTBOX_RETENTION_DAYS` (7) and processed inbox rows after `EVENTS_INBOX_RETENTION_DAYS` (30), hourly from the
+  worker. Pending outbox rows are never touched.
+- Pilot hardening found on the way: the pgBackRest stanza is now created when the pilot database starts (WAL archiving
+  without it made PostgreSQL restart its processes), and the reference agent no longer strands a message held back by
+  the reorder chaos.
+- Stay projection ordering (Phase 2 defect the deployed pipeline exposed): facts of one stay are processed concurrently
+  (two queues, concurrency per queue), so a check-out, room move or cancellation could reach the projector before the
+  check-in and be dropped. A fresh fact for an unknown stay now fails with `StayNotYetKnownError` and the queue retries
+  it (20 s window, then it is reported and ignored as before); an assignment older than the current in-stay assignment
+  never moves the guest back. Covered by "facts delivered before their check-in are retried…" in the guest suite.
 
 Reality notes for 3.3:
 - Workflow definitions and versions are property-scoped (like SLA policies). A version is a draft until published;

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { type DynamicModule, Module } from '@nestjs/common';
 import { GuestEventsModule } from '@hotella/domain-guest';
 import { IntegrationsCoreModule } from '@hotella/domain-integrations';
 import { IdentityDirectoryModule } from '@hotella/domain-identity';
@@ -9,35 +9,45 @@ import { ConfigModule } from '@hotella/platform-config';
 import { DatabaseModule } from '@hotella/platform-database';
 import { EVENT_TRANSPORT, EventsModule } from '@hotella/platform-events';
 import { FeatureFlagsModule } from '@hotella/platform-flags';
+import { I18nModule } from '@hotella/platform-i18n';
 import { ManifestModule } from '@hotella/platform-manifest';
 import { ObservabilityModule } from '@hotella/platform-observability';
 import { BULLMQ_EVENT_TRANSPORT, QueueModule } from '@hotella/platform-queue';
 import { SecretsModule } from '@hotella/platform-secrets';
 import { WorkerRuntimeModule } from './runtime/runtime.module';
 
-@Module({
-  imports: [
-    ConfigModule.forRoot(),
-    ObservabilityModule.forRoot(),
-    SecretsModule.forRoot(),
-    DatabaseModule.forRoot(),
-    QueueModule.forRoot(),
-    // The worker is where the relay runs, so the outbox publishes through BullMQ.
-    EventsModule.forRoot({
-      transport: { provide: EVENT_TRANSPORT, useExisting: BULLMQ_EVENT_TRANSPORT },
-    }),
-    FeatureFlagsModule,
-    ManifestModule.forRoot(),
-    // Context consumers (no HTTP routes): the stay projection of canonical PMS events.
-    AuditCoreModule,
-    IntegrationsCoreModule,
-    GuestEventsModule,
-    // The operations engine for background work (SLA sweep, approval expiry), with route-free lookups of the
-    // contexts it validates against.
-    OrganizationCoreModule,
-    IdentityDirectoryModule,
-    OperationsWorkerModule,
-    WorkerRuntimeModule,
-  ],
-})
-export class WorkerAppModule {}
+/** Everything the worker runs besides its configuration. */
+const WORKER_MODULES = [
+  ObservabilityModule.forRoot(),
+  // Notification templates are rendered per recipient locale (Spec §25, shared ICU catalog).
+  I18nModule.forRoot(),
+  SecretsModule.forRoot(),
+  DatabaseModule.forRoot(),
+  QueueModule.forRoot(),
+  // The worker is where the relay runs, so the outbox publishes through BullMQ.
+  EventsModule.forRoot({
+    transport: { provide: EVENT_TRANSPORT, useExisting: BULLMQ_EVENT_TRANSPORT },
+  }),
+  FeatureFlagsModule,
+  ManifestModule.forRoot(),
+  // Context consumers (no HTTP routes): the stay projection of canonical PMS events.
+  AuditCoreModule,
+  IntegrationsCoreModule,
+  GuestEventsModule,
+  // The operations engine for background work (SLA sweep, approval expiry, notifications), with route-free lookups
+  // of the contexts it validates against.
+  OrganizationCoreModule,
+  IdentityDirectoryModule,
+  OperationsWorkerModule,
+  WorkerRuntimeModule,
+];
+
+/** The worker process. `forRoot()` reads the environment through platform-config (main.ts); tests pass `env`. */
+@Module({})
+export class WorkerAppModule {
+  static forRoot(
+    options: { readonly env?: Readonly<Record<string, string | undefined>> } = {},
+  ): DynamicModule {
+    return { module: WorkerAppModule, imports: [ConfigModule.forRoot(options), ...WORKER_MODULES] };
+  }
+}

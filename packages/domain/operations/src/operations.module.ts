@@ -1,11 +1,13 @@
 import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
+import { NotificationRequested } from '@hotella/contracts-events';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import {
   AlertsController,
   ApprovalsController,
+  NotificationsController,
   OperationsController,
   SlaAdminController,
   WorkflowsController,
@@ -13,6 +15,9 @@ import {
 import { ActorStore } from '@hotella/platform-auth';
 import { AlertAdminService, AlertService } from './application/alert.service';
 import { ApprovalAdminService, ApprovalService } from './application/approval.service';
+import { EMAIL_CHANNEL, SmtpEmailChannel } from './application/email.channel';
+import { NotificationRules } from './application/notification-rules';
+import { NotificationInboxService, NotificationService } from './application/notification.service';
 import { OperationsQueryService } from './application/queries';
 import { SlaAdminService } from './application/sla-admin.service';
 import { SlaMonitor, SlaService } from './application/sla.service';
@@ -25,6 +30,7 @@ import {
 } from './application/workflow.service';
 import { OperationsRepositories } from './infrastructure/repositories';
 import { SlaRepositories } from './infrastructure/sla-repositories';
+import { NotificationRepositories } from './infrastructure/notification-repositories';
 import { WorkflowRepositories } from './infrastructure/workflow-repositories';
 import { OPERATIONS_MANIFEST } from './manifest';
 import { OPERATIONS_API } from './public';
@@ -33,8 +39,13 @@ import { OperationsPublicApiService } from './public-api.service';
 /** Repeatable jobs of the worker: SLA breaches/escalations and approval expiry. */
 export const SLA_SWEEP_JOB = 'ops.sla.sweep';
 export const APPROVAL_EXPIRY_JOB = 'ops.approval.expire';
+export const NOTIFICATION_DELIVERY_JOB = 'ops.notification.deliver';
+/** Inbox consumers of the worker: notification rules and the dispatcher. */
+export const NOTIFICATION_RULES_CONSUMER = 'ops.notification-rules';
+export const NOTIFICATION_DISPATCH_CONSUMER = 'ops.notification-dispatcher';
 const SLA_SWEEP_EVERY_MS = 15_000;
 const APPROVAL_EXPIRY_EVERY_MS = 60_000;
+const NOTIFICATION_DELIVERY_EVERY_MS = 10_000;
 
 /**
  * The engine without HTTP routes: repositories, the kind registry, SLA and OPERATIONS_API. Global so every module can
@@ -48,6 +59,7 @@ const APPROVAL_EXPIRY_EVERY_MS = 60_000;
     OperationsRepositories,
     SlaRepositories,
     WorkflowRepositories,
+    NotificationRepositories,
     WorkItemKindRegistry,
     WorkflowRegistry,
     AlertService,
@@ -55,6 +67,9 @@ const APPROVAL_EXPIRY_EVERY_MS = 60_000;
     WorkService,
     ApprovalService,
     WorkflowEngine,
+    { provide: EMAIL_CHANNEL, useClass: SmtpEmailChannel },
+    NotificationService,
+    NotificationRules,
     OperationsPublicApiService,
     { provide: OPERATIONS_API, useExisting: OperationsPublicApiService },
   ],
@@ -70,6 +85,9 @@ const APPROVAL_EXPIRY_EVERY_MS = 60_000;
     WorkflowRegistry,
     ApprovalService,
     WorkflowEngine,
+    NotificationRepositories,
+    NotificationService,
+    NotificationRules,
   ],
 })
 export class OperationsCoreModule {}
@@ -83,6 +101,7 @@ export class OperationsCoreModule {}
     AlertsController,
     WorkflowsController,
     ApprovalsController,
+    NotificationsController,
   ],
   providers: [
     OperationsQueryService,
@@ -91,6 +110,7 @@ export class OperationsCoreModule {}
     AlertAdminService,
     WorkflowAdminService,
     ApprovalAdminService,
+    NotificationInboxService,
   ],
 })
 export class OperationsModule implements OnModuleInit {
@@ -101,8 +121,9 @@ export class OperationsModule implements OnModuleInit {
 }
 
 /**
- * Worker side: the SLA sweep (every 15 s; deadlines are minute-based) and approval expiry (every minute) on the
- * `critical-operational` queue, with the full engine so expiries move workflows. The worker composes the route-free
+ * Worker side, with the full engine (approval expiries move workflows): the SLA sweep (every 15 s; deadlines are
+ * minute-based), approval expiry (every minute) and e-mail delivery (every 10 s) on `critical-operational`, plus the
+ * notification rules and dispatcher as event consumers. The worker composes the route-free
  * modules of the contexts the engine looks up (OrganizationCoreModule, IdentityDirectoryModule, GuestCoreModule).
  */
 @Module({ imports: [OperationsCoreModule], providers: [SlaMonitor], exports: [SlaMonitor] })
@@ -113,6 +134,8 @@ export class OperationsWorkerModule implements OnModuleInit {
     private readonly consumers: EventConsumerRegistry,
     private readonly monitor: SlaMonitor,
     private readonly approvals: ApprovalService,
+    private readonly notifications: NotificationService,
+    private readonly rules: NotificationRules,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -123,10 +146,27 @@ export class OperationsWorkerModule implements OnModuleInit {
     this.consumers.onJob(APPROVAL_EXPIRY_JOB, async () => {
       await this.approvals.expireDue();
     });
+    this.consumers.onJob(NOTIFICATION_DELIVERY_JOB, async () => {
+      await this.notifications.deliverDue();
+    });
+    for (const def of NotificationRules.consumes)
+      this.consumers.on(def.name, NOTIFICATION_RULES_CONSUMER, (envelope) =>
+        this.rules.apply(envelope),
+      );
+    this.consumers.on(
+      NotificationRequested.name,
+      NOTIFICATION_DISPATCH_CONSUMER,
+      async (envelope) => {
+        const p = envelope.payload as { intent_id: string };
+        if (envelope.tenant_id)
+          await this.notifications.dispatch({ tenantId: envelope.tenant_id }, p.intent_id);
+      },
+    );
     if (!this.config.worker.schedulerEnabled) return;
     for (const [job, every] of [
       [SLA_SWEEP_JOB, SLA_SWEEP_EVERY_MS],
       [APPROVAL_EXPIRY_JOB, APPROVAL_EXPIRY_EVERY_MS],
+      [NOTIFICATION_DELIVERY_JOB, NOTIFICATION_DELIVERY_EVERY_MS],
     ] as const) {
       await this.queues.queue('critical-operational').upsertJobScheduler(
         job,

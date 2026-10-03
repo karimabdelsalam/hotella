@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
@@ -24,6 +25,11 @@ import {
   decideApprovalSchema,
   listApprovalsQuerySchema,
 } from '../application/approval.service';
+import {
+  inboxQuerySchema,
+  NotificationInboxService,
+  preferenceSchema,
+} from '../application/notification.service';
 import {
   addWorkflowVersionSchema,
   createWorkflowSchema,
@@ -411,5 +417,44 @@ export class ApprovalsController {
       approvalId,
       body,
     );
+  }
+}
+
+class InboxQueryDto extends createZodDto(inboxQuerySchema) {}
+class PreferenceDto extends createZodDto(preferenceSchema) {}
+
+/** A staff member's own notifications at a property (in-app inbox) and channel preferences (Spec §25). */
+@Controller('properties/:propertyId')
+@PropertyScoped({ from: 'param' })
+export class NotificationsController {
+  constructor(
+    private readonly inbox: NotificationInboxService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get('notifications')
+  @RequirePermission('notification.read')
+  list(@Param('propertyId') propertyId: string, @Query() query: InboxQueryDto) {
+    return this.inbox.inbox(propertyScope(this.ctx, this.actors, propertyId), query);
+  }
+
+  @Post('notifications/:id/read')
+  @HttpCode(200)
+  @RequirePermission('notification.read')
+  read(@Param('propertyId') propertyId: string, @Param('id') id: string) {
+    return this.inbox.markRead(propertyScope(this.ctx, this.actors, propertyId), id);
+  }
+
+  @Get('notification-preferences')
+  @RequirePermission('notification.preferences.manage')
+  preferences(@Param('propertyId') propertyId: string) {
+    return this.inbox.preferences(propertyScope(this.ctx, this.actors, propertyId));
+  }
+
+  @Put('notification-preferences')
+  @RequirePermission('notification.preferences.manage')
+  setPreference(@Param('propertyId') propertyId: string, @Body() body: PreferenceDto) {
+    return this.inbox.setPreference(propertyScope(this.ctx, this.actors, propertyId), body);
   }
 }

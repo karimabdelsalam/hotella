@@ -9,5 +9,13 @@
   "ops.permission.alert_ack": "Acknowledge and resolve operational alerts",
   "ops.permission.workflow_manage": "Design and publish workflows",
   "ops.permission.approval_read": "View approval requests",
-  "ops.permission.approval_decide": "Approve or reject sensitive actions"
+  "ops.permission.approval_decide": "Approve or reject sensitive actions",
+  "ops.permission.notification_read": "See and acknowledge own notifications",
+  "ops.permission.notification_preferences_manage": "Choose own notification channels",
+  "ops.notification.task_assigned.subject": "New task for you",
+  "ops.notification.task_assigned.body": "A task was assigned to you. Open your task list to see it.",
+  "ops.notification.sla_escalation.subject": "{trigger, select, RESPONSE_BREACH {Work not picked up} RESOLUTION_WARNING {Work close to its deadline} other {Work past its deadline}}",
+  "ops.notification.sla_escalation.body": "Escalation level {level}: {trigger, select, RESPONSE_BREACH {nobody has taken the work on yet.} RESOLUTION_WARNING {the work is close to its deadline.} other {the work missed its deadline.}}",
+  "ops.notification.approval_requested.subject": "Approval needed",
+  "ops.notification.approval_requested.body": "A {risk, select, CRITICAL {critical} HIGH {high-risk} MEDIUM {medium-risk} other {low-risk}} request ({kind}) waits for your decision."
 }

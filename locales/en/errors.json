@@ -126,5 +126,6 @@
   "errors.ops.approval.expired": "The approval request expired before a decision.",
   "errors.ops.approval.human_required": "Only a person can decide an approval request.",
   "errors.ops.approval.four_eyes": "You cannot decide your own request; another person must.",
-  "errors.ops.approval.critical_not_for_ai": "An AI agent cannot request a critical action."
+  "errors.ops.approval.critical_not_for_ai": "An AI agent cannot request a critical action.",
+  "errors.ops.notification.not_found": "The notification was not found."
 }

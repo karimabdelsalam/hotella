@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { eq } from 'drizzle-orm';
+import type { INestApplication } from '@nestjs/common';
+import { eq, isNotNull, isNull } from 'drizzle-orm';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@hotella/platform-config';
 import { PlatformPing, type EventEnvelope } from '@hotella/contracts-events';
@@ -19,7 +20,8 @@ import { EventsModule } from './events.module';
 import { IdempotentConsumer } from './idempotency';
 import { EventPublisher, OutboxRequiresTransactionError } from './publisher';
 import { backoffMs, EVENT_TRANSPORT, OutboxRelay, type EventTransport } from './relay';
-import { outbox } from './schema';
+import { EventRetention } from './retention';
+import { inbox, outbox } from './schema';
 
 class FakeTransport implements EventTransport {
   published: EventEnvelope[] = [];
@@ -54,6 +56,7 @@ describe.skipIf(needsInfra())(
     let bus: DomainEventBus;
     let ctx: RequestContext;
     let close: () => Promise<void>;
+    let appRef: INestApplication;
 
     beforeAll(async () => {
       // Own database: relay assertions are about the whole outbox, which other suites write to in parallel.
@@ -83,6 +86,7 @@ describe.skipIf(needsInfra())(
       bus = app.get(DomainEventBus);
       ctx = app.get(RequestContext);
       close = () => app.close();
+      appRef = app;
     });
     afterAll(() => close?.());
 
@@ -217,6 +221,38 @@ describe.skipIf(needsInfra())(
         }),
       ).toBe('processed');
       expect(calls).toBe(1);
+    });
+
+    it('purges published outbox rows and old inbox rows after their retention, never pending ones', async () => {
+      const pending = await runner.run(() =>
+        publisher.publish(PlatformPing, {
+          payload: { message: 'keep' },
+          tenantId: null,
+          source: 'test',
+        }),
+      );
+      const count = async () => ({
+        published: (await db.select().from(outbox).where(isNotNull(outbox.publishedAt))).length,
+        pending: (await db.select().from(outbox).where(isNull(outbox.publishedAt))).length,
+        inbox: (await db.select().from(inbox)).length,
+      });
+      const before = await count();
+      expect(before.published).toBeGreaterThan(0);
+      expect(before.inbox).toBeGreaterThan(0);
+      const retention = appRef.get(EventRetention);
+      // Nothing is old enough yet.
+      expect(await retention.purge({ outboxDays: 7, inboxDays: 30 })).toEqual({
+        outbox: 0,
+        inbox: 0,
+      });
+      const later = new Date(Date.now() + 31 * 24 * 3600_000);
+      const purged = await retention.purge({ outboxDays: 7, inboxDays: 30 }, later);
+      expect(purged).toEqual({ outbox: before.published, inbox: before.inbox });
+      const after = await count();
+      expect(after).toEqual({ published: 0, pending: before.pending, inbox: 0 });
+      expect((await db.select().from(outbox).where(eq(outbox.id, pending.event_id))).length).toBe(
+        1,
+      );
     });
   },
 );

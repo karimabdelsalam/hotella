@@ -40,7 +40,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 22 | Pre-arrival capabilities for expected stays | BP §8.2 pre-arrival; ADR-0014 OWS (reservations) | P4, P10 |
 | 23 | AI-first guest UX; duplicate avoidance; conversational slot filling; forms remain | BP §9.2 dedupe in `createServiceRequest`; §10 P6 concierge | P5, P6 |
 | 24 | Handoff reasons; unified inbox with guest/stay/room/conversation/AI summary/open work/SLA; AI drafts, human edits recorded | BP §8.1 `inbox_views`, §8.4; §10 P6 drafts + `ai_feedback` | P4, P6 |
-| 25 | Notification intent ≠ delivery channel; channels; preferences; critical override | BP §7.1 `ops.notification_*`, §7.2 adapters | P3, P4 |
+| 25 | Notification intent ≠ delivery channel; channels; preferences; critical override | BP §7.1 `ops.notification_*`, §7.2 adapters; Sprint 3.4 (`channelsFor` unit test, dispatcher/rules/e-mail retry/inbox/preferences integration tests, `EMAIL_CHANNEL`) | P3 ✔ (staff in-app + e-mail), P4 (WhatsApp/SMS) |
 | 26 | Service vs marketing consent; portal use ≠ marketing consent | BP §6.1 `guest.guest_consents` — Sprint 2.4: typed consents (SERVICE_COMMUNICATION vs MARKETING_* vs PERSONALIZATION), append-only history enforced by a DB trigger, current state = latest per type | P2 ✔ |
 | 27 | Agent runtime: context, memory, planner, policy, tool registry, model gateway; provider-independent | BP §10 P6 | P6 |
 | 28 | Single model gateway; capability-based routing; fallback; cost/latency/policy | BP §10 P6; CM 12 | P6 |

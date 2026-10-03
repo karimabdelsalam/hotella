@@ -2,6 +2,7 @@ import {
   AlertRaised,
   ApprovalDecided,
   ApprovalRequested,
+  NotificationRequested,
   EscalationTriggered,
   SlaBreached,
   TaskAssigned,
@@ -28,6 +29,12 @@ export const OPERATIONS_MANIFEST = defineManifest({
     { code: 'workflow.manage', descriptionKey: 'ops.permission.workflow_manage', risk: 'HIGH' },
     { code: 'approval.read', descriptionKey: 'ops.permission.approval_read', risk: 'READ' },
     { code: 'approval.decide', descriptionKey: 'ops.permission.approval_decide', risk: 'HIGH' },
+    { code: 'notification.read', descriptionKey: 'ops.permission.notification_read', risk: 'LOW' },
+    {
+      code: 'notification.preferences.manage',
+      descriptionKey: 'ops.permission.notification_preferences_manage',
+      risk: 'LOW',
+    },
   ],
   events: [
     WorkItemCreated.name,
@@ -39,6 +46,7 @@ export const OPERATIONS_MANIFEST = defineManifest({
     AlertRaised.name,
     ApprovalRequested.name,
     ApprovalDecided.name,
+    NotificationRequested.name,
   ],
   localeNamespaces: ['ops'],
 });

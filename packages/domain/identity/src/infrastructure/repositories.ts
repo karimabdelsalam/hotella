@@ -410,6 +410,28 @@ export class IdentityRepositories {
       .then((r) => r.map((x) => x.id));
   }
 
+  /** Active users holding a role (system or tenant role, by code) at a property or tenant-wide. */
+  userIdsWithRole(tenantId: string, propertyId: string, roleCode: string): Promise<string[]> {
+    return this.x
+      .selectDistinct({ id: users.id })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .innerJoin(membershipRoles, eq(membershipRoles.membershipId, memberships.id))
+      .innerJoin(roles, eq(roles.id, membershipRoles.roleId))
+      .where(
+        and(
+          eq(memberships.tenantId, tenantId),
+          eq(memberships.status, 'ACTIVE'),
+          isNull(memberships.organizationId),
+          sql`(${memberships.propertyId} IS NULL OR ${memberships.propertyId} = ${propertyId})`,
+          eq(roles.code, roleCode),
+          sql`(${roles.tenantId} IS NULL OR ${roles.tenantId} = ${tenantId})`,
+          eq(users.status, 'ACTIVE'),
+        ),
+      )
+      .then((r) => r.map((x) => x.id));
+  }
+
   // ---- support access grants (Spec §64) ----
   async insertSupportGrant(
     values: typeof supportAccessGrants.$inferInsert,

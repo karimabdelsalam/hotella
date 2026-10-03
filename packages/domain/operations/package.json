@@ -40,10 +40,12 @@
     "@hotella/platform-manifest": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
     "@hotella/platform-queue": "workspace:*",
+    "@hotella/platform-secrets": "workspace:*",
     "@hotella/platform-time": "workspace:*",
     "@nestjs/common": "11.2.7",
     "drizzle-orm": "0.45.3",
     "nestjs-zod": "5.5.0",
+    "nodemailer": "8.0.11",
     "zod": "4.6.5"
   },
   "devDependencies": {
@@ -57,6 +59,7 @@
     "@nestjs/platform-express": "11.2.7",
     "@nestjs/testing": "11.2.7",
     "@types/express": "5.0.6",
+    "@types/nodemailer": "8.0.2",
     "@types/pg": "8.23.1",
     "@types/supertest": "7.2.1",
     "nestjs-cls": "6.3.1",

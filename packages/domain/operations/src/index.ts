@@ -1,5 +1,8 @@
 export {
   APPROVAL_EXPIRY_JOB,
+  NOTIFICATION_DELIVERY_JOB,
+  NOTIFICATION_DISPATCH_CONSUMER,
+  NOTIFICATION_RULES_CONSUMER,
   OperationsCoreModule,
   OperationsModule,
   OperationsWorkerModule,
@@ -7,6 +10,10 @@ export {
 } from './operations.module';
 export { AlertService } from './application/alert.service';
 export { ApprovalService } from './application/approval.service';
+export { EMAIL_CHANNEL } from './application/email.channel';
+export type { EmailChannel, EmailMessage } from './application/email.channel';
+export { NotificationRules } from './application/notification-rules';
+export { NotificationService } from './application/notification.service';
 export { WorkflowEngine, WorkflowRegistry } from './application/workflow.service';
 export { SlaMonitor, SlaService } from './application/sla.service';
 export { TaskService } from './application/task.service';

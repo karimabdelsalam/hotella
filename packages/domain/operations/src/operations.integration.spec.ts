@@ -1,11 +1,12 @@
 import 'reflect-metadata';
 import { Global, type INestApplication, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { EventEnvelope } from '@hotella/contracts-events';
 import { GuestCoreModule } from '@hotella/domain-guest';
 import { IDENTITY_API, type IdentityPublicApi } from '@hotella/domain-identity/public';
 import { IntegrationsCoreModule } from '@hotella/domain-integrations';
@@ -31,7 +32,12 @@ import {
   TransactionRunner,
   withTransaction,
 } from '@hotella/platform-database';
-import { EventPublisher, EventsModule, eventsSchema } from '@hotella/platform-events';
+import {
+  EventPublisher,
+  EventsModule,
+  eventsSchema,
+  IdempotentConsumer,
+} from '@hotella/platform-events';
 import { FeatureFlagsModule } from '@hotella/platform-flags';
 import { HttpConventionsModule } from '@hotella/platform-http';
 import { I18nModule } from '@hotella/platform-i18n';
@@ -40,6 +46,9 @@ import { LOGGER, ObservabilityModule } from '@hotella/platform-observability';
 import { SettingsModule } from '@hotella/platform-settings';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { AlertService } from './application/alert.service';
+import { EMAIL_CHANNEL } from './application/email.channel';
+import { NotificationRules } from './application/notification-rules';
+import { NotificationService } from './application/notification.service';
 import { ApprovalService } from './application/approval.service';
 import { SlaMonitor } from './application/sla.service';
 import { workflowDefinitionSchema } from './domain/workflow';
@@ -54,12 +63,22 @@ import {
   workItems,
 } from './infrastructure/schema';
 import { SlaRepositories } from './infrastructure/sla-repositories';
-import { OperationsModule } from './operations.module';
+import {
+  NOTIFICATION_DISPATCH_CONSUMER,
+  NOTIFICATION_RULES_CONSUMER,
+  OperationsModule,
+} from './operations.module';
 import { OPERATIONS_API, type OperationsPublicApi } from './public';
 
 const stamp = Date.now().toString(36).toUpperCase();
-const SUPERVISOR = ['task.read', 'task.accept', 'task.complete', 'task.assign', 'task.cancel'];
-const WORKER = ['task.read', 'task.accept', 'task.complete'];
+const WORKER = [
+  'task.read',
+  'task.accept',
+  'task.complete',
+  'notification.read',
+  'notification.preferences.manage',
+];
+const SUPERVISOR = [...WORKER, 'task.assign', 'task.cancel'];
 const ORG = ['org.property.read', 'org.property.manage', 'org.location.manage'];
 
 // Actor ids are UUIDs: they are stored as assignees and in the task history.
@@ -90,6 +109,26 @@ const grants: Record<string, string[]> = {
   [ids.other]: [...ORG, ...SUPERVISOR],
 };
 
+/** Role holders at the property (escalation notifications go to roles). */
+const roles: Record<string, string[]> = { DUTY_MANAGER: [ids.sup], GENERAL_MANAGER: [ids.gm] };
+/** E-mail channel stand-in: records what would have been sent; can be told to fail. */
+const mailbox: Array<{ to: string; subject: string; text: string }> = [];
+const fakeEmail = {
+  configured: true,
+  failNext: 0,
+  async send(m: { to: string; subject: string; text: string }) {
+    if (this.failNext > 0) {
+      this.failNext--;
+      throw Object.assign(new Error(`421 mailbox of ${m.to} busy`), {
+        code: 'EENVELOPE',
+        responseCode: 421,
+      });
+    }
+    mailbox.push(m);
+    return { providerRef: `msg-${mailbox.length}` };
+  },
+};
+
 /** Identity stand-in: who can take tasks follows the same grants as the permission resolver. */
 @Global()
 @Module({
@@ -102,6 +141,13 @@ const grants: Record<string, string[]> = {
           Object.entries(grants)
             .filter(([, list]) => list.includes(permission))
             .map(([id]) => id),
+        usersWithRole: async (_t: string, _p: string, role: string) => roles[role] ?? [],
+        getStaffContact: async (_t: string, userId: string) => ({
+          id: userId,
+          displayName: 'Staff',
+          email: `${userId}@hotel.example`,
+          locale: userId === ids.sup ? 'ar' : 'en',
+        }),
       } satisfies IdentityPublicApi,
     },
   ],
@@ -203,7 +249,10 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
         GuestCoreModule,
         OperationsModule,
       ],
-    }).compile();
+    })
+      .overrideProvider(EMAIL_CHANNEL)
+      .useValue(fakeEmail)
+      .compile();
     app = ref.createNestApplication({ logger: false });
     app.useGlobalPipes(new ZodValidationPipe());
     await app.init();
@@ -213,6 +262,7 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
     ops.registerWorkItemKind({ code: 'TEST_A_JOB', module: 'testa', descriptionKey: 'x' });
     ops.registerWorkItemKind({ code: 'TEST_B_ORDER', module: 'testb', descriptionKey: 'x' });
     ops.registerWorkItemKind({ code: 'TEST_SLA_JOB', module: 'testb', descriptionKey: 'x' });
+    ops.registerWorkItemKind({ code: 'TEST_NOTIFY', module: 'testb', descriptionKey: 'x' });
     monitor = new SlaMonitor(
       app.get(SlaRepositories),
       app.get(AlertService),
@@ -1196,6 +1246,250 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
           subject: { type: 'x' },
         }),
       ).rejects.toMatchObject({ code: 'ops.approval.kind_unknown' });
+    });
+  });
+
+  describe('notifications', () => {
+    const MIN = 60_000;
+    // Deliveries left by earlier suites (approval requests, assignments…) are sent first.
+    beforeAll(async () => {
+      await app.get(NotificationService).deliverDue();
+    });
+    /** What the worker does: notification rules on engine events, then the dispatcher on the intents they record. */
+    async function runConsumers(since: Date) {
+      const after = (type: string) =>
+        db
+          .select()
+          .from(eventsSchema.outbox)
+          .where(
+            and(
+              eq(eventsSchema.outbox.tenantId, tenantA),
+              eq(eventsSchema.outbox.eventType, type),
+              gte(eventsSchema.outbox.createdAt, since),
+            ),
+          )
+          .orderBy(asc(eventsSchema.outbox.createdAt), asc(eventsSchema.outbox.id));
+      // Exactly once per consumer and event, through the inbox, as the worker runs them.
+      const inbox = app.get(IdempotentConsumer);
+      for (const type of [
+        'ops.escalation.triggered',
+        'ops.approval.requested',
+        'ops.task.assigned',
+      ])
+        for (const r of await after(type))
+          await inbox.once(NOTIFICATION_RULES_CONSUMER, r.envelope as EventEnvelope, (e) =>
+            app.get(NotificationRules).apply(e),
+          );
+      for (const r of await after('ops.notification.requested'))
+        await inbox.once(NOTIFICATION_DISPATCH_CONSUMER, r.envelope as EventEnvelope, async (e) => {
+          await app
+            .get(NotificationService)
+            .dispatch({ tenantId: tenantA }, (e.payload as { intent_id: string }).intent_id);
+        });
+    }
+    const deliveriesFor = async (sourceId: string) =>
+      (
+        await admin.query<{
+          user_id: string;
+          channel: string;
+          status: string;
+          category: string;
+          attempts: number;
+          last_error: string | null;
+        }>(
+          `select d.user_id, d.channel, d.status, i.category, d.attempts, d.last_error
+             from ops.notification_deliveries d join ops.notification_intents i on i.id = d.intent_id
+            where i.source_id = $1 order by i.category, d.user_id, d.channel`,
+          [sourceId],
+        )
+      ).rows.sort(
+        (a, b) =>
+          a.category.localeCompare(b.category) ||
+          a.user_id.localeCompare(b.user_id) ||
+          a.channel.localeCompare(b.channel),
+      );
+    const ladder = async (code: string) =>
+      http()
+        .post(`${base()}/sla-policies`)
+        .set('X-Test-Actor', actor(ids.gm))
+        .send({
+          code,
+          matchKind: 'TEST_NOTIFY',
+          matchServiceCode: code,
+          responseMinutes: 15,
+          resolutionMinutes: 60,
+          escalationRules: [
+            {
+              level: 1,
+              trigger: 'RESPONSE_BREACH',
+              offsetMinutes: 0,
+              severity: 'WARNING',
+              notifyRoles: ['DUTY_MANAGER'],
+            },
+            {
+              level: 2,
+              trigger: 'RESOLUTION_BREACH',
+              offsetMinutes: 0,
+              severity: 'CRITICAL',
+              notifyRoles: ['GENERAL_MANAGER'],
+            },
+          ],
+        })
+        .expect(201);
+    const escalate = async (serviceCode: string) => {
+      const item = await work('TEST_NOTIFY', {
+        serviceCode,
+        tasks: [{ assignTo: { type: 'USER', userId: ids.w1 } }],
+      });
+      const [instance] = await db
+        .select()
+        .from(slaInstances)
+        .where(eq(slaInstances.workItemId, item.id));
+      await monitor.sweep(new Date(instance!.startedAt.getTime() + 16 * MIN));
+      await monitor.sweep(new Date(instance!.startedAt.getTime() + 61 * MIN));
+      return item;
+    };
+
+    it('escalations reach the roles on duty in-app and by e-mail, assignments reach the assignee, in their language', async () => {
+      await ladder('NOTIFY_A');
+      const since = new Date(Date.now() - 1_000);
+      const item = await escalate('NOTIFY_A');
+      await runConsumers(since);
+      await runConsumers(since); // redelivery adds nothing
+      expect(await deliveriesFor(item.id)).toEqual(
+        [
+          {
+            user_id: ids.gm,
+            channel: 'IN_APP',
+            status: 'SENT',
+            category: 'ESCALATION',
+            attempts: 0,
+            last_error: null,
+          },
+          {
+            user_id: ids.gm,
+            channel: 'EMAIL',
+            status: 'PENDING',
+            category: 'ESCALATION',
+            attempts: 0,
+            last_error: null,
+          },
+          {
+            user_id: ids.sup,
+            channel: 'IN_APP',
+            status: 'SENT',
+            category: 'ESCALATION',
+            attempts: 0,
+            last_error: null,
+          },
+          {
+            user_id: ids.sup,
+            channel: 'EMAIL',
+            status: 'PENDING',
+            category: 'ESCALATION',
+            attempts: 0,
+            last_error: null,
+          },
+        ].sort((a, b) => a.user_id.localeCompare(b.user_id) || a.channel.localeCompare(b.channel)),
+      );
+      expect(await deliveriesFor(item.tasks[0]!.id)).toEqual([
+        {
+          user_id: ids.w1,
+          channel: 'IN_APP',
+          status: 'SENT',
+          category: 'TASK',
+          attempts: 0,
+          last_error: null,
+        },
+      ]);
+
+      await app.get(NotificationService).deliverDue();
+      // Each e-mail delivery of this work item points at the message the channel accepted.
+      const emails = (
+        await admin.query<{ user_id: string; status: string; provider_ref: string }>(
+          `select d.user_id, d.status, d.provider_ref from ops.notification_deliveries d
+             join ops.notification_intents i on i.id = d.intent_id
+            where i.source_id = $1 and d.channel = 'EMAIL'`,
+          [item.id],
+        )
+      ).rows;
+      expect(emails.map((e) => e.status)).toEqual(['SENT', 'SENT']);
+      const mailTo = (userId: string) =>
+        mailbox[Number(emails.find((e) => e.user_id === userId)!.provider_ref.slice(4)) - 1]!;
+      expect(mailTo(ids.sup)).toMatchObject({ to: `${ids.sup}@hotel.example` });
+      expect(mailTo(ids.sup).subject).toMatch(/[\u0600-\u06FF]/); // the duty manager reads Arabic
+      expect(mailTo(ids.gm)).toMatchObject({
+        to: `${ids.gm}@hotel.example`,
+        subject: 'Work past its deadline',
+      });
+
+      const inbox = await http()
+        .get(`${base()}/notifications?unread=true`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .set('Accept-Language', 'ar')
+        .expect(200);
+      const mine = inbox.body.find(
+        (n: { source: { id: string } | null }) => n.source?.id === item.id,
+      );
+      expect(mine).toMatchObject({ category: 'ESCALATION', priority: 'HIGH' });
+      expect(mine.title).toMatch(/[؀-ۿ]/);
+      await http()
+        .post(`${base()}/notifications/${mine.id}/read`)
+        .set('X-Test-Actor', actor(ids.w1))
+        .expect(404);
+      await http()
+        .post(`${base()}/notifications/${mine.id}/read`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .expect(200);
+      const unread = await http()
+        .get(`${base()}/notifications?unread=true`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .expect(200);
+      expect(unread.body.map((n: { id: string }) => n.id)).not.toContain(mine.id);
+    });
+
+    it('preferences switch channels off, critical policy overrides them, and failed e-mails are retried without PII', async () => {
+      await ladder('NOTIFY_B');
+      // Start from an empty delivery queue so the injected failure hits this test's e-mail.
+      await app.get(NotificationService).deliverDue();
+      for (const who of [ids.sup, ids.gm])
+        await http()
+          .put(`${base()}/notification-preferences`)
+          .set('X-Test-Actor', actor(who))
+          .send({ category: 'escalation', channel: 'EMAIL', enabled: false })
+          .expect(200);
+      expect(
+        (
+          await http()
+            .get(`${base()}/notification-preferences`)
+            .set('X-Test-Actor', actor(ids.sup))
+            .expect(200)
+        ).body,
+      ).toEqual([{ category: 'ESCALATION', channel: 'EMAIL', enabled: false }]);
+      const since = new Date(Date.now() - 1_000);
+      const item = await escalate('NOTIFY_B');
+      await runConsumers(since);
+      const rows = await deliveriesFor(item.id);
+      // The duty manager's HIGH escalation respects the opt-out; the general manager's CRITICAL one does not.
+      expect(rows.filter((d) => d.user_id === ids.sup).map((d) => d.channel)).toEqual(['IN_APP']);
+      expect(
+        rows
+          .filter((d) => d.user_id === ids.gm)
+          .map((d) => d.channel)
+          .sort(),
+      ).toEqual(['EMAIL', 'IN_APP']);
+
+      fakeEmail.failNext = 1;
+      const now = new Date();
+      await app.get(NotificationService).deliverDue(now);
+      let email = (await deliveriesFor(item.id)).find((d) => d.channel === 'EMAIL')!;
+      expect(email).toMatchObject({ status: 'PENDING', attempts: 1 });
+      expect(email.last_error).not.toContain('@');
+      await app.get(NotificationService).deliverDue(now); // not due again yet
+      expect((await deliveriesFor(item.id)).find((d) => d.channel === 'EMAIL')!.attempts).toBe(1);
+      await app.get(NotificationService).deliverDue(new Date(now.getTime() + 61_000));
+      email = (await deliveriesFor(item.id)).find((d) => d.channel === 'EMAIL')!;
+      expect(email).toMatchObject({ status: 'SENT', attempts: 2 });
     });
   });
 });

@@ -39,6 +39,7 @@ export {
   ApprovalDecided,
   ApprovalRequested,
   EscalationTriggered,
+  NotificationRequested,
   PRIORITIES,
   SlaBreached,
   TASK_STATUSES,

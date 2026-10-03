@@ -167,3 +167,16 @@ export const ApprovalDecided = defineEvent({
     decided_by_type: z.string().nullable(),
   }),
 });
+
+export const NotificationRequested = defineEvent({
+  type: 'ops.notification.requested',
+  version: 1,
+  delivery: 'critical-operational',
+  description:
+    'Something should be told to people (Spec §25): the dispatcher expands the recipients and creates deliveries per channel.',
+  payload: z.object({
+    intent_id: z.uuid(),
+    category: z.string(),
+    priority: z.enum(['NORMAL', 'HIGH', 'CRITICAL']),
+  }),
+});

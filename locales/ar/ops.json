@@ -9,5 +9,13 @@
   "ops.permission.alert_ack": "الإقرار بالتنبيهات التشغيلية وحلها",
   "ops.permission.workflow_manage": "تصميم مسارات العمل ونشرها",
   "ops.permission.approval_read": "عرض طلبات الموافقة",
-  "ops.permission.approval_decide": "الموافقة على الإجراءات الحساسة أو رفضها"
+  "ops.permission.approval_decide": "الموافقة على الإجراءات الحساسة أو رفضها",
+  "ops.permission.notification_read": "عرض الإشعارات الخاصة والإقرار بها",
+  "ops.permission.notification_preferences_manage": "اختيار قنوات الإشعارات الخاصة",
+  "ops.notification.task_assigned.subject": "مهمة جديدة لك",
+  "ops.notification.task_assigned.body": "تم إسناد مهمة إليك. افتح قائمة مهامك لعرضها.",
+  "ops.notification.sla_escalation.subject": "{trigger, select, RESPONSE_BREACH {عمل لم يستلمه أحد} RESOLUTION_WARNING {عمل يقترب من موعده النهائي} other {عمل تجاوز موعده النهائي}}",
+  "ops.notification.sla_escalation.body": "مستوى التصعيد {level}: {trigger, select, RESPONSE_BREACH {لم يستلم أحد العمل بعد.} RESOLUTION_WARNING {العمل يقترب من موعده النهائي.} other {تجاوز العمل موعده النهائي.}}",
+  "ops.notification.approval_requested.subject": "مطلوب موافقة",
+  "ops.notification.approval_requested.body": "طلب {risk, select, CRITICAL {حرج} HIGH {عالي المخاطر} MEDIUM {متوسط المخاطر} other {منخفض المخاطر}} ({kind}) بانتظار قرارك."
 }
