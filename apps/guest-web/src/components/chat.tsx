@@ -73,8 +73,8 @@ export function Chat() {
               {m.body}
             </li>
           ))}
-          <div ref={end} />
         </ol>
+        <div ref={end} />
         {error && <ErrorText>{error}</ErrorText>}
         <form
           className="flex gap-2"

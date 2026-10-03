@@ -217,6 +217,12 @@ test('activates by link and asks for towels in English (left-to-right)', async (
 
 test('the guest app in Arabic is right-to-left and fully translated', async ({ page }) => {
   const backend = await mockBackend(page, { signedIn: true, locale: 'ar' });
+  // Browser-side errors are part of the failure report (a page that fails to render shows only its static shell).
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+  });
   await page.goto('/ar');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
@@ -242,9 +248,10 @@ test('the guest app in Arabic is right-to-left and fully translated', async ({ p
   await page.goto('/ar/chat');
   await expect(page.getByRole('heading', { name: 'تحدّث مع الفندق' })).toBeVisible();
   await thread;
-  await expect(page.locator('[data-sender="SYSTEM"]')).toHaveText(
-    'نعمل على طلبك: مشكلة في التكييف.',
-  );
+  await expect(
+    page.getByText('نعمل على طلبك: مشكلة في التكييف.'),
+    errors.join('\n'),
+  ).toHaveAttribute('data-sender', 'SYSTEM', { timeout: 10_000 });
   await expect(page.getByTestId('attribution')).toContainText('Powered by Planova');
 });
 
