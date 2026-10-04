@@ -153,7 +153,7 @@ hotella/
 │   ├── guest-web/                # Guest PWA (Phase 5, stack per ADR-0009)
 │   ├── staff-web/                # Staff portal (Phase 4+, stack per ADR-0009)
 │   ├── pms-simulator/            # Dev-only PMS simulator CLI/HTTP (Phase 2)
-│   └── hotel-agent/              # .NET 8 on-prem connector agent (Phase 10)
+│   └── hotel-agent/              # .NET 10 LTS on-prem hotel agent (Phase 10)
 ├── packages/
 │   ├── platform/
 │   │   ├── database/             # drizzle client, migration runner, base column helpers, tx helper, migrations/
@@ -2018,7 +2018,108 @@ Reality notes for 9.4:
   acknowledged by the group GM; the new staff pages render in both directions.
 
 ### Phase 10 — Real OPERA 5 On-Premise Integration (M4a)
-`apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
+`apps/hotel-agent` (.NET 10 LTS worker service — CLAUDE.md stack; this line said .NET 8 before the version policy of ADR-0016): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
+
+**Goal / acceptance (Spec §48–§54, §57, §62; ADR-0014, ADR-0017):** a hotel installs one agent, pastes an enrollment
+token and allows outbound 443; from then on OPERA 5's FIAS records reach the platform as canonical events in order,
+exactly once, through days offline; OWS adds future reservations and ETA where licensed; reconciliation finds what was
+missed; the platform can only send predefined signed commands; the agent runs under a signed licence with an offline
+grace and updates itself from signed packages with rollback. Proven end to end against the simulator's byte-level
+IFC8/FIAS and OWS faces before the pilot; the pilot only swaps the simulator for the hotel's OPERA.
+
+#### 10.A Components
+```text
+apps/hotel-agent/                      .NET 10 solution (built and tested in CI with setup-dotnet)
+  src/Hotella.Agent                    host: Worker service (Windows service / systemd), config, JSON logs (no PII), CLI
+                                       (enroll, run, status)
+  src/Hotella.Agent.Core               identity (ECDSA P-256 key + CSR, OS-protected key store), durable queue (SQLite,
+                                       WAL, ordered, cumulative acks, retention), link client (mTLS ClientWebSocket:
+                                       hello/welcome/message/ack/resend/heartbeat/throttle, HTTPS batches, reconnect
+                                       1 s → 60 s with jitter), command verification (Ed25519 over canonical JSON, same
+                                       bytes as platform-pki), command dispatch to adapters, licence verification, health
+  src/Hotella.Agent.Fias               IFC8/FIAS TCP client: STX/ETX framing, LS/LD/LR/LA link handshake and link-alive,
+                                       DR → DS/DR…/DE database sync, records → `FIAS_RECORD` messages, outbound RE for
+                                       room status (only when the capability is enabled)
+  src/Hotella.Agent.Ows                OWS SOAP client: arrivals/reservations polling window → `OWS_RESERVATION`,
+                                       profiles → `OWS_PROFILE` (same payloads as the simulator's OWS face)
+  src/Hotella.Agent.DbView             optional read-only Oracle views → in-house snapshot for reconciliation only
+  src/Hotella.Agent.Updater            signed package manifest → download, verify (SHA-256 + Ed25519), stage, swap,
+                                       health check, rollback
+  test/…                               xUnit: framing, queue, canonical JSON/signature vectors shared with TypeScript
+apps/pms-simulator                     gains a byte-level IFC8/FIAS TCP server and an OWS SOAP endpoint, so the .NET agent
+                                       is tested against wire formats, not JSON shortcuts
+packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS / OPERA5_DBVIEW reusing the FIAS record
+                                       parser and the OWS mapping (core domains still see only canonical events);
+                                       signed licence tokens delivered on enrol/renew/welcome
+```
+
+#### 10.B Design decisions taken before coding
+- **Same protocol, second implementation.** The .NET agent speaks exactly the link contract of
+  `packages/contracts/connectors/src/link.ts` (protocol 1). The TypeScript reference agent stays the executable
+  specification; a cross-language test runs the .NET agent against the real `agent-gateway` and asserts the same
+  outcomes (enrolment, ordering, resend, duplicate, revoked certificate, signed command). Shared test vectors pin the
+  canonical JSON bytes and an Ed25519 signature produced by `platform-pki`.
+- **Dependencies (ADR-0016 maturity gate):** `Microsoft.Data.Sqlite` (prebuilt native SQLite, nothing compiled at
+  install), `BouncyCastle.Cryptography` for Ed25519 only (the BCL has no Ed25519), `Microsoft.Extensions.Hosting`
+  with `.WindowsServices`/`.Systemd`, xUnit for tests; `Oracle.ManagedDataAccess.Core` only in the optional DbView
+  project. ECDSA P-256, X.509 CSRs, TLS 1.3 and WebSockets come from the BCL.
+- **Secrets at the hotel** (OPERA/OWS credentials, the agent's private key) live in an OS-protected store (DPAPI on
+  Windows, a 0600 file owned by the service user on Linux) behind one interface; never in config files or logs, never
+  sent to the platform.
+- **FIAS idempotency:** `source_message_id` = SHA-256 of (instance, record type, room, reservation number, date, time,
+  record body) so a re-sent record after an IFC8 reconnect is a no-op on the platform; the per-instance sequence keeps
+  order. A database sync (DS…DE) is forwarded as received and the platform's existing late-event guard decides.
+- **Commands:** `RESYNC_IN_HOUSE` (FIAS DR) in 10.2; `SET_ROOM_STATUS` (FIAS RE outbound) implemented but advertised
+  only when the instance's configuration enables `ROOM_STATUS_WRITE` after verification at the pilot. No other
+  command exists; there is no shell.
+- **Licence (Spec §62):** an Ed25519-signed token (tenant, property, instance, connector, capabilities, issued,
+  expires, offline grace 14 days) delivered by the platform and verified offline by the agent with the pinned key. Past
+  the grace the agent keeps buffering FIAS records but executes no command until a fresh token arrives. Phase 11
+  builds the commercial control plane on top of the same token.
+- **Updates:** a signed manifest (version, SHA-256, size, ring) and package from `updates.…`; the updater stages it,
+  starts it, waits for a healthy link, and rolls back on failure. The agent never updates OPERA or itself in place.
+- **Packaging:** self-contained publish for `win-x64` and `linux-x64`; Windows service install via the MSI (WiX, built
+  on a Windows CI runner in 10.4) and a systemd unit for Linux. Enrolment is `hotella-agent enroll --token-file …`
+  (the MSI asks for the token; 10.1 notes: never on the command line).
+
+#### 10.C Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 10.1 | .NET agent core: solution, host, config, identity and enrolment (CSR), OS key store, SQLite durable queue, mTLS WSS link with acks/resend/heartbeats/batches, signed-command verification; shared vectors; cross-language test against `agent-gateway`; CI job | delivered |
+| 10.2 | FIAS adapter (IFC8 TCP, link handshake, link-alive, database sync, records), simulator IFC8 face, `OPERA5_FIAS` connector, `RESYNC_IN_HOUSE` and gated `SET_ROOM_STATUS` | planned |
+| 10.3 | OWS adapter (SOAP polling, reservations and profiles), simulator OWS SOAP face, `OPERA5_OWS` connector; optional `OPERA5_DBVIEW` reconciliation adapter | planned |
+| 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | planned |
+| 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | planned |
+
+**Reality notes for 10.1 (delivered).**
+- Solution `apps/hotel-agent/Hotella.Agent.slnx`: `Hotella.Agent.Core` (identity, durable queue, link, command
+  verification, settings and renewal policy), `Hotella.Agent` (the `hotella-agent` executable), `test/Hotella.Agent.Tests`
+  (xUnit) and `test/Hotella.Agent.Conformance` (test tooling only, never shipped). Analyzers run at
+  `latest-recommended` with warnings as errors; output goes to `artifacts/bin/<project>/<debug|release>/`.
+- Shared vector `packages/platform/pki/test-vectors/command-frame.json`: canonical bytes and an Ed25519 signature made
+  by `platform-pki`; `vector.spec.ts` keeps the platform on it and `CanonicalJsonTests` keeps the agent on it (numbers
+  are written like ECMAScript, keys sorted by UTF-16 code unit, strings escaped like `JSON.stringify`).
+- Cross-language e2e `apps/pms-simulator/test/dotnet-agent.e2e-spec.ts` runs the same scenario as the reference agent
+  (`basic-stay.yml` with duplicate, reorder and dropped-connection chaos) through the .NET link against the real
+  gateway, plus enrolment (single use), capabilities, heartbeats, a signed `RESYNC_IN_HOUSE`, certificate renewal,
+  HTTPS batches and revocation; the last case starts the real `hotella-agent` executable (enrol from a token file,
+  `status`, `run` until the platform sees it linked). The gateway setup is shared with `link.e2e-spec.ts`
+  (`test/gateway-harness.ts`); `runScenario` takes any `ScenarioLink`.
+- Found by the cross-language test and fixed in the .NET link before it shipped: a `resend` arriving while a send pass
+  was in flight could be undone by that pass (the cursor is now rewound only by the sender loop); an exception other
+  than a socket error ended the link silently (every failure now reconnects with back-off); a renewed certificate was
+  not used by the running link (`UseIdentity`).
+- Configuration: `agent.json` beside the program, the machine's `/etc/hotella-agent/agent.json` or
+  `%ProgramData%\Hotella\Agent\agent.json`, `HOTELLA_AGENT_` variables, `--Agent:Key=value` switches; the shipped
+  sample is `agent.example.json` and is not loaded (list settings merge index by index). The identity is in the data
+  directory (`/var/lib/hotella-agent` or `%ProgramData%\Hotella\Agent`) — DPAPI on Windows, 0700/0600 on Linux.
+- The enrolment token is read from a file or stdin (`--token-file -`), never from the command line (shell history,
+  process list). Re-enrolment over an existing identity needs `--replace`.
+- Upkeep runs hourly: renew once a third of the certificate's lifetime remains (`RenewalPolicy`) and drop acknowledged
+  history past `QueueRetentionDays`. Exit codes for the service manager: 2 not configured/enrolled, 3 revoked.
+- CI: the `verify` job sets up .NET from `apps/hotel-agent/global.json`, runs `dotnet test` in Release, and the
+  simulator's e2e finds the build through `TEST_DOTNET_AGENT` (without it the suite is skipped locally).
 
 ### Phase 11 — Licensing & Control Plane (M4b)
 `license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent. Developer platform v1 (Spec §75): API clients with scoped keys, signed outbound webhooks with retry/DLQ/replay (ADR-0012), OAuth clients later; no untrusted code plugins in the runtime.
