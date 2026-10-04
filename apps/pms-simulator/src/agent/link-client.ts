@@ -17,6 +17,11 @@ import type { DurableQueue, QueuedMessage } from './queue';
 
 type HelloFrame = Extract<AgentFrameInput, { type: 'hello' }>;
 export type CommandFrame = Extract<PlatformFrame, { type: 'command' }>;
+export type QueryFrame = Extract<PlatformFrame, { type: 'query' }>;
+/** Answers a predefined read (link protocol 2) with canonical rows. */
+export type QueryHandler = (
+  query: QueryFrame,
+) => Promise<{ rows: Record<string, unknown>[]; truncated?: boolean }>;
 export type CommandHandler = (
   command: CommandFrame,
 ) => Promise<{ status: 'ACKNOWLEDGED' } | { status: 'FAILED'; error: string }>;
@@ -29,6 +34,9 @@ export interface LinkClientOptions {
   readonly capabilities: readonly string[];
   readonly agentVersion: string;
   readonly onCommand?: CommandHandler;
+  readonly onQuery?: QueryHandler;
+  /** Announce an older link protocol (compatibility tests: protocol-1 agents get no queries). */
+  readonly protocol?: 1 | 2;
   readonly log?: (message: string, detail?: Record<string, unknown>) => void;
 }
 
@@ -58,6 +66,8 @@ export class AgentLinkClient {
     resends: 0,
     commands: 0,
     rejectedCommands: 0,
+    queries: 0,
+    rejectedQueries: 0,
   };
   revoked = false;
   /** The latest verified licence from the platform. */
@@ -166,7 +176,7 @@ export class AgentLinkClient {
       this.stats.connects++;
       this.send({
         type: 'hello',
-        protocol: LINK_PROTOCOL_VERSION,
+        protocol: this.options.protocol ?? LINK_PROTOCOL_VERSION,
         agent_version: this.options.agentVersion,
         connector_code: this.options.connectorCode,
         capabilities: [...this.options.capabilities] as HelloFrame['capabilities'],
@@ -235,6 +245,10 @@ export class AgentLinkClient {
         return;
       case 'command':
         return this.onCommand(frame);
+      case 'query':
+        // Reads run beside the ordered message flow; they never hold it up.
+        void this.onQuery(frame);
+        return;
       case 'throttle':
       case 'error':
         this.options.log?.(`platform ${frame.type}`, frame);
@@ -268,6 +282,40 @@ export class AgentLinkClient {
       this.executed.set(frame.command_id, result);
     }
     this.send({ type: 'command_result', command_id: frame.command_id, ...result });
+  }
+
+  private async onQuery(frame: QueryFrame): Promise<void> {
+    const { signature, ...body } = frame;
+    if (
+      !verifyCanonical(body, signature, this.commandKey) ||
+      body.instance_id !== this.options.identity.instanceId
+    ) {
+      this.stats.rejectedQueries++;
+      return;
+    }
+    if (Date.parse(frame.deadline) < Date.now()) return;
+    this.stats.queries++;
+    try {
+      if (!this.options.onQuery) throw new Error('no query handler');
+      const answer = await this.options.onQuery(frame);
+      this.send({
+        type: 'query_result',
+        query_id: frame.query_id,
+        status: 'OK',
+        rows: answer.rows,
+        truncated: answer.truncated ?? false,
+        error: null,
+      });
+    } catch (err) {
+      this.send({
+        type: 'query_result',
+        query_id: frame.query_id,
+        status: 'FAILED',
+        rows: [],
+        truncated: false,
+        error: (err as Error).message.slice(0, 500),
+      });
+    }
   }
 
   private flush(messages: LinkMessage[]): void {

@@ -13,7 +13,15 @@ import { CONNECTOR_CAPABILITIES } from './capabilities';
  *   by `command_id`, and answered with `command_result`.
  */
 
-export const LINK_PROTOCOL_VERSION = 1;
+/**
+ * Protocol 2 (ADR-0019, guide §4.4) adds signed `query` frames answered by `query_result`: predefined query types from
+ * the connector manifest, never free-form SQL, SOAP or shell. Protocol-1 agents keep working; queries go only to
+ * agents that announced protocol 2 in `hello`.
+ */
+export const LINK_PROTOCOL_VERSION = 2;
+export const LINK_PROTOCOL_QUERIES = 2;
+/** Rows one `query_result` may carry; a query that matches more answers `truncated: true`. */
+export const MAX_QUERY_ROWS = 2_000;
 export const LINK_PATH = '/agent/v1/link';
 export const BATCH_PATH = '/agent/v1/batches';
 export const ENROLL_PATH = '/agent/v1/enroll';
@@ -40,7 +48,7 @@ export type LinkMessage = z.infer<typeof linkMessageSchema>;
 export const agentFrameSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('hello'),
-    protocol: z.literal(LINK_PROTOCOL_VERSION),
+    protocol: z.union([z.literal(1), z.literal(2)]),
     agent_version: z.string().min(1).max(64),
     connector_code: z.string().regex(/^[A-Z][A-Z0-9_]{1,47}$/),
     /** What this agent can serve at this hotel (becomes the instance's reported capabilities). */
@@ -61,6 +69,15 @@ export const agentFrameSchema = z.discriminatedUnion('type', [
     status: z.enum(['ACKNOWLEDGED', 'FAILED']),
     error: z.string().max(1000).nullable().default(null),
   }),
+  z.object({
+    type: z.literal('query_result'),
+    query_id: z.uuid(),
+    status: z.enum(['OK', 'FAILED']),
+    /** Canonical rows of the query type's row schema (validated by the platform against the manifest). */
+    rows: z.array(z.record(z.string(), z.unknown())).max(MAX_QUERY_ROWS).default([]),
+    truncated: z.boolean().default(false),
+    error: z.string().max(1000).nullable().default(null),
+  }),
 ]);
 export type AgentFrame = z.infer<typeof agentFrameSchema>;
 export type AgentFrameInput = z.input<typeof agentFrameSchema>;
@@ -78,6 +95,18 @@ export const commandFrameBodySchema = z.object({
   expires_at: instant.nullable(),
 });
 export type CommandFrameBody = z.infer<typeof commandFrameBodySchema>;
+
+/** A predefined read (protocol 2). Signed like a command; past `deadline` the agent does not run it. */
+export const queryFrameBodySchema = z.object({
+  type: z.literal('query'),
+  query_id: z.uuid(),
+  instance_id: z.uuid(),
+  query_type: z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/),
+  params: z.record(z.string(), z.unknown()),
+  issued_at: instant,
+  deadline: instant,
+});
+export type QueryFrameBody = z.infer<typeof queryFrameBodySchema>;
 
 /**
  * The agent's licence (Spec §62, BUILD_PLAN §10 Phase 10): signed by the platform with the command key over the
@@ -117,6 +146,7 @@ export const platformFrameSchema = z.discriminatedUnion('type', [
     /** Ed25519 over the canonical JSON of the frame without this field (verified against the pinned key). */
     signature: z.string().min(16),
   }),
+  queryFrameBodySchema.extend({ signature: z.string().min(16) }),
   z.object({
     type: z.literal('error'),
     code: z.string().min(1).max(64),

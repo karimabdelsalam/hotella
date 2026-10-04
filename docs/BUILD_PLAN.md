@@ -2095,7 +2095,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | delivered (MSI: owner decision, see notes) |
 | 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | delivered |
 | 10.6 | Unified OPERA Adapter (`PMS_API`) and per-property capability registry (10.D) | delivered (writes routed; reads arrive with 10.7, see notes) |
-| 10.7 | Link protocol 2 (`query`/`query_result`) and the `OPERA5_DB` read-only connector (10.D) | scheduled after Phase 11, before M4 |
+| 10.7 | Link protocol 2 (`query`/`query_result`) and the `OPERA5_DB` read-only connector (10.D) | delivered (see notes; real Oracle verified at the pilot) |
 | 10.8 | Planova Standard IFC8/FIAS Profile v1 alignment and OWS standard connector v1 (reads + supported writes) (10.D) | scheduled after Phase 11, before M4 |
 | 10.9 | Commissioning tooling: Interface Sheet comparison, DB probe, OWS verification, capability sign-off; OPERA integration acceptance (10.D) | scheduled after Phase 11, before M4 |
 
@@ -2302,6 +2302,47 @@ Phase 11 does not wait for pilot-specific IFC8/OWS details.
   does not run Oracle); cross-language e2e for queries (lookup, arrivals, in-house snapshot, reconciliation via DB).
 - *Acceptance:* the agent cannot be made to write: no write statement exists, the session is read-only and a writable
   account is refused.
+
+**Reality notes for 10.7 (delivered).**
+- Contracts: `LINK_PROTOCOL_VERSION = 2`; `hello` carries `protocol: 1 | 2` (stored as `agent_links.agent_protocol`)
+  and queries go only to protocol-2 agents. `query` is signed like a command (query_id, instance_id, query_type,
+  params, issued_at, deadline); `query_result` carries status OK/FAILED, rows, `truncated` and an error. Deviation: no
+  page token — one answer holds at most `MAX_QUERY_ROWS` (2 000) rows and says `truncated`; the standard reads of a
+  property stay well below that. Manifests declare `queries` (query type → capability, params and row schema;
+  `pms-rows.ts`: reservation, profile and room rows; `pmsQueryParams`), validated at definition time.
+- Platform (migration 0042, RLS): `integration.integration_queries` (PENDING → SENT → ANSWERED/FAILED/EXPIRED; params
+  INTERNAL, result SENSITIVE). The result is kept only until the asker takes it, then cleared; the worker job
+  `integration.queries.sweep` (every 60 s) expires overdue queries and clears results older than 2 minutes. The agent
+  gateway sends pending queries every 500 ms; `LinkService.queryResult` validates every row against the manifest's row
+  schema (errors name paths, never values). `AgentQueryService.run` (outside a transaction; deadline 15 s by default,
+  60 s max) answers OK / UNREACHABLE / TIMEOUT / FAILED.
+- `PMS_API` reads: `lookupReservation`, `listArrivals`, `inHouseSnapshot`, `lookupProfile`, `roomInventory`, each
+  routed through the 10.6 registry (`PMS_OPERATIONS[op].query`); a read falls through to the next effective connector
+  when one is unreachable or fails. Reconciliation (Sprint 2.4) uses the `IN_HOUSE` query when a protocol-2 agent of a
+  connector with `IN_HOUSE_SNAPSHOT` is reachable, otherwise the `RESYNC_IN_HOUSE` command (the FIAS database swap) as
+  before. `GET /properties/:id/integration/queries` lists recent queries (type, status, timings; never rows) for the
+  installer.
+- `OPERA5_DB` (`connectors/opera5`): `readOnly`, entitlement `CONNECTOR_OPERA5`, read capabilities only, no commands,
+  queries `LOOKUP_RESERVATION`, `LIST_ARRIVALS`, `IN_HOUSE`, `LOOKUP_PROFILE`, `ROOM_INVENTORY`; fallback change
+  polling arrives as `OPERA_DB_RESERVATION` in the OWS reservation shape and reuses the OWS parser. `SIM_PMS` gained the
+  same queries.
+- Agent: `Hotella.Agent.OperaDb` (`Oracle.ManagedDataAccess.Core` 23.26.301, ADR-0016 row): the statements of data
+  contract v1 are compiled in (private constructor, bind variables only; the schema owner is the only identifier and
+  must be an upper-case Oracle identifier); every read runs in `SET TRANSACTION READ ONLY` and is rolled back; command
+  timeout ≤ 30 s, connection pool ≤ 2, at most two queries at a time. `PrivilegeCheck` (at start and daily): only
+  `CREATE SESSION` and `SELECT`/`READ` on the contract objects of the owner; any other system privilege, any role, any
+  write privilege or grant outside the contract refuses every read and reports the adapter unhealthy until the DBA
+  fixes it. `hotella-agent opera-db probe` reports objects, columns, privileges and per-table counts (no personal
+  data); the password is `hotella-agent secret set opera.db.password`. The link client answers queries on a background
+  task behind the licence gate; failure messages carry only the error type.
+- Tests: `OperaDbTests.cs` (statement allow-list has no write verb, privilege sets including a writable account and a
+  DBA role ⇒ refused, row mapping, fixture source, polling fingerprints); `pms-simulator` `queries.e2e-spec.ts` (each
+  query type validated against the manifest, a request log that never keeps answers once taken, invalid parameters
+  refused before the agent is asked, reconciliation by query, honest UNAVAILABLE/FAILED when the agent is gone;
+  `link.e2e-spec.ts` keeps a protocol-1 agent working) and the cross-language
+  `opera5-db.e2e-spec.ts` (the .NET agent answers lookups, arrivals and the in-house snapshot from an Oracle-shaped
+  fixture generated from the simulated hotel by `databaseFixture`, refuses a writable account, and forwards polled
+  changes). CI does not run Oracle: the real database is verified with `opera-db probe` during commissioning (10.9).
 
 **10.8 — Standard FIAS profile v1 and OWS standard connector v1.**
 - FIAS: align the agent's `LR` request list and the parser with Planova Standard Profile v1 (guide §7.3): GI/GO/GC with

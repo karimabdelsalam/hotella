@@ -244,6 +244,8 @@ describe.skipIf(needsInfra())(
     });
 
     it('cancelling is HIGH risk: a proposal waits for a person, then runs exactly as proposed', async () => {
+      // Asserted after the turn, so a failure shows what the tool answered instead of a missing approval.
+      let proposed: unknown;
       fake.reset();
       fake.reply(
         { toolCalls: [{ id: 'o', name: 'operations__find_open_requests', arguments: {} }] },
@@ -260,7 +262,7 @@ describe.skipIf(needsInfra())(
           };
         },
         (request) => {
-          expect(lastToolResult(request)).toMatchObject({ status: 'PROPOSED' });
+          proposed = lastToolResult(request);
           return {
             content: JSON.stringify({
               reply: 'تمام، طلبت من الزملاء يأكدوا إلغاء طلب التكييف.',
@@ -274,6 +276,7 @@ describe.skipIf(needsInfra())(
         `m2-cancel-${stamp}`,
       );
       expect(await asWorker(envelope)).toBe('REPLIED');
+      expect(proposed).toMatchObject({ status: 'PROPOSED' });
       // Nothing happened yet: a person decides.
       expect((await catalog.getServiceRequest(hotel.tenantId, acRequestId))!.status).toBe('OPEN');
       const pending = (

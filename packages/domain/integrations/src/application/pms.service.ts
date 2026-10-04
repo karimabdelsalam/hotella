@@ -7,7 +7,15 @@ import {
   type PmsOperation,
   type PmsOperationDefinition,
 } from '../domain/capabilities';
-import type { PmsPublicApi, PmsWriteContext, PmsWriteOutcome } from '../public';
+import type { PmsProfileRow, PmsReservationRow, PmsRoomRow } from '@hotella/contracts-connectors';
+import type {
+  PmsPublicApi,
+  PmsReadContext,
+  PmsReadOutcome,
+  PmsWriteContext,
+  PmsWriteOutcome,
+} from '../public';
+import { AgentQueryService } from './agent-query.service';
 import { IntegrationsPublicApiService } from '../public-api.service';
 import { CapabilityRegistry } from './capability-registry';
 
@@ -22,8 +30,99 @@ export class PmsService implements PmsPublicApi {
     private readonly registry: CapabilityRegistry,
     private readonly commands: IntegrationsPublicApiService,
     private readonly tx: TransactionRunner,
+    private readonly agentQueries: AgentQueryService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
+
+  lookupReservation(
+    input: PmsReadContext &
+      ({ readonly confirmationNumber: string } | { readonly reservationId: string }),
+  ): Promise<PmsReadOutcome<PmsReservationRow>> {
+    return this.read(
+      'LOOKUP_RESERVATION',
+      input,
+      'confirmationNumber' in input
+        ? { confirmation_number: input.confirmationNumber }
+        : { reservation_id: input.reservationId },
+    );
+  }
+
+  listArrivals(
+    input: PmsReadContext & { readonly from: string; readonly to: string },
+  ): Promise<PmsReadOutcome<PmsReservationRow>> {
+    return this.read('LIST_ARRIVALS', input, { from: input.from, to: input.to });
+  }
+
+  inHouseSnapshot(input: PmsReadContext): Promise<PmsReadOutcome<PmsReservationRow>> {
+    return this.read('IN_HOUSE_SNAPSHOT', input, {});
+  }
+
+  lookupProfile(
+    input: PmsReadContext & { readonly profileId: string },
+  ): Promise<PmsReadOutcome<PmsProfileRow>> {
+    return this.read('LOOKUP_PROFILE', input, { profile_id: input.profileId });
+  }
+
+  roomInventory(input: PmsReadContext): Promise<PmsReadOutcome<PmsRoomRow>> {
+    return this.read('ROOM_INVENTORY', input, {});
+  }
+
+  /**
+   * Guide §4.3 for reads: the effective connectors in order; one that is unreachable, too slow or fails gives way to
+   * the next, and every attempt is on record (`integration_queries`). Runs outside any transaction (it waits).
+   */
+  async read<R>(
+    operation: PmsOperation,
+    input: PmsReadContext,
+    params: Record<string, unknown>,
+  ): Promise<PmsReadOutcome<R>> {
+    const op: PmsOperationDefinition = PMS_OPERATIONS[operation];
+    const decision = await this.tx.read(async () =>
+      this.registry.decide(
+        await this.registry.facts({ tenantId: input.tenantId, propertyId: input.propertyId }),
+        operation,
+      ),
+    );
+    const attempts: Array<{ connectorCode: string; status: string }> = [];
+    for (const target of decision.route) {
+      if (!this.registry.servesQuery(target.connectorCode, op.query!)) {
+        attempts.push({ connectorCode: target.connectorCode, status: 'NO_QUERY' });
+        continue;
+      }
+      const outcome = await this.agentQueries.run({
+        tenantId: input.tenantId,
+        propertyId: input.propertyId,
+        instanceId: target.instanceId,
+        connectorCode: target.connectorCode,
+        queryType: op.query!,
+        params,
+        deadlineMs: input.deadlineMs,
+        requestedBy: input.requestedBy,
+        correlationId: input.correlationId ?? null,
+        routing: {
+          operation,
+          chosen: target.connectorCode,
+          route: decision.route.map((r) => r.connectorCode),
+          attempt: attempts.length + 1,
+        },
+      });
+      if (outcome.status === 'OK')
+        return {
+          outcome: 'OK',
+          connectorCode: target.connectorCode,
+          rows: outcome.rows as R[],
+          truncated: outcome.truncated,
+        };
+      attempts.push({ connectorCode: target.connectorCode, status: outcome.status });
+    }
+    if (attempts.length === 0 || attempts.every((a) => a.status === 'NO_QUERY'))
+      return { outcome: 'UNAVAILABLE', capability: op.capability };
+    this.logger.warn(
+      { operation, property_id: input.propertyId, attempts },
+      'pms read failed on every connector',
+    );
+    return { outcome: 'FAILED', capability: op.capability, attempts };
+  }
 
   can(tenantId: string, propertyId: string, capability: ConnectorCapability): Promise<boolean> {
     return this.tx.read(() => this.registry.can({ tenantId, propertyId }, capability));

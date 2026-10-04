@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { ConnectorAdapter, ConnectorManifest } from '@hotella/contracts-connectors';
-import { opera5FiasAdapter, opera5OwsAdapter } from './opera5';
+import { opera5DbAdapter, opera5FiasAdapter, opera5OwsAdapter } from './opera5';
 import { simPmsAdapter } from './sim-pms';
 
 /**
@@ -11,6 +11,7 @@ export const CONNECTOR_ADAPTERS: readonly ConnectorAdapter[] = [
   simPmsAdapter,
   opera5FiasAdapter,
   opera5OwsAdapter,
+  opera5DbAdapter,
 ];
 
 export class ConnectorRegistry {
@@ -46,6 +47,12 @@ export function catalogRow(m: ConnectorManifest) {
       description: c.description,
       requires: c.requires,
       payloadSchema: z.toJSONSchema(c.payload),
+    })),
+    queries: (m.queries ?? []).map((q) => ({
+      code: q.code,
+      description: q.description,
+      requires: q.requires,
+      paramsSchema: z.toJSONSchema(q.params),
     })),
     configSchema: z.toJSONSchema(m.configSchema),
     credentialSchema: z.toJSONSchema(m.credentialSchema),

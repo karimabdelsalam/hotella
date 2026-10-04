@@ -8,6 +8,7 @@ import {
   type RawInboundMessage,
 } from '@hotella/contracts-connectors';
 import { parseFiasRecord } from '../fias';
+import { pmsQueries } from '../pms-queries';
 import { parseOwsProfile, parseOwsReservation } from '../ows';
 
 /**
@@ -31,7 +32,12 @@ export const SIM_PMS_MANIFEST = defineConnector({
     'ROOM_STATUS_WRITE',
     'OOO_WRITE',
     'RESERVATION_READ',
+    'RESERVATION_LOOKUP',
+    'ARRIVALS_READ',
+    'IN_HOUSE_SNAPSHOT',
     'GUEST_READ',
+    'PROFILE_LOOKUP',
+    'ROOM_INVENTORY_READ',
     'RECONCILIATION_READ',
   ],
   messageTypes: [
@@ -86,6 +92,14 @@ export const SIM_PMS_MANIFEST = defineConnector({
         .strict(),
     },
   ],
+  // Link protocol 2: the simulator answers the standard reads from its hotel, like OPERA's database would.
+  queries: pmsQueries({
+    LOOKUP_RESERVATION: 'RESERVATION_LOOKUP',
+    LIST_ARRIVALS: 'ARRIVALS_READ',
+    IN_HOUSE: 'IN_HOUSE_SNAPSHOT',
+    LOOKUP_PROFILE: 'PROFILE_LOOKUP',
+    ROOM_INVENTORY: 'ROOM_INVENTORY_READ',
+  }),
   configSchema: z.object({
     /** Free text shown to staff, e.g. which simulator container serves the instance. */
     label: z.string().max(200).optional(),

@@ -3,7 +3,14 @@ export type { QueuedMessage } from './agent/queue';
 export { enroll, HttpError, loadIdentity, postJson, saveIdentity } from './agent/identity';
 export type { AgentIdentity } from './agent/identity';
 export { AgentLinkClient } from './agent/link-client';
-export type { CommandFrame, CommandHandler, LinkClientOptions } from './agent/link-client';
+export type {
+  CommandFrame,
+  CommandHandler,
+  LinkClientOptions,
+  QueryFrame,
+  QueryHandler,
+} from './agent/link-client';
+export { answerQuery, databaseFixture, profileRow, reservationRow, roomRows } from './pms/queries';
 export { fiasRecord, SimulatedPms, SimulationError, wallClock } from './pms/hotel';
 export { Ifc8Face } from './pms/ifc8';
 export { OwsSoapFace } from './pms/ows-soap';

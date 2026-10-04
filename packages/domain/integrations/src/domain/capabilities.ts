@@ -92,6 +92,8 @@ export interface PmsOperationDefinition {
   readonly connectors: readonly string[];
   /** The connector command a write becomes. */
   readonly command?: string;
+  /** The predefined query (link protocol 2) a read becomes. */
+  readonly query?: string;
 }
 
 /** Operations of `PMS_API` v1 (guide §4.2). No operation lists the database as a write target. */
@@ -100,27 +102,37 @@ export const PMS_OPERATIONS = {
     kind: 'read',
     capability: 'RESERVATION_LOOKUP',
     connectors: [OPERA_DB, OPERA_OWS, SIM_PMS],
+    query: 'LOOKUP_RESERVATION',
   },
   LIST_ARRIVALS: {
     kind: 'read',
     capability: 'ARRIVALS_READ',
     connectors: [OPERA_DB, OPERA_OWS, SIM_PMS],
+    query: 'LIST_ARRIVALS',
   },
   IN_HOUSE_SNAPSHOT: {
     kind: 'read',
     capability: 'IN_HOUSE_SNAPSHOT',
     connectors: [OPERA_DB, OPERA_FIAS, OPERA_OWS, SIM_PMS],
+    query: 'IN_HOUSE',
   },
   LOOKUP_PROFILE: {
     kind: 'read',
     capability: 'PROFILE_LOOKUP',
     connectors: [OPERA_DB, OPERA_OWS, SIM_PMS],
+    query: 'LOOKUP_PROFILE',
   },
-  ROOM_INVENTORY: { kind: 'read', capability: 'ROOM_INVENTORY_READ', connectors: [OPERA_DB] },
+  ROOM_INVENTORY: {
+    kind: 'read',
+    capability: 'ROOM_INVENTORY_READ',
+    connectors: [OPERA_DB, SIM_PMS],
+    query: 'ROOM_INVENTORY',
+  },
   RECONCILIATION_SNAPSHOT: {
     kind: 'read',
     capability: 'RECONCILIATION_READ',
     connectors: [OPERA_DB, OPERA_FIAS, OPERA_OWS, SIM_PMS],
+    query: 'IN_HOUSE',
   },
   SET_ROOM_STATUS: {
     kind: 'write',

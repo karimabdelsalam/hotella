@@ -53,6 +53,7 @@ export class IntegrationRepositories {
           capabilities: values.capabilities,
           messageTypes: values.messageTypes,
           commands: values.commands,
+          queries: values.queries,
           configSchema: values.configSchema,
           credentialSchema: values.credentialSchema,
           syncedAt: new Date(),

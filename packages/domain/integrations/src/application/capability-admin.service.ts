@@ -8,6 +8,7 @@ import { AppError } from '@hotella/platform-i18n';
 import { ConnectorRegistry } from '../connectors/registry';
 import { isPmsOperation, overrideProblem, PMS_OPERATIONS } from '../domain/capabilities';
 import { CapabilityRepositories } from '../infrastructure/capability-repositories';
+import { QueryRepositories } from '../infrastructure/query-repositories';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import { CapabilityRegistry } from './capability-registry';
 
@@ -44,6 +45,7 @@ export class CapabilityAdminService {
     private readonly actors: ActorStore,
     private readonly tx: TransactionRunner,
     private readonly audit: AuditWriter,
+    private readonly queryLog: QueryRepositories,
   ) {}
 
   view(scope: PropertyScope) {
@@ -74,6 +76,13 @@ export class CapabilityAdminService {
             })),
           };
         }),
+    );
+  }
+
+  queries(scope: PropertyScope) {
+    return this.gate.execute(
+      { action: 'integration.read', tenantId: scope.tenantId, propertyId: scope.propertyId },
+      () => this.tx.read(() => this.queryLog.recent(scope, 100)),
     );
   }
 

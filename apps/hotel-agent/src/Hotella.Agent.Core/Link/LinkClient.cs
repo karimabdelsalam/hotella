@@ -25,6 +25,22 @@ public interface ICommandHandler
     Task<CommandOutcome> ExecuteAsync(JsonNode? payload, CancellationToken ct);
 }
 
+/// <summary>Rows a predefined read answers (canonical JSON objects of the query type's row schema).</summary>
+public sealed record QueryAnswer(IReadOnlyList<JsonObject> Rows, bool Truncated);
+
+/// <summary>
+/// An adapter's handler for one predefined read of the connector manifest (link protocol 2, ADR-0019): typed
+/// parameters in, canonical rows out. There is no generic query: a type the agent does not compile in is refused.
+/// </summary>
+public interface IQueryHandler
+{
+    string QueryType { get; }
+    Task<QueryAnswer> ExecuteAsync(JsonObject parameters, CancellationToken ct);
+}
+
+/// <summary>A read the handler refuses with a reason the platform may show (no guest data in it).</summary>
+public sealed class QueryRefusedException(string reason) : Exception(reason);
+
 /// <summary>Where an adapter hands vendor messages: durably queued, then sent in order (implemented by the link).</summary>
 public interface IMessagePublisher
 {
@@ -37,7 +53,10 @@ public sealed record LinkOptions(
     IReadOnlyList<string> Capabilities,
     string AgentVersion)
 {
-    public const int ProtocolVersion = 1;
+    /// <summary>Protocol 2 adds signed predefined reads (<c>query</c> → <c>query_result</c>).</summary>
+    public const int ProtocolVersion = 2;
+    /// <summary>Rows one answer may carry (the platform's limit); more is answered as truncated.</summary>
+    public const int MaxQueryRows = 2000;
     public const string LinkPath = "/agent/v1/link";
     public const string BatchPath = "/agent/v1/batches";
     public TimeSpan MaxBackoff { get; init; } = TimeSpan.FromSeconds(60);
@@ -46,7 +65,11 @@ public sealed record LinkOptions(
 /// <summary>Counters for health reporting and the conformance tests.</summary>
 public sealed class LinkStats
 {
-    private int _connects, _welcomes, _acks, _resends, _commands, _rejectedCommands, _throttles;
+    private int _connects, _welcomes, _acks, _resends, _commands, _rejectedCommands, _throttles, _queries, _rejectedQueries;
+    public int Queries => _queries;
+    public int RejectedQueries => _rejectedQueries;
+    internal void Queried() => Interlocked.Increment(ref _queries);
+    internal void RejectedQuery() => Interlocked.Increment(ref _rejectedQueries);
     public int Connects => _connects;
     public int Welcomes => _welcomes;
     public int Acks => _acks;
@@ -87,6 +110,9 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
     private readonly ILogger _log;
     private readonly CommandSignature _signature;
     private readonly Dictionary<string, ICommandHandler> _handlers;
+    private readonly Dictionary<string, IQueryHandler> _queryHandlers;
+    /// <summary>At most two reads at a time (the OPERA database pool, guide §6.4); more wait their turn.</summary>
+    private readonly SemaphoreSlim _queryLimit = new(2, 2);
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly SemaphoreSlim _flushSignal = new(0, int.MaxValue);
     private readonly Lock _state = new();
@@ -105,7 +131,8 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
         DurableOutbox queue,
         LinkOptions options,
         IEnumerable<ICommandHandler> handlers,
-        ILogger logger)
+        ILogger logger,
+        IEnumerable<IQueryHandler>? queries = null)
     {
         _identity = identity;
         _queue = queue;
@@ -113,6 +140,7 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
         _log = logger;
         _signature = new CommandSignature(identity.CommandPublicKeyPem);
         _handlers = handlers.ToDictionary(h => h.CommandType, StringComparer.Ordinal);
+        _queryHandlers = (queries ?? []).ToDictionary(h => h.QueryType, StringComparer.Ordinal);
     }
 
     public LinkStats Stats { get; } = new();
@@ -251,6 +279,7 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
         ws?.Dispose();
         _sendLock.Dispose();
         _flushSignal.Dispose();
+        _queryLimit.Dispose();
     }
 
     // ---- one session ----
@@ -335,6 +364,10 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
                         break;
                     case "command":
                         await OnCommandAsync(frame, session.Token).ConfigureAwait(false);
+                        break;
+                    case "query":
+                        // Reads run beside the ordered message flow and never hold up the receive loop.
+                        _ = Task.Run(() => QuietlyAsync(OnQueryAsync(frame, session.Token)), session.Token);
                         break;
                     case "error":
                         _log.LogWarning("platform error {Code}: {Message}", frame["code"], frame["message"]);
@@ -460,6 +493,89 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
             ["status"] = outcome.Acknowledged ? "ACKNOWLEDGED" : "FAILED",
             ["error"] = outcome.Error,
         }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>A read whose link closed meanwhile is simply not answered: the platform's deadline expires it.</summary>
+    private static async Task QuietlyAsync(Task task)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is OperationCanceledException or WebSocketException or ObjectDisposedException)
+        {
+            // The session ended.
+        }
+    }
+
+    private async Task OnQueryAsync(JsonObject frame, CancellationToken ct)
+    {
+        var queryId = frame["query_id"]?.GetValue<string>();
+        // A read not signed by the pinned platform key, or meant for another instance, is never run.
+        if (queryId is null || !_signature.Verify(frame)
+            || frame["instance_id"]?.GetValue<string>() != _identity.InstanceId)
+        {
+            Stats.RejectedQuery();
+            _log.LogWarning("query rejected: signature or instance does not match");
+            return;
+        }
+        if (frame["deadline"] is JsonValue d
+            && DateTimeOffset.TryParse(d.GetValue<string>(), CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal, out var deadline)
+            && deadline < DateTimeOffset.UtcNow)
+            return;
+        Stats.Queried();
+        var type = frame["query_type"]?.GetValue<string>() ?? "";
+        JsonObject result;
+        try
+        {
+            if (CommandGate?.Invoke() is { } refusal) throw new QueryRefusedException(refusal);
+            if (!_queryHandlers.TryGetValue(type, out var handler))
+                throw new QueryRefusedException($"unknown query {type}");
+            await _queryLimit.WaitAsync(ct).ConfigureAwait(false);
+            QueryAnswer answer;
+            try
+            {
+                answer = await handler.ExecuteAsync(frame["params"] as JsonObject ?? [], ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                _queryLimit.Release();
+            }
+            var truncated = answer.Truncated || answer.Rows.Count > LinkOptions.MaxQueryRows;
+            result = new JsonObject
+            {
+                ["type"] = "query_result",
+                ["query_id"] = queryId,
+                ["status"] = "OK",
+                ["rows"] = new JsonArray(answer.Rows.Take(LinkOptions.MaxQueryRows)
+                    .Select(r => (JsonNode)r.DeepClone()).ToArray()),
+                ["truncated"] = truncated,
+                ["error"] = null,
+            };
+        }
+        catch (Exception e) when (e is QueryRefusedException or InvalidOperationException or TimeoutException
+                                     or FormatException or KeyNotFoundException)
+        {
+            result = Failed(queryId, e.Message);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // Driver errors carry no guest data, but they may carry server details: only the type goes out.
+            _log.LogWarning("query {Type} failed: {Error}", type, e.Message);
+            result = Failed(queryId, $"{type} failed ({e.GetType().Name})");
+        }
+        await SendAsync(result, ct).ConfigureAwait(false);
+
+        static JsonObject Failed(string id, string error) => new()
+        {
+            ["type"] = "query_result",
+            ["query_id"] = id,
+            ["status"] = "FAILED",
+            ["rows"] = new JsonArray(),
+            ["truncated"] = false,
+            ["error"] = error.Length > 500 ? error[..500] : error,
+        };
     }
 
     private async Task<CommandOutcome> ExecuteAsync(JsonObject frame, CancellationToken ct)

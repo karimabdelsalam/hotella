@@ -1,5 +1,10 @@
 /** The ONLY surface other bounded contexts may import from this package (ADR-0001). */
-import type { ConnectorCapability } from '@hotella/contracts-connectors';
+import type {
+  ConnectorCapability,
+  PmsProfileRow,
+  PmsReservationRow,
+  PmsRoomRow,
+} from '@hotella/contracts-connectors';
 
 export interface ExternalReferenceSummary {
   readonly integrationInstanceId: string;
@@ -170,14 +175,56 @@ export type PmsWriteOutcome =
     }
   | { readonly outcome: 'UNAVAILABLE'; readonly capability: ConnectorCapability };
 
+/** Who asks the PMS for a read (no idempotency: reads change nothing). */
+export interface PmsReadContext {
+  readonly tenantId: string;
+  readonly propertyId: string;
+  readonly requestedBy: { readonly type: string; readonly id: string | null };
+  readonly correlationId?: string | null;
+  /** How long to wait for the hotel's agent (default 15 s, at most 60 s). */
+  readonly deadlineMs?: number;
+}
+
+/**
+ * OK: rows from the first connector that answered. UNAVAILABLE: no connector of the property may do it.
+ * FAILED: every connector that may do it failed or did not answer in time (each attempt listed).
+ */
+export type PmsReadOutcome<R> =
+  | {
+      readonly outcome: 'OK';
+      readonly connectorCode: string;
+      readonly rows: readonly R[];
+      readonly truncated: boolean;
+    }
+  | { readonly outcome: 'UNAVAILABLE'; readonly capability: ConnectorCapability }
+  | {
+      readonly outcome: 'FAILED';
+      readonly capability: ConnectorCapability;
+      readonly attempts: ReadonlyArray<{ readonly connectorCode: string; readonly status: string }>;
+    };
+
 /**
  * The Unified OPERA Adapter (ADR-0019; guide §4) — vendor-neutral by name: the only way a module reaches the PMS. It
  * asks the per-property capability registry which connector may serve each operation and never writes through a
- * read-only connector. Reads (lookups, arrivals, snapshots) arrive with link protocol 2 (BUILD_PLAN 10.7).
+ * read-only connector. Reads go over link protocol 2 to the first connector that may serve them and fall through to the
+ * next one when an agent is unreachable or fails; writes never fall through.
  */
 export interface PmsPublicApi {
   /** Spec §47: may the property's PMS integration do this now? For modules, the UI and the AI tools. */
   can(tenantId: string, propertyId: string, capability: ConnectorCapability): Promise<boolean>;
+  lookupReservation(
+    input: PmsReadContext &
+      ({ readonly confirmationNumber: string } | { readonly reservationId: string }),
+  ): Promise<PmsReadOutcome<PmsReservationRow>>;
+  /** Arrivals between two local dates (at most 31 days). */
+  listArrivals(
+    input: PmsReadContext & { readonly from: string; readonly to: string },
+  ): Promise<PmsReadOutcome<PmsReservationRow>>;
+  inHouseSnapshot(input: PmsReadContext): Promise<PmsReadOutcome<PmsReservationRow>>;
+  lookupProfile(
+    input: PmsReadContext & { readonly profileId: string },
+  ): Promise<PmsReadOutcome<PmsProfileRow>>;
+  roomInventory(input: PmsReadContext): Promise<PmsReadOutcome<PmsRoomRow>>;
   setRoomStatus(
     input: PmsWriteContext & {
       readonly roomNumber: string;

@@ -407,6 +407,13 @@ export class PropertyCapabilitiesController {
     );
   }
 
+  /** The read log of the property's agents (never the answers), for installers and support. */
+  @Get('queries')
+  @RequirePermission('integration.read', { checkedBy: 'gate' })
+  queries(@Param('propertyId') propertyId: string) {
+    return this.admin.queries(propertyScope(this.ctx, this.actors, propertyId));
+  }
+
   @Put('routing/:operation')
   @RequirePermission('integration.capability.manage', { checkedBy: 'gate' })
   routing(

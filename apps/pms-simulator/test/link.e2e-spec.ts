@@ -104,6 +104,8 @@ describe.skipIf(needsInfra())(
         connectorCode: 'SIM_PMS',
         capabilities: CAPABILITIES.filter((c) => c !== 'GUEST_READ'),
         agentVersion: 'test',
+        // A protocol-1 agent (no predefined reads): reconciliation falls back to the database swap command.
+        protocol: 1,
         onCommand: async (cmd) =>
           cmd.command_type === 'RESYNC_IN_HOUSE'
             ? (pms.resyncInHouse(), { status: 'ACKNOWLEDGED' as const })

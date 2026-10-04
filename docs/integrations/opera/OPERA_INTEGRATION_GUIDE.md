@@ -111,7 +111,8 @@ are not offered.
 
 ### 4.4 Link protocol 2 — queries
 Reads need answers. Protocol 2 adds a signed **`query`** frame (predefined `query_type` from the connector manifest,
-typed parameters, deadline) and a **`query_result`** frame (canonical rows, page token, row cap, truncated flag).
+typed parameters, deadline) and a **`query_result`** frame (canonical rows, at most 2 000 per answer, truncated flag;
+no page token in v1 — the standard reads of one property stay below the cap).
 There is no free-form SQL, SOAP or shell: the agent executes only query types compiled into it. Protocol 1 agents keep
 working; queries are routed only to agents that announce protocol 2 in `hello`.
 

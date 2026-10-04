@@ -4,6 +4,7 @@ using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
+using Hotella.Agent.OperaDb;
 using Hotella.Agent.Ows;
 using Microsoft.Extensions.Logging;
 
@@ -36,6 +37,7 @@ LicenceStore? licences = null;
 var licenceClockDays = 0;
 var licenceDir = Directory.CreateTempSubdirectory("hotella-conformance-").FullName;
 OwsAdapter? ows = null;
+OperaDbAdapter? operaDb = null;
 using var adapterStop = new CancellationTokenSource();
 Task? adapterRun = null;
 
@@ -49,6 +51,7 @@ async Task QuitAsync()
     }
     fias?.Dispose();
     ows?.Dispose();
+    operaDb?.Dispose();
     Directory.Delete(licenceDir, recursive: true);
 }
 
@@ -105,12 +108,27 @@ while (Console.ReadLine() is { } text)
                         PollSeconds = owsRequest["poll_seconds"]?.GetValue<int>() ?? 1,
                     }, identity!.InstanceId, () => password, ":memory:", log);
                 }
+                if (client is null && request["opera_db"] is JsonObject dbRequest)
+                {
+                    // OPERA5_DB: predefined reads over link protocol 2 from the simulator's OPERA-shaped fixture.
+                    var settings = new OperaDbSettings
+                    {
+                        Provider = "fixture",
+                        FixturePath = dbRequest["fixture"]!.GetValue<string>(),
+                        ResortCode = dbRequest["resort"]!.GetValue<string>(),
+                        ChangePolling = dbRequest["change_polling"]?.GetValue<bool>() ?? false,
+                        PollSeconds = 60,
+                    };
+                    operaDb = new OperaDbAdapter(settings, identity!.InstanceId,
+                        new FixtureDataSource(settings.FixturePath, settings.ResortCode), ":memory:", log);
+                    await operaDb.CheckPrivilegesAsync(CancellationToken.None);
+                }
                 client ??= new LinkClient(identity!, queue,
                     new LinkOptions(gateway!, request["connector"]!.GetValue<string>(),
                         request["capabilities"]!.AsArray().Select(c => c!.GetValue<string>()).ToList(), "conformance"),
                     fias?.Commands() ?? request["commands"]!.AsArray()
                         .Select(c => (ICommandHandler)new ReportingHandler(c!.GetValue<string>(), Write)),
-                    log);
+                    log, operaDb?.Queries());
                 if (licences is null)
                 {
                     licences = new LicenceStore(licenceDir, new CommandSignature(identity!.CommandPublicKeyPem),
@@ -123,6 +141,11 @@ while (Console.ReadLine() is { } text)
                 {
                     var link = client;
                     adapterRun = Task.Run(() => fias.RunAsync(link, adapterStop.Token));
+                }
+                if (operaDb is not null && adapterRun is null)
+                {
+                    var link = client;
+                    adapterRun = Task.Run(() => operaDb.RunAsync(link, adapterStop.Token));
                 }
                 if (ows is not null && adapterRun is null)
                 {
@@ -143,6 +166,13 @@ while (Console.ReadLine() is { } text)
                 reply["sequence_no"] = client!.Publish(request["source_message_id"]!.GetValue<string>(),
                     request["message_type"]!.GetValue<string>(), request["occurred_at"]?.GetValue<string>(),
                     request["payload"]!.ToJsonString()).SequenceNo;
+                break;
+            case "opera_db_check":
+                reply["problems"] = new JsonArray((await operaDb!.CheckPrivilegesAsync(CancellationToken.None))
+                    .Select(p => (JsonNode)p).ToArray());
+                break;
+            case "opera_db_poll":
+                reply["forwarded"] = await operaDb!.PollOnceAsync(client!, CancellationToken.None);
                 break;
             case "chaos":
                 if (request["reorder_next"]?.GetValue<bool>() == true) client!.Chaos.ReorderNext = true;
@@ -181,6 +211,14 @@ while (Console.ReadLine() is { } text)
                         ["forwarded"] = ows.Forwarded,
                         ["last_error"] = ows.LastError,
                     };
+                if (operaDb is not null)
+                    reply["opera_db"] = new JsonObject
+                    {
+                        ["up"] = operaDb.Up,
+                        ["problem"] = operaDb.Problem,
+                        ["polls"] = operaDb.Polls,
+                        ["forwarded"] = operaDb.Forwarded,
+                    };
                 if (fias is not null)
                     reply["ifc8"] = new JsonObject
                     {
@@ -197,6 +235,8 @@ while (Console.ReadLine() is { } text)
                         ["resends"] = client.Stats.Resends,
                         ["commands"] = client.Stats.Commands,
                         ["rejected_commands"] = client.Stats.RejectedCommands,
+                        ["queries"] = client.Stats.Queries,
+                        ["rejected_queries"] = client.Stats.RejectedQueries,
                     };
                 break;
             case "quit":

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- OPERA 5 read-only database connector (ADR-0019; OPERA Integration Guide §6): predefined SELECT statements of data
+       contract v1 answering link-protocol-2 reads, a privilege self-check and fallback change polling. Never writes. -->
+  <PropertyGroup>
+    <RootNamespace>Hotella.Agent.OperaDb</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hotella.Agent.Tests" />
+  </ItemGroup>
+</Project>

@@ -8,6 +8,7 @@ import {
   type RawInboundMessage,
 } from '@hotella/contracts-connectors';
 import { parseFiasRecord } from '../fias';
+import { pmsQueries } from '../pms-queries';
 import { parseOwsProfile, parseOwsReservation } from '../ows';
 
 /**
@@ -137,6 +138,72 @@ export const opera5OwsAdapter: ConnectorAdapter = {
         default:
           return { ok: false, error: `unsupported message type ${message.message_type}` };
       }
+    } catch (err) {
+      const error =
+        err instanceof z.ZodError
+          ? z.prettifyError(err)
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      return { ok: false, error: error.slice(0, 1000) };
+    }
+  },
+};
+
+/**
+ * `OPERA5_DB` — OPERA 5 read through a dedicated, SELECT-only Oracle account (ADR-0019; guide §6): lookups, lists,
+ * room inventory and the reconciliation snapshot, answered over link protocol 2 by predefined statements compiled into
+ * the agent, plus fallback change polling in the arrival window when OWS is absent. Read-only by definition: it can
+ * declare no write capability and no command, and routing never sends a write to it.
+ */
+export const OPERA5_DB_MANIFEST = defineConnector({
+  code: 'OPERA5_DB',
+  version: 1,
+  category: 'PMS',
+  entitlement: 'CONNECTOR_OPERA5',
+  readOnly: true,
+  description:
+    'OPERA 5 read-only database access (SELECT-only account, data contract v1): reservation and profile lookups, arrivals, in-house snapshot, room inventory; never written.',
+  capabilities: [
+    'RESERVATION_READ',
+    'RESERVATION_LOOKUP',
+    'ARRIVALS_READ',
+    'IN_HOUSE_SNAPSHOT',
+    'GUEST_READ',
+    'PROFILE_LOOKUP',
+    'ROOM_INVENTORY_READ',
+    'RECONCILIATION_READ',
+  ],
+  messageTypes: [
+    {
+      code: 'OPERA_DB_RESERVATION',
+      description:
+        'A reservation that changed in the polled arrival window (fallback change polling when OWS is absent), in the OWS reservation shape.',
+      requires: 'RESERVATION_READ',
+    },
+  ],
+  commands: [],
+  queries: pmsQueries({
+    LOOKUP_RESERVATION: 'RESERVATION_LOOKUP',
+    LIST_ARRIVALS: 'ARRIVALS_READ',
+    IN_HOUSE: 'IN_HOUSE_SNAPSHOT',
+    LOOKUP_PROFILE: 'PROFILE_LOOKUP',
+    ROOM_INVENTORY: 'ROOM_INVENTORY_READ',
+  }),
+  configSchema: z.object({
+    label: z.string().max(200).optional(),
+  }),
+  // The Oracle account and its password stay at the hotel, in the agent's protected store.
+  credentialSchema: z.object({}),
+});
+
+export const opera5DbAdapter: ConnectorAdapter = {
+  manifest: OPERA5_DB_MANIFEST,
+  parse(message: RawInboundMessage): ParseResult {
+    try {
+      if (message.message_type !== 'OPERA_DB_RESERVATION')
+        return { ok: false, error: `unsupported message type ${message.message_type}` };
+      return parsedRecords(parseOwsReservation(message.payload));
     } catch (err) {
       const error =
         err instanceof z.ZodError

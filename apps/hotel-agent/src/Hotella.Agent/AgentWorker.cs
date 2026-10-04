@@ -4,6 +4,7 @@ using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
+using Hotella.Agent.OperaDb;
 using Hotella.Agent.Ows;
 using Hotella.Agent.Updater;
 using Microsoft.Extensions.Hosting;
@@ -30,14 +31,15 @@ internal static class ExitCodes
 /// <summary>
 /// Runs the link (ADR-0017) for as long as the service runs: the durable queue, the mutual-TLS link with reconnects,
 /// and upkeep every hour — renew the device certificate before it expires and drop acknowledged history past the
-/// retention. The connector's adapter (OPERA5_FIAS: the IFC8 session; OPERA5_OWS: the OWS poller) runs beside the
-/// link, publishes into it and handles its commands. One agent service serves one integration instance; a hotel with
+/// retention. The connector's adapter (OPERA5_FIAS: the IFC8 session; OPERA5_OWS: the OWS poller; OPERA5_DB: the
+/// read-only database reads) runs beside the link, publishes into it and handles its commands and reads. One agent service serves one integration instance; a hotel with
 /// FIAS and OWS runs two (BUILD_PLAN 10.3 notes).
 /// </summary>
 internal sealed partial class AgentWorker(
     AgentSettings settings,
     FiasSettings fiasSettings,
     OwsSettings owsSettings,
+    OperaDbSettings operaDbSettings,
     UpdateSettings updateSettings,
     IHostApplicationLifetime lifetime,
     ILoggerFactory loggers) : BackgroundService
@@ -47,7 +49,7 @@ internal sealed partial class AgentWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var problems = AgentHost.Problems(settings, fiasSettings, owsSettings);
+        var problems = AgentHost.Problems(settings, fiasSettings, owsSettings, operaDbSettings);
         var store = new IdentityStore(settings.DataDirectory);
         var identity = problems.Count == 0 ? store.Load() : null;
         if (problems.Count > 0 || identity is null)
@@ -69,8 +71,12 @@ internal sealed partial class AgentWorker(
             ? new OwsAdapter(owsSettings, identity.InstanceId, () => secrets.Get(owsSettings.PasswordSecret),
                 Path.Combine(settings.DataDirectory, "ows.db"), loggers.CreateLogger("hotella.ows"))
             : null;
+        using var operaDb = settings.ConnectorCode == OperaDbAdapter.ConnectorCode
+            ? new OperaDbAdapter(operaDbSettings, identity.InstanceId, AgentHost.OperaDataSource(operaDbSettings, secrets),
+                Path.Combine(settings.DataDirectory, "opera-db.db"), loggers.CreateLogger("hotella.opera-db"))
+            : null;
         await using var link = new LinkClient(identity, queue, options, fias?.Commands() ?? [],
-            loggers.CreateLogger("hotella.link"));
+            loggers.CreateLogger("hotella.link"), operaDb?.Queries());
         link.Welcomed += () => _log.LogInformation("linked as instance {Instance}", identity.InstanceId);
         var licences = new LicenceStore(settings.DataDirectory, new CommandSignature(identity.CommandPublicKeyPem),
             identity.InstanceId);
@@ -80,7 +86,7 @@ internal sealed partial class AgentWorker(
                 _log.LogInformation("licence valid until {ExpiresAt:u}", licences.Current!.ExpiresAt);
         };
         link.CommandGate = () => licences.CommandRefusal(DateTimeOffset.UtcNow);
-        IAdapterHealth? pms = (IAdapterHealth?)fias ?? ows;
+        IAdapterHealth? pms = (IAdapterHealth?)fias ?? (IAdapterHealth?)ows ?? operaDb;
 
         using var session = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         var running = link.RunAsync(session.Token);
@@ -88,7 +94,8 @@ internal sealed partial class AgentWorker(
         var upkeep = UpkeepAsync(store, queue, link, updater, session.Token);
         var health = HealthAsync(store, queue, link, licences, pms, updater, session.Token);
         // The PMS side keeps reading while the platform is unreachable: records wait in the durable queue.
-        var adapter = fias?.RunAsync(link, session.Token) ?? ows?.RunAsync(link, session.Token) ?? Task.CompletedTask;
+        var adapter = fias?.RunAsync(link, session.Token) ?? ows?.RunAsync(link, session.Token)
+            ?? operaDb?.RunAsync(link, session.Token) ?? Task.CompletedTask;
         await Task.WhenAny(running, upkeep).ConfigureAwait(false);
         await session.CancelAsync().ConfigureAwait(false);
         await Task.WhenAll(running, Quietly(upkeep), Quietly(adapter), Quietly(health)).ConfigureAwait(false);

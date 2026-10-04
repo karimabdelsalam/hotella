@@ -2,6 +2,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   type AgentFrame,
   type BatchResponse,
+  LINK_PROTOCOL_QUERIES,
   type LinkMessage,
   type PlatformFrame,
   type LicenceBody,
@@ -27,6 +28,7 @@ import { ConnectorRegistry } from '../connectors/registry';
 import { IngestService } from '../application/ingest.service';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import { LinkRepositories } from '../infrastructure/link-repositories';
+import { QueryRepositories } from '../infrastructure/query-repositories';
 import type { AgentLinkRow, IntegrationInstanceRow } from '../infrastructure/schema';
 import { AgentKeys } from './agent-keys';
 
@@ -70,6 +72,7 @@ export class AgentLinkService {
     private readonly keys: AgentKeys,
     private readonly connectors: ConnectorRegistry,
     private readonly capabilities: CapabilityRegistry,
+    private readonly queries: QueryRepositories,
     @InjectLogger() private readonly logger: Logger,
     @Optional()
     @Inject(ENTITLEMENT_API)
@@ -107,6 +110,7 @@ export class AgentLinkService {
         let link = (await this.links.updateLink(scope, instance.id, {
           sessionId,
           agentVersion: frame.agent_version,
+          agentProtocol: frame.protocol,
           lastConnectedAt: new Date(),
         }))!;
         // The agent no longer holds what we expect next (reinstalled, or its buffer was evicted): accept the jump and
@@ -265,6 +269,89 @@ export class AgentLinkService {
         });
       },
       { tenantId: scope.tenantId },
+    );
+  }
+
+  /**
+   * Waiting predefined reads (link protocol 2), signed like commands and marked SENT; reads past their deadline are
+   * closed first. An agent that announced protocol 1 never receives one.
+   */
+  async queriesToSend(session: AgentSession): Promise<PlatformFrame[]> {
+    const { scope, instance } = session;
+    return withTransaction(
+      this.db,
+      async () => {
+        const link = await this.links.link(scope, instance.id);
+        if (!link || (link.agentProtocol ?? 1) < LINK_PROTOCOL_QUERIES) return [];
+        const now = new Date();
+        await this.queries.expire(scope, instance.id, now);
+        const pending = await this.queries.takePending(scope, instance.id, now);
+        if (pending.length === 0) return [];
+        const keys = await this.keys.get();
+        return pending.map((q) => {
+          const body = {
+            type: 'query' as const,
+            query_id: q.id,
+            instance_id: instance.id,
+            query_type: q.queryType,
+            params: q.params as Record<string, unknown>,
+            issued_at: q.createdAt.toISOString(),
+            deadline: q.deadlineAt.toISOString(),
+          };
+          return { ...body, signature: signCanonical(body, keys.commandSigningKey) };
+        });
+      },
+      { tenantId: scope.tenantId },
+    );
+  }
+
+  /** The agent's answer: rows must match the query type's row schema of the connector manifest, or it fails. */
+  async queryResult(
+    session: AgentSession,
+    frame: Extract<AgentFrame, { type: 'query_result' }>,
+  ): Promise<void> {
+    await withTransaction(
+      this.db,
+      async () => {
+        const query = await this.queries.query(session.scope, frame.query_id);
+        if (!query || query.instanceId !== session.instance.id) return;
+        const definition = this.connectors
+          .get(session.instance.connectorCode)
+          ?.manifest.queries?.find((q) => q.code === query.queryType);
+        if (frame.status === 'FAILED' || !definition) {
+          await this.queries.settle(session.scope, query.id, {
+            status: 'FAILED',
+            rows: null,
+            truncated: false,
+            error: (frame.error ?? 'unknown query type').slice(0, 1000),
+          });
+          return;
+        }
+        const rows: unknown[] = [];
+        for (const raw of frame.rows) {
+          const parsed = definition.row.safeParse(raw);
+          if (!parsed.success) {
+            // Paths and rules only, never the values (guest data).
+            await this.queries.settle(session.scope, query.id, {
+              status: 'FAILED',
+              rows: null,
+              truncated: false,
+              error: `row does not match ${query.queryType}: ${parsed.error.issues
+                .map((i) => i.path.join('.'))
+                .join(', ')}`.slice(0, 1000),
+            });
+            return;
+          }
+          rows.push(parsed.data);
+        }
+        await this.queries.settle(session.scope, query.id, {
+          status: 'ANSWERED',
+          rows,
+          truncated: frame.truncated,
+          error: null,
+        });
+      },
+      { tenantId: session.scope.tenantId },
     );
   }
 

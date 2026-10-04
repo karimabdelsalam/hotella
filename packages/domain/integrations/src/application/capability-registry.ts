@@ -186,6 +186,13 @@ export class CapabilityRegistry {
     return PMS_OPERATION_CODES.map((op) => this.decide(p, op));
   }
 
+  /** Does the connector answer this predefined read (link protocol 2)? */
+  servesQuery(connectorCode: string, queryType: string): boolean {
+    return Boolean(
+      this.connectors.get(connectorCode)?.manifest.queries?.some((q) => q.code === queryType),
+    );
+  }
+
   /** `PMS_API.can` (guide §5.3): does any connector of the property serve the capability effectively now? */
   async can(scope: PropertyScope, capability: string): Promise<boolean> {
     if (!isConnectorCapability(capability)) return false;

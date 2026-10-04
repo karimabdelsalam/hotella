@@ -43,6 +43,7 @@ export interface DotnetAgentState {
   queue_depth: number;
   ifc8?: { link_up: boolean; sessions: number; forwarded: number };
   ows?: { polls: number; failures: number; forwarded: number; last_error: string | null };
+  opera_db?: { up: boolean; problem: string | null; polls: number; forwarded: number };
   licence?: { state: string; expires_at: string | null; capabilities: string[] | null };
   stats?: {
     connects: number;
@@ -51,6 +52,8 @@ export interface DotnetAgentState {
     resends: number;
     commands: number;
     rejected_commands: number;
+    queries: number;
+    rejected_queries: number;
   };
 }
 
@@ -148,9 +151,20 @@ export class DotnetAgent implements ScenarioLink {
     commands: readonly string[],
     adapter?:
       | { ifc8: { host: string; port: number } }
-      | { ows: { url: string; user: string; password: string; poll_seconds?: number } },
+      | { ows: { url: string; user: string; password: string; poll_seconds?: number } }
+      | { opera_db: { fixture: string; resort: string; change_polling?: boolean } },
   ) {
     await this.call({ op: 'start', connector, capabilities, commands, ...adapter });
+  }
+
+  /** Runs the OPERA database privilege self-check now; returns the problems found. */
+  async operaDbCheck(): Promise<string[]> {
+    return (await this.call({ op: 'opera_db_check' }))['problems'] as string[];
+  }
+
+  /** One OPERA database change poll now (instead of waiting for the agent's timer). */
+  async operaDbPoll(): Promise<number> {
+    return (await this.call({ op: 'opera_db_poll' }))['forwarded'] as number;
   }
 
   async stop(): Promise<void> {

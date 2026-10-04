@@ -44,6 +44,7 @@ Components that fail the gate are **HOLD** items with a date; a quarterly curren
 | Frontend i18n | **next-intl** (GA, App Router; 4.x since Mar 2025) | ICU; RTL `dir` handling | — |
 | Browser tests | **Playwright 1.x** (`@playwright/test`; Chromium) for the web apps, API mocked in the browser | Mature (2020); request and WebSocket routing make LTR/RTL screens testable without a backend | — |
 | On-prem agent | **.NET 10 LTS** (Nov 2025, EOL Nov 2028) | LTS; .NET 11 is STS | .NET 12 LTS (Nov 2027) |
+| OPERA database driver (agent, ADR-0019) | **`Oracle.ManagedDataAccess.Core` 23.26.x** (23.26 line GA Oct 2025; 23.26.301 pinned) only in `Hotella.Agent.OperaDb` | Oracle's fully managed ADO.NET provider: no Oracle client install, no native code; redistributed unmodified under the Oracle Free Use Terms and Conditions (owner to confirm) | next 23.x line → gate |
 | Object storage | **SeaweedFS 4.48** (`chrislusf/seaweedfs`, Apache-2.0) | S3 gateway, mature since 2015, actively released; chosen after MinIO withdrew its community images (ADR-0013) | SeaweedFS 5 → gate |
 | Dev containers | `pgvector/pgvector:pg18`, `valkey/valkey:9`, `chrislusf/seaweedfs:4.48`, `axllent/mailpit`, `grafana/otel-lgtm` | Mirrors production (ADR-0013) | with the rows above |
 

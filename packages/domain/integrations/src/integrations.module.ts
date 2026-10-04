@@ -20,6 +20,8 @@ import { CapabilityAdminService } from './application/capability-admin.service';
 import { CapabilityRegistry } from './application/capability-registry';
 import { PmsService } from './application/pms.service';
 import { CapabilityRepositories } from './infrastructure/capability-repositories';
+import { QueryRepositories } from './infrastructure/query-repositories';
+import { AgentQueryService } from './application/agent-query.service';
 import {
   ConnectorCatalogService,
   ExceptionService,
@@ -58,6 +60,8 @@ import { IntegrationsPublicApiService } from './public-api.service';
     WebhookKeys,
     CapabilityRepositories,
     CapabilityRegistry,
+    QueryRepositories,
+    AgentQueryService,
     IntegrationsPublicApiService,
     { provide: INTEGRATIONS_API, useExisting: IntegrationsPublicApiService },
     PmsService,
@@ -68,6 +72,8 @@ import { IntegrationsPublicApiService } from './public-api.service';
     PMS_API,
     CapabilityRepositories,
     CapabilityRegistry,
+    QueryRepositories,
+    AgentQueryService,
     ConnectorRegistry,
     IntegrationRepositories,
     LinkRepositories,
@@ -135,6 +141,9 @@ export const WEBHOOK_SWEEP_JOB = 'integration.webhooks.sweep';
 const WEBHOOK_SWEEP_EVERY_MS = 30_000;
 
 export const CAPABILITY_LICENCE_CONSUMER = 'integration.capabilities-licence';
+export const QUERY_SWEEP_JOB = 'integration.queries.sweep';
+/** Answers wait at most this long for their asker; requests past their deadline are closed. */
+const QUERY_RESULT_KEEP_MS = 2 * 60_000;
 
 /**
  * Worker side of the Integration Platform. Outbound webhooks (BUILD_PLAN 11.5): every offered event becomes deliveries
@@ -154,9 +163,14 @@ export class IntegrationsWorkerModule implements OnModuleInit {
     private readonly dispatcher: WebhookDispatcher,
     private readonly capabilities: CapabilityRegistry,
     private readonly tx: TransactionRunner,
+    private readonly queries: QueryRepositories,
     @InjectLogger() private readonly logger: Logger,
   ) {}
   async onModuleInit(): Promise<void> {
+    this.consumers.onJob(QUERY_SWEEP_JOB, async () => {
+      const n = await this.tx.run(() => this.queries.sweep(new Date(), QUERY_RESULT_KEEP_MS));
+      if (n.cleared + n.expired > 0) this.logger.info(n, 'agent query answers cleared');
+    });
     this.consumers.on(EntitlementsChanged.name, CAPABILITY_LICENCE_CONSUMER, async (envelope) => {
       if (!envelope.tenant_id) return;
       const e = EntitlementsChanged.parse(envelope);
@@ -172,14 +186,18 @@ export class IntegrationsWorkerModule implements OnModuleInit {
       if (n > 0) this.logger.info({ attempted: n }, 'webhook deliveries attempted');
     });
     if (!this.config.worker.schedulerEnabled) return;
-    await this.queues.queue('normal').upsertJobScheduler(
-      WEBHOOK_SWEEP_JOB,
-      { every: WEBHOOK_SWEEP_EVERY_MS },
-      {
-        name: WEBHOOK_SWEEP_JOB,
-        data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
-        opts: { removeOnComplete: 10, removeOnFail: 50 },
-      },
-    );
+    for (const [job, every] of [
+      [WEBHOOK_SWEEP_JOB, WEBHOOK_SWEEP_EVERY_MS],
+      [QUERY_SWEEP_JOB, 60_000],
+    ] as const)
+      await this.queues.queue('normal').upsertJobScheduler(
+        job,
+        { every },
+        {
+          name: job,
+          data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
+          opts: { removeOnComplete: 10, removeOnFail: 50 },
+        },
+      );
   }
 }

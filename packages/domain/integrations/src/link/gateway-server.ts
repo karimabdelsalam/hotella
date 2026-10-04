@@ -30,6 +30,8 @@ const MAX_BATCH_BYTES = 5 * 1024 * 1024;
 const MAX_FRAME_BYTES = 1024 * 1024;
 const HELLO_TIMEOUT_MS = 10_000;
 const COMMAND_POLL_MS = 2_000;
+/** Reads are interactive (a person or a module waits), so waiting ones are picked up more often than commands. */
+const QUERY_POLL_MS = 500;
 /** Per-instance inbound frames per second before the platform asks the agent to slow down (ADR-0017 §4). */
 const THROTTLE_PER_SECOND = 200;
 
@@ -186,6 +188,18 @@ export class AgentGatewayServer implements OnApplicationShutdown {
         }).catch((err) => this.logger.error({ err: errorMessage(err) }, 'command delivery failed'));
       }, COMMAND_POLL_MS),
     );
+    let querying = false;
+    timers.push(
+      setInterval(() => {
+        if (!greeted || querying) return;
+        querying = true;
+        void this.inContext(session, async () => {
+          for (const frame of await this.link.queriesToSend(session)) out(frame);
+        })
+          .catch((err) => this.logger.error({ err: errorMessage(err) }, 'query delivery failed'))
+          .finally(() => (querying = false));
+      }, QUERY_POLL_MS),
+    );
 
     ws.on('message', (data, isBinary) => {
       lastFrameAt = Date.now();
@@ -223,6 +237,8 @@ export class AgentGatewayServer implements OnApplicationShutdown {
                 return this.link.heartbeat(session, frame);
               case 'command_result':
                 return this.link.commandResult(session, frame);
+              case 'query_result':
+                return this.link.queryResult(session, frame);
             }
           });
         } catch (err) {

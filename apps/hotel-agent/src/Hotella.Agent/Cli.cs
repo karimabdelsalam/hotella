@@ -4,6 +4,7 @@ using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
+using Hotella.Agent.OperaDb;
 using Hotella.Agent.Ows;
 using Hotella.Agent.Updater;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +27,7 @@ internal static class Cli
                    hotella-agent secret set <name>           store a credential read from stdin (e.g. ows.password)
                    hotella-agent secret list|remove <name>
                    hotella-agent update status|check|apply|rollback
+                   hotella-agent opera-db probe              check the OPERA database account and data contract
                    hotella-agent version
             """);
         return ExitCodes.Usage;
@@ -86,7 +88,8 @@ internal static class Cli
         var settings = AgentHost.Settings(config);
         var fias = AgentHost.FiasSettings(config);
         var ows = AgentHost.OwsSettings(config);
-        var problems = AgentHost.Problems(settings, fias, ows);
+        var db = AgentHost.OperaDbSettings(config);
+        var problems = AgentHost.Problems(settings, fias, ows, db);
         Console.WriteLine($"version:      {AgentVersion}");
         Console.WriteLine($"gateway:      {settings.Gateway}");
         Console.WriteLine($"connector:    {settings.ConnectorCode} [{string.Join(", ", settings.Capabilities)}]");
@@ -98,6 +101,12 @@ internal static class Cli
         {
             Console.WriteLine($"ows:          {ows.Url} as {ows.Username}, every {ows.PollSeconds} s, {ows.WindowDays} days ahead");
             if (secrets.Get(ows.PasswordSecret) is null) problems.Add($"secret {ows.PasswordSecret} is not set");
+        }
+        if (settings.ConnectorCode == OperaDbAdapter.ConnectorCode)
+        {
+            Console.WriteLine($"opera-db:     {db.Provider} {db.Host}:{db.Port}/{db.ServiceName} as {db.Username}, owner {db.SchemaOwner}, resort {db.ResortCode}"
+                + (db.ChangePolling ? $", change polling every {db.PollSeconds} s" : ""));
+            if (db.Provider == "oracle" && secrets.Get(db.PasswordSecret) is null) problems.Add($"secret {db.PasswordSecret} is not set");
         }
         Console.WriteLine($"secrets:      {string.Join(", ", secrets.Names())}");
         var identity = new IdentityStore(settings.DataDirectory).Load();
@@ -133,6 +142,36 @@ internal static class Cli
         }
         foreach (var p in problems) Console.WriteLine($"problem:      {p}");
         return problems.Count == 0 ? ExitCodes.Ok : ExitCodes.NotConfigured;
+    }
+
+    /// <summary>
+    /// Commissioning check of the OPERA database connector (guide §16.4): the account's privileges against the
+    /// read-only rule, the data contract's objects and columns in the hotel's schema, and row counts for the resort.
+    /// Prints no personal data. Exit 0 only when everything is in order.
+    /// </summary>
+    public static async Task<int> OperaDbAsync(string[] args)
+    {
+        if (args.FirstOrDefault() != "probe") return Usage();
+        var config = Config(args.Skip(1).ToArray());
+        var settings = AgentHost.Settings(config);
+        var db = AgentHost.OperaDbSettings(config);
+        var problems = db.Problems().ToList();
+        if (problems.Count > 0)
+        {
+            foreach (var p in problems) Console.WriteLine($"problem:      {p}");
+            return ExitCodes.NotConfigured;
+        }
+        using var source = AgentHost.OperaDataSource(db, new SecretStore(settings.DataDirectory));
+        Console.WriteLine($"contract:     data contract v{DataContract.Version}, owner {db.SchemaOwner}, resort {db.ResortCode}");
+        var privileges = PrivilegeCheck.Problems(await source.PrivilegesAsync(CancellationToken.None).ConfigureAwait(false), db.SchemaOwner);
+        Console.WriteLine(privileges.Count == 0 ? "privileges:   read-only (CREATE SESSION + SELECT on the contract)" : "privileges:   NOT read-only");
+        problems.AddRange(privileges);
+        var probe = await source.ProbeAsync(CancellationToken.None).ConfigureAwait(false);
+        foreach (var o in probe.MissingObjects) problems.Add($"contract object {db.SchemaOwner}.{o} not found");
+        foreach (var c in probe.MissingColumns) problems.Add($"contract column {c} not found");
+        foreach (var (table, count) in probe.Counts) Console.WriteLine($"rows:         {table} {count} for the resort");
+        foreach (var p in problems) Console.WriteLine($"problem:      {p}");
+        return problems.Count == 0 ? ExitCodes.Ok : ExitCodes.Refused;
     }
 
     /// <summary>

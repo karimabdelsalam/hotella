@@ -3489,6 +3489,37 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/integration/queries": {
+      "get": {
+        "operationId": "PropertyCapabilitiesController_queries",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/integration/routing/{operation}": {
       "put": {
         "operationId": "PropertyCapabilitiesController_routing",

@@ -21,9 +21,19 @@ export {
   parsedRecords,
   rawInboundMessageSchema,
 } from './manifest';
+export {
+  PMS_RESERVATION_STATUSES,
+  pmsProfileRowSchema,
+  pmsQueryParams,
+  pmsQueryRows,
+  pmsReservationRowSchema,
+  pmsRoomRowSchema,
+} from './pms-rows';
+export type { PmsProfileRow, PmsQueryType, PmsReservationRow, PmsRoomRow } from './pms-rows';
 export type {
   ConnectorAdapter,
   ConnectorCommand,
+  ConnectorQuery,
   ConnectorManifest,
   ConnectorMessageType,
   ParseContext,
@@ -56,10 +66,13 @@ export {
   enrollResponseSchema,
   licenceBodySchema,
   LINK_PATH,
+  LINK_PROTOCOL_QUERIES,
   LINK_PROTOCOL_VERSION,
+  MAX_QUERY_ROWS,
   linkMessageSchema,
   MAX_BATCH_MESSAGES,
   platformFrameSchema,
+  queryFrameBodySchema,
   RENEW_PATH,
   renewRequestSchema,
   signedLicenceSchema,
@@ -75,4 +88,5 @@ export type {
   LicenceBody,
   LinkMessage,
   PlatformFrame,
+  QueryFrameBody,
 } from './link';

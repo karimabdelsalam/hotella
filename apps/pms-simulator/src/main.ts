@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { enroll, loadIdentity, saveIdentity } from './agent/identity';
+import { answerQuery } from './pms/queries';
 import { AgentLinkClient } from './agent/link-client';
 import { DurableQueue } from './agent/queue';
 import { type Face, SimulatedPms } from './pms/hotel';
@@ -18,7 +19,12 @@ const ALL_CAPABILITIES = [
   'ROOM_STATUS_WRITE',
   'OOO_WRITE',
   'RESERVATION_READ',
+  'RESERVATION_LOOKUP',
+  'ARRIVALS_READ',
+  'IN_HOUSE_SNAPSHOT',
   'GUEST_READ',
+  'PROFILE_LOOKUP',
+  'ROOM_INVENTORY_READ',
   'RECONCILIATION_READ',
 ];
 
@@ -71,6 +77,8 @@ async function main(): Promise<void> {
       connectorCode: 'SIM_PMS',
       capabilities: ALL_CAPABILITIES,
       agentVersion: AGENT_VERSION,
+      // Link protocol 2: the standard reads answered from the simulated hotel (ADR-0019).
+      onQuery: async (query) => answerQuery(holder.pms!, query.query_type, query.params),
       onCommand: async (cmd) => {
         if (cmd.command_type === 'RESYNC_IN_HOUSE') {
           out(`command RESYNC_IN_HOUSE: ${holder.pms!.resyncInHouse()} in-house record(s)`);

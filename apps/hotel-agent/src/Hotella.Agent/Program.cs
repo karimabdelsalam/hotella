@@ -8,6 +8,7 @@ return args.FirstOrDefault() switch
     "status" => Cli.Status(args.Skip(1).ToArray()),
     "secret" => await Cli.SecretAsync(args.Skip(1).ToArray()),
     "update" => await Cli.UpdateAsync(args.Skip(1).ToArray()),
+    "opera-db" => await Cli.OperaDbAsync(args.Skip(1).ToArray()),
     "version" or "--version" => Cli.Version(),
     _ => Cli.Usage(),
 };

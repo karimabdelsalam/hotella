@@ -8,7 +8,10 @@ acknowledges it, and runs only predefined commands signed by the platform. Built
 ```text
 src/Hotella.Agent.Core   identity (P-256 key + CSR, DPAPI / 0600), durable queue (SQLite WAL), link client,
                          Ed25519 command verification, settings and renewal policy
-src/Hotella.Agent        hotella-agent: run | enroll | status | version (Windows service or systemd unit)
+src/Hotella.Agent.Fias   OPERA5_FIAS: the IFC8/FIAS session
+src/Hotella.Agent.Ows    OPERA5_OWS: OWS polling
+src/Hotella.Agent.OperaDb OPERA5_DB: read-only OPERA database connector (data contract v1, privilege self-check)
+src/Hotella.Agent        hotella-agent: run | enroll | status | secret | update | opera-db probe | version
 test/…Tests              xUnit, including the vector shared with packages/platform/pki
 test/…Conformance        JSON-lines driver for the cross-language e2e (never shipped)
 ```
@@ -24,3 +27,28 @@ Settings (`Agent` section): `Gateway`, `ConnectorCode`, `Capabilities`, `DataDir
 `RenewAtRemainingFraction` — see `src/Hotella.Agent/agent.example.json`. Secrets never go in settings: the device key
 lives in the data directory, protected by the operating system. Exit codes: 2 not configured or not enrolled,
 3 certificate revoked (enroll again with a new token), 4 enrollment refused.
+
+## OPERA database (read-only, `OPERA5_DB`)
+
+The hotel's DBA creates a dedicated account (e.g. `HOTELLA_RO`) with `CREATE SESSION` and `SELECT` on the data
+contract objects only (OPERA Integration Guide §6). The agent never writes: only the compiled statements of data
+contract v1 exist, every read runs in a `SET TRANSACTION READ ONLY` transaction that is rolled back, and an account
+with any other privilege, role or grant is refused (checked at start and daily) until the DBA removes it.
+
+```json
+"Agent":  { "ConnectorCode": "OPERA5_DB", "Capabilities": ["RESERVATION_READ", "RESERVATION_LOOKUP",
+            "ARRIVALS_READ", "IN_HOUSE_SNAPSHOT", "GUEST_READ", "PROFILE_LOOKUP", "ROOM_INVENTORY_READ",
+            "RECONCILIATION_READ"] },
+"OperaDb": { "Host": "10.0.0.30", "Port": 1521, "ServiceName": "OPERA", "Username": "HOTELLA_RO",
+            "SchemaOwner": "OPERA", "ResortCode": "HOTEL1", "QueryTimeoutSeconds": 30,
+            "ChangePolling": false, "PollSeconds": 300, "WindowDays": 14 }
+```
+
+```sh
+hotella-agent secret set opera.db.password            # read from stdin into the protected store
+hotella-agent opera-db probe                          # objects, columns, privileges, counts — no personal data
+```
+
+`ChangePolling` forwards changed reservations of the arrival window as `OPERA_DB_RESERVATION` messages; enable it
+only where OWS is absent. The driver is Oracle's fully managed `Oracle.ManagedDataAccess.Core` (no Oracle client, no
+native code).

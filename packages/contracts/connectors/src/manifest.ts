@@ -26,6 +26,18 @@ export interface ConnectorCommand<P extends ZodType = ZodType> {
   readonly payload: P;
 }
 
+/**
+ * A predefined read (link protocol 2, ADR-0019): the agent runs only query types compiled into it, with these
+ * parameters, and answers rows of this schema.
+ */
+export interface ConnectorQuery {
+  readonly code: string;
+  readonly description: string;
+  readonly requires: ConnectorCapability;
+  readonly params: ZodType;
+  readonly row: ZodType;
+}
+
 /** Connector manifest (Spec §56): what the connector type is and can do. One per connector code and version. */
 export interface ConnectorManifest {
   readonly code: string;
@@ -35,6 +47,8 @@ export interface ConnectorManifest {
   readonly capabilities: readonly ConnectorCapability[];
   readonly messageTypes: readonly ConnectorMessageType[];
   readonly commands: readonly ConnectorCommand[];
+  /** Predefined reads served over link protocol 2; absent = none. */
+  readonly queries?: readonly ConnectorQuery[];
   /** Non-secret instance configuration (validated on instance create/update). */
   readonly configSchema: ZodType;
   /**
@@ -90,6 +104,15 @@ export function defineConnector(manifest: ConnectorManifest): ConnectorManifest 
   for (const c of manifest.commands) {
     if (!MESSAGE_TYPE_RE.test(c.code)) fail(`command ${c.code} must be UPPER_SNAKE_CASE`);
     if (!caps.has(c.requires)) fail(`command ${c.code} requires undeclared ${c.requires}`);
+  }
+  const queries = new Set<string>();
+  for (const q of manifest.queries ?? []) {
+    if (!MESSAGE_TYPE_RE.test(q.code)) fail(`query ${q.code} must be UPPER_SNAKE_CASE`);
+    if (queries.has(q.code)) fail(`duplicate query ${q.code}`);
+    queries.add(q.code);
+    if (!caps.has(q.requires)) fail(`query ${q.code} requires undeclared ${q.requires}`);
+    if (isWriteCapability(q.requires))
+      fail(`query ${q.code} cannot require the write ${q.requires}`);
   }
   return Object.freeze({ ...manifest });
 }

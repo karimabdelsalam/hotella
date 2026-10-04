@@ -98,6 +98,8 @@ export const connectorDefinitions = classify(
     capabilities: text('capabilities').array().notNull(),
     messageTypes: jsonb('message_types').notNull(),
     commands: jsonb('commands').notNull(),
+    /** Predefined reads over link protocol 2 (ADR-0019). */
+    queries: jsonb('queries').notNull().default([]),
     configSchema: jsonb('config_schema').notNull(),
     credentialSchema: jsonb('credential_schema').notNull(),
     syncedAt: tz('synced_at').notNull().defaultNow(),
@@ -110,6 +112,7 @@ export const connectorDefinitions = classify(
     capabilities: 'PUBLIC',
     messageTypes: 'PUBLIC',
     commands: 'PUBLIC',
+    queries: 'PUBLIC',
     configSchema: 'PUBLIC',
     credentialSchema: 'PUBLIC',
     syncedAt: 'INTERNAL',
@@ -497,6 +500,8 @@ export const agentLinks = classify(
       enrolledAt: tz('enrolled_at'),
       revokedAt: tz('revoked_at'),
       agentVersion: varchar('agent_version', { length: 64 }),
+      /** Link protocol the connected agent announced in hello (2 = predefined queries, ADR-0019). */
+      agentProtocol: integer('agent_protocol'),
       sessionId: uuid('session_id'),
       lastConnectedAt: tz('last_connected_at'),
       lastDisconnectedAt: tz('last_disconnected_at'),
@@ -523,6 +528,7 @@ export const agentLinks = classify(
     enrolledAt: 'INTERNAL',
     revokedAt: 'INTERNAL',
     agentVersion: 'INTERNAL',
+    agentProtocol: 'INTERNAL',
     sessionId: 'INTERNAL',
     lastConnectedAt: 'INTERNAL',
     lastDisconnectedAt: 'INTERNAL',
@@ -941,3 +947,75 @@ export const routingOverrides = classify(
 export type PropertyCapabilityRow = typeof propertyCapabilities.$inferSelect;
 export type RoutingOverrideRow = typeof routingOverrides.$inferSelect;
 export type PropertyCapabilityStateRow = typeof propertyCapabilityStates.$inferSelect;
+
+// ---- predefined reads over link protocol 2 (ADR-0019, BUILD_PLAN 10.7; guide §4.4) ----
+
+export const queryStatus = integration.enum('query_status', [
+  'PENDING',
+  'SENT',
+  'ANSWERED',
+  'FAILED',
+  'EXPIRED',
+]);
+
+/**
+ * One read asked of a hotel agent: who asked, through which routing decision, how it ended. The answer rows are kept
+ * only until the asker takes them (cleared at once, and swept after minutes otherwise): this is a request log, not a
+ * copy of the PMS.
+ */
+export const integrationQueries = classify(
+  integration.table(
+    'integration_queries',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => integrationInstances.id),
+      queryType: varchar('query_type', { length: 64 }).notNull(),
+      params: jsonb('params').notNull(),
+      status: queryStatus('status').notNull().default('PENDING'),
+      deadlineAt: tz('deadline_at').notNull(),
+      sentAt: tz('sent_at'),
+      answeredAt: tz('answered_at'),
+      rowCount: integer('row_count'),
+      truncated: boolean('truncated').notNull().default(false),
+      /** The answer, until the asker reads it (then null). */
+      result: jsonb('result'),
+      error: varchar('error', { length: 1000 }),
+      routing: jsonb('routing'),
+      correlationId: varchar('correlation_id', { length: 128 }),
+      requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
+      requestedById: varchar('requested_by_id', { length: 64 }),
+    },
+    (t) => [
+      index('integration_queries_pending_idx').on(t.instanceId, t.status),
+      index('integration_queries_created_idx').on(t.createdAt),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    queryType: 'INTERNAL',
+    params: 'CONFIDENTIAL',
+    status: 'INTERNAL',
+    deadlineAt: 'INTERNAL',
+    sentAt: 'INTERNAL',
+    answeredAt: 'INTERNAL',
+    rowCount: 'INTERNAL',
+    truncated: 'INTERNAL',
+    result: 'SENSITIVE',
+    error: 'INTERNAL',
+    routing: 'INTERNAL',
+    correlationId: 'INTERNAL',
+    requestedByType: 'INTERNAL',
+    requestedById: 'INTERNAL',
+  },
+);
+
+export type IntegrationQueryRow = typeof integrationQueries.$inferSelect;
