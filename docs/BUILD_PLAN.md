@@ -1899,7 +1899,7 @@ logbook.handovers               id, property_id, department_code, shift_date, sh
 | 9.1 | Inspection engine: templates/versions/sections/items, publish, inspections with responses, photos, deterministic scoring and findings, CRITICAL → urgent work, housekeeping bridge, staff web inspection runner | delivered |
 | 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | delivered |
 | 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | delivered |
-| 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | planned |
+| 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | delivered |
 | 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | planned |
 
 Reality notes for 9.1:
@@ -1984,6 +1984,38 @@ Reality notes for 9.3:
 - Staff web `/lostfound`: phone-first "hand in" form for everyone; for the desk, "record a guest's loss", proposed
   matches with score and reasons, lists (found, lost reports, past retention), detail with photos (camera), AI
   reading, matches, release form and disposal form, history. Playwright English and Arabic.
+
+Reality notes for 9.4:
+- `@hotella/domain-logbook`, migration `0037_logbook`: `entries` (department, shift date and shift, kind NOTE /
+  INCIDENT / HANDOVER_ITEM, text, optional room, `corrects_entry_id`; append-only by trigger) and `handovers` (one
+  per department and shift, summary, the `facts` it was built from, source AI/WRITTEN, `edited`, the drafting
+  execution, DRAFT → ACKNOWLEDGED; a trigger refuses any change to an acknowledged one). RLS on both.
+- Shifts (`domain/shifts.ts`, unit-tested): MORNING/EVENING/NIGHT from the property's wall-clock starts (setting
+  `logbook.shift.starts`, default 07:00/15:00/23:00), time-zone and DST aware through `platform-time`; the small hours
+  belong to the night that started the evening before. Entries always land on the shift running when written.
+- Facts (`FactsService`), counted by code and stored with the draft: the department's open/urgent/overdue work (new
+  `OPERATIONS_API.openWorkSummary`), open complaints and how many are HIGH/CRITICAL (`RELATIONS_API`), rooms out
+  of order (new `ENGINEERING_API.activeRestrictions`), lost & found counts (`LOSTFOUND_API`) and the shift's entries.
+  A context the deployment does not compose is reported as null.
+- `SHIFT_HANDOVER` staff assistant (ASSIST, one READ tool `logbook.get_shift_facts`, prompt: copy numbers exactly,
+  never recompute) writes the summary in the person's language; without an answer the summary starts empty and is
+  written by hand. Editing marks it `edited`; only a person other than the drafter acknowledges it
+  (`logbook.handover.acknowledge`), publishing `logbook.handover.acknowledged.v1`. Departments are checked against
+  the property's active departments; anyone with `logbook.write` may write in any department's log (v1).
+- Arrival risk: `INSPECTION_FAILED_TODAY` (25, the room's latest completed inspection failed today in the property's
+  time zone) and `RECURRING_FAILURE` (15, corrective work completed on the room's equipment in the last 7 days, new
+  `ENGINEERING_API.recentCorrectiveWork`); labels in the staff web.
+- Roles: read/write/acknowledge for the GM, duty manager, housekeeping supervisor, chief engineer and front desk;
+  read/write for engineers and guest relations.
+- Staff web `/logbook`: department picker, the running shift and its window, the facts as tiles, add a note /
+  incident / item for the next shift (with room), the entries, and the handover card (draft with the assistant,
+  edit, save, acknowledge — hidden for the drafter). Playwright English and Arabic.
+- Pilot smoke (`smoke-guest.sh`, Phase 9 section): a group GM (tenant-wide) publishes a room checklist and the
+  property GM runs it on the guest's room (critical failure → linked urgent work); starter complaint categories, a
+  complaint on the stay with a discount approved by the group GM; a found phone matched to the guest's report and
+  handed back against a claim; an incident in the logbook and a handover drafted by the SHIFT_HANDOVER assistant
+  through the on-prem model stand-in (the execution shows one READ tool call), refused to its drafter and
+  acknowledged by the group GM; the new staff pages render in both directions.
 
 ### Phase 10 — Real OPERA 5 On-Premise Integration (M4a)
 `apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
