@@ -163,6 +163,8 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
           'integration.mapping.confirm',
           'integration.replay',
           'integration.reconcile',
+          'integration.capability.manage',
+          'integration.capability.verify',
           'integration.webhook.manage',
         ].map((code) => ({ code, descriptionKey: 'x', risk: 'LOW' as const })),
       }),

@@ -1,11 +1,13 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   foreignKey,
   index,
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -134,6 +136,12 @@ export const integrationInstances = classify(
       enabledCapabilities: text('enabled_capabilities').array().notNull(),
       /** Capabilities the connected agent reported it can serve; null until an agent has connected (Spec §47). */
       reportedCapabilities: text('reported_capabilities').array(),
+      /**
+       * Commissioning sign-off (guide §16.5). Until then the instance is in commissioning: reads and events run
+       * unverified, writes never do; afterwards every capability must be verified to be offered (ADR-0019).
+       */
+      commissionedAt: tz('commissioned_at'),
+      commissionedBy: uuid('commissioned_by'),
       ...versioned(),
     },
     (t) => [
@@ -154,6 +162,8 @@ export const integrationInstances = classify(
     credentialRefs: 'CONFIDENTIAL',
     enabledCapabilities: 'INTERNAL',
     reportedCapabilities: 'INTERNAL',
+    commissionedAt: 'INTERNAL',
+    commissionedBy: 'INTERNAL',
     version: 'INTERNAL',
   },
 );
@@ -381,6 +391,8 @@ export const integrationCommands = classify(
       correlationId: varchar('correlation_id', { length: 128 }),
       requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
       requestedById: varchar('requested_by_id', { length: 64 }),
+      /** How the Unified OPERA Adapter chose this connector: operation, candidates, chosen, reason (guide §4.3). */
+      routing: jsonb('routing'),
       ...versioned(),
     },
     (t) => [
@@ -407,6 +419,7 @@ export const integrationCommands = classify(
     correlationId: 'INTERNAL',
     requestedByType: 'INTERNAL',
     requestedById: 'INTERNAL',
+    routing: 'INTERNAL',
     version: 'INTERNAL',
   },
 );
@@ -775,3 +788,156 @@ export const webhookDeliveries = classify(
 
 export type WebhookEndpointRow = typeof webhookEndpoints.$inferSelect;
 export type WebhookDeliveryRow = typeof webhookDeliveries.$inferSelect;
+
+// ---- per-property capability registry (ADR-0019, BUILD_PLAN 10.6; guide §5) ----
+
+/**
+ * Commissioning facts per instance and capability: whether it was proven at this hotel, by whom, with which evidence
+ * (guide §16.5). Supported, enabled, reported, licence and health come from their own sources; only verification lives
+ * here. Never deleted: un-verifying clears the fact and both changes are kept in `property_capability_history`.
+ */
+export const propertyCapabilities = classify(
+  integration.table(
+    'property_capabilities',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => integrationInstances.id, { onDelete: 'restrict' }),
+      connectorCode: varchar('connector_code', { length: 48 }).notNull(),
+      capability: varchar('capability', { length: 48 }).notNull(),
+      verifiedAt: tz('verified_at'),
+      verifiedBy: uuid('verified_by'),
+      verificationRef: varchar('verification_ref', { length: 300 }),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('property_capabilities_uq').on(t.instanceId, t.capability),
+      index('property_capabilities_property_idx').on(t.tenantId, t.propertyId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    connectorCode: 'INTERNAL',
+    capability: 'INTERNAL',
+    verifiedAt: 'INTERNAL',
+    verifiedBy: 'INTERNAL',
+    verificationRef: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+export const capabilityHistoryAction = integration.enum('capability_history_action', [
+  'VERIFIED',
+  'UNVERIFIED',
+  'ENABLED',
+  'DISABLED',
+  'COMMISSIONED',
+  'ROUTING_CHANGED',
+]);
+
+/** Append-only history of commissioning and enablement decisions (CLAUDE.md rule 10). */
+export const propertyCapabilityHistory = classify(
+  integration.table(
+    'property_capability_history',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id'),
+      capability: varchar('capability', { length: 48 }),
+      action: capabilityHistoryAction('action').notNull(),
+      actorType: varchar('actor_type', { length: 16 }).notNull(),
+      actorId: varchar('actor_id', { length: 64 }),
+      reference: varchar('reference', { length: 300 }),
+      reason: varchar('reason', { length: 500 }),
+      at: tz('at').notNull().defaultNow(),
+    },
+    (t) => [index('property_capability_history_idx').on(t.tenantId, t.propertyId, t.at)],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    capability: 'INTERNAL',
+    action: 'INTERNAL',
+    actorType: 'INTERNAL',
+    actorId: 'INTERNAL',
+    reference: 'INTERNAL',
+    reason: 'INTERNAL',
+    at: 'INTERNAL',
+  },
+);
+
+/**
+ * The last published effective state per property and capability, so a change is announced once
+ * (`integration.capability.changed.v1`). A cache of the deterministic rule, recomputed on every relevant change.
+ */
+export const propertyCapabilityStates = classify(
+  integration.table(
+    'property_capability_states',
+    {
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      capability: varchar('capability', { length: 48 }).notNull(),
+      effective: boolean('effective').notNull(),
+      connectors: text('connectors').array().notNull(),
+      changedAt: tz('changed_at').notNull().defaultNow(),
+    },
+    (t) => [
+      primaryKey({
+        name: 'property_capability_states_pk',
+        columns: [t.propertyId, t.capability],
+      }),
+      index('property_capability_states_tenant_idx').on(t.tenantId),
+    ],
+  ),
+  {
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    capability: 'INTERNAL',
+    effective: 'INTERNAL',
+    connectors: 'INTERNAL',
+    changedAt: 'INTERNAL',
+  },
+);
+
+/** A property's own connector order for one operation, within the operation's allowed connectors (guide §4.3). */
+export const routingOverrides = classify(
+  integration.table(
+    'routing_overrides',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      operation: varchar('operation', { length: 48 }).notNull(),
+      connectors: text('connectors').array().notNull(),
+      updatedBy: uuid('updated_by'),
+      ...versioned(),
+    },
+    (t) => [uniqueIndex('routing_overrides_uq').on(t.propertyId, t.operation)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    operation: 'INTERNAL',
+    connectors: 'INTERNAL',
+    updatedBy: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+export type PropertyCapabilityRow = typeof propertyCapabilities.$inferSelect;
+export type RoutingOverrideRow = typeof routingOverrides.$inferSelect;
+export type PropertyCapabilityStateRow = typeof propertyCapabilityStates.$inferSelect;

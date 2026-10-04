@@ -52,6 +52,7 @@ describe.skipIf(needsInfra())(`Housekeeping cleaning jobs (${infraSkipReason()})
     'config.manage',
     'integration.read',
     'integration.configure',
+    'integration.capability.verify',
   ];
   let h: HkHarness;
   let hotel: Hotel;
@@ -167,6 +168,23 @@ describe.skipIf(needsInfra())(`Housekeeping cleaning jobs (${infraSkipReason()})
       .patch(`${base()}/integrations/${instance.id}`)
       .set('X-Test-Actor', gm())
       .send({ version: 1, status: 'ACTIVE' })
+      .expect(200);
+    // Writes to the PMS are offered only once proven at commissioning (ADR-0019 capability registry).
+    const before = await h
+      .http()
+      .get(`${base()}/integration/capabilities`)
+      .set('X-Test-Actor', gm())
+      .expect(200);
+    expect(
+      before.body.capabilities.find(
+        (c: { capability: string }) => c.capability === 'ROOM_STATUS_WRITE',
+      ),
+    ).toMatchObject({ effective: false, connectors: [{ reasons: ['NOT_VERIFIED'] }] });
+    await h
+      .http()
+      .post(`${base()}/integration/capabilities/ROOM_STATUS_WRITE/verify`)
+      .set('X-Test-Actor', gm())
+      .send({ instanceId: instance.id, evidenceRef: 'commissioning sheet row 12' })
       .expect(200);
 
     const [job] = await list();

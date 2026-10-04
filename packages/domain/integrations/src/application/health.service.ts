@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { IntegrationHealthChanged } from '@hotella/contracts-events';
 import type { TenantScope } from '@hotella/platform-database';
 import { EventPublisher } from '@hotella/platform-events';
+import { CapabilityRegistry } from './capability-registry';
 import { classifyHealth, recordOutcome } from '../domain/instance';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import type { IntegrationHealthRow } from '../infrastructure/schema';
@@ -16,6 +17,7 @@ export class HealthService {
   constructor(
     private readonly repo: IntegrationRepositories,
     private readonly events: EventPublisher,
+    private readonly capabilities: CapabilityRegistry,
   ) {}
 
   /** A message was processed (`failed` = parse error, rejection or crash). */
@@ -67,5 +69,8 @@ export class HealthService {
         aggregate: { type: 'integration_instance', id: h.instanceId },
         payload: { instance_id: h.instanceId, from: h.status, to: status },
       });
+    // A misconfigured or unauthorised link stops serving; recovery brings it back (ADR-0019 registry).
+    if (status !== h.status)
+      await this.capabilities.refresh({ tenantId: h.tenantId, propertyId: h.propertyId });
   }
 }

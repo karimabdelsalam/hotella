@@ -15,6 +15,8 @@ import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { catalogRow, ConnectorRegistry } from '../connectors/registry';
 import { effectiveCapabilities } from '../domain/instance';
+import { CapabilityRepositories } from '../infrastructure/capability-repositories';
+import { CapabilityRegistry } from './capability-registry';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import type { IntegrationInstanceRow, IntegrationMappingRow } from '../infrastructure/schema';
 import type {
@@ -102,6 +104,9 @@ export class InstanceService {
     private readonly gate: ActionGate,
     private readonly tx: TransactionRunner,
     private readonly audit: AuditWriter,
+    private readonly capabilities: CapabilityRegistry,
+    private readonly caps: CapabilityRepositories,
+    private readonly actors: ActorStore,
   ) {}
 
   create(scope: PropertyScope, input: CreateInstanceInput) {
@@ -143,6 +148,8 @@ export class InstanceService {
             propertyId: row.propertyId,
             after: presentInstance(row),
           });
+          await this.enablementHistory(scope, row.id, [], row.enabledCapabilities);
+          await this.capabilities.refresh(scope);
           return presentInstance(row);
         }),
     );
@@ -181,6 +188,13 @@ export class InstanceService {
             before: presentInstance(before),
             after: presentInstance(row),
           });
+          await this.enablementHistory(
+            scope,
+            row.id,
+            before.enabledCapabilities,
+            row.enabledCapabilities,
+          );
+          await this.capabilities.refresh(scope);
           return presentInstance(row);
         }),
     );
@@ -227,6 +241,31 @@ export class InstanceService {
           }));
         }),
     );
+  }
+
+  /** Enabling or disabling a capability is a commissioning decision kept in the capability history (rule 10). */
+  private async enablementHistory(
+    scope: PropertyScope,
+    instanceId: string,
+    before: readonly string[],
+    after: readonly string[],
+  ): Promise<void> {
+    const actor = this.actors.require();
+    const changes = [
+      ...after.filter((c) => !before.includes(c)).map((c) => [c, 'ENABLED'] as const),
+      ...before.filter((c) => !after.includes(c)).map((c) => [c, 'DISABLED'] as const),
+    ];
+    for (const [capability, action] of changes)
+      await this.caps.history({
+        id: newId(),
+        tenantId: scope.tenantId,
+        propertyId: scope.propertyId,
+        instanceId,
+        capability,
+        action,
+        actorType: actor.type,
+        actorId: actor.id,
+      });
   }
 
   async load(scope: PropertyScope, id: string): Promise<IntegrationInstanceRow> {

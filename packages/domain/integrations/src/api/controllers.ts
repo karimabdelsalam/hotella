@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { MAPPING_TYPES } from '@hotella/contracts-connectors';
@@ -34,6 +45,14 @@ import {
   webhookDeliveriesQuerySchema,
   WebhookService,
 } from '../application/webhook.service';
+import {
+  CapabilityAdminService,
+  capabilityCodeSchema,
+  commissionSchema,
+  routingOverrideSchema,
+  unverifyCapabilitySchema,
+  verifyCapabilitySchema,
+} from '../application/capability-admin.service';
 import { EnrollmentService } from '../link/enrollment.service';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '../public';
 
@@ -47,6 +66,10 @@ class MappingQueryDto extends createZodDto(z.object({ type: z.enum(MAPPING_TYPES
 class RevokeAgentDto extends createZodDto(
   z.object({ reason: z.string().trim().min(3).max(500) }),
 ) {}
+class VerifyCapabilityDto extends createZodDto(verifyCapabilitySchema) {}
+class UnverifyCapabilityDto extends createZodDto(unverifyCapabilitySchema) {}
+class RoutingOverrideDto extends createZodDto(routingOverrideSchema) {}
+class CommissionInstanceDto extends createZodDto(commissionSchema) {}
 class CreateWebhookDto extends createZodDto(createWebhookSchema) {}
 class UpdateWebhookDto extends createZodDto(updateWebhookSchema) {}
 class WebhookDeliveriesQueryDto extends createZodDto(webhookDeliveriesQuerySchema) {}
@@ -304,6 +327,94 @@ export class IntegrationQueueController {
           this.integrations.referencesFor(scope.tenantId, query.entityType, query.entityId),
         ),
     );
+  }
+}
+
+function capabilityCode(raw: string) {
+  const parsed = capabilityCodeSchema.safeParse(raw);
+  if (!parsed.success)
+    throw AppError.notFound('integration.capability.unknown', { capability: raw });
+  return parsed.data;
+}
+
+/**
+ * The per-property capability registry and routing (ADR-0019; guide §5, §16.5): installer and control-plane work —
+ * what the property's PMS integration may do, through which connector, proven by whom.
+ */
+@Controller('properties/:propertyId/integration')
+@PropertyScoped({ from: 'param' })
+export class PropertyCapabilitiesController {
+  constructor(
+    private readonly admin: CapabilityAdminService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get('capabilities')
+  @RequirePermission('integration.read', { checkedBy: 'gate' })
+  view(@Param('propertyId') propertyId: string) {
+    return this.admin.view(propertyScope(this.ctx, this.actors, propertyId));
+  }
+
+  @Get('capabilities/history')
+  @RequirePermission('integration.read', { checkedBy: 'gate' })
+  history(@Param('propertyId') propertyId: string) {
+    return this.admin.history(propertyScope(this.ctx, this.actors, propertyId));
+  }
+
+  @Post('capabilities/:capability/verify')
+  @HttpCode(200)
+  @RequirePermission('integration.capability.verify', { checkedBy: 'gate' })
+  verify(
+    @Param('propertyId') propertyId: string,
+    @Param('capability') capability: string,
+    @Body() body: VerifyCapabilityDto,
+  ) {
+    return this.admin.verify(
+      propertyScope(this.ctx, this.actors, propertyId),
+      capabilityCode(capability),
+      body,
+    );
+  }
+
+  @Post('capabilities/:capability/unverify')
+  @HttpCode(200)
+  @RequirePermission('integration.capability.verify', { checkedBy: 'gate' })
+  unverify(
+    @Param('propertyId') propertyId: string,
+    @Param('capability') capability: string,
+    @Body() body: UnverifyCapabilityDto,
+  ) {
+    return this.admin.unverify(
+      propertyScope(this.ctx, this.actors, propertyId),
+      capabilityCode(capability),
+      body,
+    );
+  }
+
+  @Post('instances/:instanceId/commission')
+  @HttpCode(200)
+  @RequirePermission('integration.capability.verify', { checkedBy: 'gate' })
+  commission(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+    @Body() body: CommissionInstanceDto,
+  ) {
+    return this.admin.commission(
+      propertyScope(this.ctx, this.actors, propertyId),
+      instanceId,
+      body,
+    );
+  }
+
+  @Put('routing/:operation')
+  @RequirePermission('integration.capability.manage', { checkedBy: 'gate' })
+  routing(
+    @Param('propertyId') propertyId: string,
+    @Param('operation') operation: string,
+    @Body() body: RoutingOverrideDto,
+  ) {
+    return this.admin.setRouting(propertyScope(this.ctx, this.actors, propertyId), operation, body);
   }
 }
 

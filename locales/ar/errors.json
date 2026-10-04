@@ -358,5 +358,13 @@
   "errors.integration.webhook.delivery_pending": "ما زال الإرسال جاريًا.",
   "errors.integration.webhook.url_invalid": "أدخل عنوان ويب صالحًا بدون بيانات دخول.",
   "errors.integration.webhook.url_insecure": "يجب أن يستخدم العنوان https.",
-  "errors.integration.webhook.url_private": "يجب أن يكون العنوان متاحًا على الإنترنت، لا على شبكة خاصة أو محلية."
+  "errors.integration.webhook.url_private": "يجب أن يكون العنوان متاحًا على الإنترنت، لا على شبكة خاصة أو محلية.",
+  "errors.integration.capability.unknown": "القدرة {capability} غير معروفة.",
+  "errors.integration.capability.not_verified": "لم يتم التحقق من {capability} لهذا الربط.",
+  "errors.integration.instance.already_commissioned": "تم اعتماد هذا الربط بالفعل.",
+  "errors.integration.routing.unknown_operation": "عملية نظام إدارة الفندق {operation} غير معروفة.",
+  "errors.integration.routing.empty": "حدد موصلًا واحدًا على الأقل للعملية {operation}، أو أرسل قائمة فارغة لاستخدام الترتيب القياسي.",
+  "errors.integration.routing.duplicate": "يتكرر موصل في ترتيب العملية {operation}.",
+  "errors.integration.routing.not_allowed": "لا يُسمح إلا بالموصلات القياسية للعملية {operation}.",
+  "errors.integration.routing.read_only_write_target": "العملية {operation} تغيّر بيانات نظام إدارة الفندق ولا يمكن أن تمر أبدًا عبر موصل قاعدة البيانات للقراءة فقط."
 }

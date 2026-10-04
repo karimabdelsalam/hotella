@@ -4,8 +4,11 @@ export {
   IntegrationsModule,
   WEBHOOK_FANOUT_CONSUMER,
   WEBHOOK_SWEEP_JOB,
-  WebhooksWorkerModule,
+  IntegrationsWorkerModule,
+  CAPABILITY_LICENCE_CONSUMER,
 } from './integrations.module';
+export { CapabilityRegistry } from './application/capability-registry';
+export { PMS_OPERATIONS } from './domain/capabilities';
 export { WEBHOOK_TRANSPORT, WebhookDispatcher } from './application/webhook-delivery';
 export type { WebhookTransport } from './application/webhook-delivery';
 export { WEBHOOK_EVENTS } from './domain/webhooks';

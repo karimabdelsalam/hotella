@@ -3,7 +3,7 @@ import { GuestEventsModule } from '@hotella/domain-guest';
 import {
   IntegrationsCoreModule,
   IntegrationsModule,
-  WebhooksWorkerModule,
+  IntegrationsWorkerModule,
 } from '@hotella/domain-integrations';
 import { IdentityDirectoryModule } from '@hotella/domain-identity';
 import { AiModule, AiWorkerModule } from '@hotella/domain-ai';
@@ -88,7 +88,7 @@ const WORKER_MODULES = [
   // AI-derived attributes of lost and found items on `background-ai`, then matching again.
   LostFoundWorkerModule,
   // Outbound webhooks of the developer platform (Spec §75): fan-out of offered events and the signed delivery sweep.
-  WebhooksWorkerModule,
+  IntegrationsWorkerModule,
   WorkerRuntimeModule,
   // Last: every manifest, for the gate's permission → module lookup (after the modules that register their own).
   WorkerManifestsModule,

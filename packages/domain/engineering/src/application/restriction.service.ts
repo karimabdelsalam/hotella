@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import { RoomRestrictionChanged } from '@hotella/contracts-events';
-import { INTEGRATIONS_API, type IntegrationsPublicApi } from '@hotella/domain-integrations/public';
+import { PMS_API, type PmsPublicApi } from '@hotella/domain-integrations/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
 import { AuditWriter } from '@hotella/platform-audit';
 import { ActionGate, ActorStore } from '@hotella/platform-auth';
@@ -45,7 +45,7 @@ export class RestrictionService {
     private readonly actors: ActorStore,
     private readonly ctx: RequestContext,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
-    @Inject(INTEGRATIONS_API) private readonly integrations: IntegrationsPublicApi,
+    @Inject(PMS_API) private readonly pms: PmsPublicApi,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -138,7 +138,10 @@ export class RestrictionService {
     });
   }
 
-  /** Tells the PMS (`SET_ROOM_RESTRICTION`) when an active instance may write; records how it went. */
+  /**
+   * Tells the PMS (`SET_ROOM_RESTRICTION`) through `PMS_API` when the property's capability registry has a connector
+   * that may write restrictions (ADR-0019); records how it went.
+   */
   private async tellPms(
     scope: PropertyScope,
     r: RoomRestrictionRow,
@@ -146,22 +149,19 @@ export class RestrictionService {
   ): Promise<RoomRestrictionRow> {
     let status: RoomRestrictionRow['pmsSync'] = 'NOT_REQUIRED';
     try {
-      const instances = (
-        await this.integrations.listInstances(scope.tenantId, scope.propertyId)
-      ).filter((i) => i.status === 'ACTIVE' && i.effectiveCapabilities.includes('OOO_WRITE'));
-      if (instances.length > 0) {
+      if (await this.pms.can(scope.tenantId, scope.propertyId, 'OOO_WRITE')) {
         const room = await this.org.getRoom(scope.tenantId, scope.propertyId, r.roomId);
-        for (const instance of instances)
-          await this.integrations.requestCommand({
-            tenantId: scope.tenantId,
-            integrationInstanceId: instance.id,
-            commandType: 'SET_ROOM_RESTRICTION',
-            payload: { room_number: room!.roomNumber, kind: r.kind, active },
-            idempotencyKey: `eng-restriction-${r.id}-${active ? 'on' : 'off'}`,
-            requestedBy: { type: 'SYSTEM', id: null },
-            correlationId: this.ctx.correlationId,
-          });
-        status = 'SENT';
+        const outcome = await this.pms.setRoomRestriction({
+          tenantId: scope.tenantId,
+          propertyId: scope.propertyId,
+          roomNumber: room!.roomNumber,
+          kind: r.kind,
+          active,
+          idempotencyKey: `eng-restriction-${r.id}-${active ? 'on' : 'off'}`,
+          requestedBy: { type: 'SYSTEM', id: null },
+          correlationId: this.ctx.correlationId,
+        });
+        status = outcome.outcome === 'QUEUED' ? 'SENT' : 'NOT_REQUIRED';
       }
     } catch (err) {
       this.logger.warn({ err, restriction_id: r.id }, 'room restriction not sent to the PMS');

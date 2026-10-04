@@ -11,7 +11,7 @@ import {
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { IDENTITY_API, type IdentityPublicApi } from '@hotella/domain-identity/public';
 import { INSPECTION_API, type InspectionPublicApi } from '@hotella/domain-inspection/public';
-import { INTEGRATIONS_API, type IntegrationsPublicApi } from '@hotella/domain-integrations/public';
+import { PMS_API, type PmsPublicApi } from '@hotella/domain-integrations/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
 import { AuditWriter } from '@hotella/platform-audit';
@@ -130,7 +130,7 @@ export class JobService {
     private readonly ctx: RequestContext,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
-    @Inject(INTEGRATIONS_API) private readonly integrations: IntegrationsPublicApi,
+    @Inject(PMS_API) private readonly pms: PmsPublicApi,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @Inject(IDENTITY_API) private readonly identity: IdentityPublicApi,
     @InjectLogger() private readonly logger: Logger,
@@ -734,9 +734,9 @@ export class JobService {
   }
 
   /**
-   * Tells the PMS the room's new status when an active integration of the property may write room statuses (rule 19:
-   * otherwise the status stays internal). Best effort and outside the job's transaction: a refused command never undoes
-   * the cleaning.
+   * Tells the PMS the room's new status through `PMS_API` (ADR-0019): the capability registry picks the one connector
+   * that may write room statuses at this property (verified, licensed, healthy), or none (rule 19: then the status
+   * stays internal). Best effort and outside the job's transaction: a refused command never undoes the cleaning.
    */
   private async tellPms(
     scope: PropertyScope,
@@ -745,32 +745,23 @@ export class JobService {
     status: 'CLEAN' | 'INSPECTED',
   ) {
     try {
-      const instances = (
-        await this.integrations.listInstances(scope.tenantId, scope.propertyId)
-      ).filter(
-        (i) => i.status === 'ACTIVE' && i.effectiveCapabilities.includes('ROOM_STATUS_WRITE'),
-      );
-      if (instances.length === 0) return;
+      if (!(await this.pms.can(scope.tenantId, scope.propertyId, 'ROOM_STATUS_WRITE'))) return;
       const room = await this.org.getRoom(scope.tenantId, scope.propertyId, roomId);
       if (!room) return;
       // FIAS room status codes carry occupancy; the PMS's own occupancy as this projection last saw it.
       const state = await this.tx.read(() => this.repo.state(scope, roomId));
       const occupied = state ? state.occupancy === 'OCCUPIED' : undefined;
-      for (const instance of instances)
-        await this.integrations.requestCommand({
-          tenantId: scope.tenantId,
-          integrationInstanceId: instance.id,
-          commandType: 'SET_ROOM_STATUS',
-          payload: {
-            room_number: room.roomNumber,
-            status,
-            ...(occupied === undefined ? {} : { occupied }),
-          },
-          // One write per job outcome: a repeated work item event does not send it twice.
-          idempotencyKey: `hk-room-status-${jobId}-${status}`,
-          requestedBy: { type: 'SYSTEM', id: null },
-          correlationId: this.ctx.correlationId,
-        });
+      await this.pms.setRoomStatus({
+        tenantId: scope.tenantId,
+        propertyId: scope.propertyId,
+        roomNumber: room.roomNumber,
+        status,
+        ...(occupied === undefined ? {} : { occupied }),
+        // One write per job outcome: a repeated work item event does not send it twice.
+        idempotencyKey: `hk-room-status-${jobId}-${status}`,
+        requestedBy: { type: 'SYSTEM', id: null },
+        correlationId: this.ctx.correlationId,
+      });
     } catch (e) {
       this.logger.warn({ err: e, room_id: roomId }, 'room status not sent to the PMS');
     }

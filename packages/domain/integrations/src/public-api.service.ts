@@ -4,6 +4,7 @@ import { EventPublisher } from '@hotella/platform-events';
 import type { ConnectorCapability } from '@hotella/contracts-connectors';
 import { newId } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
+import { CapabilityRegistry } from './application/capability-registry';
 import { ConnectorRegistry } from './connectors/registry';
 import { effectiveCapabilities } from './domain/instance';
 import { LinkRepositories } from './infrastructure/link-repositories';
@@ -29,6 +30,7 @@ export class IntegrationsPublicApiService implements IntegrationsPublicApi {
     private readonly connectors: ConnectorRegistry,
     private readonly reconciliation: ReconciliationRepositories,
     private readonly events: EventPublisher,
+    private readonly capabilities: CapabilityRegistry,
   ) {}
 
   unlinkExternalIdentity(
@@ -161,6 +163,7 @@ export class IntegrationsPublicApiService implements IntegrationsPublicApi {
         correlationId: input.correlationId ?? null,
         requestedByType: input.requestedBy.type,
         requestedById: input.requestedBy.id,
+        routing: input.routing ?? null,
       })) ?? (await this.repo.commandByKey(scope, instance.id, input.idempotencyKey))!;
     return toCommandSummary(row);
   }
@@ -225,13 +228,13 @@ export class IntegrationsPublicApiService implements IntegrationsPublicApi {
     return this.repo.repointReferences({ tenantId }, internalEntityType, fromId, toId);
   }
 
-  async hasCapability(
+  /** The registry's verdict (verification, licence and health included), not just the instance's enablement. */
+  hasCapability(
     tenantId: string,
     propertyId: string,
     capability: ConnectorCapability,
   ): Promise<boolean> {
-    const instances = await this.repo.listInstances({ tenantId, propertyId });
-    return instances.some((i) => effectiveCapabilities(i).includes(capability));
+    return this.capabilities.can({ tenantId, propertyId }, capability);
   }
 
   async listInstances(

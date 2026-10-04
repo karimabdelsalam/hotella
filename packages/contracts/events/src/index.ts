@@ -83,6 +83,7 @@ export {
 } from './guest-events';
 export {
   IntegrationExceptionOpened,
+  IntegrationCapabilityChanged,
   IntegrationHealthChanged,
   ReconciliationCompleted,
   ReconciliationSnapshotCompleted,

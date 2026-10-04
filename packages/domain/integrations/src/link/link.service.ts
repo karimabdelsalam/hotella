@@ -22,6 +22,7 @@ import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { signCanonical } from '@hotella/platform-pki';
 import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
 import { HealthService } from '../application/health.service';
+import { CapabilityRegistry } from '../application/capability-registry';
 import { ConnectorRegistry } from '../connectors/registry';
 import { IngestService } from '../application/ingest.service';
 import { IntegrationRepositories } from '../infrastructure/repositories';
@@ -68,6 +69,7 @@ export class AgentLinkService {
     private readonly audit: AuditWriter,
     private readonly keys: AgentKeys,
     private readonly connectors: ConnectorRegistry,
+    private readonly capabilities: CapabilityRegistry,
     @InjectLogger() private readonly logger: Logger,
     @Optional()
     @Inject(ENTITLEMENT_API)
@@ -118,6 +120,11 @@ export class AgentLinkService {
         }
         await this.links.requeueSent(scope, instance.id);
         await this.health.recordAgentSeen(scope, instance.id, null);
+        // What the agent reported can change what the property may do (ADR-0019 registry).
+        await this.capabilities.refresh({
+          tenantId: scope.tenantId,
+          propertyId: instance.propertyId,
+        });
         return {
           type: 'welcome',
           session_id: sessionId,

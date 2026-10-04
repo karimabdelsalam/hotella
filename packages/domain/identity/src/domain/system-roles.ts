@@ -101,6 +101,9 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'integration.mapping.confirm',
       'integration.replay',
       'integration.reconcile',
+      // Commissioning (ADR-0019): capability verification, sign-off and connector routing are Planova's installer work.
+      'integration.capability.manage',
+      'integration.capability.verify',
       // AI providers, models and the platform default routing (ADR-0018).
       'ai.provider.manage',
       // Commercial catalog and plans (Spec §58, §63).

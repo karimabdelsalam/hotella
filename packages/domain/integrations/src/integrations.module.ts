@@ -1,5 +1,7 @@
 import { Global, Inject, Module, type OnModuleInit, type Provider } from '@nestjs/common';
+import { EntitlementsChanged } from '@hotella/contracts-events';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
+import { TransactionRunner } from '@hotella/platform-database';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { WebhookDispatcher } from './application/webhook-delivery';
@@ -11,8 +13,13 @@ import { ManifestRegistry } from '@hotella/platform-manifest';
 import {
   IntegrationInstancesController,
   IntegrationQueueController,
+  PropertyCapabilitiesController,
   WebhooksController,
 } from './api/controllers';
+import { CapabilityAdminService } from './application/capability-admin.service';
+import { CapabilityRegistry } from './application/capability-registry';
+import { PmsService } from './application/pms.service';
+import { CapabilityRepositories } from './infrastructure/capability-repositories';
 import {
   ConnectorCatalogService,
   ExceptionService,
@@ -33,7 +40,7 @@ import { LinkRepositories } from './infrastructure/link-repositories';
 import { ReconciliationRepositories } from './infrastructure/reconciliation-repositories';
 import { IntegrationRepositories } from './infrastructure/repositories';
 import { INTEGRATIONS_MANIFEST } from './manifest';
-import { INTEGRATIONS_API, type IntegrationsPublicApi } from './public';
+import { INTEGRATIONS_API, type IntegrationsPublicApi, PMS_API } from './public';
 import { IntegrationsPublicApiService } from './public-api.service';
 
 /**
@@ -49,11 +56,18 @@ import { IntegrationsPublicApiService } from './public-api.service';
     ReconciliationRepositories,
     WebhookRepositories,
     WebhookKeys,
+    CapabilityRepositories,
+    CapabilityRegistry,
     IntegrationsPublicApiService,
     { provide: INTEGRATIONS_API, useExisting: IntegrationsPublicApiService },
+    PmsService,
+    { provide: PMS_API, useExisting: PmsService },
   ],
   exports: [
     INTEGRATIONS_API,
+    PMS_API,
+    CapabilityRepositories,
+    CapabilityRegistry,
     ConnectorRegistry,
     IntegrationRepositories,
     LinkRepositories,
@@ -67,7 +81,12 @@ export class IntegrationsCoreModule {}
 /** The full Integration Platform for the API: administration, ingestion, catalog sync, manifest. */
 @Module({
   imports: [IntegrationsCoreModule],
-  controllers: [IntegrationInstancesController, IntegrationQueueController, WebhooksController],
+  controllers: [
+    IntegrationInstancesController,
+    IntegrationQueueController,
+    PropertyCapabilitiesController,
+    WebhooksController,
+  ],
   providers: [
     ConnectorCatalogService,
     InstanceService,
@@ -80,6 +99,7 @@ export class IntegrationsCoreModule {}
     AgentKeys,
     EnrollmentService,
     WebhookService,
+    CapabilityAdminService,
   ],
   exports: [IngestService, HealthService, AgentKeys, EnrollmentService],
 })
@@ -114,24 +134,35 @@ export const WEBHOOK_FANOUT_CONSUMER = 'integration.webhooks';
 export const WEBHOOK_SWEEP_JOB = 'integration.webhooks.sweep';
 const WEBHOOK_SWEEP_EVERY_MS = 30_000;
 
+export const CAPABILITY_LICENCE_CONSUMER = 'integration.capabilities-licence';
+
 /**
- * Worker side of outbound webhooks (BUILD_PLAN 11.5): every offered event becomes deliveries for the subscribed
- * endpoints (through the inbox, so exactly once per event), and the sweep sends what is due every 30 seconds.
+ * Worker side of the Integration Platform. Outbound webhooks (BUILD_PLAN 11.5): every offered event becomes deliveries
+ * for the subscribed endpoints (through the inbox, so exactly once per event), and the sweep sends what is due every
+ * 30 seconds. Capability registry (10.6): a licence change re-evaluates the tenant's properties.
  */
 @Module({
   imports: [IntegrationsCoreModule],
   providers: [WebhookDispatcher],
   exports: [WebhookDispatcher],
 })
-export class WebhooksWorkerModule implements OnModuleInit {
+export class IntegrationsWorkerModule implements OnModuleInit {
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly consumers: EventConsumerRegistry,
     private readonly queues: QueueRegistry,
     private readonly dispatcher: WebhookDispatcher,
+    private readonly capabilities: CapabilityRegistry,
+    private readonly tx: TransactionRunner,
     @InjectLogger() private readonly logger: Logger,
   ) {}
   async onModuleInit(): Promise<void> {
+    this.consumers.on(EntitlementsChanged.name, CAPABILITY_LICENCE_CONSUMER, async (envelope) => {
+      if (!envelope.tenant_id) return;
+      const e = EntitlementsChanged.parse(envelope);
+      const tenantId = envelope.tenant_id;
+      await this.tx.run(() => this.capabilities.refreshTenant({ tenantId }, e.payload.property_id));
+    });
     for (const name of WEBHOOK_EVENTS)
       this.consumers.on(name, WEBHOOK_FANOUT_CONSUMER, async (envelope) => {
         await this.dispatcher.enqueue(name, envelope);

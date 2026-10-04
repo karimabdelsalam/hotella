@@ -136,6 +136,8 @@ export interface CommandRequest {
   readonly expiresAt?: Date | null;
   readonly requestedBy: { readonly type: string; readonly id: string | null };
   readonly correlationId?: string | null;
+  /** Set by `PMS_API`: how the connector was chosen (guide §4.3), kept on the command for audit. */
+  readonly routing?: Readonly<Record<string, unknown>> | null;
 }
 
 export interface CommandSummary {
@@ -148,6 +150,52 @@ export interface CommandSummary {
   readonly createdAt: Date;
   readonly acknowledgedAt: Date | null;
 }
+
+/** Who asks the PMS for a write, and the key that makes a repeat a no-op. */
+export interface PmsWriteContext {
+  readonly tenantId: string;
+  readonly propertyId: string;
+  readonly idempotencyKey: string;
+  readonly requestedBy: { readonly type: string; readonly id: string | null };
+  readonly correlationId?: string | null;
+}
+
+/** QUEUED: a durable command for the chosen connector. UNAVAILABLE: no connector of the property may do it now. */
+export type PmsWriteOutcome =
+  | {
+      readonly outcome: 'QUEUED';
+      readonly commandId: string;
+      readonly connectorCode: string;
+      readonly status: CommandSummary['status'];
+    }
+  | { readonly outcome: 'UNAVAILABLE'; readonly capability: ConnectorCapability };
+
+/**
+ * The Unified OPERA Adapter (ADR-0019; guide §4) — vendor-neutral by name: the only way a module reaches the PMS. It
+ * asks the per-property capability registry which connector may serve each operation and never writes through a
+ * read-only connector. Reads (lookups, arrivals, snapshots) arrive with link protocol 2 (BUILD_PLAN 10.7).
+ */
+export interface PmsPublicApi {
+  /** Spec §47: may the property's PMS integration do this now? For modules, the UI and the AI tools. */
+  can(tenantId: string, propertyId: string, capability: ConnectorCapability): Promise<boolean>;
+  setRoomStatus(
+    input: PmsWriteContext & {
+      readonly roomNumber: string;
+      readonly status: 'DIRTY' | 'CLEAN' | 'INSPECTED';
+      /** FIAS room status codes carry occupancy; the PMS's own occupancy as last seen. */
+      readonly occupied?: boolean;
+    },
+  ): Promise<PmsWriteOutcome>;
+  setRoomRestriction(
+    input: PmsWriteContext & {
+      readonly roomNumber: string;
+      readonly kind: 'OOO' | 'OOS' | 'BLOCKED_OPERATIONALLY';
+      readonly active: boolean;
+    },
+  ): Promise<PmsWriteOutcome>;
+}
+
+export const PMS_API = Symbol.for('hotella.domain.integrations.pms');
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */
 export const INTEGRATIONS_API = Symbol.for('hotella.domain.integrations.api');

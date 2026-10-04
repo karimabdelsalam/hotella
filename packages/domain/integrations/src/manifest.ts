@@ -1,5 +1,6 @@
 import {
   HOTEL_EVENTS,
+  IntegrationCapabilityChanged,
   IntegrationExceptionOpened,
   IntegrationHealthChanged,
   ReconciliationCompleted,
@@ -39,6 +40,16 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
       risk: 'LOW',
     },
     {
+      code: 'integration.capability.manage',
+      descriptionKey: 'integration.permission.capability_manage',
+      risk: 'HIGH',
+    },
+    {
+      code: 'integration.capability.verify',
+      descriptionKey: 'integration.permission.capability_verify',
+      risk: 'HIGH',
+    },
+    {
       code: 'integration.webhook.manage',
       descriptionKey: 'integration.permission.webhook_manage',
       risk: 'HIGH',
@@ -49,6 +60,7 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
     ...HOTEL_EVENTS.map((e) => e.name),
     IntegrationExceptionOpened.name,
     IntegrationHealthChanged.name,
+    IntegrationCapabilityChanged.name,
     ReconciliationSnapshotCompleted.name,
     ReconciliationCompleted.name,
   ],

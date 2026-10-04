@@ -4,5 +4,7 @@
   "integration.permission.replay": "Replay integration messages",
   "integration.permission.mapping_confirm": "Confirm code mappings and close integration exceptions",
   "integration.permission.reconcile": "Run and review reconciliation with external systems",
-  "integration.permission.webhook_manage": "Manage outbound webhooks and replay their deliveries"
+  "integration.permission.webhook_manage": "Manage outbound webhooks and replay their deliveries",
+  "integration.permission.capability_manage": "Choose which connector serves each PMS operation at a hotel",
+  "integration.permission.capability_verify": "Verify PMS capabilities and sign off an integration at commissioning"
 }

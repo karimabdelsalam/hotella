@@ -42,6 +42,25 @@ describe('defineConnector', () => {
     ).toThrow(ConnectorDefinitionError);
     expect(() => defineConnector({ ...base, code: 'bad-code' })).toThrow(ConnectorDefinitionError);
   });
+  it('a read-only connector can declare no write capability and no command (ADR-0019)', () => {
+    const readOnly = {
+      ...base,
+      readOnly: true,
+      capabilities: ['CHECKIN_EVENT', 'ARRIVALS_READ'] as const,
+    };
+    expect(defineConnector(readOnly).readOnly).toBe(true);
+    expect(() =>
+      defineConnector({ ...readOnly, capabilities: ['CHECKIN_EVENT', 'ROOM_STATUS_WRITE'] }),
+    ).toThrow(/read-only/);
+    expect(() =>
+      defineConnector({
+        ...readOnly,
+        commands: [
+          { code: 'RESYNC', description: 'x', requires: 'CHECKIN_EVENT', payload: z.object({}) },
+        ],
+      }),
+    ).toThrow(/read-only/);
+  });
 });
 
 describe('inbound records', () => {

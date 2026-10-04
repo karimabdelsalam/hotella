@@ -3,8 +3,10 @@ export {
   CONNECTOR_CATEGORIES,
   INTEGRATION_HEALTH_STATES,
   isConnectorCapability,
+  isWriteCapability,
   MAPPING_TYPES,
   REQUIRED_MAPPING_TYPES,
+  WRITE_CAPABILITIES,
 } from './capabilities';
 export type {
   ConnectorCapability,

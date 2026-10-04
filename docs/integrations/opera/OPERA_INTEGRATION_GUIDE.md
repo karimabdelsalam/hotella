@@ -136,6 +136,11 @@ working; queries are routed only to agents that announce protocol 2 in `hello`.
 | `status` | AVAILABLE / DEGRADED / UNAVAILABLE from live health (§14) |
 | `licence` | covered by the agent licence (Spec §62) |
 
+Implementation (BUILD_PLAN 10.6): only `verified` is stored by the registry (`integration.property_capabilities`);
+the other facts are read from their owners — the manifest, the instance's enabled list, the agent's hello, the
+licence and the instance health (HEALTHY = AVAILABLE; DEGRADED/OFFLINE = DEGRADED; MISCONFIGURED/AUTH_FAILED =
+UNAVAILABLE). `GET /properties/:id/integration/capabilities` shows every connector's verdict with its reasons.
+
 ### 5.3 Effective capability (rule 11: code, not judgement)
 `effective = supported ∧ enabled ∧ reported ∧ verified ∧ licence ∧ status ≠ UNAVAILABLE`. A property capability is
 effective when **any** connector serves it effectively; `PMS_API.can(property, capability)` answers modules, the UI and

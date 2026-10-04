@@ -3280,6 +3280,264 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/integration/capabilities": {
+      "get": {
+        "operationId": "PropertyCapabilitiesController_view",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/capabilities/history": {
+      "get": {
+        "operationId": "PropertyCapabilitiesController_history",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/capabilities/{capability}/verify": {
+      "post": {
+        "operationId": "PropertyCapabilitiesController_verify",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "capability",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyCapabilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/capabilities/{capability}/unverify": {
+      "post": {
+        "operationId": "PropertyCapabilitiesController_unverify",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "capability",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnverifyCapabilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/instances/{instanceId}/commission": {
+      "post": {
+        "operationId": "PropertyCapabilitiesController_commission",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instanceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionInstanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/routing/{operation}": {
+      "put": {
+        "operationId": "PropertyCapabilitiesController_routing",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operation",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutingOverrideDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
     "/api/v1/tenants/{tenantId}/webhooks": {
       "get": {
         "operationId": "WebhooksController_list",
@@ -15340,7 +15598,12 @@
               "type": "string",
               "enum": [
                 "RESERVATION_READ",
+                "RESERVATION_LOOKUP",
+                "ARRIVALS_READ",
+                "IN_HOUSE_SNAPSHOT",
                 "GUEST_READ",
+                "PROFILE_LOOKUP",
+                "ROOM_INVENTORY_READ",
                 "CHECKIN_EVENT",
                 "CHECKOUT_EVENT",
                 "ROOM_MOVE_EVENT",
@@ -15349,6 +15612,8 @@
                 "ROOM_STATUS_WRITE",
                 "OOO_READ",
                 "OOO_WRITE",
+                "PROFILE_WRITE",
+                "RESERVATION_WRITE",
                 "RECONCILIATION_READ",
                 "POST_CHARGE",
                 "MENU_READ",
@@ -15419,7 +15684,12 @@
               "type": "string",
               "enum": [
                 "RESERVATION_READ",
+                "RESERVATION_LOOKUP",
+                "ARRIVALS_READ",
+                "IN_HOUSE_SNAPSHOT",
                 "GUEST_READ",
+                "PROFILE_LOOKUP",
+                "ROOM_INVENTORY_READ",
                 "CHECKIN_EVENT",
                 "CHECKOUT_EVENT",
                 "ROOM_MOVE_EVENT",
@@ -15428,6 +15698,8 @@
                 "ROOM_STATUS_WRITE",
                 "OOO_READ",
                 "OOO_WRITE",
+                "PROFILE_WRITE",
+                "RESERVATION_WRITE",
                 "RECONCILIATION_READ",
                 "POST_CHARGE",
                 "MENU_READ",
@@ -15529,6 +15801,73 @@
           "version",
           "status",
           "resolution"
+        ]
+      },
+      "VerifyCapabilityDto": {
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "evidenceRef": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "instanceId",
+          "evidenceRef"
+        ]
+      },
+      "UnverifyCapabilityDto": {
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "instanceId",
+          "reason"
+        ]
+      },
+      "CommissionInstanceDto": {
+        "type": "object",
+        "properties": {
+          "evidenceRef": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "evidenceRef"
+        ]
+      },
+      "RoutingOverrideDto": {
+        "type": "object",
+        "properties": {
+          "connectors": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,47}$"
+            }
+          }
+        },
+        "required": [
+          "connectors"
         ]
       },
       "CreateWebhookDto": {

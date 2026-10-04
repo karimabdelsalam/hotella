@@ -19,9 +19,14 @@ export type ConnectorCategory = (typeof CONNECTOR_CATEGORIES)[number];
  * negotiates the subset that actually works at that hotel (Spec §47). Features and AI tools check the instance.
  */
 export const CONNECTOR_CAPABILITIES = [
-  // PMS
+  // PMS (business capabilities of the Unified OPERA Adapter, ADR-0019; guide §5.1)
   'RESERVATION_READ',
+  'RESERVATION_LOOKUP',
+  'ARRIVALS_READ',
+  'IN_HOUSE_SNAPSHOT',
   'GUEST_READ',
+  'PROFILE_LOOKUP',
+  'ROOM_INVENTORY_READ',
   'CHECKIN_EVENT',
   'CHECKOUT_EVENT',
   'ROOM_MOVE_EVENT',
@@ -30,6 +35,8 @@ export const CONNECTOR_CAPABILITIES = [
   'ROOM_STATUS_WRITE',
   'OOO_READ',
   'OOO_WRITE',
+  'PROFILE_WRITE',
+  'RESERVATION_WRITE',
   'RECONCILIATION_READ',
   'POST_CHARGE',
   // POS
@@ -58,6 +65,30 @@ export type ConnectorCapability = (typeof CONNECTOR_CAPABILITIES)[number];
 
 export function isConnectorCapability(value: string): value is ConnectorCapability {
   return (CONNECTOR_CAPABILITIES as readonly string[]).includes(value);
+}
+
+/**
+ * Capabilities that change the external system. A write is offered only once it was verified at the hotel
+ * (commissioning, guide §16.5), is never routed to a read-only connector (the OPERA database) and never silently
+ * retried on another connector.
+ */
+export const WRITE_CAPABILITIES: ReadonlySet<ConnectorCapability> = new Set<ConnectorCapability>([
+  'ROOM_STATUS_WRITE',
+  'OOO_WRITE',
+  'PROFILE_WRITE',
+  'RESERVATION_WRITE',
+  'POST_CHARGE',
+  'ORDER_CREATE',
+  'REQUISITION_CREATE',
+  'CALL_TRANSFER',
+  'CALL_HOLD',
+  'CALL_END',
+  'WIFI_SESSION_CREATE',
+  'WIFI_SESSION_REVOKE',
+]);
+
+export function isWriteCapability(capability: ConnectorCapability): boolean {
+  return WRITE_CAPABILITIES.has(capability);
 }
 
 /**

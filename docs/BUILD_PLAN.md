@@ -2094,7 +2094,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.3 | OWS adapter (SOAP polling, reservations and profiles), simulator OWS SOAP face, `OPERA5_OWS` connector; optional `OPERA5_DBVIEW` reconciliation adapter | delivered (DBVIEW deferred, see notes) |
 | 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | delivered (MSI: owner decision, see notes) |
 | 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | delivered |
-| 10.6 | Unified OPERA Adapter (`PMS_API`) and per-property capability registry (10.D) | scheduled after Phase 11, before M4 |
+| 10.6 | Unified OPERA Adapter (`PMS_API`) and per-property capability registry (10.D) | delivered (writes routed; reads arrive with 10.7, see notes) |
 | 10.7 | Link protocol 2 (`query`/`query_result`) and the `OPERA5_DB` read-only connector (10.D) | scheduled after Phase 11, before M4 |
 | 10.8 | Planova Standard IFC8/FIAS Profile v1 alignment and OWS standard connector v1 (reads + supported writes) (10.D) | scheduled after Phase 11, before M4 |
 | 10.9 | Commissioning tooling: Interface Sheet comparison, DB probe, OWS verification, capability sign-off; OPERA integration acceptance (10.D) | scheduled after Phase 11, before M4 |
@@ -2245,6 +2245,48 @@ Phase 11 does not wait for pilot-specific IFC8/OWS details.
 - *Tests:* unit (effective rule, routing incl. "never DB write", fallbacks for reads only), integration (registry with
   real Postgres, tenant-leak test), e2e: hotels A/B/C of guide §5.4 run the same scenario with different connector sets
   and the same core.
+
+**Reality notes for 10.6 (delivered).**
+- Business capabilities added to the connector contract: `RESERVATION_LOOKUP`, `ARRIVALS_READ`, `IN_HOUSE_SNAPSHOT`,
+  `PROFILE_LOOKUP`, `ROOM_INVENTORY_READ`, `PROFILE_WRITE`, `RESERVATION_WRITE`; `WRITE_CAPABILITIES` classifies
+  writes. Connector manifests gain `readOnly`: a read-only connector that declares a write capability or any command
+  fails at definition time, and `route()` also refuses a read-only connector as a write target (two independent
+  guards for "the database is never written").
+- Registry (migration 0041, RLS): `property_capabilities` holds only the commissioning facts (verified at/by, evidence
+  reference) per instance and capability, never deleted; `property_capability_history` is append-only (VERIFIED,
+  UNVERIFIED, ENABLED, DISABLED, COMMISSIONED, ROUTING_CHANGED); `property_capability_states` is the last announced
+  effective state; `routing_overrides` the property's order per operation; `integration_instances.commissioned_at/by`
+  the sign-off; `integration_commands.routing` the routing decision of each command.
+- Deviation from the plan, one source of truth each: *enabled* stays the instance's capability list (changed with the
+  existing `PATCH /properties/:id/integrations/:instanceId`, now recorded as ENABLED/DISABLED history), *supported*
+  is the manifest, *reported* the agent's hello, *licence* `ENTITLEMENT_API.can(connector entitlement)`, *status* the
+  instance health. No separate enable route and no `capability_status` table: the effective rule is computed on
+  demand (`CapabilityRegistry.facts` → pure `ineffectiveReasons`/`route`).
+- Health → status: HEALTHY = AVAILABLE; DEGRADED and OFFLINE = DEGRADED (commands are durable and wait for the agent;
+  reads try AVAILABLE connectors first); MISCONFIGURED and AUTH_FAILED = UNAVAILABLE.
+- Verification: writes always need it; reads and events run unverified while the instance is in commissioning, and
+  every capability needs it after `POST /properties/:id/integration/instances/:instanceId/commission` (sign-off is
+  final). Inbound PMS events are still accepted by the instance's enabled ∧ reported capabilities: the PMS is the
+  source of truth (rule 19) and the registry governs what the platform *asks* of the PMS.
+- APIs: `GET /properties/:id/integration/capabilities` (each capability with every connector's verdict and reasons,
+  each operation's route and skipped connectors), `GET …/capabilities/history`, `POST …/capabilities/:code/verify`
+  (evidence) and `…/unverify` (reason) with `integration.capability.verify`, `POST …/instances/:instanceId/commission`
+  (`integration.capability.verify`), `PUT …/routing/:operation` (`integration.capability.manage`; empty list = the
+  standard order; duplicates, connectors outside the standard list and read-only write targets are refused). Both
+  permissions are Planova installer work (platform administrators), not hotel staff.
+- `PMS_API` (integrations `public`): `can`, `setRoomStatus`, `setRoomRestriction` → one durable command on the first
+  effective connector (never two connectors, never a silent fallback for writes), or `UNAVAILABLE`. Housekeeping's
+  room status and engineering's room restriction moved onto it (they used to send to every instance with the
+  capability). `INTEGRATIONS_API.hasCapability` — the action gate's connector stage — now answers from the registry.
+  Read operations (lookups, arrivals, snapshots) need link protocol 2 and arrive in 10.7; no AI tool offers a PMS
+  action yet, so the "AI tools ask `can`" rule has no caller today.
+- Events: `integration.capability.changed.v1` once per change of a property capability (verification, enablement,
+  agent report, health state, licence — the worker re-evaluates a tenant's properties on
+  `license.entitlements.changed.v1`).
+- Tests: `domain/capabilities.spec.ts` (effective rule, commissioning, statuses, routing, overrides, hotels A/B/C of
+  guide §5.4, never a DB write); `capabilities.integration.spec.ts` (hotels A/B/C run the same write through their own
+  connector, one command with its routing, events once, licence and health, sign-off, history, routing overrides,
+  tenant isolation); housekeeping and engineering tests verify the write capability before expecting the command.
 
 **10.7 — Link protocol 2 and `OPERA5_DB`.**
 - *Contracts:* `query` (signed like commands: query_type, params, deadline) and `query_result` (rows, page token,
@@ -2495,7 +2537,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
   process).
 - Events offered (`WEBHOOK_EVENTS`): operational facts with ids and codes only — ops work items/tasks/SLA breaches,
   hk room states/readiness/jobs, eng work orders/PM/room restrictions, inspections, complaints, lost & found. No
-  canonical `hotel.*`, guest, identity, comms or AI events. The worker's `WebhooksWorkerModule` subscribes consumer
+  canonical `hotel.*`, guest, identity, comms or AI events. The worker's `IntegrationsWorkerModule` subscribes consumer
   `integration.webhooks` to each (inbox-idempotent) and creates one delivery per matching ACTIVE endpoint (tenant,
   event, property or tenant-wide), unique per endpoint and event, only while the tenant holds `API_ACCESS`.
 - Delivery: job `integration.webhooks.sweep` every 30 s claims due rows with `FOR UPDATE SKIP LOCKED` and a 2-minute

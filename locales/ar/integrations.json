@@ -4,5 +4,7 @@
   "integration.permission.replay": "إعادة معالجة رسائل الربط",
   "integration.permission.mapping_confirm": "تأكيد ربط الرموز وإغلاق استثناءات الربط",
   "integration.permission.reconcile": "تشغيل المطابقة مع الأنظمة الخارجية ومراجعتها",
-  "integration.permission.webhook_manage": "إدارة الإشعارات البرمجية الصادرة (Webhooks) وإعادة إرسالها"
+  "integration.permission.webhook_manage": "إدارة الإشعارات البرمجية الصادرة (Webhooks) وإعادة إرسالها",
+  "integration.permission.capability_manage": "اختيار الموصل الذي يخدم كل عملية في نظام إدارة الفندق",
+  "integration.permission.capability_verify": "التحقق من قدرات نظام إدارة الفندق واعتماد الربط عند التشغيل"
 }

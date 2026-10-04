@@ -47,6 +47,7 @@ describe.skipIf(needsInfra())(
       'task.complete',
       'integration.read',
       'integration.configure',
+      'integration.capability.verify',
     ];
     let h: EngHarness;
     let hotel: Hotel;
@@ -335,6 +336,12 @@ describe.skipIf(needsInfra())(
         .patch(`/properties/${hotel.propertyId}/integrations/${instance.id}`)
         .set('X-Test-Actor', gm())
         .send({ version: 1, status: 'ACTIVE' })
+        .expect(200);
+      await h
+        .http()
+        .post(`/properties/${hotel.propertyId}/integration/capabilities/OOO_WRITE/verify`)
+        .set('X-Test-Actor', gm())
+        .send({ instanceId: instance.id, evidenceRef: 'commissioning sheet row 14' })
         .expect(200);
       const restricted = (
         await h

@@ -4,6 +4,7 @@ import {
   type ConnectorCapability,
   type ConnectorCategory,
   isConnectorCapability,
+  isWriteCapability,
 } from './capabilities';
 import { type InboundRecord, inboundRecordSchema } from './records';
 
@@ -47,6 +48,11 @@ export interface ConnectorManifest {
    * offline licence is issued only while it is entitled (Spec §62).
    */
   readonly entitlement?: string;
+  /**
+   * A read-only connector (the OPERA database, ADR-0019): it may declare no write capability and no command, so no
+   * write can ever be routed to it — a definition error, not a convention.
+   */
+  readonly readOnly?: boolean;
 }
 
 export class ConnectorDefinitionError extends Error {
@@ -68,8 +74,12 @@ export function defineConnector(manifest: ConnectorManifest): ConnectorManifest 
   if (manifest.entitlement !== undefined && !CONNECTOR_CODE_RE.test(manifest.entitlement))
     fail('entitlement must be UPPER_SNAKE_CASE');
   const caps = new Set<string>(manifest.capabilities);
-  for (const c of manifest.capabilities)
+  for (const c of manifest.capabilities) {
     if (!isConnectorCapability(c)) fail(`unknown capability ${c}`);
+    if (manifest.readOnly && isWriteCapability(c)) fail(`is read-only and cannot declare ${c}`);
+  }
+  if (manifest.readOnly && manifest.commands.length > 0)
+    fail('is read-only and cannot declare commands');
   const seen = new Set<string>();
   for (const m of manifest.messageTypes) {
     if (!MESSAGE_TYPE_RE.test(m.code)) fail(`message type ${m.code} must be UPPER_SNAKE_CASE`);

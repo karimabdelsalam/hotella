@@ -51,3 +51,16 @@ export const ReconciliationCompleted = defineEvent({
     summary: z.record(z.string(), z.number().int()),
   }),
 });
+
+export const IntegrationCapabilityChanged = defineEvent({
+  type: 'integration.capability.changed',
+  version: 1,
+  description:
+    "A property's effective PMS capability changed (ADR-0019 registry): verification, enablement, licence or connector health. Apps and AI tools re-read what they may offer.",
+  payload: z.object({
+    capability: z.string(),
+    effective: z.boolean(),
+    /** Connector codes that serve it now. */
+    connectors: z.array(z.string()),
+  }),
+});
