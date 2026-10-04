@@ -49,6 +49,7 @@ import {
   CapabilityAdminService,
   capabilityCodeSchema,
   commissionSchema,
+  resetProfileSchema,
   routingOverrideSchema,
   unverifyCapabilitySchema,
   verifyCapabilitySchema,
@@ -70,6 +71,7 @@ class VerifyCapabilityDto extends createZodDto(verifyCapabilitySchema) {}
 class UnverifyCapabilityDto extends createZodDto(unverifyCapabilitySchema) {}
 class RoutingOverrideDto extends createZodDto(routingOverrideSchema) {}
 class CommissionInstanceDto extends createZodDto(commissionSchema) {}
+class ResetProfileDto extends createZodDto(resetProfileSchema) {}
 class CreateWebhookDto extends createZodDto(createWebhookSchema) {}
 class UpdateWebhookDto extends createZodDto(updateWebhookSchema) {}
 class WebhookDeliveriesQueryDto extends createZodDto(webhookDeliveriesQuerySchema) {}
@@ -401,6 +403,28 @@ export class PropertyCapabilitiesController {
     @Body() body: CommissionInstanceDto,
   ) {
     return this.admin.commission(
+      propertyScope(this.ctx, this.actors, propertyId),
+      instanceId,
+      body,
+    );
+  }
+
+  /** Interface profile coverage of an instance (guide §7.3, §16.2): what the hotel's PMS delivers, and the gaps. */
+  @Get('instances/:instanceId/profile')
+  @RequirePermission('integration.read', { checkedBy: 'gate' })
+  profile(@Param('propertyId') propertyId: string, @Param('instanceId') instanceId: string) {
+    return this.admin.profile(propertyScope(this.ctx, this.actors, propertyId), instanceId);
+  }
+
+  @Post('instances/:instanceId/profile/reset')
+  @HttpCode(200)
+  @RequirePermission('integration.capability.verify', { checkedBy: 'gate' })
+  resetProfile(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+    @Body() body: ResetProfileDto,
+  ) {
+    return this.admin.resetProfile(
       propertyScope(this.ctx, this.actors, propertyId),
       instanceId,
       body,

@@ -100,20 +100,11 @@ public sealed class OwsAdapter : IAdapterHealth, IDisposable
     public async Task<int> PollOnceAsync(IMessagePublisher publisher, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(publisher);
-        var password = _password() ?? throw new OwsFaultException(
-            $"the OWS password is not set (hotella-agent secret set {_settings.PasswordSecret})");
         var today = DateOnly.FromDateTime(_now().UtcDateTime);
-        var request = OwsSoap.FutureBookingSummaryRequest(_settings, password, today.AddDays(-1),
-            today.AddDays(_settings.WindowDays), _now());
-        using var content = new StringContent(request, Encoding.UTF8, "text/xml");
-        content.Headers.ContentType = new MediaTypeHeaderValue("text/xml") { CharSet = "utf-8" };
-        using var message = new HttpRequestMessage(HttpMethod.Post, OwsSoap.ReservationService) { Content = content };
-        message.Headers.Add("SOAPAction", $"\"{OwsSoap.FutureBookingSummaryAction}\"");
-        using var response = await _http.SendAsync(message, ct).ConfigureAwait(false);
-        var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        // A SOAP fault arrives with HTTP 500: the parser turns it into its reason.
-        var reservations = OwsSoap.ParseFutureBookingSummary(body);
-        if (!response.IsSuccessStatusCode) throw new OwsFaultException($"OWS answered HTTP {(int)response.StatusCode}");
+        var reservations = OwsSoap.ParseFutureBookingSummary(await CallAsync(OwsSoap.ReservationService,
+            OwsSoap.FutureBookingSummaryAction,
+            password => OwsSoap.FutureBookingSummaryRequest(_settings, password, today.AddDays(-1),
+                today.AddDays(_settings.WindowDays), _now()), ct).ConfigureAwait(false));
         Polls++;
         _failingInARow = 0;
         LastError = null;
@@ -122,6 +113,141 @@ public sealed class OwsAdapter : IAdapterHealth, IDisposable
             if (Forward(publisher, r)) forwarded++;
         Forwarded += forwarded;
         return forwarded;
+    }
+
+    /// <summary>
+    /// One OWS call: the request built with the password from the protected store, the SOAP action, the answer's body.
+    /// A SOAP fault (HTTP 500) becomes its reason; nothing of the request or answer is logged.
+    /// </summary>
+    private async Task<string> CallAsync(string service, string action, Func<string, string> request, CancellationToken ct)
+    {
+        var password = _password() ?? throw new OwsFaultException(
+            $"the OWS password is not set (hotella-agent secret set {_settings.PasswordSecret})");
+        using var content = new StringContent(request(password), Encoding.UTF8, "text/xml");
+        content.Headers.ContentType = new MediaTypeHeaderValue("text/xml") { CharSet = "utf-8" };
+        using var message = new HttpRequestMessage(HttpMethod.Post, service) { Content = content };
+        message.Headers.Add("SOAPAction", $"\"{action}\"");
+        using var response = await _http.SendAsync(message, ct).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        OwsSoap.Checked(body);
+        if (!response.IsSuccessStatusCode) throw new OwsFaultException($"OWS answered HTTP {(int)response.StatusCode}");
+        return body;
+    }
+
+    /// <summary>The standard reads of OWS connector v1 (guide §4.2, §8.1), answered over link protocol 2.</summary>
+    public IReadOnlyList<IQueryHandler> Queries() =>
+    [
+        new Query("LOOKUP_RESERVATION", async (p, ct) =>
+        {
+            var byId = Param(p, "reservation_id");
+            var confirmation = byId is null ? Param(p, "confirmation_number")
+                ?? throw new FormatException("a confirmation number or reservation id is required") : null;
+            var found = OwsSoap.ParseFetchBooking(await CallAsync(OwsSoap.ReservationService, OwsSoap.FetchBookingAction,
+                password => OwsSoap.FetchBookingRequest(_settings, password, confirmation, byId, _now()), ct).ConfigureAwait(false));
+            return Rows(found is null ? [] : [OwsRows.Reservation(found)]);
+        }),
+        new Query("LIST_ARRIVALS", async (p, ct) =>
+        {
+            var from = Day(p, "from");
+            var to = Day(p, "to");
+            var found = OwsSoap.ParseFutureBookingSummary(await CallAsync(OwsSoap.ReservationService,
+                OwsSoap.FutureBookingSummaryAction,
+                password => OwsSoap.FutureBookingSummaryRequest(_settings, password, from, to, _now()), ct).ConfigureAwait(false));
+            // FutureBookingSummary also lists cancellations of the window; an arrivals list does not.
+            return Rows([.. found.Select(OwsRows.Reservation).Where(r => r?["status"]?.GetValue<string>() != "CANCELLED")]);
+        }),
+        new Query("LOOKUP_PROFILE", async (p, ct) =>
+        {
+            var id = Param(p, "profile_id") ?? throw new FormatException("profile_id is required");
+            var profile = await FetchProfileAsync(id, ct).ConfigureAwait(false);
+            return Rows(profile is null ? [] : [OwsRows.Profile(profile)]);
+        }),
+    ];
+
+    /// <summary>The standard writes of OWS connector v1: additive contact updates only (guide §4.2).</summary>
+    public IReadOnlyList<ICommandHandler> Commands() => [new ProfileContactHandler(this)];
+
+    public int ContactWrites { get; private set; }
+
+    private async Task<OwsProfile?> FetchProfileAsync(string profileId, CancellationToken ct) =>
+        OwsSoap.ParseFetchProfile(await CallAsync(OwsSoap.NameService, OwsSoap.FetchProfileAction,
+            password => OwsSoap.FetchProfileRequest(_settings, password, profileId, _now()), ct).ConfigureAwait(false), profileId);
+
+    /// <summary>
+    /// UPDATE_PROFILE_CONTACT: reads the profile first and inserts only what OPERA does not already hold, so a command
+    /// repeated after a timeout changes nothing (guide §8.3: a write is re-checked by a read, never blindly retried).
+    /// </summary>
+    internal async Task<CommandOutcome> UpdateContactAsync(string profileId, string? email, string? phone, CancellationToken ct)
+    {
+        var profile = await FetchProfileAsync(profileId, ct).ConfigureAwait(false);
+        if (profile is null) return CommandOutcome.Failed("OPERA has no such profile");
+        if (email is not null && !profile.Emails.Contains(email, StringComparer.OrdinalIgnoreCase))
+        {
+            await CallAsync(OwsSoap.NameService, OwsSoap.InsertEmailAction,
+                password => OwsSoap.InsertEmailRequest(_settings, password, profileId, email, _now()), ct).ConfigureAwait(false);
+            ContactWrites++;
+        }
+        if (phone is not null && !profile.Phones.Any(p => Digits(p) == Digits(phone)))
+        {
+            await CallAsync(OwsSoap.NameService, OwsSoap.InsertPhoneAction,
+                password => OwsSoap.InsertPhoneRequest(_settings, password, profileId, phone, _now()), ct).ConfigureAwait(false);
+            ContactWrites++;
+        }
+        return CommandOutcome.Ok;
+    }
+
+    private static string Digits(string phone) => new([.. phone.Where(char.IsAsciiDigit)]);
+
+    private static QueryAnswer Rows(IEnumerable<JsonObject?> rows)
+    {
+        var list = rows.OfType<JsonObject>().ToList();
+        return new QueryAnswer([.. list.Take(LinkOptions.MaxQueryRows)], list.Count > LinkOptions.MaxQueryRows);
+    }
+
+    private static string? Param(JsonObject p, string name) =>
+        p[name]?.GetValue<string>() is { Length: > 0 } v ? v : null;
+
+    private static DateOnly Day(JsonObject p, string name) =>
+        DateOnly.ParseExact(Param(p, name) ?? throw new FormatException($"{name} is required"), "yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private sealed class Query(string type, Func<JsonObject, CancellationToken, Task<QueryAnswer>> run) : IQueryHandler
+    {
+        public string QueryType => type;
+
+        public async Task<QueryAnswer> ExecuteAsync(JsonObject parameters, CancellationToken ct)
+        {
+            try
+            {
+                return await run(parameters, ct).ConfigureAwait(false);
+            }
+            catch (OwsFaultException e)
+            {
+                // The fault's reason (no guest data) is what the platform may show.
+                throw new QueryRefusedException(e.Message);
+            }
+        }
+    }
+
+    private sealed class ProfileContactHandler(OwsAdapter adapter) : ICommandHandler
+    {
+        public string CommandType => "UPDATE_PROFILE_CONTACT";
+
+        public async Task<CommandOutcome> ExecuteAsync(JsonNode? payload, CancellationToken ct)
+        {
+            var profileId = payload?["profile_id"]?.GetValue<string>();
+            var email = payload?["email"]?.GetValue<string>();
+            var phone = payload?["phone"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(profileId) || (email is null && phone is null))
+                return CommandOutcome.Failed("a profile and an e-mail or phone are required");
+            try
+            {
+                return await adapter.UpdateContactAsync(profileId, email, phone, ct).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is OwsFaultException or HttpRequestException or TaskCanceledException)
+            {
+                return CommandOutcome.Failed(e is OwsFaultException ? e.Message : $"OWS unreachable ({e.GetType().Name})");
+            }
+        }
     }
 
     private bool Forward(IMessagePublisher publisher, OwsReservation r)

@@ -20,6 +20,7 @@ import { CapabilityAdminService } from './application/capability-admin.service';
 import { CapabilityRegistry } from './application/capability-registry';
 import { PmsService } from './application/pms.service';
 import { CapabilityRepositories } from './infrastructure/capability-repositories';
+import { ProfileRepositories } from './infrastructure/profile-repositories';
 import { QueryRepositories } from './infrastructure/query-repositories';
 import { AgentQueryService } from './application/agent-query.service';
 import {
@@ -61,6 +62,7 @@ import { IntegrationsPublicApiService } from './public-api.service';
     CapabilityRepositories,
     CapabilityRegistry,
     QueryRepositories,
+    ProfileRepositories,
     AgentQueryService,
     IntegrationsPublicApiService,
     { provide: INTEGRATIONS_API, useExisting: IntegrationsPublicApiService },
@@ -73,6 +75,7 @@ import { IntegrationsPublicApiService } from './public-api.service';
     CapabilityRepositories,
     CapabilityRegistry,
     QueryRepositories,
+    ProfileRepositories,
     AgentQueryService,
     ConnectorRegistry,
     IntegrationRepositories,

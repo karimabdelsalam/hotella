@@ -8,12 +8,14 @@ import {
   type PmsOperationDefinition,
 } from '../domain/capabilities';
 import type { PmsProfileRow, PmsReservationRow, PmsRoomRow } from '@hotella/contracts-connectors';
-import type {
-  PmsPublicApi,
-  PmsReadContext,
-  PmsReadOutcome,
-  PmsWriteContext,
-  PmsWriteOutcome,
+import { IntegrationRepositories } from '../infrastructure/repositories';
+import {
+  EXTERNAL_ENTITY,
+  type PmsPublicApi,
+  type PmsReadContext,
+  type PmsReadOutcome,
+  type PmsWriteContext,
+  type PmsWriteOutcome,
 } from '../public';
 import { AgentQueryService } from './agent-query.service';
 import { IntegrationsPublicApiService } from '../public-api.service';
@@ -31,6 +33,7 @@ export class PmsService implements PmsPublicApi {
     private readonly commands: IntegrationsPublicApiService,
     private readonly tx: TransactionRunner,
     private readonly agentQueries: AgentQueryService,
+    private readonly references: IntegrationRepositories,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -156,10 +159,51 @@ export class PmsService implements PmsPublicApi {
     });
   }
 
+  /**
+   * Adds an e-mail and/or phone to the guest's PMS profile (guide §4.2: OWS `Name` service only). The PMS profile id is
+   * resolved here, from the references of the property's PMS connectors (rule 3: callers never see it); a guest the PMS
+   * never told us about is `NOT_LINKED`.
+   */
+  updateProfileContact(
+    input: PmsWriteContext & {
+      readonly subject: { readonly entityType: string; readonly id: string };
+      readonly email?: string;
+      readonly phone?: string;
+    },
+  ): Promise<PmsWriteOutcome> {
+    return this.write('UPDATE_PROFILE_CONTACT', input, async (target, instanceIds) => {
+      const refs = (
+        await this.references.referencesForInternal(
+          { tenantId: input.tenantId },
+          input.subject.entityType,
+          input.subject.id,
+        )
+      ).filter(
+        (r) =>
+          r.externalEntityType === EXTERNAL_ENTITY.PROFILE &&
+          instanceIds.includes(r.integrationInstanceId),
+      );
+      // All connectors of one property read the same PMS: the chosen connector's own reference first, any other next.
+      const ref =
+        refs.find((r) => r.integrationInstanceId === target.instanceId) ?? refs[0] ?? null;
+      if (!ref) return null;
+      return {
+        profile_id: ref.externalId,
+        ...(input.email === undefined ? {} : { email: input.email }),
+        ...(input.phone === undefined ? {} : { phone: input.phone }),
+      };
+    });
+  }
+
   private write(
     operation: PmsOperation,
     input: PmsWriteContext,
-    payload: Record<string, unknown>,
+    payload:
+      | Record<string, unknown>
+      | ((
+          target: { instanceId: string; connectorCode: string },
+          propertyInstanceIds: readonly string[],
+        ) => Promise<Record<string, unknown> | null>),
   ): Promise<PmsWriteOutcome> {
     const op: PmsOperationDefinition = PMS_OPERATIONS[operation];
     return this.tx.run(async () => {
@@ -176,11 +220,25 @@ export class PmsService implements PmsPublicApi {
         );
         return { outcome: 'UNAVAILABLE', capability: op.capability };
       }
+      const body =
+        typeof payload === 'function'
+          ? await payload(
+              target,
+              facts.instances.map((i) => i.row.id),
+            )
+          : payload;
+      if (!body) {
+        this.logger.info(
+          { operation, property_id: input.propertyId },
+          'pms operation needs a PMS reference the platform does not hold',
+        );
+        return { outcome: 'NOT_LINKED', capability: op.capability };
+      }
       const command = await this.commands.requestCommand({
         tenantId: input.tenantId,
         integrationInstanceId: target.instanceId,
         commandType: op.command!,
-        payload,
+        payload: body,
         idempotencyKey: input.idempotencyKey,
         requestedBy: input.requestedBy,
         correlationId: input.correlationId ?? null,

@@ -1019,3 +1019,50 @@ export const integrationQueries = classify(
 );
 
 export type IntegrationQueryRow = typeof integrationQueries.$inferSelect;
+
+/**
+ * What an instance's PMS actually delivers of the connector's interface profile (guide §7.3; Sprint 10.8): per record
+ * id, how many were received, how often each field id appeared and how many lacked a mandatory field. Field ids and
+ * counts only — never values. Compared with the profile, it shows a hotel's profile gaps for commissioning.
+ */
+export const profileObservations = classify(
+  integration.table(
+    'profile_observations',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => integrationInstances.id),
+      profileCode: varchar('profile_code', { length: 64 }).notNull(),
+      profileVersion: integer('profile_version').notNull(),
+      record: varchar('record', { length: 8 }).notNull(),
+      received: integer('received').notNull().default(0),
+      /** `{ "RN": 120, "G#": 120, … }` — field id → messages that carried it. */
+      fields: jsonb('fields').notNull().default({}),
+      missingMandatory: integer('missing_mandatory').notNull().default(0),
+      firstSeenAt: tz('first_seen_at').notNull().defaultNow(),
+      lastSeenAt: tz('last_seen_at').notNull().defaultNow(),
+    },
+    (t) => [unique('profile_observations_record_uq').on(t.instanceId, t.profileCode, t.record)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    profileCode: 'INTERNAL',
+    profileVersion: 'INTERNAL',
+    record: 'INTERNAL',
+    received: 'INTERNAL',
+    fields: 'INTERNAL',
+    missingMandatory: 'INTERNAL',
+    firstSeenAt: 'INTERNAL',
+    lastSeenAt: 'INTERNAL',
+  },
+);
+
+export type ProfileObservationRow = typeof profileObservations.$inferSelect;

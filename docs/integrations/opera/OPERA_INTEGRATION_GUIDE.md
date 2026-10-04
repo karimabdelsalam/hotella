@@ -281,8 +281,20 @@ per sharer, same `RN`, own `G#`. Unknown fields are ignored; unknown record ids 
 record) so an IFC8 repeat is a no-op; LA when idle for `LinkAliveSeconds` (default 60); reconnect after three silent
 intervals; no sending during a database swap; a `DR` after any outage longer than the configured threshold.
 
+**Mandatory fields** (a record without them is refused and becomes an integration exception): `GI` — `RN`, `G#`,
+`GN`, `GD`; `GO`, `GC` — `G#`; `RE` — `RN`, `RS`. The profile is code (`FIAS_STANDARD_PROFILE_V1`), and the agent's
+`LR` list is checked against it in CI (shared vector `fias-profile-v1.json`).
+
+**Profile gaps.** The platform counts, per instance and record, how often each requested field actually arrives
+(field ids and counts, never values) — `GET /properties/{id}/integration/instances/{instanceId}/profile`. A field the
+hotel's IFC8 never sends is a **gap**: shown to the installer, compared with the Interface Sheet (§16.2), never
+filled in by guessing. `POST …/profile/reset` starts the count again after the IFC8 configuration changed.
+
 **Configuration (agent `Fias` section, per hotel):** `Mode` (Client/Server), `Host`, `Port`, `Encoding`
-(utf-8 / windows-1252 / iso-8859-1 as configured in IFC8), `LinkAliveSeconds`, `LinkStartSeconds`, `ReconnectSeconds`.
+(utf-8 / windows-1252 / iso-8859-1 as configured in IFC8), `LinkAliveSeconds`, `LinkStartSeconds`, `ReconnectSeconds`,
+`OptionalRecords` (`NS`, `NE` when the hotel sends night audit), `ResyncAfterOutageSeconds` (default 300; the agent
+sends `DR` once the link is back after a longer outage; 0 = off), `SwapWaitSeconds` (default 120; a command waits this
+long for a running swap to end — nothing is sent during a swap — then fails for the platform to retry).
 
 ### 7.4 IFC8 configuration checklist (hotel side, with the hotel's IFC8 administrator)
 1. IFC8 licence for a new **generic FIAS vendor interface** for Hotella; interface number assigned in OPERA.
@@ -304,7 +316,7 @@ OPERA Web Services is a set of SOAP 1.1 web services hosted on the OPERA applica
 | Service | Operations used | Purpose |
 |---|---|---|
 | `Reservation.asmx` | `FutureBookingSummary`, `FetchBooking` | arrivals window, reservation detail |
-| `Name.asmx` | `FetchProfile`; contact updates (e-mail/phone insert/update operations as exposed by the hotel's OWS 5.1) | profile read; `PROFILE_WRITE` |
+| `Name.asmx` | `FetchProfile`; `InsertEmail`, `InsertPhone` (additive: a new primary contact, existing ones are never replaced or deleted) | profile read; `PROFILE_WRITE` |
 | `ResvAdvanced.asmx` | — (not used: check-in/check-out stay OPERA's own business, rule 19) | — |
 | `Information.asmx` | lookups of code lists where needed | mapping assistance |
 
@@ -326,6 +338,13 @@ OPERA Web Services is a set of SOAP 1.1 web services hosted on the OPERA applica
   re-checked by a read before any retry.
 - Polling: arrivals window (default yesterday … +14 days) every 5 minutes; change detection by fingerprint; NEW,
   CHANGE, CANCEL/NOSHOW forwarded once.
+- **Standard connector v1** (Sprint 10.8): reads `LOOKUP_RESERVATION` (`FetchBooking` by confirmation number or
+  `RESV_NAME_ID`), `LIST_ARRIVALS` (`FutureBookingSummary`, cancellations left out), `LOOKUP_PROFILE` (`FetchProfile`)
+  over link protocol 2; reservations in waitlist/prospect/request states are outside the read contract, any other
+  unknown status fails the read. Write `UPDATE_PROFILE_CONTACT`: the agent reads the profile first and inserts only
+  the e-mail/phone OPERA does not already hold, so a repeat changes nothing. **Reservation writes (note, ETA) are not
+  offered in v1**: they need `ModifyBooking`, which can replace reservation data, and stay off until its behaviour is
+  verified (§21).
 
 ### 8.4 Network
 Agent host → OWS host TCP 443 inside the hotel LAN; no inbound to the hotel.
@@ -427,9 +446,13 @@ read-only account.
 | Interface number / identifiers | noted | | | support |
 The sheet **verifies** the hotel; it never changes the standard. "Change needed" items go to the hotel's IFC8
 administrator; "not available" items simply leave the capability off.
+The platform's **profile coverage** (§7.3) is the live counterpart of the sheet: after a day of traffic, every gap
+it shows must match a "not available" row of the sheet, or go to the hotel's IFC8 administrator.
 ### 16.3 OWS verification
 Licence, version 5.1, URL reachable over HTTPS from the agent host, entity codes, user rights; run
-`FutureBookingSummary` for tomorrow and `FetchProfile` for one known profile.
+`FutureBookingSummary` for tomorrow, `FetchBooking` for one known confirmation number, and `FetchProfile` for one
+known profile (each through `PMS_API`, compared with the OPERA screen). If the hotel wants `PROFILE_WRITE`: add an
+e-mail to a test profile with the hotel present, check it in OPERA, then verify the capability with that evidence.
 ### 16.4 DB verification
 `hotella-agent opera-db probe`: connects, runs the privilege self-check (must show only `CREATE SESSION` + `SELECT` on
 contract objects), runs each contract statement with a 1-row limit, reports missing objects/columns.
@@ -492,6 +515,8 @@ OWS 5.1 endpoints, `OGHeader` with `Origin`/`Destination`/`UserCredentials`, `Fu
 
 **To verify against the full official documents before the first production go-live** (they could not be read in full
 from the design environment; Planova should keep licensed copies): the exact `RS` value table for 5/6 in FIAS 2.25;
-`GF`/`GT`/`NS`/`NE` field and record definitions; the OWS 5.1 Name-service contact update operations and whether the
-hotel's OWS exposes room-status updates; the physical columns of the DB contract tables in OPERA 5.6. Each is also
+`GF`/`GT`/`NS`/`NE` field and record definitions; the OWS 5.1 Name-service contact operations (`InsertEmail` /
+`InsertPhone` element names and attributes as implemented in 10.8), how `FetchBooking` reports "not found", the
+semantics of `ModifyBooking` for notes/ETA (reservation writes stay off until then), and whether the hotel's OWS
+exposes room-status updates; the physical columns of the DB contract tables in OPERA 5.6. Each is also
 checked per hotel at commissioning (§16), so a difference is found before it can affect a guest.

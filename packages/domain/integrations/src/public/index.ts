@@ -165,7 +165,10 @@ export interface PmsWriteContext {
   readonly correlationId?: string | null;
 }
 
-/** QUEUED: a durable command for the chosen connector. UNAVAILABLE: no connector of the property may do it now. */
+/**
+ * QUEUED: a durable command for the chosen connector. UNAVAILABLE: no connector of the property may do it now.
+ * NOT_LINKED: the PMS does not know this subject (no PMS reference), so there is nothing to update.
+ */
 export type PmsWriteOutcome =
   | {
       readonly outcome: 'QUEUED';
@@ -173,7 +176,9 @@ export type PmsWriteOutcome =
       readonly connectorCode: string;
       readonly status: CommandSummary['status'];
     }
-  | { readonly outcome: 'UNAVAILABLE'; readonly capability: ConnectorCapability };
+  | { readonly outcome: 'UNAVAILABLE'; readonly capability: ConnectorCapability }
+  /** The write needs a PMS id (profile, reservation) the PMS never gave the platform for this subject. */
+  | { readonly outcome: 'NOT_LINKED'; readonly capability: ConnectorCapability };
 
 /** Who asks the PMS for a read (no idempotency: reads change nothing). */
 export interface PmsReadContext {
@@ -238,6 +243,17 @@ export interface PmsPublicApi {
       readonly roomNumber: string;
       readonly kind: 'OOO' | 'OOS' | 'BLOCKED_OPERATIONALLY';
       readonly active: boolean;
+    },
+  ): Promise<PmsWriteOutcome>;
+  /**
+   * Adds an e-mail and/or mobile number to the PMS profile of an internal subject (e.g. `guest.guest`) as its primary
+   * contact; existing contacts are never replaced. The PMS profile id stays inside the integration context.
+   */
+  updateProfileContact(
+    input: PmsWriteContext & {
+      readonly subject: { readonly entityType: string; readonly id: string };
+      readonly email?: string;
+      readonly phone?: string;
     },
   ): Promise<PmsWriteOutcome>;
 }

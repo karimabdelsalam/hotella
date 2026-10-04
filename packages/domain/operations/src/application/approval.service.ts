@@ -187,12 +187,15 @@ export class ApprovalService {
     return updated;
   }
 
-  /** Expires undecided requests past their deadline (worker sweep); returns how many. */
-  async expireDue(now = new Date(), batch = 50): Promise<number> {
+  /**
+   * Expires undecided requests past their deadline (worker sweep: every tenant); returns how many. `tenantId` limits
+   * the sweep to one tenant (tests that move the clock forward must not expire other tenants' requests).
+   */
+  async expireDue(now = new Date(), batch = 50, tenantId?: string): Promise<number> {
     let total = 0;
     for (;;) {
       const n = await this.tx.run(async () => {
-        const due = await this.repo.claimExpired(now, batch);
+        const due = await this.repo.claimExpired(now, batch, tenantId);
         for (const d of due) {
           const scope = { tenantId: d.tenantId };
           const updated = await this.repo.updateApproval(scope, d.id, {

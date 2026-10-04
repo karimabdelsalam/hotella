@@ -54,6 +54,13 @@ export type {
   InboundRecordInput,
   InboundRecordKind,
 } from './records';
+export { FIAS_STANDARD_PROFILE_V1, fiasLinkRecords, profileCoverage } from './profiles';
+export type {
+  InterfaceProfile,
+  ProfileObservation,
+  ProfileRecord,
+  ProfileRecordCoverage,
+} from './profiles';
 export { localDateTimeToUtc, offsetMs } from './time';
 export {
   agentFrameSchema,

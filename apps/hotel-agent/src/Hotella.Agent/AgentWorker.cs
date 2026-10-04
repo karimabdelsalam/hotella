@@ -75,8 +75,8 @@ internal sealed partial class AgentWorker(
             ? new OperaDbAdapter(operaDbSettings, identity.InstanceId, AgentHost.OperaDataSource(operaDbSettings, secrets),
                 Path.Combine(settings.DataDirectory, "opera-db.db"), loggers.CreateLogger("hotella.opera-db"))
             : null;
-        await using var link = new LinkClient(identity, queue, options, fias?.Commands() ?? [],
-            loggers.CreateLogger("hotella.link"), operaDb?.Queries());
+        await using var link = new LinkClient(identity, queue, options, fias?.Commands() ?? ows?.Commands() ?? [],
+            loggers.CreateLogger("hotella.link"), operaDb?.Queries() ?? ows?.Queries());
         link.Welcomed += () => _log.LogInformation("linked as instance {Instance}", identity.InstanceId);
         var licences = new LicenceStore(settings.DataDirectory, new CommandSignature(identity.CommandPublicKeyPem),
             identity.InstanceId);

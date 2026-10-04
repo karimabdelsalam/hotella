@@ -124,18 +124,114 @@ public class OwsTests
         Assert.Empty(link.Payloads);
     }
 
+    [Fact]
+    public void Reservations_and_profiles_map_to_canonical_rows_and_unknown_statuses_are_not_guessed()
+    {
+        static OwsReservation One(string status) =>
+            Assert.Single(OwsSoap.ParseFutureBookingSummary(Response(Reservation("9", status, eta: "2026-10-10T14:30:00+03:00"))));
+        var row = OwsRows.Reservation(One("CHECKEDIN"))!;
+        Assert.Equal("IN_HOUSE", row["status"]!.GetValue<string>());
+        Assert.Equal("14:30", row["eta"]!.GetValue<string>());
+        Assert.Equal("C9", row["confirmation_number"]!.GetValue<string>());
+        Assert.Equal("P1", row["profile_id"]!.GetValue<string>());
+        Assert.Equal("BAR", row["rate_code"]!.GetValue<string>());
+        Assert.Equal("CANCELLED", OwsRows.Reservation(One("CANCELED"))!["status"]!.GetValue<string>());
+        Assert.Null(OwsRows.Reservation(One("WAITLISTED")));
+        Assert.Throws<FormatException>(() => OwsRows.Reservation(One("SOMETHING_NEW")));
+
+        var profile = OwsSoap.ParseFetchProfile(ProfileResponse, "P1")!;
+        Assert.Equal(["new@example.com", "amira@example.com"], profile.Emails);
+        var p = OwsRows.Profile(profile);
+        Assert.Equal("P1", p["profile_id"]!.GetValue<string>());
+        Assert.Equal("Amira", p["first_name"]!.GetValue<string>());
+        Assert.Equal("new@example.com", p["email"]!.GetValue<string>());
+        Assert.Equal("+201000000000", p["phone"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task A_contact_update_reads_the_profile_first_and_inserts_only_what_is_missing()
+    {
+        var ows = new FakeOws { ByAction = action => action.EndsWith("#FetchProfile", StringComparison.Ordinal) ? ProfileResponse : Ok };
+        using var adapter = new OwsAdapter(Settings, "instance-a", () => "s3cret", ":memory:", NullLogger.Instance, ows);
+        var update = adapter.Commands().Single(c => c.CommandType == "UPDATE_PROFILE_CONTACT");
+
+        // The e-mail is already there (case aside); only the new phone is inserted, as the primary one.
+        var outcome = await update.ExecuteAsync(
+            new JsonObject { ["profile_id"] = "P1", ["email"] = "NEW@example.com", ["phone"] = "+20 111 222 3333" }, CancellationToken.None);
+        Assert.True(outcome.Acknowledged);
+        Assert.Equal([OwsSoap.FetchProfileAction, OwsSoap.InsertPhoneAction], ows.Actions);
+        Assert.Contains("<NameID type=\"INTERNAL\">P1</NameID>", ows.LastRequest, StringComparison.Ordinal);
+        Assert.Contains("primary=\"true\"", ows.LastRequest, StringComparison.Ordinal);
+        Assert.Equal(1, adapter.ContactWrites);
+
+        // Everything already in OPERA (the same phone, written differently): read only, nothing inserted.
+        ows.Actions.Clear();
+        Assert.True((await update.ExecuteAsync(
+            new JsonObject { ["profile_id"] = "P1", ["phone"] = "+20 100 000 0000" }, CancellationToken.None)).Acknowledged);
+        Assert.Equal([OwsSoap.FetchProfileAction], ows.Actions);
+
+        // Nothing to write, or OWS refuses: the command fails with the reason only.
+        Assert.False((await update.ExecuteAsync(new JsonObject { ["profile_id"] = "P1" }, CancellationToken.None)).Acknowledged);
+        ows.ByAction = _ => Fault;
+        var refused = await update.ExecuteAsync(new JsonObject { ["profile_id"] = "P1", ["email"] = "x@example.com" }, CancellationToken.None);
+        Assert.Equal("OWS fault: Profile not found", refused.Error);
+    }
+
+    [Fact]
+    public async Task The_standard_reads_answer_canonical_rows_and_a_fault_is_a_refusal()
+    {
+        var ows = new FakeOws
+        {
+            ByAction = action => action.EndsWith("#FetchBooking", StringComparison.Ordinal)
+                ? Response(Reservation("5", "RESERVED"))
+                : Response(Reservation("5", "RESERVED"), Reservation("6", "CANCELED"), Reservation("7", "WAITLISTED")),
+        };
+        using var adapter = new OwsAdapter(Settings, "instance-a", () => "s3cret", ":memory:", NullLogger.Instance, ows);
+        var queries = adapter.Queries().ToDictionary(q => q.QueryType);
+        Assert.Equal(["LOOKUP_RESERVATION", "LIST_ARRIVALS", "LOOKUP_PROFILE"], queries.Keys);
+
+        var found = await queries["LOOKUP_RESERVATION"].ExecuteAsync(new JsonObject { ["confirmation_number"] = "C5" }, CancellationToken.None);
+        Assert.Equal("5", Assert.Single(found.Rows)["reservation_id"]!.GetValue<string>());
+        Assert.Contains("<ConfirmationNumber type=\"INTERNAL\">C5</ConfirmationNumber>", ows.LastRequest, StringComparison.Ordinal);
+
+        var arrivals = await queries["LIST_ARRIVALS"].ExecuteAsync(
+            new JsonObject { ["from"] = "2026-10-10", ["to"] = "2026-10-12" }, CancellationToken.None);
+        Assert.Equal(["5"], arrivals.Rows.Select(r => r["reservation_id"]!.GetValue<string>()));
+
+        ows.ByAction = _ => Fault;
+        await Assert.ThrowsAsync<QueryRefusedException>(() =>
+            queries["LOOKUP_PROFILE"].ExecuteAsync(new JsonObject { ["profile_id"] = "P1" }, CancellationToken.None));
+    }
+
+    private const string ProfileResponse = """
+        <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>
+        <FetchProfileResponse xmlns="http://webservices.micros.com/ows/5.1/Name.wsdl"><Result resultStatusFlag="SUCCESS"/>
+        <ProfileDetails languageCode="AR"><Customer><PersonName><firstName>Amira</firstName><lastName>Nile</lastName></PersonName></Customer>
+        <Phones><NamePhone primary="true"><PhoneNumber>+201000000000</PhoneNumber></NamePhone></Phones>
+        <EMails><NameEmail primary="true">new@example.com</NameEmail><NameEmail>amira@example.com</NameEmail></EMails></ProfileDetails>
+        </FetchProfileResponse></soap:Body></soap:Envelope>
+        """;
+
+    private const string Ok = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><InsertResponse><Result resultStatusFlag="SUCCESS"/></InsertResponse></soap:Body></soap:Envelope>""";
+
+    private const string Fault = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><soap:Fault><faultstring>Profile not found</faultstring></soap:Fault></soap:Body></soap:Envelope>""";
+
     private sealed class FakeOws : HttpMessageHandler
     {
         public string Body { get; set; } = "";
+        public Func<string, string>? ByAction { get; set; }
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
         public string LastRequest { get; private set; } = "";
         public string? LastSoapAction { get; private set; }
+        public List<string> Actions { get; } = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequest = await request.Content!.ReadAsStringAsync(cancellationToken);
             LastSoapAction = request.Headers.GetValues("SOAPAction").Single();
-            return new HttpResponseMessage(Status) { Content = new StringContent(Body) };
+            var action = LastSoapAction.Trim('"');
+            Actions.Add(action);
+            return new HttpResponseMessage(Status) { Content = new StringContent(ByAction?.Invoke(action) ?? Body) };
         }
     }
 

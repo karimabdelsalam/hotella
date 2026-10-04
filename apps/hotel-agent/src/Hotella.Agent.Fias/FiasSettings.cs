@@ -35,6 +35,18 @@ public sealed class FiasSettings
 
     public int ReconnectSeconds { get; set; } = 5;
 
+    /// <summary>
+    /// Optional records of the standard profile to request as well (guide §7.3): <c>NS</c>, <c>NE</c> (night audit).
+    /// Only when the hotel's IFC8 sends them for this interface.
+    /// </summary>
+    public IList<string> OptionalRecords { get; set; } = [];
+
+    /// <summary>After the link was down this long, the agent asks IFC8 for a database swap (DR) once it is back; 0 = never.</summary>
+    public int ResyncAfterOutageSeconds { get; set; } = 300;
+
+    /// <summary>A command waits at most this long for a running database swap to end (nothing is sent during a swap).</summary>
+    public int SwapWaitSeconds { get; set; } = 120;
+
     public Encoding TextEncoding()
     {
         System.Text.Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -47,6 +59,10 @@ public sealed class FiasSettings
         if (Mode == FiasConnectMode.Client && string.IsNullOrWhiteSpace(Host)) problems.Add("Fias:Host is not set");
         if (Port is < 1 or > 65535) problems.Add("Fias:Port must be a TCP port");
         if (LinkAliveSeconds < 5) problems.Add("Fias:LinkAliveSeconds must be at least 5");
+        foreach (var r in OptionalRecords.Where(r => !FiasProfile.Optional.Any(o => o.Record == r)))
+            problems.Add($"Fias:OptionalRecords: {r} is not an optional record of the standard profile");
+        if (ResyncAfterOutageSeconds < 0) problems.Add("Fias:ResyncAfterOutageSeconds must not be negative");
+        if (SwapWaitSeconds is < 1 or > 600) problems.Add("Fias:SwapWaitSeconds must be between 1 and 600");
         try
         {
             TextEncoding();

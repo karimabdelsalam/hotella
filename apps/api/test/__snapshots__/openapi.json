@@ -3489,6 +3489,94 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/integration/instances/{instanceId}/profile": {
+      "get": {
+        "operationId": "PropertyCapabilitiesController_profile",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instanceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/instances/{instanceId}/profile/reset": {
+      "post": {
+        "operationId": "PropertyCapabilitiesController_resetProfile",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instanceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PropertyCapabilities"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/integration/queries": {
       "get": {
         "operationId": "PropertyCapabilitiesController_queries",
@@ -15883,6 +15971,19 @@
         },
         "required": [
           "evidenceRef"
+        ]
+      },
+      "ResetProfileDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "RoutingOverrideDto": {

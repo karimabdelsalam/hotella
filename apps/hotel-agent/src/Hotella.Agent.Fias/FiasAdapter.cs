@@ -12,7 +12,8 @@ namespace Hotella.Agent.Fias;
 /// <summary>
 /// The IFC8 FIAS link for <c>OPERA5_FIAS</c> (ADR-0014, BUILD_PLAN §10 Phase 10). It keeps one TCP session with IFC8 —
 /// link start (LS), description (LD), the records it wants (LR), alive (LA), end (LE) — and forwards every business
-/// record verbatim as a <c>FIAS_RECORD</c> message through the durable link; the platform parses it. The id of a
+/// record verbatim as a <c>FIAS_RECORD</c> message through the durable link; the platform parses it. The records and
+/// fields it asks for are the Planova Standard Profile v1 (<see cref="FiasProfile"/>). The id of a
 /// forwarded message is a hash of the instance and the record, so a record IFC8 sends again after a reconnect is a
 /// no-op on the platform. Commands: <c>RESYNC_IN_HOUSE</c> asks IFC8 for a database sync (DR); <c>SET_ROOM_STATUS</c>
 /// writes a room status (RE) and is advertised only when the hotel enabled it.
@@ -22,17 +23,6 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
     public const string ConnectorCode = "OPERA5_FIAS";
     public const string MessageType = "FIAS_RECORD";
 
-    /// <summary>The business records the agent asks IFC8 for, with the fields it needs (LR records).</summary>
-    internal static readonly (string record, string fields)[] Requested =
-    [
-        ("GI", "RNG#GNGFGTGLGVGAGDSFDATI"),
-        ("GO", "RNG#DATI"),
-        ("GC", "RNROG#GNGFGTGLGVDATI"),
-        ("RE", "RNRSDATI"),
-        ("DS", "DATI"),
-        ("DE", "DATI"),
-    ];
-
     private readonly FiasSettings _settings;
     private readonly string _instanceId;
     private readonly ILogger _log;
@@ -41,6 +31,8 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private volatile Stream? _stream;
     private volatile bool _linkUp;
+    private volatile TaskCompletionSource? _swap;
+    private DateTimeOffset? _downSince;
 
     public FiasAdapter(FiasSettings settings, string instanceId, ILogger logger, Func<DateTime>? localNow = null)
     {
@@ -60,6 +52,15 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
 
     public int Sessions { get; private set; }
     public long Forwarded { get; private set; }
+
+    /// <summary>True between DS and DE: IFC8 is sending its in-house list, and nothing may be sent to it.</summary>
+    public bool SwapInProgress => _swap is not null;
+
+    /// <summary>Database swaps the agent asked for by itself after an outage.</summary>
+    public int AutoResyncs { get; private set; }
+
+    /// <summary>The LR requests of this hotel (standard profile + enabled optional records).</summary>
+    public IReadOnlyList<(string Record, string Fields)> LinkRecords => FiasProfile.LinkRecords(_settings.OptionalRecords);
 
     /// <summary>The adapter's command handlers, given to the link client.</summary>
     public IEnumerable<ICommandHandler> Commands() => [new ResyncHandler(this), new RoomStatusHandler(this)];
@@ -147,7 +148,7 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
         {
             // Answer IFC8's link start: who we are, the records we want, and that we are alive.
             await Send(FiasRecord.Create("LD", _localNow(), ("V#", "1.0"), ("IF", "WW"))).ConfigureAwait(false);
-            foreach (var (record, fields) in Requested)
+            foreach (var (record, fields) in LinkRecords)
                 await Send(new FiasRecord("LR", [new("RI", record), new("FL", fields)])).ConfigureAwait(false);
             await Send(FiasRecord.Create("LA", _localNow())).ConfigureAwait(false);
             linkStarted = true;
@@ -205,6 +206,7 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
                         {
                             _linkUp = true;
                             _log.LogInformation("FIAS link up");
+                            await ResyncAfterOutageAsync(Send).ConfigureAwait(false);
                         }
                         break;
                     case "LE":
@@ -216,6 +218,8 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
                         publisher.Publish(SourceMessageId(text), MessageType, null,
                             new JsonObject { ["record"] = text }.ToJsonString());
                         Forwarded++;
+                        if (record.Id == "DS") _swap ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                        else if (record.Id == "DE") EndSwap();
                         break;
                 }
             }
@@ -226,8 +230,10 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
         }
         finally
         {
+            if (_linkUp) _downSince = DateTimeOffset.UtcNow;
             _linkUp = false;
             _stream = null;
+            EndSwap();
             await session.CancelAsync().ConfigureAwait(false);
             try
             {
@@ -259,9 +265,40 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
         }
     }
 
-    /// <summary>Sends a record to IFC8 when the link is up; a command fails otherwise and the platform may retry it.</summary>
+    private void EndSwap() => Interlocked.Exchange(ref _swap, null)?.TrySetResult();
+
+    /// <summary>Guide §7.3: after an outage longer than the threshold, ask for the in-house list again (DR).</summary>
+    private async Task ResyncAfterOutageAsync(Func<FiasRecord, Task> send)
+    {
+        var downSince = _downSince;
+        _downSince = null;
+        if (downSince is null || _settings.ResyncAfterOutageSeconds == 0) return;
+        if (DateTimeOffset.UtcNow - downSince.Value < TimeSpan.FromSeconds(_settings.ResyncAfterOutageSeconds)) return;
+        _log.LogInformation("FIAS link was down since {Since:O}; asking IFC8 for a database swap", downSince.Value);
+        await send(FiasRecord.Create("DR", _localNow())).ConfigureAwait(false);
+        AutoResyncs++;
+    }
+
+    /// <summary>Test seam: pretend the link went down at this time (the outage threshold is measured from it).</summary>
+    internal void LinkDownSince(DateTimeOffset at) => _downSince = at;
+
+    /// <summary>
+    /// Sends a record to IFC8 when the link is up; a command fails otherwise and the platform may retry it. During a
+    /// database swap nothing is sent (FIAS rule): the command waits for DE, at most <c>SwapWaitSeconds</c>.
+    /// </summary>
     internal async Task<CommandOutcome> SendCommandAsync(FiasRecord record, CancellationToken ct)
     {
+        if (_swap is { } swap)
+        {
+            try
+            {
+                await swap.Task.WaitAsync(TimeSpan.FromSeconds(_settings.SwapWaitSeconds), ct).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                return CommandOutcome.Failed("FIAS database swap in progress");
+            }
+        }
         var stream = _stream;
         if (stream is null || !_linkUp) return CommandOutcome.Failed("FIAS link is down");
         try

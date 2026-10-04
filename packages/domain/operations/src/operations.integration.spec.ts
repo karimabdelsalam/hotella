@@ -1215,9 +1215,10 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
       await finishFirstTask(item.id);
       const approval = await pendingApproval(item.id);
       const expiries = app.get(ApprovalService);
-      expect(await expiries.expireDue(new Date())).toBe(0);
+      // Limited to this tenant: suites share the database, and a clock moved forward must not expire theirs.
+      expect(await expiries.expireDue(new Date(), 50, tenantA)).toBe(0);
       expect(
-        await expiries.expireDue(new Date(Date.parse(approval.expiresAt) + 1_000)),
+        await expiries.expireDue(new Date(Date.parse(approval.expiresAt) + 1_000), 50, tenantA),
       ).toBeGreaterThanOrEqual(1);
       const [row] = await db
         .select()

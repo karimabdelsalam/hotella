@@ -52,3 +52,15 @@ hotella-agent opera-db probe                          # objects, columns, privil
 `ChangePolling` forwards changed reservations of the arrival window as `OPERA_DB_RESERVATION` messages; enable it
 only where OWS is absent. The driver is Oracle's fully managed `Oracle.ManagedDataAccess.Core` (no Oracle client, no
 native code).
+
+## FIAS and OWS settings (standard profile v1)
+
+`Fias`: `Mode`, `Host`, `Port`, `Encoding`, `LinkAliveSeconds`, `LinkStartSeconds`, `ReconnectSeconds`,
+`OptionalRecords` (`NS`, `NE`), `ResyncAfterOutageSeconds` (300; 0 = off), `SwapWaitSeconds` (120). The `LR` requests
+are the Planova Standard FIAS Profile v1 (`FiasProfile`, checked against the platform's vector). Nothing is sent to
+IFC8 during a database swap.
+
+`Ows`: `Url`, `Username`, `PasswordSecret` (`ows.password`), `Domain`, `HotelCode`, `ChainCode`, `OriginEntity`,
+`DestinationEntity`, `PollSeconds`, `WindowDays`, `TimeoutSeconds`. The OWS connector answers the standard reads
+(`FetchBooking`, `FutureBookingSummary`, `FetchProfile`) and, when `PROFILE_WRITE` is among `Agent:Capabilities` and
+verified on the platform, adds contacts with `InsertEmail` / `InsertPhone` after reading the profile first.

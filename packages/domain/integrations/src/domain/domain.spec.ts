@@ -192,6 +192,31 @@ describe('OPERA5_FIAS adapter', () => {
     });
   });
 
+  it('night audit records of the standard profile are accepted and change nothing; unknown ids are refused', () => {
+    expect(opera('NS|DA261004|TI000100|')).toEqual({ ok: true, records: [] });
+    expect(opera('NE|DA261004|TI001500|')).toEqual({ ok: true, records: [] });
+    expect(opera('ZZ|RN504|')).toEqual({ ok: false, error: 'unsupported record ZZ' });
+  });
+
+  it('observes the record id and field ids of every record, even one the parser refuses', () => {
+    const observe = (record: string) =>
+      opera5FiasAdapter.observe!({
+        message_type: 'FIAS_RECORD',
+        source_message_id: 'x',
+        sequence_no: 1,
+        occurred_at: null,
+        payload: { record },
+      });
+    expect(observe('GI|RN504|GNNile|DA261004|')).toEqual({
+      record: 'GI',
+      fields: ['RN', 'GN', 'DA'],
+    });
+    expect(opera('GI|RN504|GNNile|DA261004|').ok).toBe(false);
+    expect(observe('LA|DA261004|')).toBeNull();
+    expect(observe('not fias')).toBeNull();
+    expect(opera5FiasAdapter.manifest.profile?.code).toBe('PLANOVA_FIAS_STANDARD');
+  });
+
   it('declares only predefined commands, room-status writes behind their own capability', () => {
     const m = opera5FiasAdapter.manifest;
     expect(m.commands.map((c) => [c.code, c.requires])).toEqual([
@@ -244,8 +269,24 @@ describe('OPERA5_OWS adapter', () => {
     ]);
   });
 
-  it('is read-only: no commands, and FIAS records are not its messages', () => {
-    expect(opera5OwsAdapter.manifest.commands).toEqual([]);
+  it('standard connector v1: the reads, one additive contact write, never a reservation write', () => {
+    const m = opera5OwsAdapter.manifest;
+    expect(m.queries?.map((q) => [q.code, q.requires])).toEqual([
+      ['LOOKUP_RESERVATION', 'RESERVATION_LOOKUP'],
+      ['LIST_ARRIVALS', 'ARRIVALS_READ'],
+      ['LOOKUP_PROFILE', 'PROFILE_LOOKUP'],
+    ]);
+    expect(m.commands.map((c) => [c.code, c.requires])).toEqual([
+      ['UPDATE_PROFILE_CONTACT', 'PROFILE_WRITE'],
+    ]);
+    expect(m.capabilities).not.toContain('RESERVATION_WRITE');
+    const payload = m.commands[0]!.payload;
+    expect(payload.safeParse({ profile_id: 'N1', email: 'guest@example.com' }).success).toBe(true);
+    expect(payload.safeParse({ profile_id: 'N1' }).success).toBe(false);
+    expect(payload.safeParse({ profile_id: 'N1', phone: 'call me' }).success).toBe(false);
+  });
+
+  it('FIAS records are not its messages', () => {
     expect(ows('FIAS_RECORD', { record: 'GI|' })).toEqual({
       ok: false,
       error: 'unsupported message type FIAS_RECORD',

@@ -98,7 +98,7 @@ while (Console.ReadLine() is { } text)
                 }
                 if (client is null && request["ows"] is JsonObject owsRequest)
                 {
-                    // OPERA5_OWS: the poller publishes into the link (it has no commands).
+                    // OPERA5_OWS: the poller publishes into the link; the standard reads and the contact write.
                     var password = owsRequest["password"]!.GetValue<string>();
                     ows = new OwsAdapter(new OwsSettings
                     {
@@ -126,9 +126,9 @@ while (Console.ReadLine() is { } text)
                 client ??= new LinkClient(identity!, queue,
                     new LinkOptions(gateway!, request["connector"]!.GetValue<string>(),
                         request["capabilities"]!.AsArray().Select(c => c!.GetValue<string>()).ToList(), "conformance"),
-                    fias?.Commands() ?? request["commands"]!.AsArray()
+                    fias?.Commands() ?? ows?.Commands() ?? request["commands"]!.AsArray()
                         .Select(c => (ICommandHandler)new ReportingHandler(c!.GetValue<string>(), Write)),
-                    log, operaDb?.Queries());
+                    log, operaDb?.Queries() ?? ows?.Queries());
                 if (licences is null)
                 {
                     licences = new LicenceStore(licenceDir, new CommandSignature(identity!.CommandPublicKeyPem),
@@ -210,6 +210,7 @@ while (Console.ReadLine() is { } text)
                         ["failures"] = ows.Failures,
                         ["forwarded"] = ows.Forwarded,
                         ["last_error"] = ows.LastError,
+                        ["contact_writes"] = ows.ContactWrites,
                     };
                 if (operaDb is not null)
                     reply["opera_db"] = new JsonObject

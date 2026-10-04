@@ -18,6 +18,7 @@
   <ItemGroup>
     <!-- Vectors produced by the platform's TypeScript code: the two implementations must agree byte for byte. -->
     <None Include="../../../../packages/platform/pki/test-vectors/*.json" LinkBase="vectors" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../packages/contracts/connectors/test-vectors/*.json" LinkBase="vectors" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

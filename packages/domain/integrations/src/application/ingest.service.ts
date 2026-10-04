@@ -20,6 +20,7 @@ import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { ConnectorRegistry } from '../connectors/registry';
 import { effectiveCapabilities } from '../domain/instance';
 import { codesOf, isSyncRecord, toCanonical } from '../domain/mapping';
+import { ProfileRepositories } from '../infrastructure/profile-repositories';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import { HealthService } from './health.service';
 import { ReconciliationService } from './reconciliation.service';
@@ -47,6 +48,7 @@ export class IngestService {
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     private readonly health: HealthService,
     private readonly reconciliation: ReconciliationService,
+    private readonly profiles: ProfileRepositories,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -142,6 +144,30 @@ export class IngestService {
       });
       await this.health.recordMessage(scope, instance.id, true);
       return 'REJECTED';
+    }
+
+    // Profile coverage (guide §7.3): counted once per message, before parsing, so a refused record counts too.
+    const profile = adapter.manifest.profile;
+    if (profile && adapter.observe && m.attempts === 0) {
+      const seen = adapter.observe({
+        message_type: m.messageType,
+        source_message_id: m.sourceMessageId,
+        sequence_no: m.sequenceNo,
+        occurred_at: m.occurredAt?.toISOString() ?? null,
+        payload: m.payload,
+      });
+      const definition = seen ? profile.records[seen.record] : undefined;
+      if (seen && definition)
+        await this.profiles.observe({
+          tenantId: instance.tenantId,
+          propertyId: instance.propertyId,
+          instanceId: instance.id,
+          profileCode: profile.code,
+          profileVersion: profile.version,
+          record: seen.record,
+          fields: seen.fields,
+          missingMandatory: definition.mandatory.some((f) => !seen.fields.includes(f)),
+        });
     }
 
     const property = await this.org.getProperty(instance.tenantId, instance.propertyId);

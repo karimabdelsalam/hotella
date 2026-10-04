@@ -25,19 +25,27 @@ function stamp(): string {
  * FIAS interface towards the hotel agent — STX/ETX framing, link start (LS) on connect, the interface's description
  * (LD) and record requests (LR), link alive (LA) both ways, database sync (DR → DS, GI with SF…, DE) and room status
  * written by the interface (RE). Records produced while no interface is linked wait in IFC8's buffer and go out when
- * the link is up again, as IFC8 does. Only the record types the interface requested are sent.
+ * the link is up again, as IFC8 does. Only the record types the interface requested are sent, and only the fields it
+ * asked for (LR `FL`), as IFC8 does. `withhold` plays a hotel whose IFC8 is configured not to send some fields (a
+ * profile gap the platform must report, never guess).
  */
 export class Ifc8Face {
   private server: Server | null = null;
   private socket: Socket | null = null;
   private linkUp = false;
   private readonly pending: string[] = [];
-  private readonly requested = new Set<string>();
+  /** Record id → field ids the interface asked for (LR `RI` / `FL`). */
+  private readonly requested = new Map<string, Set<string>>();
   /** Every record the interface sent (link records included), for assertions. */
   readonly received: string[] = [];
   readonly stats = { connections: 0, sent: 0 };
 
-  constructor(private readonly pms: SimulatedPms) {}
+  constructor(
+    private readonly pms: SimulatedPms,
+    private readonly options: {
+      readonly withhold?: Readonly<Record<string, readonly string[]>>;
+    } = {},
+  ) {}
 
   /** Listens on 127.0.0.1 (port 0 = any free port); resolves to the port. */
   listen(port = 0): Promise<number> {
@@ -59,7 +67,8 @@ export class Ifc8Face {
   /** A business record from the PMS (GI, GO, GC, RE…): sent now when linked and requested, else buffered. */
   send(record: string): void {
     const id = record.slice(0, 2);
-    if (this.linkUp && this.socket && this.requested.has(id)) this.write(record);
+    const fields = this.requested.get(id);
+    if (this.linkUp && this.socket && fields) this.write(this.only(record, fields));
     else this.pending.push(record);
   }
 
@@ -115,8 +124,9 @@ export class Ifc8Face {
         this.write(`LS|${stamp()}`);
         break;
       case 'LR': {
-        const ri = /\|RI([A-Z]{2})\|/.exec(record)?.[1];
-        if (ri) this.requested.add(ri);
+        const ri = /\|RI([A-Z0-9]{2})\|/.exec(record)?.[1];
+        const fl = /\|FL([^|]*)\|/.exec(record)?.[1] ?? '';
+        if (ri) this.requested.set(ri, new Set(fl.match(/.{2}/g) ?? []));
         break;
       }
       case 'LA':
@@ -141,6 +151,16 @@ export class Ifc8Face {
       default:
         break;
     }
+  }
+
+  /** The record with only the requested fields, minus what this hotel's IFC8 withholds (FIAS field order kept). */
+  private only(record: string, fields: ReadonlySet<string>): string {
+    const [id, ...parts] = record.split('|');
+    const withheld = new Set(this.options.withhold?.[id!] ?? []);
+    const kept = parts.filter(
+      (p) => p.length >= 2 && fields.has(p.slice(0, 2)) && !withheld.has(p.slice(0, 2)),
+    );
+    return `${[id, ...kept].join('|')}|`;
   }
 
   private flush(): void {

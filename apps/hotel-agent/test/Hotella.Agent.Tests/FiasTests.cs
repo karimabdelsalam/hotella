@@ -98,8 +98,9 @@ public class FiasTests
         await Send("LS|DA261004|TI120000|");
         Assert.Equal("LD|V#1.0|IFWW|DA261004|TI120000|", await Next());
         var requested = new List<string>();
-        for (var i = 0; i < FiasAdapter.Requested.Length; i++) requested.Add(await Next());
-        Assert.Contains("LR|RIGI|FLRNG#GNGFGTGLGVGAGDSFDATI|", requested);
+        for (var i = 0; i < adapter.LinkRecords.Count; i++) requested.Add(await Next());
+        Assert.Contains("LR|RIGI|FLRNG#GNGFGTGLGVGSGGGAGDSFDATI|", requested);
+        Assert.DoesNotContain(requested, r => r.Contains("RINS", StringComparison.Ordinal));
         Assert.StartsWith("LA|", await Next(), StringComparison.Ordinal);
         Assert.False(adapter.LinkUp);
         // A command before IFC8 confirms the link fails (the platform retries it).
@@ -129,6 +130,85 @@ public class FiasTests
         using var again = await ifc8.AcceptTcpClientAsync(cts.Token);
         // The connection is accepted before the agent starts serving it.
         await WaitUntil(() => adapter.Sessions == 2, cts.Token);
+        await cts.CancelAsync();
+        await running;
+    }
+
+    [Fact]
+    public void Requests_exactly_the_standard_profile_shared_with_the_platform()
+    {
+        var vector = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "vectors", "fias-profile-v1.json")))!;
+        Assert.Equal(FiasProfile.Code, vector["code"]!.GetValue<string>());
+        Assert.Equal(FiasProfile.Version, vector["version"]!.GetValue<int>());
+        static List<(string, string)> Pairs(JsonNode n) =>
+            [.. n.AsArray().Select(p => (p![0]!.GetValue<string>(), p[1]!.GetValue<string>()))];
+        Assert.Equal(Pairs(vector["link_records"]!), [.. FiasProfile.Standard]);
+        Assert.Equal(Pairs(vector["optional_records"]!), [.. FiasProfile.Optional]);
+        Assert.Equal(6, FiasProfile.LinkRecords([]).Count);
+        Assert.Equal(["NS", "NE"], FiasProfile.LinkRecords(["NE", "NS"]).Skip(6).Select(r => r.Record));
+        Assert.Contains(new FiasSettings { Host = "ifc8", Port = 5010, OptionalRecords = ["XX"] }.Problems(),
+            p => p.Contains("XX is not an optional record", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Nothing_is_sent_during_a_database_swap_and_a_long_outage_asks_for_one()
+    {
+        using var ifc8 = new TcpListener(IPAddress.Loopback, 0);
+        ifc8.Start();
+        var settings = new FiasSettings
+        {
+            Host = "127.0.0.1",
+            Port = ((IPEndPoint)ifc8.LocalEndpoint).Port,
+            LinkAliveSeconds = 30,
+            SwapWaitSeconds = 1,
+            ResyncAfterOutageSeconds = 60,
+            OptionalRecords = ["NS", "NE"],
+        };
+        using var adapter = new FiasAdapter(settings, "instance-a", NullLogger.Instance, () => new DateTime(2026, 10, 4, 12, 0, 0));
+        // The link was down for ten minutes before this session.
+        adapter.LinkDownSince(DateTimeOffset.UtcNow.AddMinutes(-10));
+        var published = new Collector();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var running = adapter.RunAsync(published, cts.Token);
+        using var pms = await ifc8.AcceptTcpClientAsync(cts.Token);
+        var stream = pms.GetStream();
+        var fromAgent = FiasFraming.ReadAsync(stream, Utf8, cts.Token).GetAsyncEnumerator(cts.Token);
+        async Task<string> Next()
+        {
+            Assert.True(await fromAgent.MoveNextAsync());
+            return fromAgent.Current;
+        }
+        async Task Send(string record) => await stream.WriteAsync(FiasFraming.Frame(record, Utf8), cts.Token);
+
+        await Send("LS|DA261004|TI120000|");
+        Assert.StartsWith("LD|", await Next(), StringComparison.Ordinal);
+        var requested = new List<string>();
+        for (var i = 0; i < 8; i++) requested.Add(await Next());
+        Assert.Contains("LR|RINS|FLDATI|", requested);
+        Assert.StartsWith("LA|", await Next(), StringComparison.Ordinal);
+        await Send("LA|DA261004|TI120000|");
+        // Back after a long outage: the agent asks for the in-house list itself.
+        Assert.Equal("DR|DA261004|TI120000|", await Next());
+        Assert.Equal(1, adapter.AutoResyncs);
+
+        await Send("DS|DA261004|TI120001|");
+        await WaitUntil(() => adapter.SwapInProgress, cts.Token);
+        var status = adapter.Commands().Single(c => c.CommandType == "SET_ROOM_STATUS");
+        var clean = new JsonObject { ["room_number"] = "504", ["status"] = "CLEAN", ["occupied"] = false };
+        var waiting = status.ExecuteAsync(clean, cts.Token);
+        await Task.Delay(200, cts.Token);
+        Assert.False(waiting.IsCompleted);
+        await Send("GI|RN504|G#88123|GNNile|GD261006|SF|DA261004|TI120001|");
+        await Send("DE|DA261004|TI120002|");
+        Assert.True((await waiting).Acknowledged);
+        Assert.Equal("RE|RN504|RS3|DA261004|TI120000|", await Next());
+        Assert.False(adapter.SwapInProgress);
+
+        // A swap that does not end in time: the command fails, the platform may retry it later.
+        await Send("DS|DA261004|TI120003|");
+        await WaitUntil(() => adapter.SwapInProgress, cts.Token);
+        var refused = await status.ExecuteAsync(clean, cts.Token);
+        Assert.False(refused.Acknowledged);
         await cts.CancelAsync();
         await running;
     }

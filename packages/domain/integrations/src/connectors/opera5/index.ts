@@ -2,12 +2,13 @@ import { z } from 'zod';
 import {
   type ConnectorAdapter,
   defineConnector,
+  FIAS_STANDARD_PROFILE_V1,
   type ParseContext,
   type ParseResult,
   parsedRecords,
   type RawInboundMessage,
 } from '@hotella/contracts-connectors';
-import { parseFiasRecord } from '../fias';
+import { fiasObservation, parseFiasRecord } from '../fias';
 import { pmsQueries } from '../pms-queries';
 import { parseOwsProfile, parseOwsReservation } from '../ows';
 
@@ -69,12 +70,19 @@ export const OPERA5_FIAS_MANIFEST = defineConnector({
   }),
   // FIAS over TCP has no credentials; the link to IFC8 stays inside the hotel's network.
   credentialSchema: z.object({}),
+  // The agent requests exactly these records and fields (LR); what a hotel's IFC8 does not deliver is a profile gap.
+  profile: FIAS_STANDARD_PROFILE_V1,
 });
 
 const fiasMessage = z.object({ record: z.string().min(2).max(4000) });
 
 export const opera5FiasAdapter: ConnectorAdapter = {
   manifest: OPERA5_FIAS_MANIFEST,
+  observe(message: RawInboundMessage) {
+    if (message.message_type !== 'FIAS_RECORD') return null;
+    const payload = fiasMessage.safeParse(message.payload);
+    return payload.success ? fiasObservation(payload.data.record) : null;
+  },
   parse(message: RawInboundMessage, context: ParseContext): ParseResult {
     try {
       if (message.message_type !== 'FIAS_RECORD')
@@ -94,9 +102,12 @@ export const opera5FiasAdapter: ConnectorAdapter = {
 };
 
 /**
- * `OPERA5_OWS` — OPERA Web Services, where the hotel has them licensed (ADR-0014): what FIAS cannot give — future
- * reservations, arrivals with ETA, sharers and profiles — for pre-arrival and arrival risk. The agent polls OWS over
- * SOAP for a window of arrivals and forwards each reservation that changed; nothing is written to OPERA through OWS.
+ * `OPERA5_OWS` — the standard OWS connector v1 (ADR-0014, ADR-0019; guide §8), where the hotel has OWS licensed: what
+ * FIAS cannot give — future reservations, arrivals with ETA, sharers and profiles — polled for the arrival window and
+ * forwarded when changed; the standard reads (`FetchBooking`, `FutureBookingSummary`, `FetchProfile`) over link
+ * protocol 2; and one write, the additive profile contact update (`Name.InsertEmail` / `InsertPhone`, read first so a
+ * repeat changes nothing). Reservation writes (`ModifyBooking`) are not offered until their OWS 5.1 behaviour is verified
+ * (guide §21): a write that could replace reservation data is never guessed.
  */
 export const OPERA5_OWS_MANIFEST = defineConnector({
   code: 'OPERA5_OWS',
@@ -104,8 +115,16 @@ export const OPERA5_OWS_MANIFEST = defineConnector({
   category: 'PMS',
   entitlement: 'CONNECTOR_OPERA5',
   description:
-    'OPERA 5 via OPERA Web Services (OWS): future reservations, arrivals with ETA, sharers and guest profiles, polled by the hotel agent.',
-  capabilities: ['RESERVATION_READ', 'GUEST_READ', 'PROFILE_EVENT'],
+    'OPERA 5 via OPERA Web Services (OWS), standard connector v1: future reservations, arrivals with ETA, sharers and guest profiles polled by the hotel agent; reservation and profile lookups; additive profile contact updates.',
+  capabilities: [
+    'RESERVATION_READ',
+    'RESERVATION_LOOKUP',
+    'ARRIVALS_READ',
+    'GUEST_READ',
+    'PROFILE_LOOKUP',
+    'PROFILE_EVENT',
+    'PROFILE_WRITE',
+  ],
   messageTypes: [
     {
       code: 'OWS_RESERVATION',
@@ -118,7 +137,32 @@ export const OPERA5_OWS_MANIFEST = defineConnector({
       requires: 'GUEST_READ',
     },
   ],
-  commands: [],
+  commands: [
+    {
+      code: 'UPDATE_PROFILE_CONTACT',
+      description:
+        "Add an e-mail and/or a mobile number to the guest's OPERA profile as the primary one (OWS Name.InsertEmail / InsertPhone); existing contacts are never replaced. Offered only once verified at the hotel.",
+      requires: 'PROFILE_WRITE',
+      payload: z
+        .object({
+          profile_id: z.string().min(1).max(128),
+          email: z.email().max(320).optional(),
+          phone: z
+            .string()
+            .regex(/^\+?[0-9][0-9 ()-]{5,30}$/)
+            .optional(),
+        })
+        .strict()
+        .refine((p) => p.email !== undefined || p.phone !== undefined, {
+          message: 'an e-mail or a phone is required',
+        }),
+    },
+  ],
+  queries: pmsQueries({
+    LOOKUP_RESERVATION: 'RESERVATION_LOOKUP',
+    LIST_ARRIVALS: 'ARRIVALS_READ',
+    LOOKUP_PROFILE: 'PROFILE_LOOKUP',
+  }),
   configSchema: z.object({
     label: z.string().max(200).optional(),
   }),

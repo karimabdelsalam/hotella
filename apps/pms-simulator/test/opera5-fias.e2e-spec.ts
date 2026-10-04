@@ -55,7 +55,8 @@ describe.skipIf(skip)(
           if (m.message_type === 'FIAS_RECORD') ifc8.send((m.payload as { record: string }).record);
         },
       });
-      ifc8 = new Ifc8Face(pms);
+      // This hotel's IFC8 is configured without the guest language on check-in: a profile gap to report.
+      ifc8 = new Ifc8Face(pms, { withhold: { GI: ['GL'] } });
       const port = await ifc8.listen();
       agent = new DotnetAgent(agentBinaries(artifacts).conformance);
       await agent.enroll(h.gatewayUrl, await h.enrollmentToken(), h.caPem);
@@ -129,6 +130,33 @@ describe.skipIf(skip)(
         ['505', 'INITIAL'],
         ['506', 'ROOM_MOVE'],
       ]);
+    });
+
+    it('reports what this hotel’s IFC8 delivers against the Planova standard profile, gaps included', async () => {
+      const res = await h
+        .http()
+        .get(`${h.base}/integration/instances/${h.instanceId}/profile`)
+        .set('X-Test-Actor', h.gm)
+        .expect(200);
+      expect(res.body.profile).toEqual({ code: 'PLANOVA_FIAS_STANDARD', version: 1 });
+      type Coverage = {
+        record: string;
+        received: number;
+        seen: Record<string, number>;
+        gaps: string[];
+        missingMandatory: number;
+        optional: boolean;
+      };
+      const records = res.body.records as Coverage[];
+      const gi = records.find((r) => r.record === 'GI')!;
+      expect(gi.received).toBe(1);
+      expect(Object.keys(gi.seen).sort()).toEqual(['DA', 'G#', 'GA', 'GD', 'GF', 'GN', 'RN', 'TI']);
+      // Withheld by the hotel, or never filled for these guests: reported, never guessed.
+      expect(gi.gaps).toEqual(expect.arrayContaining(['GL', 'GV', 'GT']));
+      expect(gi.missingMandatory).toBe(0);
+      expect(records.find((r) => r.record === 'GO')).toMatchObject({ received: 1 });
+      expect(records.find((r) => r.record === 'RE')).toMatchObject({ received: 1 });
+      expect(records.find((r) => r.record === 'NS')).toMatchObject({ optional: true, received: 0 });
     });
 
     it('reconciliation asks IFC8 for a database sync through a signed RESYNC_IN_HOUSE', async () => {

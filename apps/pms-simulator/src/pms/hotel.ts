@@ -45,6 +45,8 @@ export class SimulatedPms {
   readonly roomStatuses = new Map<string, string>();
   /** Out-of-order / out-of-service restrictions the platform wrote (SET_ROOM_RESTRICTION), by room number. */
   readonly restrictions = new Map<string, string>();
+  /** Contact details the platform added to a profile through OWS (UPDATE_PROFILE_CONTACT), newest first. */
+  readonly addedContacts = new Map<string, { emails: string[]; phones: string[] }>();
   private counter = 0;
 
   constructor(
@@ -140,6 +142,30 @@ export class SimulatedPms {
    */
   acceptRoomStatus(room: string, status: string): void {
     this.roomStatuses.set(room, status);
+  }
+
+  /** The guest behind an OPERA profile id, from any reservation (primary or sharer). */
+  profile(profileId: string): SimGuest | undefined {
+    for (const r of this.reservations.values())
+      for (const g of [r.guest, ...r.sharers]) if (g.profileId === profileId) return g;
+    return undefined;
+  }
+
+  /** Every e-mail and phone OPERA holds for a profile: what was added through OWS first, then the original. */
+  contacts(profileId: string): { emails: string[]; phones: string[] } {
+    const g = this.profile(profileId);
+    const added = this.addedContacts.get(profileId) ?? { emails: [], phones: [] };
+    return {
+      emails: [...added.emails, ...(g?.email ? [g.email] : [])],
+      phones: [...added.phones, ...(g?.phone ? [g.phone] : [])],
+    };
+  }
+
+  /** OWS InsertEmail / InsertPhone: adds, never replaces. */
+  addContact(profileId: string, kind: 'email' | 'phone', value: string): void {
+    const added = this.addedContacts.get(profileId) ?? { emails: [], phones: [] };
+    (kind === 'email' ? added.emails : added.phones).unshift(value);
+    this.addedContacts.set(profileId, added);
   }
 
   /** A restriction written by the platform (or lifted, with null); recorded without an echo event. */

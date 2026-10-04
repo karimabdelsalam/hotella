@@ -230,11 +230,18 @@ export class WorkflowRepositories {
   claimExpired(
     now: Date,
     limit: number,
+    tenantId?: string,
   ): Promise<Array<Pick<ApprovalRequestRow, 'id' | 'tenantId'>>> {
     return this.x
       .select({ id: approvalRequests.id, tenantId: approvalRequests.tenantId })
       .from(approvalRequests)
-      .where(and(eq(approvalRequests.status, 'PENDING'), lte(approvalRequests.expiresAt, now)))
+      .where(
+        and(
+          eq(approvalRequests.status, 'PENDING'),
+          lte(approvalRequests.expiresAt, now),
+          tenantId === undefined ? undefined : eq(approvalRequests.tenantId, tenantId),
+        ),
+      )
       .orderBy(asc(approvalRequests.expiresAt))
       .limit(limit)
       .for('update', { skipLocked: true });

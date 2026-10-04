@@ -7,27 +7,37 @@ namespace Hotella.Agent.Ows;
 /// <summary>A reservation as polled, already in the JSON shape the platform's OWS parser reads (<c>reservation</c>).</summary>
 public sealed record OwsReservation(string ReservationId, string Status, string? UpdatedAt, JsonObject Reservation);
 
+/// <summary>A profile as read from OWS (<c>profile</c> in the platform's shape), with all its e-mails and phones.</summary>
+public sealed record OwsProfile(JsonObject Profile, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones);
+
 /// <summary>OWS refused the call (SOAP fault or unsuccessful result); the message never holds credentials.</summary>
 public sealed class OwsFaultException(string message) : Exception(message);
 
 /// <summary>
-/// The OWS 5.1 calls the agent makes, as XML (ADR-0014): <c>Reservation.FutureBookingSummary</c> for an arrival window,
-/// with the OGHeader credentials. Elements are matched by local name so namespace prefixes and versions of the hotel's
+/// The OWS 5.1 calls of the standard OWS connector v1 (ADR-0019; guide §8), as XML: <c>Reservation.FutureBookingSummary</c>
+/// (arrival window) and <c>FetchBooking</c>, <c>Name.FetchProfile</c>, and the additive contact writes
+/// <c>Name.InsertEmail</c> / <c>InsertPhone</c>, each with the OGHeader credentials. Elements are matched by local name so namespace prefixes and versions of the hotel's
 /// OWS do not matter; the exact WSDL is verified at the pilot (BUILD_PLAN 10.3 notes).
 /// </summary>
 public static class OwsSoap
 {
     public const string ReservationService = "Reservation.asmx";
+    public const string NameService = "Name.asmx";
     public const string FutureBookingSummaryAction = "http://webservices.micros.com/ows/5.1/Reservation.wsdl#FutureBookingSummary";
+    public const string FetchBookingAction = "http://webservices.micros.com/ows/5.1/Reservation.wsdl#FetchBooking";
+    public const string FetchProfileAction = "http://webservices.micros.com/ows/5.1/Name.wsdl#FetchProfile";
+    public const string InsertEmailAction = "http://webservices.micros.com/ows/5.1/Name.wsdl#InsertEmail";
+    public const string InsertPhoneAction = "http://webservices.micros.com/ows/5.1/Name.wsdl#InsertPhone";
     private static readonly XNamespace Soap = "http://schemas.xmlsoap.org/soap/envelope/";
     private static readonly XNamespace Core = "http://webservices.micros.com/og/4.3/Core/";
     private static readonly XNamespace Res = "http://webservices.micros.com/ows/5.1/Reservation.wsdl";
     private static readonly XNamespace Hc = "http://webservices.micros.com/og/4.3/HotelCommon/";
+    private static readonly XNamespace NameWsdl = "http://webservices.micros.com/ows/5.1/Name.wsdl";
+    private static readonly XNamespace NameTypes = "http://webservices.micros.com/og/4.3/Name/";
 
-    public static string FutureBookingSummaryRequest(OwsSettings s, string password, DateOnly from, DateOnly to, DateTimeOffset now)
-    {
-        ArgumentNullException.ThrowIfNull(s);
-        var header = new XElement(Core + "OGHeader",
+    /// <summary>The OGHeader every request carries (guide §8.2): transaction, origin/destination entities, credentials.</summary>
+    private static XElement Header(OwsSettings s, string password, DateTimeOffset now) =>
+        new(Core + "OGHeader",
             new XAttribute("transactionID", now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)),
             new XAttribute("timeStamp", now.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz", CultureInfo.InvariantCulture)),
             new XElement(Core + "Origin", new XAttribute("entityID", s.OriginEntity), new XAttribute("systemType", "WEB")),
@@ -37,19 +47,67 @@ public static class OwsSoap
                     new XElement(Core + "UserName", s.Username),
                     new XElement(Core + "UserPassword", password),
                     new XElement(Core + "Domain", s.Domain))));
-        var body = new XElement(Res + "FutureBookingSummaryRequest",
+
+    private static string Envelope(OwsSettings s, string password, DateTimeOffset now, XElement body) =>
+        new XDocument(new XDeclaration("1.0", "utf-8", null),
+            new XElement(Soap + "Envelope", new XElement(Soap + "Header", Header(s, password, now)), new XElement(Soap + "Body", body)))
+            .ToString(SaveOptions.DisableFormatting);
+
+    private static XElement HotelReference(XNamespace ns, OwsSettings s) =>
+        new(ns + "HotelReference", new XAttribute("chainCode", s.ChainCode), new XAttribute("hotelCode", s.HotelCode));
+
+    public static string FutureBookingSummaryRequest(OwsSettings s, string password, DateOnly from, DateOnly to, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(s);
+        return Envelope(s, password, now, new XElement(Res + "FutureBookingSummaryRequest",
             new XElement(Res + "AdditionalFilters",
-                new XElement(Res + "HotelReference",
-                    new XAttribute("chainCode", s.ChainCode), new XAttribute("hotelCode", s.HotelCode)),
+                HotelReference(Res, s),
                 new XElement(Res + "ArrivalDateRange",
                     new XElement(Hc + "StartDate", from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
-                    new XElement(Hc + "EndDate", to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)))));
-        return new XDocument(new XDeclaration("1.0", "utf-8", null),
-            new XElement(Soap + "Envelope", new XElement(Soap + "Header", header), new XElement(Soap + "Body", body)))
-            .ToString(SaveOptions.DisableFormatting);
+                    new XElement(Hc + "EndDate", to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))))));
     }
 
-    public static IReadOnlyList<OwsReservation> ParseFutureBookingSummary(string response)
+    /// <summary><c>Reservation.FetchBooking</c> by confirmation number or by OPERA reservation id (RESV_NAME_ID).</summary>
+    public static string FetchBookingRequest(
+        OwsSettings s, string password, string? confirmationNumber, string? reservationId, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(s);
+        var key = reservationId is not null
+            ? new XElement(Res + "ResvNameId", new XAttribute("type", "INTERNAL"), new XAttribute("source", "RESV_NAME_ID"), reservationId)
+            : new XElement(Res + "ConfirmationNumber", new XAttribute("type", "INTERNAL"),
+                confirmationNumber ?? throw new ArgumentException("a confirmation number or reservation id is required"));
+        return Envelope(s, password, now, new XElement(Res + "FetchBookingRequest", HotelReference(Res, s), key));
+    }
+
+    /// <summary><c>Name.FetchProfile</c> by OPERA profile id (NAME_ID).</summary>
+    public static string FetchProfileRequest(OwsSettings s, string password, string profileId, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(s);
+        return Envelope(s, password, now, new XElement(NameWsdl + "FetchProfileRequest",
+            new XElement(NameWsdl + "NameID", new XAttribute("type", "INTERNAL"), profileId)));
+    }
+
+    /// <summary><c>Name.InsertEmail</c>: adds an e-mail as the primary one; never replaces or deletes the existing ones.</summary>
+    public static string InsertEmailRequest(OwsSettings s, string password, string profileId, string email, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(s);
+        return Envelope(s, password, now, new XElement(NameWsdl + "InsertEmailRequest",
+            new XElement(NameWsdl + "NameID", new XAttribute("type", "INTERNAL"), profileId),
+            new XElement(NameWsdl + "NameEmail", new XAttribute("primary", "true"), new XAttribute("emailType", "EMAIL"), email)));
+    }
+
+    /// <summary><c>Name.InsertPhone</c>: adds a mobile number as the primary one; never replaces the existing ones.</summary>
+    public static string InsertPhoneRequest(OwsSettings s, string password, string profileId, string phone, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(s);
+        return Envelope(s, password, now, new XElement(NameWsdl + "InsertPhoneRequest",
+            new XElement(NameWsdl + "NameID", new XAttribute("type", "INTERNAL"), profileId),
+            new XElement(NameWsdl + "NamePhone", new XAttribute("phoneType", "MOBILE"), new XAttribute("phoneRole", "PHONE"),
+                new XAttribute("primary", "true"), new XElement(NameTypes + "PhoneNumber", phone))));
+    }
+
+    /// <summary>The response document after its SOAP fault and result flag were checked (reasons only, never data).</summary>
+    public static XDocument Checked(string response)
     {
         XDocument doc;
         try
@@ -65,8 +123,27 @@ public static class OwsSoap
         var result = First(doc.Root, "Result");
         if (result?.Attribute("resultStatusFlag")?.Value is { } flag && flag != "SUCCESS")
             throw new OwsFaultException($"OWS result {flag}: " + (Text(result, "Text") ?? ""));
-        return [.. All(doc.Root, "HotelReservation").Select(Reservation).OfType<OwsReservation>()];
+        return doc;
     }
+
+    public static OwsReservation? ParseFetchBooking(string response) =>
+        All(Checked(response).Root, "HotelReservation").Select(Reservation).OfType<OwsReservation>().FirstOrDefault();
+
+    /// <summary>The profile of a FetchProfile answer (null when OWS has none), with every e-mail and phone it holds.</summary>
+    public static OwsProfile? ParseFetchProfile(string response, string profileId)
+    {
+        var root = Checked(response).Root;
+        var details = First(root, "ProfileDetails") ?? First(root, "Profile");
+        if (details is null) return null;
+        var json = Profile(details) ?? new JsonObject();
+        json["profileId"] = profileId;
+        return new OwsProfile(json,
+            [.. All(details, "NameEmail").Select(e => e.Value.Trim()).Where(v => v.Length > 0)],
+            [.. All(details, "PhoneNumber").Select(e => e.Value.Trim()).Where(v => v.Length > 0)]);
+    }
+
+    public static IReadOnlyList<OwsReservation> ParseFutureBookingSummary(string response) =>
+        [.. All(Checked(response).Root, "HotelReservation").Select(Reservation).OfType<OwsReservation>()];
 
     private static OwsReservation? Reservation(XElement r)
     {

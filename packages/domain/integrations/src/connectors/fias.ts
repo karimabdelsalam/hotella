@@ -96,13 +96,28 @@ const ROOM_STATUS: Record<string, { status: 'DIRTY' | 'CLEAN' | 'INSPECTED'; occ
 
 /** Link-control records: accepted, produce no business record. */
 const CONTROL_RECORDS = new Set(['LS', 'LA', 'LE', 'LD', 'LR']);
+/**
+ * Night audit start/end (optional records of the standard profile, requested only when the hotel enables them):
+ * accepted and counted in the profile coverage; the business date is the property's local date, so they change nothing.
+ */
+const NIGHT_AUDIT_RECORDS = new Set(['NS', 'NE']);
+
+/** The record id and field ids of a FIAS record, without interpreting values (profile coverage, guide §7.3). */
+export function fiasObservation(record: string): { record: string; fields: string[] } | null {
+  try {
+    const { id, fields } = splitFiasRecord(record);
+    return CONTROL_RECORDS.has(id) ? null : { record: id, fields: [...fields.keys()] };
+  } catch {
+    return null;
+  }
+}
 
 export function parseFiasRecord(
   record: string,
   context: { readonly timezone: string; readonly receivedAt: string },
 ): InboundRecordInput[] {
   const { id, fields } = splitFiasRecord(record);
-  if (CONTROL_RECORDS.has(id)) return [];
+  if (CONTROL_RECORDS.has(id) || NIGHT_AUDIT_RECORDS.has(id)) return [];
   const at = fiasInstant(fields, context.timezone, context.receivedAt);
   switch (id) {
     case 'GI': {

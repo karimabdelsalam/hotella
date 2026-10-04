@@ -1,6 +1,10 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import { CONNECTOR_CAPABILITIES, type ConnectorCapability } from '@hotella/contracts-connectors';
+import {
+  CONNECTOR_CAPABILITIES,
+  type ConnectorCapability,
+  profileCoverage,
+} from '@hotella/contracts-connectors';
 import { AuditWriter } from '@hotella/platform-audit';
 import { ActionGate, ActorStore } from '@hotella/platform-auth';
 import { isUuid, newId, type PropertyScope, TransactionRunner } from '@hotella/platform-database';
@@ -8,6 +12,7 @@ import { AppError } from '@hotella/platform-i18n';
 import { ConnectorRegistry } from '../connectors/registry';
 import { isPmsOperation, overrideProblem, PMS_OPERATIONS } from '../domain/capabilities';
 import { CapabilityRepositories } from '../infrastructure/capability-repositories';
+import { ProfileRepositories } from '../infrastructure/profile-repositories';
 import { QueryRepositories } from '../infrastructure/query-repositories';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import { CapabilityRegistry } from './capability-registry';
@@ -26,6 +31,7 @@ export const routingOverrideSchema = z.object({
   connectors: z.array(z.string().regex(/^[A-Z][A-Z0-9_]{1,47}$/)).max(8),
 });
 export const commissionSchema = z.object({ evidenceRef: z.string().trim().min(3).max(300) });
+export const resetProfileSchema = z.object({ reason: z.string().trim().min(3).max(500) });
 export const capabilityCodeSchema = z.enum(CONNECTOR_CAPABILITIES);
 
 /**
@@ -46,6 +52,7 @@ export class CapabilityAdminService {
     private readonly tx: TransactionRunner,
     private readonly audit: AuditWriter,
     private readonly queryLog: QueryRepositories,
+    private readonly profiles: ProfileRepositories,
   ) {}
 
   view(scope: PropertyScope) {
@@ -83,6 +90,73 @@ export class CapabilityAdminService {
     return this.gate.execute(
       { action: 'integration.read', tenantId: scope.tenantId, propertyId: scope.propertyId },
       () => this.tx.read(() => this.queryLog.recent(scope, 100)),
+    );
+  }
+
+  /**
+   * What the instance's PMS delivers of the connector's interface profile (guide §7.3, §16.2): per record, how many
+   * arrived, the fields seen, the gaps (requested, never delivered), refused records and extra fields. Field ids and
+   * counts only. A connector without a profile answers `profile: null`.
+   */
+  profile(scope: PropertyScope, instanceId: string) {
+    return this.gate.execute(
+      { action: 'integration.read', tenantId: scope.tenantId, propertyId: scope.propertyId },
+      () =>
+        this.tx.read(async () => {
+          const instance = await this.instance(scope, instanceId);
+          const profile = this.connectors.get(instance.connectorCode)?.manifest.profile;
+          if (!profile) return { instanceId: instance.id, profile: null, records: [] };
+          const rows = (await this.profiles.forInstance(scope, instance.id)).filter(
+            (r) => r.profileCode === profile.code,
+          );
+          return {
+            instanceId: instance.id,
+            profile: { code: profile.code, version: profile.version },
+            since: rows.reduce<Date | null>(
+              (min, r) => (min === null || r.firstSeenAt < min ? r.firstSeenAt : min),
+              null,
+            ),
+            records: profileCoverage(
+              profile,
+              rows.map((r) => ({
+                record: r.record,
+                received: r.received,
+                fields: r.fields as Record<string, number>,
+                missingMandatory: r.missingMandatory,
+              })),
+            ),
+          };
+        }),
+    );
+  }
+
+  /** Starts the coverage again, e.g. after the hotel's IFC8 administrator changed the interface (audited). */
+  resetProfile(
+    scope: PropertyScope,
+    instanceId: string,
+    input: z.infer<typeof resetProfileSchema>,
+  ) {
+    return this.gate.execute(
+      {
+        action: 'integration.capability.verify',
+        tenantId: scope.tenantId,
+        propertyId: scope.propertyId,
+      },
+      () =>
+        this.tx.run(async () => {
+          const instance = await this.instance(scope, instanceId);
+          const removed = await this.profiles.reset(scope, instance.id);
+          await this.audit.record({
+            action: 'integration.profile.reset',
+            entityType: 'integration_instance',
+            entityId: instance.id,
+            tenantId: scope.tenantId,
+            propertyId: scope.propertyId,
+            reason: input.reason,
+            after: { connector: instance.connectorCode, records_cleared: removed },
+          });
+          return { instanceId: instance.id, cleared: removed };
+        }),
     );
   }
 

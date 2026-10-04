@@ -2096,7 +2096,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | delivered |
 | 10.6 | Unified OPERA Adapter (`PMS_API`) and per-property capability registry (10.D) | delivered (writes routed; reads arrive with 10.7, see notes) |
 | 10.7 | Link protocol 2 (`query`/`query_result`) and the `OPERA5_DB` read-only connector (10.D) | delivered (see notes; real Oracle verified at the pilot) |
-| 10.8 | Planova Standard IFC8/FIAS Profile v1 alignment and OWS standard connector v1 (reads + supported writes) (10.D) | scheduled after Phase 11, before M4 |
+| 10.8 | Planova Standard IFC8/FIAS Profile v1 alignment and OWS standard connector v1 (reads + supported writes) (10.D) | delivered (see notes; reservation writes held until verified) |
 | 10.9 | Commissioning tooling: Interface Sheet comparison, DB probe, OWS verification, capability sign-off; OPERA integration acceptance (10.D) | scheduled after Phase 11, before M4 |
 
 **Reality notes for 10.1 (delivered).**
@@ -2352,6 +2352,49 @@ Phase 11 does not wait for pilot-specific IFC8/OWS details.
   and the write operations the hotel's OWS supports), configured per hotel (endpoint, WSDL version, OGHeader entities,
   domain, enabled operations); writes are commands with idempotency and audit, offered only when verified.
 - Tests: simulator FIAS and OWS faces extended to the profile; e2e per profile record and per OWS operation.
+
+**Reality notes for 10.8 (delivered).**
+- Profile as contract: `FIAS_STANDARD_PROFILE_V1` (`contracts-connectors/profiles.ts`) holds per record the requested
+  fields, the mandatory ones and whether it is optional (`NS`/`NE`); manifests may carry a `profile`, adapters an
+  `observe()` that reports the record id and field ids of a message. The agent's `FiasProfile` is checked against the
+  shared vector `test-vectors/fias-profile-v1.json` by both test suites, so the `LR` list cannot drift from the
+  platform's definition. GI mandatory fields: `RN`, `G#`, `GN`, `GD`; GO/GC: `G#`; RE: `RN`, `RS`.
+- Profile gaps (migration 0043, RLS): `integration.profile_observations` counts per instance and record the messages
+  received, how often each field id arrived and how many lacked a mandatory field — field ids and counts only, counted
+  once per message before parsing, so refused records count too. `GET /properties/:id/integration/instances/:id/profile`
+  (`integration.read`) answers the coverage (seen, gaps, refused, extra fields; a record never received is all gaps);
+  `POST …/profile/reset` (`integration.capability.verify`, audited, reason) starts it again after the hotel's IFC8 was
+  reconfigured. Deviation from the plan: gaps are a commissioning view on the platform, not part of the agent's
+  health — a missing optional field is not an outage.
+- Parser: `NS`/`NE` accepted and change nothing (the business date is the property's local date); unknown record ids
+  stay parse errors (an exception, never a guess).
+- Agent FIAS: `LR` from the profile plus `Fias:OptionalRecords` (only `NS`/`NE` accepted); nothing is sent to IFC8
+  between `DS` and `DE` — a command waits up to `Fias:SwapWaitSeconds` (120) and then fails for the platform to retry;
+  after an outage longer than `Fias:ResyncAfterOutageSeconds` (300; 0 = off) the agent sends `DR` once the link is back.
+  The simulator's IFC8 face now sends only the requested fields (`FL`) and can withhold fields to play a hotel's gaps.
+- OWS standard connector v1 (`OPERA5_OWS`): capabilities add `RESERVATION_LOOKUP`, `ARRIVALS_READ`, `PROFILE_LOOKUP`,
+  `PROFILE_WRITE`; queries `LOOKUP_RESERVATION` (`FetchBooking` by confirmation or `RESV_NAME_ID`), `LIST_ARRIVALS`
+  (`FutureBookingSummary`; cancellations left out), `LOOKUP_PROFILE` (`Name.FetchProfile`); rows mapped by the agent
+  (`OwsRows`): waitlist/prospect/request states are outside the read contract (like the DB statements), any other
+  unknown status fails the read. One command, `UPDATE_PROFILE_CONTACT` (`Name.InsertEmail` / `InsertPhone`, primary):
+  the agent reads the profile first and inserts only what OPERA lacks, so a repeat after a timeout changes nothing;
+  existing contacts are never replaced. All OWS calls share one OGHeader builder.
+- Deviation: `RESERVATION_WRITE` (note/ETA) is **not** offered. It would need `ModifyBooking`, which can replace
+  reservation data, and its OWS 5.1 semantics are not verified from the licensed documentation (guide §21); a write
+  that could damage a reservation is never guessed. `SET_ROOM_STATUS`/`SET_ROOM_RESTRICTION` through OWS likewise wait
+  for verification at a hotel that exposes them.
+- `PMS_API.updateProfileContact({ subject: { entityType, id }, email?, phone? })`: the OPERA profile id is resolved
+  inside the integration context from the `PROFILE` references of the property's connectors (the routed connector's
+  own first: all connectors of one property read the same OPERA); a subject the PMS never reported is `NOT_LINKED`
+  (new outcome). Writes still need verification (10.6). No module calls it yet; the guest-contact flow that will is a
+  product decision for the guest app.
+- Tests: `profiles.spec.ts` (vector, optional records, coverage, definition rule); `domain.spec.ts` (NS/NE, observe,
+  OWS v1 manifest and payload); `capabilities.integration.spec.ts` (profile coverage 404 across tenants and
+  properties); .NET `FiasTests` (vector, swap guard, auto-resync, optional records) and `OwsTests` (row mapping, reads,
+  read-before-write); e2e `opera5-fias.e2e-spec.ts` (coverage with a withheld field) and `opera5-ows.e2e-spec.ts` (reads
+  through `PMS_API`; contact write unavailable until verified, applied once, `NOT_LINKED`).
+- Also fixed: the operations test that moves the clock forward expired other suites' approvals in the shared test
+  database (`expireDue` takes an optional tenant; the worker still sweeps every tenant) — the intermittent M2 failure.
 
 **10.9 — Commissioning tooling and acceptance.**
 - Interface Sheet comparison (guide §16.2) recorded as a commissioning record per property (requirement, hotel value,

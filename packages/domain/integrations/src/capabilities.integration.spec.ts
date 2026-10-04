@@ -391,6 +391,20 @@ describe.skipIf(needsInfra())(
         .set('X-Test-Actor', gm())
         .send({ instanceId: instances.aFias, evidenceRef: 'wrong hotel' })
         .expect(404);
+      // Profile coverage: another tenant, or another property's instance, is not found.
+      await http()
+        .get(`${cap(hotels.A)}/instances/${instances.aFias}/profile`)
+        .set('X-Test-Actor', stranger)
+        .expect(404);
+      await http()
+        .get(`${cap(hotels.C)}/instances/${instances.aFias}/profile`)
+        .set('X-Test-Actor', gm())
+        .expect(404);
+      const own = await http()
+        .get(`${cap(hotels.A)}/instances/${instances.aFias}/profile`)
+        .set('X-Test-Actor', gm())
+        .expect(200);
+      expect(own.body.profile).toEqual({ code: 'PLANOVA_FIAS_STANDARD', version: 1 });
     });
   },
 );

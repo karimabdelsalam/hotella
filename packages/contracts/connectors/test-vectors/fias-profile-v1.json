@@ -1,0 +1,16 @@
+{
+  "code": "PLANOVA_FIAS_STANDARD",
+  "version": 1,
+  "link_records": [
+    ["GI", "RNG#GNGFGTGLGVGSGGGAGDSFDATI"],
+    ["GO", "RNG#GSSFDATI"],
+    ["GC", "RNROG#GNGFGTGLGVGSGGGAGDDATI"],
+    ["RE", "RNRSDATI"],
+    ["DS", "DATI"],
+    ["DE", "DATI"]
+  ],
+  "optional_records": [
+    ["NS", "DATI"],
+    ["NE", "DATI"]
+  ]
+}

@@ -6,6 +6,7 @@ import {
   isConnectorCapability,
   isWriteCapability,
 } from './capabilities';
+import type { InterfaceProfile, ProfileObservation } from './profiles';
 import { type InboundRecord, inboundRecordSchema } from './records';
 
 export const CONNECTOR_CODE_RE = /^[A-Z][A-Z0-9_]{1,47}$/;
@@ -67,6 +68,11 @@ export interface ConnectorManifest {
    * write can ever be routed to it — a definition error, not a convention.
    */
   readonly readOnly?: boolean;
+  /**
+   * The interface profile the connector expects from the PMS (e.g. the Planova Standard FIAS Profile, guide §7.3);
+   * received messages are compared with it and what a hotel does not deliver is reported as a profile gap.
+   */
+  readonly profile?: InterfaceProfile;
 }
 
 export class ConnectorDefinitionError extends Error {
@@ -94,6 +100,12 @@ export function defineConnector(manifest: ConnectorManifest): ConnectorManifest 
   }
   if (manifest.readOnly && manifest.commands.length > 0)
     fail('is read-only and cannot declare commands');
+  for (const [id, r] of Object.entries(manifest.profile?.records ?? {})) {
+    if (!/^[A-Z0-9]{2}$/.test(id)) fail(`profile record ${id} must be a two-character id`);
+    if (new Set(r.fields).size !== r.fields.length) fail(`profile record ${id} repeats a field`);
+    for (const f of r.mandatory)
+      if (!r.fields.includes(f)) fail(`profile record ${id} requires unrequested field ${f}`);
+  }
   const seen = new Set<string>();
   for (const m of manifest.messageTypes) {
     if (!MESSAGE_TYPE_RE.test(m.code)) fail(`message type ${m.code} must be UPPER_SNAKE_CASE`);
@@ -150,6 +162,11 @@ export interface ParseContext {
 export interface ConnectorAdapter {
   readonly manifest: ConnectorManifest;
   parse(message: RawInboundMessage, context: ParseContext): ParseResult;
+  /**
+   * For connectors with a `profile`: the record id and field ids a message carried, read without interpreting it (so
+   * a record the parser refuses is still counted). Pure; null when the message is not a profile record.
+   */
+  observe?(message: RawInboundMessage): ProfileObservation | null;
 }
 
 /** Helper for adapters: validate produced records against the SDK contract (a malformed record is a parse error). */
