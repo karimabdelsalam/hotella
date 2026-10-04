@@ -155,6 +155,20 @@ export class SimulatedPms {
     return inHouse.length;
   }
 
+  /**
+   * The database sync as OPERA's IFC8 sends it when the interface asks (DR): DS, one GI with the sync flag `SF` per
+   * in-house stay, DE. Returned as records for the IFC8 face; the JSON face keeps `resyncInHouse`.
+   */
+  databaseSync(at?: string): string[] {
+    const stamp = this.stamp(at);
+    const inHouse = [...this.reservations.values()].filter((r) => r.status === 'IN_HOUSE');
+    return [
+      fiasRecord('DS', stamp),
+      ...inHouse.map((r) => fiasRecord('GI', { ...this.stayFields(r), SF: '1', ...stamp })),
+      fiasRecord('DE', stamp),
+    ];
+  }
+
   // ---- encoding ----
 
   private get(id: string): SimReservation {
@@ -191,11 +205,7 @@ export class SimulatedPms {
 
   private fias(record: string, fields: Record<string, string | undefined>): void {
     if (!this.options.faces.has('FIAS')) return;
-    const body = Object.entries(fields)
-      .filter(([, v]) => v !== undefined && v !== '')
-      .map(([k, v]) => `${k}${v}`)
-      .join('|');
-    this.emit('FIAS_RECORD', { record: `${record}|${body}|` });
+    this.emit('FIAS_RECORD', { record: fiasRecord(record, fields) });
   }
 
   private ows(
@@ -253,6 +263,15 @@ function owsGuest(g: SimGuest) {
     ...(g.email ? { email: g.email } : {}),
     ...(g.phone ? { phone: g.phone } : {}),
   };
+}
+
+/** `GI|RN504|G#…|`: a record id and its non-empty fields. */
+export function fiasRecord(record: string, fields: Record<string, string | undefined>): string {
+  const body = Object.entries(fields)
+    .filter(([, v]) => v !== undefined && v !== '')
+    .map(([k, v]) => `${k}${v}`)
+    .join('|');
+  return `${record}|${body}|`;
 }
 
 /** `2026-10-03` → `261003`. */

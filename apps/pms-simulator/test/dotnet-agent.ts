@@ -36,6 +36,7 @@ export interface DotnetAgentState {
   connected: boolean;
   revoked: boolean;
   queue_depth: number;
+  ifc8?: { link_up: boolean; sessions: number; forwarded: number };
   stats?: {
     connects: number;
     welcomes: number;
@@ -133,8 +134,14 @@ export class DotnetAgent implements ScenarioLink {
     return (await this.call({ op: 'enroll', gateway, token, ca }))['instance_id'] as string;
   }
 
-  async start(connector: string, capabilities: readonly string[], commands: readonly string[]) {
-    await this.call({ op: 'start', connector, capabilities, commands });
+  /** Starts the link; with `ifc8` the agent also runs its FIAS adapter against that address (OPERA5_FIAS). */
+  async start(
+    connector: string,
+    capabilities: readonly string[],
+    commands: readonly string[],
+    ifc8?: { host: string; port: number },
+  ) {
+    await this.call({ op: 'start', connector, capabilities, commands, ...(ifc8 ? { ifc8 } : {}) });
   }
 
   async stop(): Promise<void> {

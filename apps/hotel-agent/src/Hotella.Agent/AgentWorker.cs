@@ -2,6 +2,7 @@ using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
+using Hotella.Agent.Fias;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -20,11 +21,12 @@ internal static class ExitCodes
 /// <summary>
 /// Runs the link (ADR-0017) for as long as the service runs: the durable queue, the mutual-TLS link with reconnects,
 /// and upkeep every hour — renew the device certificate before it expires and drop acknowledged history past the
-/// retention. Adapters (FIAS, OWS) publish into the link and register their command handlers from Sprint 10.2.
+/// retention. The connector's adapter (OPERA5_FIAS: the IFC8 session) runs beside the link, publishes into it and
+/// handles its commands.
 /// </summary>
 internal sealed partial class AgentWorker(
     AgentSettings settings,
-    IEnumerable<ICommandHandler> handlers,
+    FiasSettings fiasSettings,
     IHostApplicationLifetime lifetime,
     ILoggerFactory loggers) : BackgroundService
 {
@@ -33,7 +35,7 @@ internal sealed partial class AgentWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var problems = settings.Problems();
+        var problems = AgentHost.Problems(settings, fiasSettings);
         var store = new IdentityStore(settings.DataDirectory);
         var identity = problems.Count == 0 ? store.Load() : null;
         if (problems.Count > 0 || identity is null)
@@ -47,15 +49,21 @@ internal sealed partial class AgentWorker(
         using var queue = DurableOutbox.Open(Path.Combine(settings.DataDirectory, "queue.db"));
         var options = new LinkOptions(settings.Gateway!, settings.ConnectorCode, settings.Capabilities.ToList(),
             Cli.AgentVersion);
-        await using var link = new LinkClient(identity, queue, options, handlers, loggers.CreateLogger("hotella.link"));
+        using var fias = settings.ConnectorCode == FiasAdapter.ConnectorCode
+            ? new FiasAdapter(fiasSettings, identity.InstanceId, loggers.CreateLogger("hotella.fias"))
+            : null;
+        await using var link = new LinkClient(identity, queue, options, fias?.Commands() ?? [],
+            loggers.CreateLogger("hotella.link"));
         link.Welcomed += () => _log.LogInformation("linked as instance {Instance}", identity.InstanceId);
 
         using var session = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         var running = link.RunAsync(session.Token);
         var upkeep = UpkeepAsync(store, queue, link, session.Token);
+        // The PMS side keeps reading while the platform is unreachable: records wait in the durable queue.
+        var adapter = fias?.RunAsync(link, session.Token) ?? Task.CompletedTask;
         await Task.WhenAny(running, upkeep).ConfigureAwait(false);
         await session.CancelAsync().ConfigureAwait(false);
-        await Task.WhenAll(running, Quietly(upkeep)).ConfigureAwait(false);
+        await Task.WhenAll(running, Quietly(upkeep), Quietly(adapter)).ConfigureAwait(false);
 
         if (link.Revoked)
         {

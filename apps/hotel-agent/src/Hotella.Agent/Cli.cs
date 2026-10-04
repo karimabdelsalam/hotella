@@ -3,6 +3,7 @@ using System.Reflection;
 using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
+using Hotella.Agent.Fias;
 using Microsoft.Extensions.Configuration;
 
 namespace Hotella.Agent;
@@ -76,12 +77,16 @@ internal static class Cli
     /// <summary>What a support engineer checks first. Exit 0 when the agent can run.</summary>
     public static int Status(string[] args)
     {
-        var settings = SettingsFrom(args);
-        var problems = settings.Problems().ToList();
+        var config = Config(args);
+        var settings = AgentHost.Settings(config);
+        var fias = AgentHost.FiasSettings(config);
+        var problems = AgentHost.Problems(settings, fias);
         Console.WriteLine($"version:      {AgentVersion}");
         Console.WriteLine($"gateway:      {settings.Gateway}");
         Console.WriteLine($"connector:    {settings.ConnectorCode} [{string.Join(", ", settings.Capabilities)}]");
         Console.WriteLine($"data:         {settings.DataDirectory}");
+        if (settings.ConnectorCode == FiasAdapter.ConnectorCode)
+            Console.WriteLine($"ifc8:         {fias.Mode} {fias.Host}:{fias.Port} ({fias.Encoding})");
         var identity = new IdentityStore(settings.DataDirectory).Load();
         if (identity is null) problems.Add("not enrolled");
         else
@@ -104,11 +109,13 @@ internal static class Cli
         return problems.Count == 0 ? ExitCodes.Ok : ExitCodes.NotConfigured;
     }
 
-    private static AgentSettings SettingsFrom(string[] args)
+    private static AgentSettings SettingsFrom(string[] args) => AgentHost.Settings(Config(args));
+
+    private static IConfiguration Config(string[] args)
     {
         var config = new ConfigurationBuilder();
         AgentHost.AddSources(config, args);
-        return AgentHost.Settings(config.Build());
+        return config.Build();
     }
 
     private static string? Option(string[] args, string name)

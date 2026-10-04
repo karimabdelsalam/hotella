@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- OPERA 5 through IFC8 FIAS (ADR-0014): the TCP session with the PMS interface, records forwarded to the link. -->
+  <PropertyGroup>
+    <RootNamespace>Hotella.Agent.Fias</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hotella.Agent.Tests" />
+  </ItemGroup>
+</Project>

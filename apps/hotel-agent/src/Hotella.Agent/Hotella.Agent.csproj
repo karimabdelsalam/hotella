@@ -13,6 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
+    <ProjectReference Include="../Hotella.Agent.Fias/Hotella.Agent.Fias.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="agent.example.json" CopyToOutputDirectory="PreserveNewest" />

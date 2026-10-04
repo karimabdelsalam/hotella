@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
+using Hotella.Agent.Fias;
 using Microsoft.Extensions.Logging;
 
 // The agent under test, remote-controlled line by line. Answers carry the request's "id"; commands the platform sends
@@ -28,6 +29,20 @@ using var queue = DurableOutbox.Open(":memory:");
 LinkClient? client = null;
 CancellationTokenSource? running = null;
 Task? run = null;
+FiasAdapter? fias = null;
+using var fiasStop = new CancellationTokenSource();
+Task? fiasRun = null;
+
+async Task QuitAsync()
+{
+    await StopAsync();
+    if (fiasRun is not null)
+    {
+        await fiasStop.CancelAsync();
+        await fiasRun;
+    }
+    fias?.Dispose();
+}
 
 async Task StopAsync()
 {
@@ -59,11 +74,28 @@ while (Console.ReadLine() is { } text)
                 reply["certificate"] = identity.CertificatePem;
                 break;
             case "start":
+                if (client is null && request["ifc8"] is JsonObject ifc8)
+                {
+                    // OPERA5_FIAS: the IFC8 session publishes into the link and serves its commands.
+                    fias = new FiasAdapter(new FiasSettings
+                    {
+                        Host = ifc8["host"]!.GetValue<string>(),
+                        Port = ifc8["port"]!.GetValue<int>(),
+                        ReconnectSeconds = 1,
+                        LinkAliveSeconds = 5,
+                    }, identity!.InstanceId, log);
+                }
                 client ??= new LinkClient(identity!, queue,
                     new LinkOptions(gateway!, request["connector"]!.GetValue<string>(),
                         request["capabilities"]!.AsArray().Select(c => c!.GetValue<string>()).ToList(), "conformance"),
-                    request["commands"]!.AsArray().Select(c => (ICommandHandler)new ReportingHandler(c!.GetValue<string>(), Write)),
+                    fias?.Commands() ?? request["commands"]!.AsArray()
+                        .Select(c => (ICommandHandler)new ReportingHandler(c!.GetValue<string>(), Write)),
                     log);
+                if (fias is not null && fiasRun is null)
+                {
+                    var link = client;
+                    fiasRun = Task.Run(() => fias.RunAsync(link, fiasStop.Token));
+                }
                 if (running is null)
                 {
                     running = new CancellationTokenSource();
@@ -97,6 +129,13 @@ while (Console.ReadLine() is { } text)
                 reply["connected"] = client?.Connected ?? false;
                 reply["revoked"] = client?.Revoked ?? false;
                 reply["queue_depth"] = queue.Depth;
+                if (fias is not null)
+                    reply["ifc8"] = new JsonObject
+                    {
+                        ["link_up"] = fias.LinkUp,
+                        ["sessions"] = fias.Sessions,
+                        ["forwarded"] = fias.Forwarded,
+                    };
                 if (client is not null)
                     reply["stats"] = new JsonObject
                     {
@@ -109,7 +148,7 @@ while (Console.ReadLine() is { } text)
                     };
                 break;
             case "quit":
-                await StopAsync();
+                await QuitAsync();
                 Write(reply);
                 return 0;
             default:
@@ -131,7 +170,7 @@ while (Console.ReadLine() is { } text)
     }
     Write(reply);
 }
-await StopAsync();
+await QuitAsync();
 return 0;
 
 /// <summary>Acknowledges its command type and tells the test, which plays the PMS side of the command.</summary>

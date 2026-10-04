@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
+    <ProjectReference Include="../../src/Hotella.Agent.Fias/Hotella.Agent.Fias.csproj" />
   </ItemGroup>
 </Project>

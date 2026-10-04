@@ -7,9 +7,17 @@
       "CHECKOUT_EVENT",
       "ROOM_MOVE_EVENT",
       "PROFILE_EVENT",
-      "ROOM_STATUS_READ"
+      "ROOM_STATUS_READ",
+      "RECONCILIATION_READ"
     ],
     "QueueRetentionDays": 14
+  },
+  "Fias": {
+    "Mode": "Client",
+    "Host": "10.0.0.20",
+    "Port": 5010,
+    "Encoding": "utf-8",
+    "LinkAliveSeconds": 60
   },
   "Logging": {
     "LogLevel": { "Default": "Information", "Microsoft.Hosting.Lifetime": "Warning" }

@@ -102,6 +102,10 @@ export interface GatewayHarness {
 export async function startGatewayHarness(
   databaseUrl: string,
   code: string,
+  integration: { connectorCode: string; capabilities: readonly string[] } = {
+    connectorCode: 'SIM_PMS',
+    capabilities: CAPABILITIES,
+  },
 ): Promise<GatewayHarness> {
   await runMigrations(databaseUrl);
   const grants: Record<string, string[]> = {
@@ -186,7 +190,7 @@ export async function startGatewayHarness(
     await http()
       .post(`${base}/integrations`)
       .set('X-Test-Actor', gm)
-      .send({ connectorCode: 'SIM_PMS', name: 'Agent', capabilities: CAPABILITIES })
+      .send({ ...integration, name: 'Agent' })
       .expect(201)
   ).body.id as string;
   await http()

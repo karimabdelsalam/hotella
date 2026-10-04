@@ -25,6 +25,12 @@ public interface ICommandHandler
     Task<CommandOutcome> ExecuteAsync(JsonNode? payload, CancellationToken ct);
 }
 
+/// <summary>Where an adapter hands vendor messages: durably queued, then sent in order (implemented by the link).</summary>
+public interface IMessagePublisher
+{
+    QueuedMessage Publish(string sourceMessageId, string messageType, string? occurredAt, string payloadJson);
+}
+
 public sealed record LinkOptions(
     Uri Gateway,
     string ConnectorCode,
@@ -72,7 +78,7 @@ public sealed class LinkChaos
 /// exponential back-off and jitter (1 s → 60 s). A 401 or close code 4401 means the certificate was revoked: the link
 /// stops and the agent needs a new enrollment.
 /// </summary>
-public sealed class LinkClient : IAsyncDisposable
+public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
     private AgentIdentity _identity;
