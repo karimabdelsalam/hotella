@@ -108,6 +108,29 @@ export class OperationsRepositories {
       )
       .orderBy(asc(workItems.id));
   }
+  /** Open work of a property per department: items, urgent ones, and tasks past their due time (counts only). */
+  async openWorkSummary(scope: PropertyScope, now: Date) {
+    const { rows } = await this.x.execute(sql`
+      select wi.department_code as department,
+             count(distinct wi.id)::int as open,
+             count(distinct wi.id) filter (where wi.priority in ('HIGH', 'URGENT'))::int as urgent,
+             count(distinct t.id) filter (
+               where t.due_at < ${now} and t.status not in ('DONE', 'CANCELLED')
+             )::int as overdue
+        from ops.work_items wi
+        left join ops.tasks t on t.work_item_id = wi.id
+       where wi.tenant_id = ${scope.tenantId}
+         and wi.property_id = ${scope.propertyId}
+         and wi.status in ('OPEN', 'IN_PROGRESS')
+       group by wi.department_code
+       order by wi.department_code nulls last`);
+    return rows as Array<{
+      department: string | null;
+      open: number;
+      urgent: number;
+      overdue: number;
+    }>;
+  }
   openWorkItemsOfStay(scope: TenantScope, stayId: string): Promise<WorkItemRow[]> {
     return this.x
       .select()

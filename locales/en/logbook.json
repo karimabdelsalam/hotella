@@ -1,0 +1,6 @@
+{
+  "logbook.permission.read": "Read the shift logbook and handovers",
+  "logbook.permission.write": "Write in the shift logbook and draft handovers",
+  "logbook.permission.handover_acknowledge": "Acknowledge a shift handover (take the shift over)",
+  "logbook.setting.shift_starts": "When the morning, evening and night shifts start"
+}

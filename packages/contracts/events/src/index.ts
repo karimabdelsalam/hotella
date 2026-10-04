@@ -62,6 +62,7 @@ export {
   LostFoundItemRegistered,
   LostFoundItemReleased,
 } from './lostfound-events';
+export { HandoverAcknowledged } from './logbook-events';
 export {
   ConversationOpened,
   DeliveryUpdated,

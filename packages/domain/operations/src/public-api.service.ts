@@ -63,6 +63,9 @@ export class OperationsPublicApiService implements OperationsPublicApi {
   openWorkItemsOfStay(tenantId: string, stayId: string): Promise<readonly WorkItemSummary[]> {
     return this.work.openWorkItemsOfStay({ tenantId }, stayId);
   }
+  async openWorkSummary(tenantId: string, propertyId: string) {
+    return this.work.openWorkSummary({ tenantId, propertyId });
+  }
   openWorkItemsAtLocation(
     tenantId: string,
     propertyId: string,

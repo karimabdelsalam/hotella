@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { FeatureFlagService } from '@hotella/platform-flags';
 import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
-import { ENGINEERING_COPILOT, replyLocale } from '../domain/agents';
+import { ENGINEERING_COPILOT, replyLocale, SHIFT_HANDOVER } from '../domain/agents';
 import { killSwitch } from '../domain/settings';
 import {
   type ClassifiedText,
@@ -20,7 +20,7 @@ import { ToolExecutor, type ToolOutcome } from './tools/executor';
 import { ToolRegistry } from './tools/registry';
 
 /** The staff agents this runtime serves. */
-const STAFF_AGENTS = new Set([ENGINEERING_COPILOT.code]);
+const STAFF_AGENTS = new Set([ENGINEERING_COPILOT.code, SHIFT_HANDOVER.code]);
 
 const LANGUAGE: Record<'ar' | 'en', string> = {
   ar: 'Answer in Arabic (Egyptian Arabic is fine); keep technical terms, codes and model numbers as written.',

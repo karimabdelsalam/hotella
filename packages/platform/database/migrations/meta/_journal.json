@@ -260,6 +260,13 @@
       "when": 1791071216957,
       "tag": "0036_lost_and_found",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791077426352,
+      "tag": "0037_logbook",
+      "breakpoints": true
     }
   ]
 }

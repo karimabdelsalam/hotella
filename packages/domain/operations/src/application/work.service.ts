@@ -258,6 +258,15 @@ export class WorkService {
     return items.map((i) => workItemSummary(i, taskRows));
   }
 
+  async openWorkSummary(scope: PropertyScope) {
+    return (await this.repo.openWorkSummary(scope, new Date())).map((r) => ({
+      departmentCode: r.department,
+      open: r.open,
+      urgent: r.urgent,
+      overdue: r.overdue,
+    }));
+  }
+
   async workItemsForSource(
     scope: TenantScope,
     entityType: string,

@@ -25,6 +25,7 @@
     "@hotella/domain-housekeeping": "workspace:*",
     "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-inspection": "workspace:*",
+    "@hotella/domain-logbook": "workspace:*",
     "@hotella/domain-lostfound": "workspace:*",
     "@hotella/domain-relations": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",

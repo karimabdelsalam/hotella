@@ -1,0 +1,73 @@
+{
+  "name": "@hotella/domain-logbook",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Logbook (Spec \u00a714): append-only shift entries per department and the shift handover \u2014 facts counted by code, a draft written by the SHIFT_HANDOVER assistant, acknowledged by the incoming supervisor.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./public": {
+      "types": "./dist/public/index.d.ts",
+      "default": "./dist/public/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "hotella-build",
+    "dev": "hotella-build --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@hotella/contracts-events": "workspace:*",
+    "@hotella/domain-ai": "workspace:*",
+    "@hotella/domain-engineering": "workspace:*",
+    "@hotella/domain-lostfound": "workspace:*",
+    "@hotella/domain-operations": "workspace:*",
+    "@hotella/domain-organization": "workspace:*",
+    "@hotella/domain-relations": "workspace:*",
+    "@hotella/platform-audit": "workspace:*",
+    "@hotella/platform-auth": "workspace:*",
+    "@hotella/platform-database": "workspace:*",
+    "@hotella/platform-events": "workspace:*",
+    "@hotella/platform-i18n": "workspace:*",
+    "@hotella/platform-manifest": "workspace:*",
+    "@hotella/platform-observability": "workspace:*",
+    "@hotella/platform-settings": "workspace:*",
+    "@hotella/platform-time": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "drizzle-orm": "0.45.3",
+    "nestjs-zod": "5.5.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-identity": "workspace:*",
+    "@hotella/domain-integrations": "workspace:*",
+    "@hotella/platform-config": "workspace:*",
+    "@hotella/platform-flags": "workspace:*",
+    "@hotella/platform-http": "workspace:*",
+    "@hotella/platform-secrets": "workspace:*",
+    "@hotella/platform-testing": "workspace:*",
+    "@hotella/tooling": "workspace:*",
+    "@nestjs/core": "11.2.7",
+    "@nestjs/platform-express": "11.2.7",
+    "@nestjs/testing": "11.2.7",
+    "@types/express": "5.0.6",
+    "@types/pg": "8.23.1",
+    "@types/supertest": "7.2.1",
+    "nestjs-cls": "6.3.1",
+    "pg": "8.23.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "supertest": "7.3.1",
+    "vitest": "4.1.11"
+  }
+}

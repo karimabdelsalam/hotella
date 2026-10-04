@@ -312,5 +312,12 @@
   "errors.lostfound.photo.unsupported": "استخدم صورة PNG أو JPEG أو WebP.",
   "errors.lostfound.photo.too_large": "الصورة كبيرة جدًا (2 ميجابايت كحد أقصى).",
   "errors.lostfound.photo.too_many": "يمكن إرفاق {max} صور كحد أقصى لكل غرض.",
-  "errors.lostfound.photo.not_found": "هذه الصورة غير موجودة."
+  "errors.lostfound.photo.not_found": "هذه الصورة غير موجودة.",
+  "errors.logbook.entry.not_found": "هذا القيد غير موجود في السجل.",
+  "errors.logbook.shift.incomplete": "حدد التاريخ والوردية معًا أو اتركهما معًا.",
+  "errors.logbook.handover.not_found": "هذا التسليم غير موجود.",
+  "errors.logbook.handover.version_conflict": "قام شخص آخر بتعديل هذا التسليم. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.logbook.handover.acknowledged": "تم تأكيد هذا التسليم بالفعل ولا يمكن تغييره.",
+  "errors.logbook.handover.empty": "اكتب التسليم قبل تأكيده.",
+  "errors.logbook.handover.self_acknowledge": "يؤكد التسليمَ من يستلم الوردية، وليس من أعدّ المسودة."
 }

@@ -141,6 +141,21 @@ export interface OperationsPublicApi {
   /** Asks for a decision; the requester is the current actor (an AI agent may not request CRITICAL actions). */
   requestApproval(input: RequestApprovalInput): Promise<ApprovalSummary>;
   getApproval(tenantId: string, approvalId: string): Promise<ApprovalSummary | null>;
+  /**
+   * Open work of a property per department (null = not routed): open items, HIGH/URGENT ones, and tasks past their
+   * due time. Counts only; the shift handover reads it.
+   */
+  openWorkSummary(
+    tenantId: string,
+    propertyId: string,
+  ): Promise<
+    ReadonlyArray<{
+      readonly departmentCode: string | null;
+      readonly open: number;
+      readonly urgent: number;
+      readonly overdue: number;
+    }>
+  >;
   /** Raises (or refreshes) a deduplicated operational alert (Spec §15). */
   raiseAlert(
     input: RaiseAlertInput,

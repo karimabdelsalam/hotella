@@ -11978,6 +11978,287 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/logbook/shift": {
+      "get": {
+        "operationId": "LogbookController_shift",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "departmentCode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "shiftDate",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "shift",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MORNING",
+                "EVENING",
+                "NIGHT"
+              ]
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Logbook"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/logbook/entries": {
+      "post": {
+        "operationId": "LogbookController_addEntry",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Logbook"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/logbook/handovers": {
+      "get": {
+        "operationId": "LogbookController_handovers",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "departmentCode",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Logbook"
+        ]
+      },
+      "post": {
+        "operationId": "LogbookController_draft",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftHandoverDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Logbook"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/logbook/handovers/{handoverId}": {
+      "put": {
+        "operationId": "LogbookController_edit",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "handoverId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditHandoverDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Logbook"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/logbook/handovers/{handoverId}/acknowledge": {
+      "post": {
+        "operationId": "LogbookController_acknowledge",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "handoverId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcknowledgeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Logbook"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "HealthController_liveness",
@@ -18602,6 +18883,108 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "AddEntryDto": {
+        "type": "object",
+        "properties": {
+          "departmentCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "kind": {
+            "default": "NOTE",
+            "type": "string",
+            "enum": [
+              "NOTE",
+              "INCIDENT",
+              "HANDOVER_ITEM"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 4000
+          },
+          "roomId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "correctsEntryId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "departmentCode",
+          "text"
+        ]
+      },
+      "DraftHandoverDto": {
+        "type": "object",
+        "properties": {
+          "departmentCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "shiftDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "shift": {
+            "type": "string",
+            "enum": [
+              "MORNING",
+              "EVENING",
+              "NIGHT"
+            ]
+          },
+          "useAssistant": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "departmentCode"
+        ]
+      },
+      "EditHandoverDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 6000
+          }
+        },
+        "required": [
+          "version",
+          "summary"
+        ]
+      },
+      "AcknowledgeDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
           }
         },
         "required": [

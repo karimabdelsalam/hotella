@@ -1,0 +1,6 @@
+{
+  "logbook.permission.read": "قراءة سجل الورديات والتسليمات",
+  "logbook.permission.write": "الكتابة في سجل الورديات وإعداد مسودة التسليم",
+  "logbook.permission.handover_acknowledge": "تأكيد استلام الوردية",
+  "logbook.setting.shift_starts": "مواعيد بدء الورديات الصباحية والمسائية والليلية"
+}

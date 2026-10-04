@@ -44,6 +44,12 @@ const INSPECTOR = ['inspection.read', 'inspection.perform'] as const;
 /** Guest relations (Spec §12): complaints, AI candidates and service recovery. */
 const COMPLAINT_DESK = ['complaint.read', 'complaint.manage', 'complaint.recovery.manage'] as const;
 /** Lost & Found (Spec §13): anyone on the floor hands items in; the desk matches, releases and disposes. */
+/** The shift logbook (Spec §14): supervisors write and take shifts over. */
+const LOGBOOK_SUPERVISOR = [
+  'logbook.read',
+  'logbook.write',
+  'logbook.handover.acknowledge',
+] as const;
 const LOSTFOUND_DESK = [
   'lostfound.read',
   'lostfound.register',
@@ -148,6 +154,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...COMPLAINT_DESK,
       'complaint.category.manage',
       ...LOSTFOUND_DESK,
+      ...LOGBOOK_SUPERVISOR,
     ],
   },
   {
@@ -168,6 +175,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'inspection.read',
       ...COMPLAINT_DESK,
       ...LOSTFOUND_DESK,
+      ...LOGBOOK_SUPERVISOR,
     ],
   },
   {
@@ -182,6 +190,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'lostfound.read',
       'lostfound.register',
       'lostfound.manage',
+      ...LOGBOOK_SUPERVISOR,
     ],
   },
   {
@@ -200,6 +209,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'eng.work_order.manage',
       ...INSPECTOR,
       'lostfound.register',
+      'logbook.read',
+      'logbook.write',
     ],
   },
   {
@@ -213,6 +224,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...ENG_DESK,
       'eng.config.manage',
       'inspection.template.manage',
+      ...LOGBOOK_SUPERVISOR,
     ],
   },
   {
@@ -228,6 +240,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'complaint.read',
       'complaint.manage',
       ...LOSTFOUND_DESK,
+      ...LOGBOOK_SUPERVISOR,
     ],
   },
   {
@@ -240,6 +253,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...COMPLAINT_DESK,
       'approval.read',
       ...LOSTFOUND_DESK,
+      'logbook.read',
+      'logbook.write',
     ],
   },
 ];

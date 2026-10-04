@@ -312,5 +312,12 @@
   "errors.lostfound.photo.unsupported": "Use a PNG, JPEG or WebP photo.",
   "errors.lostfound.photo.too_large": "The photo is too large (2 MB at most).",
   "errors.lostfound.photo.too_many": "An item can have at most {max} photos.",
-  "errors.lostfound.photo.not_found": "This photo does not exist."
+  "errors.lostfound.photo.not_found": "This photo does not exist.",
+  "errors.logbook.entry.not_found": "This logbook entry does not exist.",
+  "errors.logbook.shift.incomplete": "Give both the date and the shift, or neither.",
+  "errors.logbook.handover.not_found": "This handover does not exist.",
+  "errors.logbook.handover.version_conflict": "Someone else changed this handover. Refresh and try again.",
+  "errors.logbook.handover.acknowledged": "This handover was already acknowledged and cannot change.",
+  "errors.logbook.handover.empty": "Write the handover before acknowledging it.",
+  "errors.logbook.handover.self_acknowledge": "The handover is acknowledged by the person taking the shift over, not by the one who drafted it."
 }
