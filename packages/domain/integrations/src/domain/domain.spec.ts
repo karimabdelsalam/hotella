@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { inboundRecordSchema } from '@hotella/contracts-connectors';
+import { opera5FiasAdapter } from '../connectors/opera5';
 import { simPmsAdapter } from '../connectors/sim-pms';
 import { classifyHealth, effectiveCapabilities, HEALTH_WINDOW, recordOutcome } from './instance';
 import { type CanonicalRecord, codesOf, toCanonical } from './mapping';
@@ -129,6 +130,75 @@ describe('SIM_PMS adapter', () => {
       kind: 'RESERVATION_CANCELLED',
       outcome: 'NO_SHOW',
     });
+  });
+});
+
+describe('OPERA5_FIAS adapter', () => {
+  const opera = (record: string, type = 'FIAS_RECORD') =>
+    opera5FiasAdapter.parse(
+      {
+        message_type: type,
+        source_message_id: 'x',
+        sequence_no: 1,
+        occurred_at: null,
+        payload: { record },
+      },
+      ctx,
+    );
+
+  it('reads IFC8 records like the simulator does: a check-in with hotel wall-clock time', () => {
+    const r = opera(
+      'GI|RN504|G#88123|GNNile|GFAmira|GLAR|GA261003|GD261006|DA261003|TI140500|GS0|',
+    );
+    expect(r.ok && r.records).toEqual([
+      expect.objectContaining({
+        kind: 'CHECK_IN',
+        reservation: expect.objectContaining({ external_id: '88123' }),
+        room_code: '504',
+        occurred_at: '2026-10-03T11:05:00.000Z',
+        primary_guest: expect.objectContaining({
+          given_name: 'Amira',
+          family_name: 'Nile',
+          locale: 'ar',
+        }),
+      }),
+    ]);
+  });
+
+  it('a GI with the sync flag inside a database sync is a snapshot entry, never a check-in', () => {
+    expect(opera('DS|DA261004|TI020000|')).toMatchObject({
+      ok: true,
+      records: [{ kind: 'SYNC_START' }],
+    });
+    const entry = opera('GI|RN505|G#88124|GNNile|GA261003|GD261006|SF|DA261004|TI020001|');
+    expect(entry.ok && entry.records).toEqual([
+      expect.objectContaining({
+        kind: 'IN_HOUSE_ENTRY',
+        reservation: expect.objectContaining({ external_id: '88124' }),
+        room_code: '505',
+      }),
+    ]);
+    expect(opera('DE|DA261004|TI020002|')).toMatchObject({
+      ok: true,
+      records: [{ kind: 'SYNC_END' }],
+    });
+  });
+
+  it('link records produce nothing; OWS messages are not this connector’s', () => {
+    expect(opera('LA|DA261004|TI020000|')).toEqual({ ok: true, records: [] });
+    expect(opera('x', 'OWS_RESERVATION')).toEqual({
+      ok: false,
+      error: 'unsupported message type OWS_RESERVATION',
+    });
+  });
+
+  it('declares only predefined commands, room-status writes behind their own capability', () => {
+    const m = opera5FiasAdapter.manifest;
+    expect(m.commands.map((c) => [c.code, c.requires])).toEqual([
+      ['RESYNC_IN_HOUSE', 'RECONCILIATION_READ'],
+      ['SET_ROOM_STATUS', 'ROOM_STATUS_WRITE'],
+    ]);
+    expect(m.capabilities).not.toContain('RESERVATION_READ');
   });
 });
 

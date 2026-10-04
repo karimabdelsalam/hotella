@@ -195,7 +195,10 @@ describe.skipIf(needsInfra())(`Housekeeping cleaning jobs (${infraSkipReason()})
       )
     ).rows as Array<{ command_type: string; payload: unknown }>;
     expect(commands).toEqual([
-      { command_type: 'SET_ROOM_STATUS', payload: { room_number: '101', status: 'CLEAN' } },
+      {
+        command_type: 'SET_ROOM_STATUS',
+        payload: { room_number: '101', status: 'CLEAN', occupied: false },
+      },
     ]);
   });
 

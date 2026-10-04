@@ -753,12 +753,19 @@ export class JobService {
       if (instances.length === 0) return;
       const room = await this.org.getRoom(scope.tenantId, scope.propertyId, roomId);
       if (!room) return;
+      // FIAS room status codes carry occupancy; the PMS's own occupancy as this projection last saw it.
+      const state = await this.tx.read(() => this.repo.state(scope, roomId));
+      const occupied = state ? state.occupancy === 'OCCUPIED' : undefined;
       for (const instance of instances)
         await this.integrations.requestCommand({
           tenantId: scope.tenantId,
           integrationInstanceId: instance.id,
           commandType: 'SET_ROOM_STATUS',
-          payload: { room_number: room.roomNumber, status },
+          payload: {
+            room_number: room.roomNumber,
+            status,
+            ...(occupied === undefined ? {} : { occupied }),
+          },
           // One write per job outcome: a repeated work item event does not send it twice.
           idempotencyKey: `hk-room-status-${jobId}-${status}`,
           requestedBy: { type: 'SYSTEM', id: null },

@@ -7,7 +7,7 @@ import {
   parsedRecords,
   type RawInboundMessage,
 } from '@hotella/contracts-connectors';
-import { parseFiasRecord } from './fias';
+import { parseFiasRecord } from '../fias';
 import { parseOwsProfile, parseOwsReservation } from './ows';
 
 /**
@@ -67,6 +67,7 @@ export const SIM_PMS_MANIFEST = defineConnector({
         .object({
           room_number: z.string().min(1).max(16),
           status: z.enum(['DIRTY', 'CLEAN', 'INSPECTED']),
+          occupied: z.boolean().optional(),
         })
         .strict(),
     },

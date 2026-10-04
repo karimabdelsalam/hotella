@@ -1,12 +1,14 @@
 import { type InboundRecordInput, localDateTimeToUtc } from '@hotella/contracts-connectors';
 
 /**
- * FIAS-shaped record parsing for the simulator's event-stream face (ADR-0014). Records look like real FIAS records:
- * a two-letter record id followed by `|`-separated fields, each a two-character field id and its value, e.g.
- * `GI|RN504|G#10001|GNSmith|GFJane|GLen|GA261003|GD261006|DA261003|TI140500|`.
+ * FIAS record parsing, shared by `OPERA5_FIAS` (the hotel agent's IFC8 link) and the simulator's FIAS-shaped face
+ * (ADR-0014). A record is a two-letter record id followed by `|`-separated fields, each a two-character field id and
+ * its value, e.g. `GI|RN504|G#10001|GNSmith|GFJane|GLen|GA261003|GD261006|DA261003|TI140500|`.
  *
- * Only in-house events exist on this face (FIAS knows no future reservations). Times are hotel wall-clock (DA/TI)
- * and converted with the property timezone.
+ * Only in-house events exist (FIAS knows no future reservations). Times are hotel wall-clock (DA/TI) and converted
+ * with the property timezone. A database sync is DS … DE around the in-house list: OPERA sends each stay as a `GI`
+ * carrying the sync flag `SF`, the simulator as `DR`; both are snapshot entries for reconciliation, never check-ins
+ * (a difference is a person's decision, not a silent fix).
  */
 
 export type FiasFields = ReadonlyMap<string, string>;
@@ -104,6 +106,15 @@ export function parseFiasRecord(
   const at = fiasInstant(fields, context.timezone, context.receivedAt);
   switch (id) {
     case 'GI': {
+      if (fields.has('SF'))
+        return [
+          {
+            kind: 'IN_HOUSE_ENTRY',
+            reservation: { external_id: required(fields, 'G#', 'reservation number') },
+            room_code: fields.get('RN')?.trim() || null,
+            occurred_at: at,
+          },
+        ];
       const arrival = fields.get('GA') ? fiasDate(fields.get('GA'), 'GA') : at.slice(0, 10);
       return [
         {

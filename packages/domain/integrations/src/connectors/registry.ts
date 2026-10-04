@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import type { ConnectorAdapter, ConnectorManifest } from '@hotella/contracts-connectors';
+import { opera5FiasAdapter } from './opera5';
 import { simPmsAdapter } from './sim-pms';
 
 /**
  * Platform-side connector adapters (Spec §56). Adding a connector means adding an adapter here (Phase 10: OPERA 5
- * FIAS / OWS / DB-view); core domains never change because they only see canonical events.
+ * FIAS from 10.2, OWS and DB-view later); core domains never change because they only see canonical events.
  */
-export const CONNECTOR_ADAPTERS: readonly ConnectorAdapter[] = [simPmsAdapter];
+export const CONNECTOR_ADAPTERS: readonly ConnectorAdapter[] = [simPmsAdapter, opera5FiasAdapter];
 
 export class ConnectorRegistry {
   private readonly byCode = new Map<string, ConnectorAdapter>();
