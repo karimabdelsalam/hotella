@@ -16,6 +16,7 @@ const SECTIONS = [
   ['engineering', 'eng.work_order.read'],
   ['inspections', 'inspection.read'],
   ['relations', 'complaint.read'],
+  ['lostfound', 'lostfound.register'],
   ['arrivals', 'hk.arrivals.read'],
   ['branding', 'branding.manage'],
 ] as const;

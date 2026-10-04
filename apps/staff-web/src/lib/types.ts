@@ -355,3 +355,64 @@ export interface ComplaintCandidate {
   readonly createdAt: string;
   readonly version: number;
 }
+
+// ---- lost & found (see the lostfound context's item service) ----
+
+export type LostFoundStatus = 'REGISTERED' | 'MATCHED' | 'CLAIMED' | 'RELEASED' | 'DISPOSED';
+
+export interface LostFoundItem {
+  readonly id: string;
+  readonly number: number;
+  readonly kind: 'FOUND' | 'LOST';
+  readonly category: string;
+  readonly colour: string | null;
+  readonly brand: string | null;
+  readonly description: string;
+  readonly roomNumber: string | null;
+  readonly placeNote: string | null;
+  readonly occurredAt: string;
+  readonly storageLocation: string | null;
+  readonly photoKeys: readonly string[];
+  readonly valuable: boolean;
+  readonly status: LostFoundStatus;
+  readonly retentionUntil: string | null;
+  readonly retentionDue: boolean;
+  readonly version: number;
+}
+
+export interface LostFoundMatch {
+  readonly id: string;
+  readonly score: number;
+  readonly reasons: readonly string[];
+  readonly status: 'PROPOSED' | 'CONFIRMED' | 'REJECTED';
+  readonly version: number;
+  readonly found: LostFoundItem;
+  readonly lost: LostFoundItem;
+}
+
+export interface LostFoundDetail extends LostFoundItem {
+  readonly ai: {
+    readonly objectType: string | null;
+    readonly colours: readonly string[];
+    readonly brand: string | null;
+  } | null;
+  readonly matches: ReadonlyArray<{
+    readonly id: string;
+    readonly score: number;
+    readonly reasons: readonly string[];
+    readonly status: 'PROPOSED' | 'CONFIRMED' | 'REJECTED';
+    readonly other: LostFoundItem;
+  }>;
+  readonly claim: {
+    readonly claimantName: string;
+    readonly idDocument: string;
+    readonly handover: string;
+    readonly releasedAt: string;
+  } | null;
+  readonly history: ReadonlyArray<{
+    readonly id: string;
+    readonly event: string;
+    readonly note: string | null;
+    readonly createdAt: string;
+  }>;
+}
