@@ -2280,6 +2280,133 @@ Phase 11 does not wait for pilot-specific IFC8/OWS details.
 ### Phase 11 — Licensing & Control Plane (M4b)
 `license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent. Developer platform v1 (Spec §75): API clients with scoped keys, signed outbound webhooks with retry/DLQ/replay (ADR-0012), OAuth clients later; no untrusted code plugins in the runtime.
 
+**Goal / acceptance (Spec §58–§64, §75; CLAUDE.md rule 14):** a platform administrator defines a plan once (modules,
+AI and connector entitlements, limits), publishes it as an immutable version and subscribes a tenant — tenant-wide or
+for chosen properties; from that moment every human, guest and AI action passes the real entitlement stage of the
+action gate, the staff and guest apps offer only what the property is entitled to, the hotel agent's offline licence
+carries only entitled connector capabilities, usage is metered idempotently and aggregated for reporting, and hard
+limits stop the action that would exceed them with a localized reason. No business code compares plan names; every
+check is `EntitlementEngine.can(…)`. Billing (invoices, payment) stays out: entitlement ≠ billing (Spec §58).
+
+#### 11.A Domain model (schema `license`; data class INTERNAL unless stated)
+```text
+products(id, code, status)                    + product_translations(product_id, locale, name, description)
+modules(id, product_id, code, kind MODULE|AI|CONNECTOR|ADDON, status)
+                                              + module_translations   — the entitlement-code catalog of Spec §59
+features(id, module_id, code, default_included bool, status)
+                                              + feature_translations  — finer capabilities inside a module
+metrics(code, unit, kind COUNTER|GAUGE, aggregation SUM|MAX, status)
+                                              + metric_translations   — Spec §61 usage metrics
+plans(id, code, status ACTIVE|RETIRED)        + plan_translations
+plan_versions(id, plan_id, version_no, status DRAFT|PUBLISHED|RETIRED, published_at, published_by, notes)
+                                              — immutable once published (trigger, CLAUDE.md rule 9)
+plan_version_items(plan_version_id, capability_code)          — modules/features the version grants
+plan_version_limits(plan_version_id, metric_code, scope TENANT|PROPERTY, period NONE|DAY|MONTH,
+                    limit_value, enforcement SOFT|HARD)
+subscriptions(id, tenant_id, plan_version_id, scope TENANT|PROPERTIES, status TRIAL|ACTIVE|PAST_DUE|SUSPENDED|
+              CANCELLED|EXPIRED, starts_at, ends_at, grace_days, external_ref, version)
+subscription_properties(subscription_id, tenant_id, property_id)            — when scope = PROPERTIES
+subscription_history(id, subscription_id, tenant_id, from_status, to_status, plan_version_id, actor, reason, at)
+entitlement_grants(id, tenant_id, property_id null, capability_code, source MANUAL|TRIAL|PROMO, valid_from,
+                   valid_until, reason, granted_by, revoked_at, revoked_by, revoke_reason)  — never deleted
+limit_overrides(id, tenant_id, property_id null, metric_code, limit_value, enforcement, valid_until, reason,
+                set_by, revoked_at)
+usage_events(id, tenant_id, property_id null, metric_code, quantity, occurred_at, source, idempotency_key)
+                                              — unique (tenant_id, idempotency_key); retention 400 days
+usage_aggregates(tenant_id, property_key, metric_code, granularity DAY|MONTH, period_start, quantity, updated_at)
+                                              — property_key = property id or the tenant sentinel; upserted
+usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
+```
+`external_ref` on a subscription is the billing system's reference (opaque, CONFIDENTIAL), never an id here.
+
+#### 11.B Design decisions taken before coding
+- **New bounded context `packages/domain/licensing`** (schema `license`, permission prefix `license.`) with a public
+  API `ENTITLEMENT_API` (`can`, `explain`, `effective`, `limitStatus`) and `USAGE_API` (`record`). It depends on no
+  other domain: tenants and properties are ids; contexts that need entitlements depend on its `public` entry.
+- **Effective entitlements** for (tenant, property) are computed, never stored: the union of the plan-version items of
+  every subscription that covers the property and is *in force* (TRIAL/ACTIVE, or PAST_DUE within `grace_days` after
+  `ends_at`), plus unrevoked manual/trial/promo grants valid now (tenant-wide or for that property). A feature is
+  entitled by its own code, or by its module's code when `default_included`. `CORE` is mandatory in every published
+  plan version (publish refuses otherwise). Pure function, unit-tested; results cached in Valkey per
+  (tenant, property) for 60 s and dropped on `license.entitlements.changed.v1` (Spec §2.3 entitlement cache).
+- **The action-gate stage** (`ENTITLEMENT_STAGE`, composed by `apps/api` and `apps/worker`): requests with a null
+  tenant (platform-level actions) pass; the required code is `request.entitlement` when given, otherwise the
+  entitlement declared by the module manifest that owns the permission (`hk.*` → `HOUSEKEEPING`, `eng.*` →
+  `ENGINEERING`, …; modules without one → `CORE`). **SYSTEM and INTEGRATION actors are not gated** — PMS truth,
+  checkout revocations, SLA timers and retention keep running when a subscription lapses (integrity and security over
+  commerce); USER, GUEST, AI_AGENT and SUPPORT actors are. A refusal is `403 license.not_entitled` with the capability.
+  Domain test harnesses keep composing without the stage (pass-through), so module tests stay independent.
+- **Codes:** the catalog seeds Spec §59 (`CORE`, `GUEST_EXPERIENCE`, `HOUSEKEEPING`, `ENGINEERING`, `INSPECTIONS`,
+  `GUEST_RELATIONS`, `LOST_FOUND`, `LOGBOOK`, `AI_PRO`, `AI_INTELLIGENCE`, `VOICE_AI`; `AI_CORE`, `AI_GUEST`,
+  `AI_STAFF`, `AI_HOUSEKEEPING`, `AI_ENGINEERING`, `AI_MANAGER`, `AI_VISION`, `AI_VOICE`, `AI_PREDICTIVE`;
+  `CONNECTOR_PMS`, `CONNECTOR_OPERA5`, `CONNECTOR_OPERA_CLOUD`, `CONNECTOR_POS`, `CONNECTOR_BMS`, `CONNECTOR_PBX`,
+  `CONNECTOR_ERP`, `CONNECTOR_WIFI`; `API_ACCESS`, `WHITE_LABEL`). A manifest test fails when a module manifest
+  declares an entitlement the catalog does not know (lost & found's manifest moves to the spec's `LOST_FOUND`).
+  Catalog/communications manifests declare `GUEST_EXPERIENCE`.
+- **AI:** each agent version names its AI entitlement (`GUEST_CONCIERGE` → `AI_GUEST`, `ENGINEERING_COPILOT` →
+  `AI_ENGINEERING`, `SHIFT_HANDOVER` → `AI_MANAGER`); the AI runtime asks `ENTITLEMENT_API.can` before running an
+  agent and answers with the usual localized "not available" when not entitled; tools stay gated by their module's
+  entitlement through the stage (AI_AGENT actors are gated).
+- **Limits** (Spec §61): `ACTIVE_PROPERTIES`, `ACTIVE_STAFF` and monthly `AI_*_TOKENS`, `WHATSAPP_CONVERSATIONS`,
+  `API_CALLS`, `STORAGE_BYTES`. The effective limit is the most generous of the in-force plan versions, replaced by an
+  unrevoked override. HARD limits refuse the action that would cross them (`409 license.limit_reached`, through
+  `ENTITLEMENT_API.limitStatus` in the owning service: property creation, staff invitation); SOFT limits raise one
+  deduplicated alert per period. The AI monthly budget of Phase 6 stays the cost cap; token limits are commercial.
+- **Usage metering:** `USAGE_API.record` (idempotency key required; a repeat is a no-op) and pull collectors with a
+  cursor per source — AI model calls (tokens, vision), conversations opened per channel (WhatsApp), active staff and
+  properties (daily gauge), stored object bytes (daily gauge), API calls (HTTP interceptor, flushed per minute per
+  process with a window key). Aggregation upserts DAY and MONTH rows in the same transaction; reports read aggregates
+  only. Usage rows carry no personal data.
+- **Agent licence (Spec §62):** `link.service` issues the licence only when the tenant is entitled to the connector's
+  entitlement at the property (`SIM_PMS` → `CONNECTOR_PMS`, `OPERA5_*` → `CONNECTOR_OPERA5`); capabilities stay the
+  instance's enabled ones; expiry is the earlier of 30 days and the covering subscription's end plus grace. Not
+  entitled ⇒ no licence: the agent keeps buffering PMS records and refuses commands after its grace (10.4 behaviour).
+- **Control plane (Spec §63):** platform-administrator APIs under `/control/…` plus the existing `/tenants`, `/ai`,
+  `/support-access` routes; no control-plane screen shows guest data. The UI is a platform-admin area of staff-web
+  (`/[locale]/control`), hidden from hotel staff, LTR/RTL verified.
+- **Developer platform v1 (Spec §75, ADR-0012):** API clients live in identity (`iam.api_clients`: tenant, property
+  scope, permission scopes ⊆ the creator's, hashed secret, prefix shown once, expiry, last use, revocation; actor
+  `INTEGRATION` with `apiClient` set, which *is* gated by entitlement `API_ACCESS` and the scopes); outbound webhooks
+  live in integrations (`integration.webhook_endpoints`, `integration.webhook_deliveries`: event filter, secret as a
+  `SecretRef`, HMAC-SHA256 over `timestamp.body`, exponential retry, dead letter, replay), fed from the outbox.
+
+#### 11.C Sprints and progress
+
+| Sprint | Scope | Status |
+|---|---|---|
+| 11.0 | This section | delivered |
+| 11.1 | Licensing context: catalog (products, modules, features, metrics) seeded from Spec §59/§61, plans and immutable plan versions with items and limits, control-plane plan API, manifest ↔ catalog test | planned |
+| 11.2 | Subscriptions (scope, status machine, history), manual grants, `EntitlementEngine` with cache and invalidation, real `ENTITLEMENT_STAGE` in api/worker, HARD/SOFT limits, AI agent entitlements, agent licence from entitlements, `GET /me/entitlements` and staff/guest apps hiding unentitled modules, CI/pilot subscribe step | planned |
+| 11.3 | Usage metering: `USAGE_API.record`, collectors with cursors, DAY/MONTH aggregates, usage report API, SOFT-limit alerts | planned |
+| 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | planned |
+| 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | planned |
+| 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`) | planned |
+
+**APIs (all mutations through `ActionGate`, audited).**
+| Route | Permission |
+|---|---|
+| `GET /control/license/catalog` (modules, features, metrics with translations) | `license.catalog.read` |
+| `POST /control/license/plans`, `GET /control/license/plans[/:id]` | `license.plan.manage` |
+| `POST /control/license/plans/:id/versions` (new draft, optionally copied), `PUT …/versions/:versionId` (draft only), `POST …/versions/:versionId/publish`, `POST …/versions/:versionId/retire` | `license.plan.manage` |
+| `GET/POST /control/tenants/:tenantId/subscriptions`, `POST …/subscriptions/:id/transition` (status + reason), `POST …/subscriptions/:id/properties` | `license.subscription.manage` |
+| `GET/POST /control/tenants/:tenantId/grants`, `POST …/grants/:id/revoke` | `license.grant.manage` |
+| `GET/POST /control/tenants/:tenantId/limit-overrides`, `POST …/:id/revoke` | `license.grant.manage` |
+| `GET /control/tenants/:tenantId/entitlements?propertyId=` (effective, with sources and limits) | `license.entitlement.read` |
+| `GET /control/tenants/:tenantId/usage?metric&from&to&granularity&propertyId` | `license.usage.read` |
+| `GET /me/entitlements?propertyId=` (codes only, for the apps' navigation) | authenticated staff of the property |
+| `GET /tenants/:tenantId/license` (the tenant's own plan, entitlements and usage, read-only) | `license.tenant.read` |
+
+**Events.** `license.plan_version.published.v1`, `license.subscription.changed.v1`,
+`license.entitlements.changed.v1` (tenant, property or null, reason — cache invalidation, agent licence refresh, apps),
+`license.limit.reached.v1` (tenant, property, metric, enforcement, period).
+
+**Tests.** Unit: effective-entitlement rule (scopes, statuses, grace, features by default, grants, revocations),
+limit resolution, stage derivation from manifests and actor rules, plan-version immutability. Integration (real
+Postgres/Valkey): catalog seed, publish trigger, subscriptions and history, idempotent usage events and aggregates,
+cache invalidation, tenant-leak test (`/tenants/:other/license` 404, grants of another tenant invisible).
+e2e: the CI pilot subscribes `PILOT` to the seeded plan before the smokes; a smoke proves a module refused without
+entitlement and allowed after a grant; agent licence absent without `CONNECTOR_*`.
+
 ### Phase 12 — Advanced Intelligence
 GM/duty-manager intelligence, cross-property analysis, insight/recommendation engine with evidence (Spec §38), evaluation sets/runs, shadow & canary agent versions, predictive models where data supports, cost optimization and quality metrics dashboards (Spec §41). Operational digital-twin read model (Spec §80): a graph-shaped projection (property → rooms → stays/guests/assets/tasks/incidents/conversations) built from existing domain events, used by Manager AI and arrival-risk; it is a projection, never a source of truth. Controlled agent collaboration (Spec §43): specialist agents callable as capabilities with structured results, no free-form agent swarms.
 
