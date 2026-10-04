@@ -135,3 +135,16 @@ export const usageQuerySchema = z
     path: ['to'],
   });
 export type UsageQuery = z.infer<typeof usageQuerySchema>;
+
+export const attributionSchema = z.object({ showPoweredBy: z.boolean(), reason });
+export type AttributionInput = z.infer<typeof attributionSchema>;
+
+export const setFlagSchema = z.object({
+  key: z.string().regex(/^[a-z][a-z0-9_.-]{1,127}$/),
+  scope: z.enum(['PLATFORM', 'TENANT', 'PROPERTY']),
+  scopeId: z.uuid().nullish(),
+  enabled: z.boolean(),
+  description: z.string().trim().max(500).nullish(),
+  reason,
+});
+export type SetFlagInput = z.infer<typeof setFlagSchema>;

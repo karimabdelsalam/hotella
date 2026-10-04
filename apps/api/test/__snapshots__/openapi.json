@@ -12321,6 +12321,153 @@
         ]
       }
     },
+    "/api/v1/control/subscriptions": {
+      "get": {
+        "operationId": "ControlPlaneController_subscriptions",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ControlPlane"
+        ]
+      }
+    },
+    "/api/v1/control/tenants/{tenantId}/attribution": {
+      "get": {
+        "operationId": "ControlPlaneController_attribution",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ControlPlane"
+        ]
+      },
+      "put": {
+        "operationId": "ControlPlaneController_setAttribution",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttributionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ControlPlane"
+        ]
+      }
+    },
+    "/api/v1/control/feature-flags": {
+      "get": {
+        "operationId": "ControlPlaneController_flags",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ControlPlane"
+        ]
+      },
+      "put": {
+        "operationId": "ControlPlaneController_setFlag",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFeatureFlagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ControlPlane"
+        ]
+      }
+    },
     "/api/v1/control/license/catalog": {
       "get": {
         "operationId": "LicenseCatalogController_list",
@@ -20083,6 +20230,65 @@
         },
         "required": [
           "version"
+        ]
+      },
+      "AttributionDto": {
+        "type": "object",
+        "properties": {
+          "showPoweredBy": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "showPoweredBy",
+          "reason"
+        ]
+      },
+      "SetFeatureFlagDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PLATFORM",
+              "TENANT",
+              "PROPERTY"
+            ]
+          },
+          "scopeId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "nullable": true
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "key",
+          "scope",
+          "enabled",
+          "reason"
         ]
       },
       "CreateLicensePlanDto": {

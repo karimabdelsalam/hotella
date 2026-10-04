@@ -60,7 +60,11 @@ export interface ConversationDetail extends ConversationSummary {
 }
 
 export interface Me {
-  readonly user: { readonly id: string; readonly tenantId: string | null };
+  readonly user: {
+    readonly id: string;
+    readonly tenantId: string | null;
+    readonly isPlatformAdmin?: boolean;
+  };
   readonly memberships: ReadonlyArray<{
     readonly propertyId: string | null;
     readonly permissions: readonly string[];

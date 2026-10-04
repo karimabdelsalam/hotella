@@ -4,8 +4,11 @@ export {
   LicensingWorkerModule,
   USAGE_GAUGES_JOB,
   USAGE_PURGE_JOB,
+  WHITE_LABEL_JOB,
 } from './licensing.module';
 export { UsageService } from './application/usage.service';
+export { ControlPlaneService, WHITE_LABEL } from './application/control.service';
+export { WhiteLabelSweep } from './application/white-label.sweep';
 export { LicenseCatalogService } from './application/catalog.service';
 export { PlanService } from './application/plan.service';
 export { EntitlementEngine } from './application/entitlement-engine';

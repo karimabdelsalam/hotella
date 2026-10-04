@@ -1905,6 +1905,9 @@ importers:
       '@hotella/platform-events':
         specifier: workspace:*
         version: link:../../platform/events
+      '@hotella/platform-flags':
+        specifier: workspace:*
+        version: link:../../platform/flags
       '@hotella/platform-i18n':
         specifier: workspace:*
         version: link:../../platform/i18n
@@ -1917,6 +1920,9 @@ importers:
       '@hotella/platform-queue':
         specifier: workspace:*
         version: link:../../platform/queue
+      '@hotella/platform-settings':
+        specifier: workspace:*
+        version: link:../../platform/settings
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -1930,9 +1936,6 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@hotella/platform-flags':
-        specifier: workspace:*
-        version: link:../../platform/flags
       '@hotella/platform-http':
         specifier: workspace:*
         version: link:../../platform/http

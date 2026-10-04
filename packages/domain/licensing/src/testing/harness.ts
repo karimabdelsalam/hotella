@@ -36,10 +36,12 @@ import { HttpConventionsModule } from '@hotella/platform-http';
 import { I18nModule } from '@hotella/platform-i18n';
 import { defineManifest, ManifestModule, ManifestRegistry } from '@hotella/platform-manifest';
 import { ObservabilityModule } from '@hotella/platform-observability';
+import { SettingsModule } from '@hotella/platform-settings';
 import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import { LicenseCatalogService } from '../application/catalog.service';
 import { LicensingCoreModule, LicensingModule } from '../licensing.module';
+import { WhiteLabelSweep } from '../application/white-label.sweep';
 
 /** Test-only composition of the licensing context with the platform it needs; tenants are inserted as rows. */
 
@@ -77,7 +79,8 @@ class DemoController {
   }
 }
 
-@Module({ controllers: [DemoController] })
+/** The worker's white-label sweep, so tests can run it in this API-shaped app. */
+@Module({ controllers: [DemoController], providers: [WhiteLabelSweep] })
 class DemoModule implements OnModuleInit {
   constructor(private readonly manifests: ManifestRegistry) {}
   onModuleInit(): void {
@@ -137,6 +140,7 @@ export async function startLicensingApp(
       FeatureFlagsModule,
       ManifestModule.forRoot(),
       AuditModule,
+      SettingsModule,
       AuthModule.forRoot({
         strategy: { provide: AUTHENTICATION_STRATEGY, useClass: HeaderActorStrategy },
         resolver: { provide: PERMISSION_RESOLVER, useValue: new StaticPermissionResolver(grants) },

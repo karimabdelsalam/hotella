@@ -5,6 +5,7 @@ import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { ENTITLEMENT_STAGE } from '@hotella/platform-auth';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import {
+  ControlPlaneController,
   LicenseCatalogController,
   MyEntitlementsController,
   TenantLicenseController,
@@ -18,6 +19,9 @@ import { LicenseViewService } from './application/license-view.service';
 import { PlanService } from './application/plan.service';
 import { SubscriptionService } from './application/subscription.service';
 import { UsageService } from './application/usage.service';
+import { ControlPlaneService } from './application/control.service';
+import { WhiteLabelSweep } from './application/white-label.sweep';
+import { AttributionPolicyService } from '@hotella/platform-settings';
 import { UsageRepositories } from './infrastructure/usage-repositories';
 import { CatalogRepositories } from './infrastructure/repositories';
 import { TenantLicenseRepositories } from './infrastructure/tenant-repositories';
@@ -47,6 +51,7 @@ import { ENTITLEMENT_API, USAGE_API, USAGE_GAUGES } from './public';
   ],
   exports: [
     CatalogRepositories,
+    TenantLicenseRepositories,
     LicenseCatalogService,
     PlanService,
     EntitlementEngine,
@@ -74,7 +79,9 @@ export class LicensingCoreModule {
 /** Control-plane and tenant routes and the manifest, for the API process. */
 @Module({
   imports: [LicensingCoreModule],
+  providers: [ControlPlaneService],
   controllers: [
+    ControlPlaneController,
     LicenseCatalogController,
     TenantLicenseController,
     TenantOwnLicenseController,
@@ -90,18 +97,26 @@ export class LicensingModule implements OnModuleInit {
 
 export const USAGE_GAUGES_JOB = 'license.usage.gauges';
 export const USAGE_PURGE_JOB = 'license.usage.purge';
+export const WHITE_LABEL_JOB = 'license.white_label.sweep';
 
-/** Worker side: the daily gauge samples (checked hourly, once per day) and the retention of usage events. */
-@Module({ imports: [LicensingCoreModule] })
+/**
+ * Worker side: the daily gauge samples (checked hourly, once per day), the retention of usage events and the daily
+ * white-label check (the worker composes settings without routes, so the attribution service is provided here).
+ */
+@Module({ imports: [LicensingCoreModule], providers: [AttributionPolicyService, WhiteLabelSweep] })
 export class LicensingWorkerModule implements OnModuleInit {
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly consumers: EventConsumerRegistry,
     private readonly queues: QueueRegistry,
     private readonly usage: UsageService,
+    private readonly whiteLabel: WhiteLabelSweep,
     @InjectLogger() private readonly logger: Logger,
   ) {}
   async onModuleInit(): Promise<void> {
+    this.consumers.onJob(WHITE_LABEL_JOB, async () => {
+      await this.whiteLabel.run();
+    });
     this.consumers.onJob(USAGE_GAUGES_JOB, async () => {
       const n = await this.usage.sampleGauges();
       if (n > 0) this.logger.info({ samples: n }, 'usage gauges sampled');
@@ -114,6 +129,7 @@ export class LicensingWorkerModule implements OnModuleInit {
     for (const [job, every] of [
       [USAGE_GAUGES_JOB, 3_600_000],
       [USAGE_PURGE_JOB, 86_400_000],
+      [WHITE_LABEL_JOB, 86_400_000],
     ] as const)
       await this.queues.queue('normal').upsertJobScheduler(
         job,
@@ -124,6 +140,9 @@ export class LicensingWorkerModule implements OnModuleInit {
           opts: { removeOnComplete: 10, removeOnFail: 50 },
         },
       );
-    this.logger.info({ jobs: [USAGE_GAUGES_JOB, USAGE_PURGE_JOB] }, 'licensing schedule armed');
+    this.logger.info(
+      { jobs: [USAGE_GAUGES_JOB, USAGE_PURGE_JOB, WHITE_LABEL_JOB] },
+      'licensing schedule armed',
+    );
   }
 }

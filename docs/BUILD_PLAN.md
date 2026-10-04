@@ -2381,7 +2381,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 | 11.1 | Licensing context: catalog (products, modules, features, metrics) seeded from Spec §59/§61, plans and immutable plan versions with items and limits, control-plane plan API, manifest ↔ catalog test | delivered (manifest ↔ catalog test moves to 11.2 with the stage) |
 | 11.2 | Subscriptions (scope, status machine, history), manual grants, `EntitlementEngine` with cache and invalidation, real `ENTITLEMENT_STAGE` in api/worker, HARD/SOFT limits, AI agent entitlements, agent licence from entitlements, `GET /me/entitlements` and staff/guest apps hiding unentitled modules, CI/pilot subscribe step | delivered (SOFT-limit alerts in 11.3; guest web: the API refuses, nothing to hide yet) |
 | 11.3 | Usage metering: `USAGE_API.record`, collectors with cursors, DAY/MONTH aggregates, usage report API, SOFT-limit alerts | delivered (alerts as `license.limit.reached.v1`; STORAGE_BYTES, VOICE_MINUTES and API_CALLS wait for their producers, see notes) |
-| 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | planned |
+| 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | delivered (screens: tenants and plans; flags, connectors, AI providers, support access and health stay API/Grafana, see notes) |
 | 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | planned |
 | 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`) | planned |
 
@@ -2454,6 +2454,23 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 - Tests: `usage.integration.spec.ts` (idempotency, aggregates, rollback with the caller, notices once per period,
   HARD room, gauges once a day with maximum, reports and tenant isolation, retention), AI metering / HARD limit /
   entitlement in `staff-assistant.integration.spec.ts`, WhatsApp metering in `messaging.integration.spec.ts`.
+
+**Reality notes for 11.4 (delivered).**
+- API (licensing, platform administrators): `GET /control/subscriptions` (every tenant's subscriptions with plan,
+  for the overview), `GET|PUT /control/tenants/:tenantId/attribution` and `GET|PUT /control/feature-flags` (reason
+  required, audited; flags stay release control, Spec §60).
+- White label (CLAUDE.md rule 15): "Powered by Planova" can be hidden only while the tenant holds `WHITE_LABEL`
+  (`403 license.not_entitled` otherwise; the policy cites `license:WHITE_LABEL`), and the worker's daily
+  `license.white_label.sweep` shows it again — audited `platform.attribution_policy.restore` — once the entitlement
+  ends (`AttributionPolicyService.restore`, always allowed because showing is the safe default).
+- Staff web `/[locale]/control` for platform administrators only (header link only for them; hotel staff get a
+  plain refusal): tenants with licence status, subscriptions (subscribe to a published version, suspend, resume),
+  effective entitlements and limits, extra grants (grant, revoke), this month's usage, the attribution switch; plans
+  with versions, a new-plan form (en/ar names) and the draft editor (capabilities by kind, save, publish). Every
+  change takes a reason. No guest or operational data is read. Playwright en/ar in `e2e/control.spec.ts`.
+- Kept as API or existing tools in this sprint (no new screens): the AI provider and model registry (`/ai/providers`,
+  `/ai/models`, Phase 6), connector manifests (per property, `/properties/:id/integrations/connectors`), support
+  access (`/support-access`, Phase 1) and system health (`/ready`, the Grafana stack of ADR-0013).
 
 **APIs (all mutations through `ActionGate`, audited).**
 | Route | Permission |

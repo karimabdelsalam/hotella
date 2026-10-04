@@ -38,6 +38,13 @@ export class TenantLicenseRepositories {
     const [row] = await this.x.insert(subscriptions).values(values).returning();
     return row!;
   }
+  /** Platform-level overview for the control plane (Spec §63): every tenant's subscriptions, no tenant data. */
+  allSubscriptions(): Promise<SubscriptionRow[]> {
+    return this.x
+      .select()
+      .from(subscriptions)
+      .orderBy(asc(subscriptions.tenantId), desc(subscriptions.startsAt));
+  }
   subscription(scope: TenantScope, id: string): Promise<SubscriptionRow | undefined> {
     return this.x
       .select()

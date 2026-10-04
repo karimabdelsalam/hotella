@@ -30,7 +30,48 @@ export class AttributionPolicyService {
     return attributionFor(row);
   }
 
-  /** Control-plane operation (no HTTP route until Phase 11). */
+  /** Tenants whose attribution is hidden (the licensing context checks their white-label entitlement daily). */
+  async hiddenTenants(): Promise<string[]> {
+    const rows = await executor(this.db)
+      .select({ tenantId: attributionPolicies.tenantId })
+      .from(attributionPolicies)
+      .where(eq(attributionPolicies.showPoweredBy, false));
+    return rows.map((r) => r.tenantId);
+  }
+
+  /**
+   * Shows the attribution again — always allowed, it is the safe default (used when the white-label entitlement that
+   * justified hiding it has ended). Audited with the reason; a no-op when it is already shown.
+   */
+  async restore(tenantId: string, reason: string): Promise<boolean> {
+    return this.tx.run(async () => {
+      const [row] = await executor(this.db)
+        .update(attributionPolicies)
+        .set({
+          showPoweredBy: true,
+          overrideEntitlementRef: null,
+          version: sql`${attributionPolicies.version} + 1`,
+        })
+        .where(
+          sql`${attributionPolicies.tenantId} = ${tenantId} and ${attributionPolicies.showPoweredBy} = false`,
+        )
+        .returning();
+      if (!row) return false;
+      await this.audit.record({
+        action: 'platform.attribution_policy.restore',
+        entityType: 'attribution_policy',
+        entityId: tenantId,
+        tenantId,
+        propertyId: null,
+        before: { showPoweredBy: false },
+        after: { showPoweredBy: true },
+        reason,
+      });
+      return true;
+    });
+  }
+
+  /** Control-plane operation (the licensing context's `/control/tenants/:id/attribution` checks WHITE_LABEL). */
   set(
     tenantId: string,
     policy: { showPoweredBy: boolean; overrideEntitlementRef: string | null },

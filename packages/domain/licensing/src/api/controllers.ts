@@ -2,11 +2,13 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query } from 
 import { createZodDto } from 'nestjs-zod';
 import { PropertyScoped, RequirePermission, TenantScoped } from '@hotella/platform-auth';
 import { LicenseCatalogService } from '../application/catalog.service';
+import { ControlPlaneService } from '../application/control.service';
 import { GrantService } from '../application/grant.service';
 import { LicenseViewService } from '../application/license-view.service';
 import { SubscriptionService } from '../application/subscription.service';
 import { PlanService } from '../application/plan.service';
 import {
+  attributionSchema,
   changeSubscriptionSchema,
   createDraftSchema,
   createGrantSchema,
@@ -16,6 +18,7 @@ import {
   entitlementQuerySchema,
   usageQuerySchema,
   revokeSchema,
+  setFlagSchema,
   transitionSubscriptionSchema,
   updateDraftSchema,
   updatePlanSchema,
@@ -245,5 +248,46 @@ export class MyEntitlementsController {
   @PropertyScoped({ from: 'query', optional: true })
   mine(@Query() query: EntitlementQueryDto) {
     return this.views.mine(query.propertyId ?? null);
+  }
+}
+
+class AttributionDto extends createZodDto(attributionSchema) {}
+class SetFeatureFlagDto extends createZodDto(setFlagSchema) {}
+
+/** The rest of the control plane: tenant overview, white-label attribution, feature flags (Spec §63). */
+@Controller('control')
+export class ControlPlaneController {
+  constructor(private readonly control: ControlPlaneService) {}
+
+  @Get('subscriptions')
+  @RequirePermission('license.subscription.manage', { checkedBy: 'gate' })
+  subscriptions() {
+    return this.control.subscriptions();
+  }
+
+  @Get('tenants/:tenantId/attribution')
+  @TenantScoped({ from: 'param' })
+  @RequirePermission('license.attribution.manage', { checkedBy: 'gate' })
+  attribution(@Param('tenantId') tenantId: string) {
+    return this.control.attributionOf({ tenantId });
+  }
+
+  @Put('tenants/:tenantId/attribution')
+  @TenantScoped({ from: 'param' })
+  @RequirePermission('license.attribution.manage', { checkedBy: 'gate' })
+  setAttribution(@Param('tenantId') tenantId: string, @Body() body: AttributionDto) {
+    return this.control.setAttribution({ tenantId }, body);
+  }
+
+  @Get('feature-flags')
+  @RequirePermission('platform.feature_flag.read', { checkedBy: 'gate' })
+  flags() {
+    return this.control.listFlags();
+  }
+
+  @Put('feature-flags')
+  @RequirePermission('platform.feature_flag.manage', { checkedBy: 'gate' })
+  setFlag(@Body() body: SetFeatureFlagDto) {
+    return this.control.setFlag(body);
   }
 }

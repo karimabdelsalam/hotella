@@ -32,10 +32,14 @@ export function Header() {
   const { brand } = useStaffBrand();
   const me = useMe();
   const entitled = useEntitled();
-  const sections = me
-    ? SECTIONS.filter(
-        ([, permission, capability]) => holdsAnywhere(me, permission) && entitled(capability),
-      )
+  const sections: ReadonlyArray<readonly [string, ...unknown[]]> = me
+    ? [
+        ...SECTIONS.filter(
+          ([, permission, capability]) => holdsAnywhere(me, permission) && entitled(capability),
+        ),
+        // Planova's platform administrators: the control plane (Spec §63); hotel staff never see it.
+        ...(me.user.isPlatformAdmin ? [['control'] as const] : []),
+      ]
     : [];
   const name = brand?.displayName ?? t('title');
   return (
