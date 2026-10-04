@@ -1898,7 +1898,7 @@ logbook.handovers               id, property_id, department_code, shift_date, sh
 |---|---|---|
 | 9.1 | Inspection engine: templates/versions/sections/items, publish, inspections with responses, photos, deterministic scoring and findings, CRITICAL → urgent work, housekeeping bridge, staff web inspection runner | delivered |
 | 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | delivered |
-| 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | planned |
+| 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | delivered |
 | 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | planned |
 | 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | planned |
 
@@ -1954,6 +1954,36 @@ Reality notes for 9.2:
 - Staff web `/relations`: the concierge's suggestions with confidence, the guest's words and the reason (confirm /
   dismiss), record a complaint, list and detail with evidence, notes, status buttons, recovery with "waits for
   approval", history; read-only for viewers. Playwright English and Arabic. The pilot smoke covers relations in 9.4.
+
+Reality notes for 9.3:
+- `@hotella/domain-lostfound`, migration `0036_lost_and_found`: `items` (FOUND and LOST in one table, number per
+  property, category, colour, brand, location or place note, storage, photos, `valuable` for phones, jewellery,
+  watches, documents, money and electronics, `retention_until` for found items), append-only `item_history` and
+  `claims` (triggers), `ai_metadata` and `match_candidates` (unique per pair); a trigger refuses any change to an
+  item's `description` (Spec §13: the reporter's words are never overwritten). RLS on every table.
+- Matching (`domain/items.ts`, unit-tested): same category and the found date within 1 day before to 30 days after
+  the loss are required; then colour ±20, brand ±20 (normalised), same place +15, within 2 days +10; AI-derived
+  colour/brand only fill gaps (+10 each); kept from 50. It runs when either item is registered and again when AI
+  attributes arrive. Confirming a match (`lostfound.manage`) marks both items MATCHED and rejects the other
+  proposals involving them.
+- AI attributes instead of vision: the Model Gateway takes text only, and sending photos to an external provider
+  (they may show IDs or faces) would be a privacy decision of its own. So the worker asks the gateway
+  (`STRUCTURED_OUTPUT`, agent code `LOSTFOUND_ATTRIBUTES`, egress policy, budget and tenant opt-in apply) to read
+  the **description** into object type, colours, brand and keywords, stored in `ai_metadata`; photos never leave
+  the platform. Setting `lostfound.ai.attributes` (default on). Vision on photos stays a later, owner-approved step.
+- Release (`lostfound.release`): only a found, open item; the claim records who took it, the kind of document shown
+  (never its number), how they were verified and the handover; the confirmed lost report becomes CLAIMED;
+  `lostfound.item.released.v1` with the days held. Disposal (`lostfound.manage`): only after `retention_until`
+  (`lostfound.retention.days`, default 90), with a method and a reason, audited, `lostfound.item.disposed.v1`;
+  `GET …/lostfound/items?due=true` lists what may be disposed of. Nothing is disposed of automatically.
+- Permissions gained `lostfound.register` (hand an item in) so attendants and engineers can register what they find
+  without seeing other items; `lostfound.manage` records guests' losses, decides matches, stores and disposes.
+  Roles: the GM, duty manager, front desk and guest relations hold all four; the housekeeping supervisor reads,
+  registers and manages; attendants, engineers register.
+- `LOSTFOUND_API.openCounts` (found, lost, matches to decide, past retention) for the shift handover in 9.4.
+- Staff web `/lostfound`: phone-first "hand in" form for everyone; for the desk, "record a guest's loss", proposed
+  matches with score and reasons, lists (found, lost reports, past retention), detail with photos (camera), AI
+  reading, matches, release form and disposal form, history. Playwright English and Arabic.
 
 ### Phase 10 — Real OPERA 5 On-Premise Integration (M4a)
 `apps/hotel-agent` (.NET 8 worker service): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
