@@ -157,8 +157,13 @@ cmd_vault_init() {
   for _ in $(seq 1 30); do bao token lookup >/dev/null 2>&1 && break; sleep 1; done
   bao secrets list -format=json | grep -q '"kv/"' || bao secrets enable -path=kv kv-v2 >/dev/null
   bao auth list -format=json | grep -q '"approle/"' || bao auth enable approle >/dev/null
-  # Least privilege: api/worker read only the application secrets; the agent gateway also reads the agent PKI.
-  printf 'path "kv/data/hotella/app" { capabilities = ["read"] }\n' | bao policy write hotella-app - >/dev/null
+  # Audit: every request to OpenBao is logged with its identity (values HMAC-ed) — SECRETS_LIFECYCLE.md.
+  bao audit list -format=json 2>/dev/null | grep -q '"file/"' ||
+    bao audit enable file file_path=/openbao/logs/audit.log >/dev/null
+  # Least privilege: api/worker read only the application secrets, AI provider keys and channel credentials; the
+  # agent gateway also reads the agent PKI.
+  printf 'path "kv/data/hotella/app" { capabilities = ["read"] }\npath "kv/data/hotella/ai/*" { capabilities = ["read"] }\npath "kv/data/hotella/comms/*" { capabilities = ["read"] }\n' |
+    bao policy write hotella-app - >/dev/null
   printf 'path "kv/data/hotella/app" { capabilities = ["read"] }\npath "kv/data/hotella/agent" { capabilities = ["read"] }\n' |
     bao policy write hotella-agent - >/dev/null
   log "writing application secrets to kv/hotella/app"

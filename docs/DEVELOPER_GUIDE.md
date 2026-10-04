@@ -254,6 +254,9 @@ Renovate opens grouped PRs weekly. Patch/minor: merge when CI is green. Major: m
 
 The pilot runs on one Linux host with `infra/docker/compose.pilot.yml`, driven by `infra/docker/pilot/pilot.sh` (`init → up → vault-init → migrate → start → admin`, plus `backup`, `restore-drill`, `status`). Images come from `infra/docker/Dockerfile` (targets `api`, `worker`); credentials live in OpenBao and reach the services through AppRole; the application uses the ordinary database role `hotella_app`. CI's "pilot deployment smoke" job runs exactly these commands on every push. Operations procedures: `docs/runbooks/`.
 
+Before any hotel installation: `docs/pilot/PILOT_READINESS_CHECKLIST.md` (server sizing, network, MSI, OpenBao,
+OPERA, licensing, backup, rollback, acceptance). Secrets follow `docs/security/SECRETS_LIFECYCLE.md`.
+
 ## 12. Where to ask / how to decide
 
 - "Is this allowed?" → `CLAUDE.md`. If the rule is unclear, the spec section it cites decides.

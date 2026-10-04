@@ -396,7 +396,8 @@ No inbound connection from the internet to the hotel. Proxies: the agent honours
   store** (DPAPI machine scope on Windows, 0600 in a 0700 directory on Linux), set from stdin with
   `hotella-agent secret set <name>`; never in settings files, logs, or messages to the platform.
 - **Platform-side keys live in OpenBao** (ADR-0013): agent CA, command/licence signing key, update signing key (release
-  pipeline). No OPERA credential is stored on the platform.
+  pipeline). No OPERA credential is stored on the platform. Lifecycle (access, rotation, revocation, audit):
+  `docs/security/SECRETS_LIFECYCLE.md`.
 - Link: TLS 1.3 mutual TLS with a pinned Planova CA (ADR-0017); commands and queries are Ed25519-signed and verified
   against the pinned key; the licence gates commands (§14).
 - Least privilege everywhere: DB `SELECT` on contract objects only; OWS user limited to the used functions; IFC8
@@ -423,14 +424,17 @@ Per connector: link up, last message time, backlog, last error, licence state, c
 Capability status in the registry follows health (§5.3).
 
 ## 15. Installation
+Prepare the hotel with the Pilot Readiness Checklist (`docs/pilot/PILOT_READINESS_CHECKLIST.md`) first.
 1. Agent host prepared (Windows Server or Linux, outbound 443, LAN access to IFC8/OWS/Oracle as used).
-2. Install the agent package once per connector instance (`install.ps1` / `install.sh`), each with its own data
-   directory and service name.
-3. In Hotella: create the property's OPERA integration instances (`OPERA5_FIAS`, optionally `OPERA5_DB`,
-   `OPERA5_OWS`), issue enrollment tokens.
-4. On the agent host: `hotella-agent enroll --token-file - --ca <planova-ca.pem>`; set connector settings; set secrets
-   from stdin; `hotella-agent status` must show no problems.
-5. Start the services; confirm the platform shows the agents connected and licences VALID.
+2. In Hotella: create the property's OPERA integration instances (`OPERA5_FIAS`, optionally `OPERA5_DB`,
+   `OPERA5_OWS`), issue one enrollment token per instance.
+3. **Windows: run the MSI** (WiX v5, ADR-0020). It asks for the platform address and the enrollment tokens; each
+   token becomes its own service instance (`HotellaAgent-<connector>`) with its own data directory; the connector and
+   its capabilities come from the platform at enrollment. Silent installs take the same values as MSI properties.
+   Linux: `install.sh`. PowerShell (`install.ps1`) only for diagnostics or emergencies.
+4. On the agent host: set connector settings (IFC8 address, OWS URL and entities, Oracle listener) and secrets from
+   stdin (`hotella-agent secret set …`); `hotella-agent status` must show no problems.
+5. Confirm the platform shows the agents connected and licences VALID, then commission (§16).
 
 ## 16. Commissioning — compare the hotel against the standard
 ### 16.1 Inputs

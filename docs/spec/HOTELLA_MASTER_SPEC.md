@@ -874,6 +874,14 @@ lost_found_claims
 
 AI vision may derive metadata such as object type, color or possible brand, but must not overwrite the original staff description.
 
+*Amended 2026-10-04 (owner decision):* Vision AI on item photos is an **optional, property-level feature, disabled by
+default** until the hotel/property enables it. When enabled it may identify the object, suggest a category and a
+description, detect colour and material, and assist search, matching and duplicate detection. The request carries the
+photo (metadata such as EXIF/GPS stripped) and nothing else about the guest — no identity, reservation, room history
+or other personal data. It runs only through the Model Gateway behind a provider-neutral vision capability (OpenAI,
+Gemini, Claude-compatible or later providers are configuration, not code), with provider keys in OpenBao and never in
+source, database plaintext, frontend, logs, chat or user-visible prompts.
+
 AI may suggest Lost-to-Found matches with score and reasons. Staff confirms the match.
 
 Claims/releases must be audited.
@@ -2367,6 +2375,15 @@ The hotel agent validates tokens cryptographically with a public key.
 
 Temporary internet loss must not immediately stop critical hotel integration operations.
 
+*Amended 2026-10-04 (owner decision; ADR-0021):* licensing is a production SaaS/on-premise entitlement system, never a
+boolean. It supports central licence management, tenant and property licences, activation, renewal, expiration,
+enabled modules/features, subscription status, installation identity, signed and cached entitlement data, periodic
+validation, an offline grace period, revocation and audit, over secure communication with the control plane. **A
+temporary Planova server or internet outage must not stop hotel operations:** central installations answer from the
+last-known-good entitlements within a grace window when the licensing store cannot be read; a hotel-site installation
+runs on a signed, cached entitlement bundle with an offline grace; system and integration work (PMS truth, checkout
+revocations, timers) is never stopped by licensing.
+
 ---
 
 # 63. SaaS Control Plane
@@ -2422,6 +2439,11 @@ Security covers:
 - audit
 
 Staff authentication should support strong password/MFA initially and future OIDC/SAML/enterprise SSO.
+
+*Amended 2026-10-04 (owner decision):* **OpenBao** is the central secret store. AI provider keys, OWS and database
+credentials, integration and API secrets and control-plane credentials are never hard-coded; each follows a defined
+lifecycle — creation, least-privilege access per workload, retrieval through the secret provider, rotation, revocation
+and auditing (`docs/security/SECRETS_LIFECYCLE.md`). Hotel-side credentials stay in the hotel agent's protected store.
 
 Guest authentication is passwordless.
 
@@ -2588,6 +2610,12 @@ BACKGROUND_AI
 Guest real-time workloads must not wait behind large analytics/background queues.
 
 Applications should be stateless where practical and horizontally scalable.
+
+*Amended 2026-10-04 (owner decision; ADR-0020):* on Windows hotels the hotel agent is installed with a proper **MSI
+built with WiX v5**; PowerShell scripts remain for development, diagnostics, automation and emergency/manual installs,
+not as the hotel installation experience. The installer is a thin shell over the agent's own setup command so another
+WiX version or installer technology can replace it without changing the application. Every new hotel is checked
+against the formal **Pilot Readiness Checklist** (`docs/pilot/PILOT_READINESS_CHECKLIST.md`) before installation.
 
 ---
 
@@ -3221,8 +3249,9 @@ Deliver:
 - health
 - signed offline license
 - controlled update/rollback
+- (amended 2026-10-04, ADR-0020) Windows MSI installer built with WiX v5
 
-Do not tightly couple the core to FIAS.
+Do not tightly couple the core to FIAS. The pilot hotel validates the Planova standards; it does not define them.
 
 ## Phase 11 - Licensing / Control Plane
 
@@ -3237,6 +3266,8 @@ Deliver:
 - property-specific licensing
 - AI/connector entitlements
 - control-plane administration
+- (amended 2026-10-04, ADR-0021) offline-resilient entitlements: last-known-good answers and, for hotel-site
+  installations, a signed cached entitlement bundle with installation identity, renewal, grace and revocation
 
 ## Phase 12 - Advanced Intelligence
 
@@ -3357,3 +3388,29 @@ HOTEL INTELLIGENCE OPERATING PLATFORM
 with a connected operational model of the hotel, an AI platform capable of safely reasoning over that model, and modular hotel applications that share the same operational, integration, identity, licensing and intelligence foundations.
 
 This architecture must remain capable of evolving for years without forcing hotels to replace the core as new modules, providers, channels and intelligent capabilities are introduced.
+
+
+---
+
+# Appendix A. Owner decisions recorded 2026-10-04 (second set)
+
+1. **Windows installer:** MSI built with WiX v5 (no WiX v6 maintenance fee for now); PowerShell is secondary
+   (ADR-0020).
+2. **OPERA database:** direct, strictly read-only access is an officially supported connector — a dedicated Oracle
+   account with minimum `SELECT` privileges; never INSERT/UPDATE/DELETE/DDL/write-back/unsupported procedures; every
+   OPERA modification goes through IFC8/FIAS or OWS (ADR-0019).
+3. **Lost & Found vision:** approved as optional per property, disabled by default, no guest PII in requests, provider
+   abstraction, keys in OpenBao (§13 amendment).
+4. **IFC8/FIAS:** the Planova Standard OPERA IFC8/FIAS Integration Profile is ours; each hotel's Interface Sheet is
+   compared with it (standard → compare → differences → configure → test → commission).
+5. **OWS:** optional enhanced method, built once as a reusable connector; hotel values are configuration.
+6. **Unified OPERA Adapter** over independent connectors A (DB read-only), B (IFC8/FIAS), C (OWS); modules request
+   business capabilities only.
+7. **Capability registry per property;** hotels A (DB + IFC8), B (DB + IFC8 + OWS), C (IFC8 + OWS) without
+   hotel-specific code.
+8. **Planova OPERA Integration Guide** is the standard deployment guide.
+9. **Principle:** the best available method per capability; never a direct database write-back.
+10. **Licensing:** offline-resilient production entitlement system (§62 amendment, ADR-0021).
+11. **Secrets:** OpenBao with a defined lifecycle (§65 amendment).
+12. **Pilot Readiness Checklist** is formal and reusable for every hotel.
+13. The pilot hotel validates the standards; it does not define them.

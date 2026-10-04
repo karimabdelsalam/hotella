@@ -100,6 +100,8 @@ services:
     cap_add: [IPC_LOCK]
     volumes:
       - baodata:/openbao/file
+      # File audit device (docs/security/SECRETS_LIFECYCLE.md): every secret read and write, values HMAC-ed.
+      - baoaudit:/openbao/logs
       - ./pilot/openbao/openbao.hcl:/openbao/config/openbao.hcl:ro
       - ./pilot/.secrets/tls:/openbao/tls:ro
     networks: [backend]
@@ -254,6 +256,7 @@ volumes:
   valkeydata:
   s3data:
   baodata:
+  baoaudit:
   drilldata:
 
 networks:

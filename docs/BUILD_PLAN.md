@@ -1900,6 +1900,7 @@ logbook.handovers               id, property_id, department_code, shift_date, sh
 | 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | delivered |
 | 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | delivered |
 | 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | delivered |
+| 9.5 | Lost & Found vision on photos (owner decision 2026-10-04): optional per property, off by default; provider-neutral `VISION` capability of the Model Gateway; metadata stripped; no guest data in the request | planned |
 | 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | delivered |
 
 Reality notes for 9.1:
@@ -1984,6 +1985,23 @@ Reality notes for 9.3:
 - Staff web `/lostfound`: phone-first "hand in" form for everyone; for the desk, "record a guest's loss", proposed
   matches with score and reasons, lists (found, lost reports, past retention), detail with photos (camera), AI
   reading, matches, release form and disposal form, history. Playwright English and Arabic.
+
+**9.5 — Lost & Found vision (owner decision 2026-10-04).**
+- *Scope:* when the property enables `lostfound.ai.vision` (configuration, **default off**; entitlement `AI_VISION`),
+  a photo attached to a found item is read by a vision model into suggestions: object type, category, short
+  description, colours, material, brand, keywords. Suggestions are stored apart from the staff description in
+  `ai_metadata` (never overwrite it, Spec §13) and feed the existing matcher and a duplicate check between found items.
+- *Privacy:* the request carries only the image — EXIF/XMP/GPS metadata stripped and the image re-encoded and
+  downscaled (≤ 1568 px) on the platform — and a fixed instruction; never the guest, reservation, room or staff
+  identity. Images are classified SENSITIVE (they may show faces or documents); the egress policy must allow
+  SENSITIVE for the routed provider, otherwise the call is refused and nothing leaves the platform. The instruction
+  tells the model to ignore any people or text in the image and not to transcribe documents.
+- *Provider abstraction:* the Model Gateway gains image input (`GatewayMessage` content parts) for the `VISION`
+  capability; each provider adapter (Anthropic, OpenAI; others later) maps it to its own format; routing, budget,
+  kill switches, metering (`AI_VISION`) and the execution record apply as for text. Keys stay in OpenBao
+  (`kv/hotella/ai/<provider>`).
+- *Tests:* metadata stripping; refusal when disabled or not entitled or the egress policy forbids SENSITIVE;
+  adapters' request shapes; worker job end to end with the fake provider; en/ar labels for suggestions.
 
 Reality notes for 9.4:
 - `@hotella/domain-logbook`, migration `0037_logbook`: `entries` (department, shift date and shift, kind NOTE /
@@ -2098,6 +2116,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.7 | Link protocol 2 (`query`/`query_result`) and the `OPERA5_DB` read-only connector (10.D) | delivered (see notes; real Oracle verified at the pilot) |
 | 10.8 | Planova Standard IFC8/FIAS Profile v1 alignment and OWS standard connector v1 (reads + supported writes) (10.D) | delivered (see notes; reservation writes held until verified) |
 | 10.9 | Commissioning tooling: Interface Sheet comparison, DB probe, OWS verification, capability sign-off; OPERA integration acceptance (10.D) | delivered (`docs/acceptance/opera-integration.md`; the real hotel at the pilot) |
+| 10.10 | Windows MSI with WiX v5 (ADR-0020): `hotella-agent setup` subcommand shared with `install.ps1`, WiX v5 project, Windows CI job | planned |
 
 **Reality notes for 10.1 (delivered).**
 - Solution `apps/hotel-agent/Hotella.Agent.slnx`: `Hotella.Agent.Core` (identity, durable queue, link, command
@@ -2206,9 +2225,28 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
   exit); `packaging/windows/install.ps1` (Windows service, restart-on-failure actions, ACL on the data directory).
   CI publishes both and runs `packaging/smoke-update.sh`: a signed 0.10.1 → 0.10.2 update through check, apply,
   probation and rollback with the real binaries, and a manifest signed by another key refused.
-- **Owner decision:** the MSI. From WiX v6 (April 2025) organisations with more than 10 000 USD yearly revenue must
-  pay the Open Source Maintenance Fee by sponsoring the project (10–60 USD a month by company size); WiX v5 has no fee
-  but is the older line. Spending money is the owner's call; until then Windows hotels install with `install.ps1`.
+- **Owner decision (taken 2026-10-04):** the MSI is built with **WiX v5** (no maintenance fee); WiX v6's fee is not
+  taken on now (ADR-0020, Sprint 10.10). `install.ps1` stays for development, diagnostics and emergencies.
+
+**10.10 — Windows MSI with WiX v5 (ADR-0020).**
+- *Enrollment tells the agent what it is:* the enroll response gains `connector_code` and `capabilities` (the
+  instance's enabled ones; optional fields, older agents ignore them), so an installer needs only the platform address
+  and a token. *Several agents on one host:* `--instance <name>` selects `%ProgramData%\Hotella\Agent\instances\<name>`
+  (settings, identity, queue) and the service `HotellaAgent-<name>`; without it the single-instance layout of 10.4
+  stays.
+- *Agent:* `hotella-agent setup install [--instance] [--platform-url] [--token-file]` makes the
+  layout (`current` → this version, data directory with the SYSTEM/Administrators ACL, default `agent.json` with the
+  given values), registers the Windows service with recovery actions, enrolls from the token file when given (then
+  deletes it) and starts the service; `setup remove [--remove-data]` stops and deletes the service, removes the
+  version directories the self-updater added and the data only when asked. `install.ps1` calls the same subcommand.
+- *MSI (`packaging/windows/msi`, `WixToolset.Sdk` 5.x):* per-machine, x64, `MajorUpgrade` on one `UpgradeCode`, files
+  under `versions\<version>`, a dialog for the platform address and up to three enrollment tokens (one per
+  connector instance; hidden properties, written to the protected data directory, never logged); silent-install
+  properties `PLATFORM_URL`, `ENROLLMENT_TOKEN_FILE` (a file with one token per line), `REMOVE_DATA`; deferred custom
+  actions run `setup install` / `setup remove`.
+- *CI:* a `windows-latest` job publishes `win-x64`, builds the MSI with WiX v5 and keeps it as an artefact; Linux tests
+  cover the setup subcommand's layout logic.
+- *Open (owner):* an Authenticode certificate to sign the MSI and the executable.
 
 #### 10.D Unified OPERA Integration Layer (ADR-0019; owner decisions of 2026-10-04)
 The owner confirmed on 2026-10-04: direct **read-only** OPERA database access is an officially supported method (a
@@ -2571,6 +2609,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 | 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | delivered (screens: tenants and plans; flags, connectors, AI providers, support access and health stay API/Grafana, see notes) |
 | 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | delivered (management by API; screens follow with the tenant settings area, see notes) |
 | 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`), deployed smoke `smoke-developer.sh` | delivered |
+| 11.7 | Offline-resilient entitlements (ADR-0021): last-known-good facts with grace; signed entitlement bundle for hotel-site installations (installation identity, issue/renew, verify offline, grace, revocation, audit) | planned |
 
 **Reality notes for 11.1 (delivered).**
 - New context `packages/domain/licensing` (manifest code `license`, schema `license`, migration 0038 with the whole
@@ -2659,6 +2698,27 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
   `/ai/models`, Phase 6), connector manifests (per property, `/properties/:id/integrations/connectors`), support
   access (`/support-access`, Phase 1) and system health (`/ready`, the Grafana stack of ADR-0013).
 
+**11.7 — Offline-resilient entitlements (owner requirement 2026-10-04; ADR-0021).**
+- *Last-known-good:* `EntitlementEngine` keeps each tenant's last successfully read facts; a read failure answers from
+  them for `LICENSING_STALE_GRACE_HOURS` (default 72) with one warning per tenant, then refuses; SYSTEM/INTEGRATION
+  stay ungated.
+- *Model (schema `license`):* `installations(id, tenant_id, name, public_key, status ACTIVE|REVOKED, last_seen_at,
+  version)`, `installation_bundles(id, installation_id, tenant_id, issued_at, valid_until, grace_until, digest)` —
+  issue history, never the bundle's secrets (it has none).
+- *Contract (`contracts/licensing`):* `hotella.entitlements.v1` — installation, tenant, per-property capability codes,
+  limits, subscription statuses, `issued_at`, `valid_until`, `grace_until`, Ed25519 signature with the platform
+  licence key; canonical JSON as for agent licences.
+- *Control plane:* register/revoke an installation (`license.installation.manage`, platform administrators, audited);
+  `POST /licensing/installations/:id/bundle` signed by the installation's key (request signature + timestamp),
+  answers a fresh bundle; renewals recorded.
+- *Site mode (`LICENSING_MODE=site`):* a job renews every `LICENSING_RENEW_HOURS` (6); the engine reads facts from the
+  verified cached bundle; between `valid_until` and `grace_until` everything works with an administrator warning; past
+  `grace_until` people's actions get `403 license.offline_expired`; a bundle older than the newest accepted or issued
+  in the future beyond 5 minutes is refused.
+- *Tests:* unit (bundle verification, grace states, clock rollback refusal, last-known-good); integration (issue,
+  renew, revoke, audit, tenant isolation); e2e (a site-mode app keeps working with the control plane down, warns
+  after `valid_until`, refuses people past `grace_until`, never stops SYSTEM work).
+
 **Reality notes for 11.5 (delivered).**
 - API clients (identity, `iam.api_clients`, migration `0040`): `GET|POST /tenants/:tenantId/api-clients`,
   `POST …/:clientId/revoke` (reason), permission `iam.api_client.manage` (risk HIGH; GM role), entitlement
@@ -2731,6 +2791,128 @@ entitlement and allowed after a grant; agent licence absent without `CONNECTOR_*
 ### Phase 12 — Advanced Intelligence
 GM/duty-manager intelligence, cross-property analysis, insight/recommendation engine with evidence (Spec §38), evaluation sets/runs, shadow & canary agent versions, predictive models where data supports, cost optimization and quality metrics dashboards (Spec §41). Operational digital-twin read model (Spec §80): a graph-shaped projection (property → rooms → stays/guests/assets/tasks/incidents/conversations) built from existing domain events, used by Manager AI and arrival-risk; it is a projection, never a source of truth. Controlled agent collaboration (Spec §43): specialist agents callable as capabilities with structured results, no free-form agent swarms.
 
+**Goal / acceptance (Spec §38–§43, §80–§81; CLAUDE.md rules 11–12):** the general manager and the duty manager see
+what needs their attention, each item with its reason, evidence, confidence, affected entities and a suggested action,
+computed by deterministic detectors over the hotel's own data (an LLM only phrases or converses, never decides); a
+Manager assistant answers from domain tools and the operational twin, consults a specialist agent in a controlled,
+recorded way, and compares properties only for those allowed to; no new prompt or agent version reaches guests or
+staff without a passing regression evaluation, and it can run in shadow (never acting) and as a canary (a deterministic
+share of traffic) before promotion, with rollback; AI quality and cost are measured per agent, version and property
+from real outcomes (overrides, reassignments, edits, acceptance), not token counts alone.
+
+#### 12.A Domain model (schema `ai`; data class INTERNAL unless stated)
+```text
+evaluation_sets(id, tenant_id null = platform set, agent_code, code, name, status ACTIVE|RETIRED, version)
+evaluation_cases(id, set_id, code, critical bool, input jsonb (turns, channel, locale, context fixtures),
+                 tool_fixtures jsonb (what each tool answers in dry run), expectations jsonb (tools called / not called
+                 with argument matchers, handoff, reply must / must not contain, risk outcome), data_class)
+                                              — fixtures are synthetic (no real guest data); CONFIDENTIAL at most
+evaluation_runs(id, set_id, agent_version_id, mode REGRESSION|SHADOW, status RUNNING|PASSED|FAILED|ERROR,
+                totals jsonb, cost_micros, requested_by, started_at, finished_at)
+evaluation_results(id, run_id, case_id null (shadow: live execution id), outcome PASS|FAIL|ERROR, checks jsonb,
+                   execution_id)              — checks: expectation, outcome, detail (codes, never free text)
+agent_releases(id, tenant_id null, agent_code, agent_version_id, stage SHADOW|CANARY|ACTIVE|ROLLED_BACK,
+               canary_percent, started_at, ended_at, actor, reason)      — append-only release history (rule 10)
+insights(id, tenant_id, property_id, detector, fingerprint, severity LOW|MEDIUM|HIGH, confidence numeric(4,3),
+         reason_key, reason_params jsonb, evidence jsonb [{kind, ref_type, ref_id, count, window}], affected jsonb
+         [{type, id}], suggested_action jsonb {key, params, action_ref?}, status OPEN|ACKNOWLEDGED|RESOLVED|DISMISSED|
+         EXPIRED, first_seen_at, last_seen_at, occurrences, expires_at, version)
+                                              — one OPEN insight per (property, detector, fingerprint): re-detection
+                                                updates it; evidence holds ids, counts and codes only
+insight_history(id, insight_id, tenant_id, from_status, to_status, actor_type, actor_id, reason, at)
+twin_nodes(id, tenant_id, property_id, kind ROOM|STAY|GUEST|ASSET|WORK_ITEM|WORK_ORDER|COMPLAINT|CONVERSATION|
+           INSPECTION|LOST_ITEM, ref_id, state, updated_at)          — ids and states, never names
+twin_edges(id, tenant_id, property_id, from_node, to_node, relation, valid_from, valid_to null)
+                                              — relations end, never disappear (rule 10); projection, never truth
+quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric, value numeric, samples int)
+                                              — upserted by a deterministic job
+```
+
+#### 12.B Design decisions taken before coding
+- **Placement:** everything lives in the AI context (schema `ai`): insights are the AI evidence model of Spec §38 and
+  the twin serves the Manager assistant and arrival risk. Inputs come only through other contexts' **public APIs and
+  events** (never their tables); no new schema, so no ADR.
+- **Deterministic first (§39, rule 11):** detectors are code with thresholds in configuration (`ai.insights.*`),
+  evaluated on a schedule or on events; confidence is a formula of the evidence (sample size against threshold), not a
+  model's opinion. An LLM is used only by the Manager assistant to converse over tool results; detectors never call
+  the Model Gateway.
+- **Detectors v1:** `RECURRING_ASSET_FAILURE` (≥ N corrective work orders on one asset or failure code in 30 days, most
+  closed with the same cause — the Spec §38 example), `SLA_BREACH_CLUSTER` (a department/category breaching above its
+  own 28-day baseline), `REPEAT_COMPLAINT` (the same room or category complained about repeatedly in 14 days),
+  `SLOW_TURNAROUND` (a room type's clean-to-inspected median far above the property's), `ARRIVAL_RISK_TOMORROW`
+  (high-risk arrivals with their reasons). Each declares its entitlement (`AI_INTELLIGENCE`), inputs, window and
+  suggested action (e.g. open a preventive work order — as an approval proposal through the existing tool path, never
+  executed by the detector).
+- **Insight lifecycle:** OPEN → ACKNOWLEDGED → RESOLVED, or DISMISSED with a reason; expiry when the evidence ages
+  out. Acting and dismissing write `ai.feedback` (`RECOMMENDATION_ACCEPTED` / `REJECTED`) — the implicit signal of
+  Spec §40 — and are audited.
+- **Evaluation:** cases run through the real agent loop with the agent version under test and **dry-run tools** (the
+  executor answers from the case's fixtures, writes nothing, proposes nothing); graders are deterministic. Publishing an
+  agent or prompt version (rule 9, already immutable) requires a PASSED regression run of the agent's active sets on
+  that exact version: every `critical` case passes and the pass rate meets `ai.evaluation.min_pass_rate` (default
+  0.9). Platform sets apply to every tenant; a tenant may add its own.
+- **What "publish" means for code-defined agents:** built-in agent and prompt versions arrive with a deployment
+  (Phase 6: published on first use, immutable). From Phase 12 a deployed version that has a predecessor arrives as a
+  **candidate**: the predecessor stays the one that runs until the candidate passes its regression run and an AI
+  administrator releases it (shadow → canary → active, or straight to active). An agent's first version is active at
+  once — there is nothing to fall back to. `AgentCatalog.published(code)` answers the active release.
+- **Shadow and canary:** a released version is SHADOW (after the active version answers, the shadow runs on the same
+  input with dry-run tools; its tool calls and handoff are compared and stored as a SHADOW run; it never replies or
+  acts) or CANARY (a deterministic share of conversations — hash of the conversation id against `canary_percent` —
+  runs on it for real). Promotion and rollback are explicit, audited releases; a kill switch on the agent stops both.
+  Shadow cost counts against the AI budget and is refused when the budget is exhausted.
+- **Twin:** a projection fed by idempotent consumers of domain events (stays, room assignments, work items, work
+  orders, complaints, conversations, inspections, lost items); `neighbourhood(entity, depth ≤ 3, at?)` answers the
+  connected context deterministically; names are resolved at read time through the owning context's public API and
+  the reader's permissions (no PII copied into the twin).
+- **Manager assistant (`MANAGER_ASSIST`, ASSIST mode):** tools `intelligence.insights`, `intelligence.pulse`
+  (deterministic live KPIs from domain tools: open work by department, breaches today, arrivals tomorrow with risk,
+  open complaints, rooms out of order), `intelligence.twin`, `intelligence.compare` (tenant-level, needs
+  `ai.intelligence.cross_property`), and `agents.consult` — **controlled collaboration (§43):** it may ask one
+  specialist agent (v1: `ENGINEERING_COPILOT`) a question and gets a structured result; depth 1 (a consulted agent
+  cannot consult), budget-capped, recorded as an execution step pointing at the child execution. No swarms.
+- **Quality and cost (§41):** a nightly job computes per agent/version/property: task-creation accuracy (AI-created
+  requests not cancelled or reassigned by a person within 24 h), human override rate, draft edit distance, guest
+  re-contact within 24 h, recommendation acceptance, fallback rate, tool failure rate, cost per execution. Raw signals
+  come from `ai.executions`, `ai.feedback` and domain events (reassignment, cancellation).
+
+#### 12.C APIs, events, permissions
+- APIs: `/ai/evaluation-sets` (+ cases), `POST /ai/agents/:code/versions/:id/evaluations`, `GET /ai/evaluation-runs/:id`;
+  `POST /ai/agents/:code/releases` (`{ versionId, stage, canaryPercent? }`), `GET /ai/agents/:code/releases`;
+  `GET /properties/:id/insights`, `POST /properties/:id/insights/:insightId/{acknowledge|resolve|dismiss}`;
+  `GET /properties/:id/twin/:kind/:refId?depth=`; `GET /properties/:id/ai/quality?from&to`;
+  `GET /tenants/:id/intelligence/compare` (cross-property).
+- Events: `ai.insight.raised.v1`, `ai.insight.status_changed.v1`, `ai.evaluation.completed.v1`,
+  `ai.agent.released.v1`.
+- Permissions: `ai.evaluation.manage`, `ai.evaluation.read`, `ai.agent.release`, `ai.insight.read`, `ai.insight.act`,
+  `ai.intelligence.cross_property`, `ai.quality.read`. GM gets insight read/act and quality read; duty manager insight
+  read/act; cross-property is a tenant-level grant; evaluation and release are AI administrators'.
+- Entitlements: `AI_INTELLIGENCE` (insights, twin, Manager assistant, quality dashboards); evaluation and releases are
+  platform capabilities (no entitlement needed to keep AI safe).
+- Locale namespaces: `ai.insight.*` (reasons, actions, detector names), `staff.intelligence.*`.
+
+#### 12.D Sprints
+| Sprint | Scope | Status |
+|---|---|---|
+| 12.1 | Evaluation sets/cases, dry-run tool executor, deterministic graders, regression runs, publish gate | planned |
+| 12.2 | Agent releases: shadow (compare, never act) and canary (deterministic share), promote/rollback, kill switch | planned |
+| 12.3 | Operational twin read model: consumers, neighbourhood queries, read-time names | planned |
+| 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | planned |
+| 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | planned |
+| 12.6 | Quality and cost metrics job; staff-web Intelligence screens (insights, pulse, quality) in English and Arabic | planned |
+| 12.7 | Phase 12 acceptance (`docs/acceptance/phase-12.md`) | planned |
+
+#### 12.E Tests and acceptance
+- Unit: graders, canary bucketing, every detector's thresholds and confidence, insight fingerprinting, twin traversal,
+  quality formulas.
+- Integration (real Postgres): publish refused without a passing run; shadow stores a comparison and changes nothing;
+  canary share stable per conversation; detectors raise once and update on re-detection; acknowledge/dismiss write
+  feedback; twin built from events; tenant-leak tests for every new table.
+- E2E: the Spec §80 chain — guest → stay → room → AC unit → failure → work order → engineer → resolution → feedback —
+  answered by the twin for a seeded scenario; the Spec §38 example raised as `RECURRING_ASSET_FAILURE` with its
+  evidence; the Manager assistant answers "what needs my attention today" from tools only and consults the Engineering
+  Copilot; Playwright for the Intelligence screens in LTR and RTL.
+
 ### Phase 13 — Voice / IoT / Additional Connectors
 Voice channel via PBX gateway → conversation engine → same tools; IoT/BMS telemetry path (high-volume ingest → rules/anomaly → meaningful events); POS/ERP/Wi-Fi/lock connectors through the Connector SDK. No core redesign allowed; if one seems needed, stop and write an ADR.
 
@@ -2748,6 +2930,10 @@ Phase 0 ──> Phase 1 ──> Phase 2 ──> Phase 3 ──> Phase 4 ──> 
                                                                    └─> Phase 11 (Licensing)  ────┴─> M4 (pilot-ready)
                                                                                  └─> Phase 12 ──> Phase 13
 ```
+
+**M4 completion (owner decisions 2026-10-04):** before the first pilot hotel also Sprints 10.10 (WiX v5 MSI) and 11.7
+(offline-resilient entitlements); Sprint 9.5 (Lost & Found vision) is optional per property and may follow. Every hotel
+is prepared with `docs/pilot/PILOT_READINESS_CHECKLIST.md`.
 
 Phases 7 and 8 may run in parallel after Phase 6 (they share only the Operations Engine). Phase 10 may start its .NET agent skeleton in parallel with Phase 7 since it depends only on the Connector SDK from Phase 2.
 
@@ -2793,6 +2979,11 @@ A module/phase is accepted only when all of the following are true:
 | Q9 | Initial platform role catalog (GM, Duty Manager, HK Supervisor, Room Attendant, Engineer, Front Desk, Guest Relations, Platform Admin, Support) — confirm names and Arabic labels | Phase 1 | as listed |
 | Q10 | Pilot property: IFC8 interface license, OWS license status, read-only DB account possibility (ADR-0014, ADR-0019); compared against the standards of the OPERA Integration Guide (§16, §20) | before the M4 pilot | IFC8 available (owner, 2026-10-04); OWS per hotel; read-only DB access allowed |
 | Q11 | Concrete BSP and SMS aggregator for the pilot (ADR-0015) | Phase 4 end | Meta Cloud API adapter first; BSP/SMS adapters implemented against fakes until chosen |
+| Q12 | Windows installer toolset | before M4 | **Answered 2026-10-04:** MSI with WiX v5 (ADR-0020); PowerShell secondary |
+| Q13 | Lost & Found photos to a vision model | Phase 9 | **Answered 2026-10-04:** allowed, optional per property, off by default, no guest data, keys in OpenBao (Sprint 9.5) |
+| Q14 | Offline behaviour of licensing | Phase 11 | **Answered 2026-10-04:** offline-resilient entitlements (ADR-0021, Sprint 11.7) |
+| Q15 | Server requirements and the hotel checklist | before M4 | **Answered:** `docs/pilot/PILOT_READINESS_CHECKLIST.md` (§1 sizing, §2–§19 checks) |
+| Q16 | Authenticode certificate for signing the MSI and agent executable (a purchase) | before go-live | open — owner |
 
 ---
 
