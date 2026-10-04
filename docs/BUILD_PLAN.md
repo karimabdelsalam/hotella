@@ -1900,7 +1900,7 @@ logbook.handovers               id, property_id, department_code, shift_date, sh
 | 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | delivered |
 | 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | delivered |
 | 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | delivered |
-| 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | planned |
+| 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | delivered |
 
 Reality notes for 9.1:
 - `@hotella/domain-inspection`, migration `0033_inspection_engine`: `templates` (+ translations, scope ROOM/AREA/ASSET,
@@ -2088,7 +2088,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 |---|---|---|
 | 10.1 | .NET agent core: solution, host, config, identity and enrolment (CSR), OS key store, SQLite durable queue, mTLS WSS link with acks/resend/heartbeats/batches, signed-command verification; shared vectors; cross-language test against `agent-gateway`; CI job | delivered |
 | 10.2 | FIAS adapter (IFC8 TCP, link handshake, link-alive, database sync, records), simulator IFC8 face, `OPERA5_FIAS` connector, `RESYNC_IN_HOUSE` and gated `SET_ROOM_STATUS` | delivered |
-| 10.3 | OWS adapter (SOAP polling, reservations and profiles), simulator OWS SOAP face, `OPERA5_OWS` connector; optional `OPERA5_DBVIEW` reconciliation adapter | planned |
+| 10.3 | OWS adapter (SOAP polling, reservations and profiles), simulator OWS SOAP face, `OPERA5_OWS` connector; optional `OPERA5_DBVIEW` reconciliation adapter | delivered (DBVIEW deferred, see notes) |
 | 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | planned |
 | 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | planned |
 
@@ -2144,6 +2144,32 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 - To verify at the pilot (owner prerequisites): the IFC8 licence and interface sheet (connect direction, port,
   character set, the exact LR field lists and link-alive timing of the hotel's IFC8 version); the agent's settings
   cover each of these without a code change.
+
+**Reality notes for 10.3 (delivered).**
+- Platform: `OPERA5_OWS` (`RESERVATION_READ`, `GUEST_READ`, `PROFILE_EVENT`; messages `OWS_RESERVATION`,
+  `OWS_PROFILE`; no commands — nothing is written to OPERA through OWS) sharing the OWS parser with `SIM_PMS`
+  (`connectors/ows.ts`). No platform change was needed beyond registering it: the agent forwards the JSON shape the
+  parser already reads.
+- Agent: `Hotella.Agent.Ows` polls `Reservation.FutureBookingSummary` (OWS 5.1 shapes, OGHeader credentials) for
+  arrivals from yesterday to `WindowDays` ahead every `PollSeconds`; elements are read by local name so namespace
+  prefixes and OWS versions do not matter. A local SQLite snapshot (`ows.db`) of fingerprints makes it forward only
+  differences: NEW, CHANGE, CANCEL/NOSHOW once (a cancellation of a booking never seen live is not sent); checked-out
+  reservations are FIAS's business. Message ids derive from instance, reservation, action and fingerprint.
+- Profiles travel inside the reservation (primary guest and sharers by `resGuestRPH`); a separate `OWS_PROFILE` poll
+  is not needed for v1.
+- Credentials: `hotella-agent secret set ows.password` reads the password from stdin into the protected store
+  (`SecretStore`: DPAPI / 0600, beside the identity); `status` lists secret names, never values, and flags a missing
+  one. A SOAP fault is reported by its reason only.
+- One agent service serves one integration instance; a hotel with FIAS and OWS runs two services (two enrolments,
+  two data directories). The installer (10.4) offers both.
+- Simulator: `OwsSoapFace` answers `FutureBookingSummary` for the requested arrival window from the simulated PMS,
+  refuses wrong credentials with a SOAP fault. e2e `opera5-ows.e2e-spec.ts`: two future reservations (ETA, sharers,
+  a booking outside the window ignored) become EXPECTED stays; repeated polls forward nothing; a change and a
+  cancellation arrive once each; the password is set from stdin and never shown.
+- `OPERA5_DBVIEW` is deferred: it is optional, needs Oracle's driver and a read-only account whose contractual
+  possibility is an open owner prerequisite; reconciliation already works through FIAS database sync (10.2).
+- To verify at the pilot: the hotel's OWS licence and WSDL version, the OGHeader origin/destination entity codes and
+  domain, and whether `ExpectedArrivalTime`/`MarketSegment` are populated in that version.
 
 ### Phase 11 — Licensing & Control Plane (M4b)
 `license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent. Developer platform v1 (Spec §75): API clients with scoped keys, signed outbound webhooks with retry/DLQ/replay (ADR-0012), OAuth clients later; no untrusted code plugins in the runtime.

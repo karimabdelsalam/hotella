@@ -113,6 +113,6 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 |---|---|---|
 | Extra bounded-context packages/schemas: `catalog`, `inspections`, `relations`, `lostfound`, `logbook`, `knowledge`, `audit`, `platform` | Named as contexts in Spec §3 but absent from the "suggested" §77/§78 lists | ADR-0001 |
 | `ModuleManifest` implemented from Phase 0 | Spec §76 describes it as a future concept; using it now enforces DoD mechanically | BP §4 0.3.12 |
-| OWS as secondary OPERA interface; optional read-only DB views | FIAS alone cannot serve Spec §17/§22 | ADR-0014 |
+| OWS as secondary OPERA interface; optional read-only DB views | FIAS alone cannot serve Spec §17/§22 | ADR-0014; `OPERA5_OWS` and the agent's OWS poller (10.3, `opera5-ows.e2e-spec.ts`); DB views deferred to the pilot's answer on a read-only account |
 | OTP fallback chain beyond WhatsApp | Spec §19.2 defines WhatsApp OTP only; availability requirement from product owner | ADR-0015 |
 | On-premises hosting | Spec says "cloud platform" generically; product owner decision | ADR-0013 |
