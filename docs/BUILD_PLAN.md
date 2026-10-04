@@ -2087,7 +2087,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | Sprint | Scope | Status |
 |---|---|---|
 | 10.1 | .NET agent core: solution, host, config, identity and enrolment (CSR), OS key store, SQLite durable queue, mTLS WSS link with acks/resend/heartbeats/batches, signed-command verification; shared vectors; cross-language test against `agent-gateway`; CI job | delivered |
-| 10.2 | FIAS adapter (IFC8 TCP, link handshake, link-alive, database sync, records), simulator IFC8 face, `OPERA5_FIAS` connector, `RESYNC_IN_HOUSE` and gated `SET_ROOM_STATUS` | planned |
+| 10.2 | FIAS adapter (IFC8 TCP, link handshake, link-alive, database sync, records), simulator IFC8 face, `OPERA5_FIAS` connector, `RESYNC_IN_HOUSE` and gated `SET_ROOM_STATUS` | delivered |
 | 10.3 | OWS adapter (SOAP polling, reservations and profiles), simulator OWS SOAP face, `OPERA5_OWS` connector; optional `OPERA5_DBVIEW` reconciliation adapter | planned |
 | 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | planned |
 | 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | planned |
@@ -2120,6 +2120,30 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
   history past `QueueRetentionDays`. Exit codes for the service manager: 2 not configured/enrolled, 3 revoked.
 - CI: the `verify` job sets up .NET from `apps/hotel-agent/global.json`, runs `dotnet test` in Release, and the
   simulator's e2e finds the build through `TEST_DOTNET_AGENT` (without it the suite is skipped locally).
+
+**Reality notes for 10.2 (delivered).**
+- Platform: `OPERA5_FIAS` connector (`connectors/opera5`) with message type `FIAS_RECORD`, commands
+  `RESYNC_IN_HOUSE` and `SET_ROOM_STATUS`; it shares the FIAS parser with `SIM_PMS` (`connectors/fias.ts`). A `GI`
+  carrying the sync flag `SF` (OPERA's database sync) is a reconciliation snapshot entry, never a check-in — a stay
+  the platform missed becomes a reconciliation exception for a person, as for the simulator's `DR`.
+- `SET_ROOM_STATUS` gained an optional `occupied`: FIAS maid statuses carry occupancy (RS 1–6), so housekeeping sends
+  the PMS occupancy its projection last saw, and the agent refuses the write without it rather than guess.
+  `ROOM_STATUS_WRITE` stays out of the agent's reported capabilities until the pilot verifies it (the sample
+  `agent.example.json` leaves it out).
+- Agent: `Hotella.Agent.Fias` — STX/ETX framing (8 KB limit, noise outside frames ignored), configurable character
+  set, Client or Server mode (IFC8 can be set up either way; the hotel's interface sheet decides), the handshake
+  LS → LD + LR (GI, GO, GC, RE, DS, DE with their fields) + LA, LA when idle and reconnect after three silent
+  intervals, LE ends the session. Business records are forwarded verbatim; the message id is SHA-256 of instance and
+  record, so IFC8 repeating a record is a no-op. The host runs the adapter when `ConnectorCode` is `OPERA5_FIAS`
+  (settings section `Fias`); `status` shows the IFC8 address.
+- Simulator: `Ifc8Face` (byte-level IFC8 over TCP: LS on connect, LR-driven record selection, buffering while the
+  interface is down, DR → DS/GI…SF/DE, RE applied to the simulated PMS) and `SimulatedPms.databaseSync()`.
+- e2e `opera5-fias.e2e-spec.ts`: handshake; a stay through an IFC8 drop and a platform link drop, exactly once and in
+  order; reconciliation through a signed `RESYNC_IN_HOUSE` (DR → DS/GI SF/DE → snapshot → MATCH); a room status written
+  as RE with occupancy, refused without it. It found a simulator defect (records written to a socket being dropped).
+- To verify at the pilot (owner prerequisites): the IFC8 licence and interface sheet (connect direction, port,
+  character set, the exact LR field lists and link-alive timing of the hotel's IFC8 version); the agent's settings
+  cover each of these without a code change.
 
 ### Phase 11 — Licensing & Control Plane (M4b)
 `license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent. Developer platform v1 (Spec §75): API clients with scoped keys, signed outbound webhooks with retry/DLQ/replay (ADR-0012), OAuth clients later; no untrusted code plugins in the runtime.
