@@ -277,13 +277,14 @@ export class StayProjector {
   ): Promise<Ctx> {
     const tenantId = e.tenant_id!;
     const instanceId = reservation?.integration_instance_id ?? null;
-    // Lock order: reservation first, then profiles sorted — concurrent consumers never deadlock on each other.
-    if (reservation)
-      await this.repo.lockKey(`res:${tenantId}:${instanceId}:${reservation.external_id}`);
+    // Lock order: reservation first, then profiles sorted — concurrent consumers never deadlock on each other. Keyed by
+    // property, not instance: connectors of one PMS (FIAS, OWS, DB) share reservation and profile ids.
+    const ns = `${tenantId}:${e.property_id}`;
+    if (reservation) await this.repo.lockKey(`res:${ns}:${reservation.external_id}`);
     const profileIds = [
       ...new Set(profiles.map((x) => x.external_id).filter((x): x is string => Boolean(x))),
     ].sort();
-    for (const id of profileIds) await this.repo.lockKey(`prof:${tenantId}:${instanceId}:${id}`);
+    for (const id of profileIds) await this.repo.lockKey(`prof:${ns}:${id}`);
     return {
       scope: { tenantId },
       tenantId,

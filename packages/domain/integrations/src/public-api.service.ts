@@ -63,6 +63,7 @@ export class IntegrationsPublicApiService implements IntegrationsPublicApi {
     return {
       runId: run.id,
       integrationInstanceId: run.instanceId,
+      familyInstanceIds: await this.familyInstanceIds(tenantId, run.instanceId),
       propertyId: run.propertyId,
       status: run.status,
       entries: entries.map((e) => ({
@@ -173,28 +174,67 @@ export class IntegrationsPublicApiService implements IntegrationsPublicApi {
     return row ? toCommandSummary(row) : null;
   }
 
+  /**
+   * The instances whose external ids are one namespace with this one: the same connector family (e.g. OPERA5) at the
+   * same property — this instance first. A connector without a family is its own namespace.
+   */
+  async familyInstanceIds(tenantId: string, integrationInstanceId: string): Promise<string[]> {
+    const instance = await this.repo.instance({ tenantId }, integrationInstanceId);
+    if (!instance) return [integrationInstanceId];
+    const family = this.connectors.get(instance.connectorCode)?.manifest.family;
+    if (!family) return [instance.id];
+    const siblings = (
+      await this.repo.listInstances({ tenantId, propertyId: instance.propertyId })
+    ).filter(
+      (i) =>
+        i.id !== instance.id && this.connectors.get(i.connectorCode)?.manifest.family === family,
+    );
+    return [instance.id, ...siblings.map((i) => i.id)];
+  }
+
   async resolveReference(
     tenantId: string,
     integrationInstanceId: string,
     externalEntityType: string,
     externalId: string,
   ): Promise<string | null> {
-    const ref = await this.repo.externalReference(
+    const own = await this.repo.externalReference(
       { tenantId },
       integrationInstanceId,
       externalEntityType,
       externalId,
     );
-    return ref?.internalEntityId ?? null;
+    if (own) return own.internalEntityId;
+    // Another connector of the same PMS may know it already (a reservation from OWS, now checked in through FIAS).
+    const family = await this.familyInstanceIds(tenantId, integrationInstanceId);
+    if (family.length === 1) return null;
+    const shared = await this.repo.externalReferenceAmong(
+      { tenantId },
+      family,
+      externalEntityType,
+      externalId,
+    );
+    return shared?.internalEntityId ?? null;
   }
 
   async linkReference(input: LinkReferenceInput): Promise<string> {
+    // The family's first holder wins, as within one instance: this instance then points at the same internal entity.
+    const family = await this.familyInstanceIds(input.tenantId, input.integrationInstanceId);
+    const shared =
+      family.length > 1
+        ? await this.repo.externalReferenceAmong(
+            { tenantId: input.tenantId },
+            family,
+            input.externalEntityType,
+            input.externalId,
+          )
+        : undefined;
     const row = await this.repo.linkReference({
       id: newId(),
       tenantId: input.tenantId,
       integrationInstanceId: input.integrationInstanceId,
       internalEntityType: input.internalEntityType,
-      internalEntityId: input.internalEntityId,
+      internalEntityId: shared?.internalEntityId ?? input.internalEntityId,
       externalEntityType: input.externalEntityType,
       externalId: input.externalId,
     });

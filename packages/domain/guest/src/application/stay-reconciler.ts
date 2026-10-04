@@ -58,12 +58,14 @@ export class StayReconciler {
     const inHouse: PlatformStay[] = [];
     for (const stay of await this.repo.inHouseStays(scope)) {
       const refs = await this.integrations.referencesFor(tenantId, STAY_ENTITY, stay.id);
+      // A stay linked through any connector of the same PMS (DB, FIAS, OWS read one OPERA) is compared.
+      const family = snapshot.familyInstanceIds.length ? snapshot.familyInstanceIds : [instanceId];
       const ref = refs.find(
         (r) =>
-          r.integrationInstanceId === instanceId &&
+          family.includes(r.integrationInstanceId) &&
           r.externalEntityType === EXTERNAL_ENTITY.RESERVATION,
       );
-      // Stays that came from another integration are that integration's business.
+      // Stays that came from another PMS integration are that integration's business.
       if (!ref) continue;
       const open = await this.repo.openAssignment(scope, stay.id);
       inHouse.push({

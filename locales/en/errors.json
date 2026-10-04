@@ -368,5 +368,6 @@
   "errors.integration.routing.not_allowed": "Only the standard connectors of {operation} may be used.",
   "errors.integration.routing.read_only_write_target": "{operation} changes the PMS and can never go through the read-only database connector.",
   "errors.integration.query.unknown": "The connector does not define the read {query}.",
-  "errors.integration.query.invalid_params": "The parameters of {query} are invalid."
+  "errors.integration.query.invalid_params": "The parameters of {query} are invalid.",
+  "errors.integration.commissioning.unknown_requirement": "This commissioning requirement is not part of the standard: {requirement}."
 }

@@ -3657,6 +3657,187 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/integration/commissioning": {
+      "get": {
+        "operationId": "CommissioningController_view",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Commissioning"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/commissioning/sheet/history": {
+      "get": {
+        "operationId": "CommissioningController_sheetHistory",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Commissioning"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/commissioning/sheet/{requirement}": {
+      "put": {
+        "operationId": "CommissioningController_recordSheet",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requirement",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissioningSheetEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Commissioning"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/integration/commissioning/runs": {
+      "get": {
+        "operationId": "CommissioningController_runs",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Commissioning"
+        ]
+      },
+      "post": {
+        "operationId": "CommissioningController_run",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissioningRunDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Commissioning"
+        ]
+      }
+    },
     "/api/v1/tenants/{tenantId}/webhooks": {
       "get": {
         "operationId": "WebhooksController_list",
@@ -16000,6 +16181,59 @@
         },
         "required": [
           "connectors"
+        ]
+      },
+      "CommissioningSheetEntryDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "MATCH",
+              "GAP",
+              "CHANGE_REQUIRED",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "hotelValue": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CommissioningRunDto": {
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "sample": {
+            "type": "object",
+            "properties": {
+              "confirmationNumber": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "profileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        },
+        "required": [
+          "instanceId"
         ]
       },
       "CreateWebhookDto": {

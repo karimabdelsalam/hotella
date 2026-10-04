@@ -367,6 +367,10 @@ reported as capabilities.
 External ids live only in `integration.external_references` (rule 3). Codes (VIP, rate, market, room type, status) map
 through confirmed mappings; unknown codes create exceptions (rule 16).
 
+**One PMS, one id namespace.** DB, FIAS and OWS read the same OPERA, so the ids above are the same whichever
+connector reports them: a reservation known from OWS is the stay FIAS checks in, and a DB snapshot is compared with
+stays made through any of them (ADR-0019 amendment).
+
 ## 10. Synchronisation strategy
 1. **Real time**: FIAS events as they happen (seconds).
 2. **Near real time future data**: DB (or OWS) arrival-window polling every 5 minutes, change-detected.
@@ -461,6 +465,13 @@ Each capability is marked **verified** in the registry by the commissioning engi
 command acknowledged and checked in OPERA, query result compared with the OPERA screen). Write capabilities
 (`ROOM_STATUS_WRITE`, `PROFILE_WRITE`, `RESERVATION_WRITE`) are verified with the hotel present, on a test room/profile.
 
+### 16.6 In the platform
+Everything above is recorded in the control plane, tab **Integrations** (Planova installers only; API
+`/properties/{id}/integration/commissioning`): the sheet row by row (each statement kept as history), a verification
+run per connector (agent linked and healthy, the reads it serves against that agent — tomorrow's arrivals, in-house
+list, room inventory, the hotel's test reservation and profile — and, for FIAS, the profile coverage), the capabilities
+still to verify with their sign-off, and the §20 checklist computed from all of it. Runs keep counts and reasons only.
+
 ## 17. Testing
 - **Automated (Planova CI)**: the PMS simulator's byte-level IFC8 face and OWS SOAP face run the standard profile end
   to end against the real gateway with the production agent (`opera5-fias.e2e-spec.ts`, `opera5-ows.e2e-spec.ts`);
@@ -490,6 +501,8 @@ command acknowledged and checked in OPERA, query result compared with the OPERA 
 - **DB**: the DBA drops or locks `HOTELLA_RO`.
 
 ## 20. Pilot readiness checklist
+The platform computes this list for each property (§16.6); "ready" means no item is open. The two items that are
+facts about people and paper (rollback agreed, on-site tests) are statements on the sheet; the rest is checked.
 - [ ] OPERA version recorded (5.6.x), IFC8 version, OWS version (if any)
 - [ ] IFC8 licence for a generic FIAS interface; interface number; IFC8 instance for Hotella
 - [ ] Interface Sheet compared (§16.2) — all required rows OK

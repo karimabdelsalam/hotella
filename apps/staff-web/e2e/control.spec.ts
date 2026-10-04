@@ -4,6 +4,8 @@ const TENANT = '01900000-0000-7000-8000-0000000000a1';
 const PLAN = '01900000-0000-7000-8000-0000000000b1';
 const DRAFT = '01900000-0000-7000-8000-0000000000b2';
 const PUBLISHED = '01900000-0000-7000-8000-0000000000b3';
+const PROPERTY = '01900000-0000-7000-8000-0000000000c1';
+const FIAS = '01900000-0000-7000-8000-0000000000c2';
 
 /** Mocks the control-plane API for a platform administrator (or a hotel manager when `admin` is false). */
 async function mockBackend(page: Page, admin = true) {
@@ -11,6 +13,8 @@ async function mockBackend(page: Page, admin = true) {
   let subscribed = false;
   let hidden = false;
   let draftItems: string[] = ['CORE'];
+  let rollback: string | null = null;
+  let verified = false;
   await page.route('**/bff/refresh', (r) =>
     r.fulfill({ json: { accessToken: 'access-1', expiresIn: 900 } }),
   );
@@ -160,6 +164,62 @@ async function mockBackend(page: Page, admin = true) {
     }
     if (path === `${base}/attribution`)
       return r.fulfill({ json: { show: !hidden, whiteLabelEntitled: subscribed } });
+    // ---- commissioning (BUILD_PLAN 10.9) ----
+    const integration = `/properties/${PROPERTY}/integration`;
+    if (path === '/properties' && url.searchParams.get('tenantId') === TENANT)
+      return r.fulfill({ json: [{ id: PROPERTY, code: 'NILE-CAI', name: 'Nile Cairo' }] });
+    if (path === `${integration}/commissioning`)
+      return r.fulfill({
+        json: {
+          ready: false,
+          checklist: [
+            {
+              item: 'ROLLBACK_AGREED',
+              state: rollback === 'MATCH' ? 'DONE' : 'OPEN',
+              reasons:
+                rollback === 'MATCH'
+                  ? []
+                  : [{ code: 'SHEET_ROW_MISSING', subject: 'SITE_ROLLBACK' }],
+            },
+            {
+              item: 'MAPPINGS_CONFIRMED',
+              state: 'OPEN',
+              reasons: [{ code: 'OPEN_EXCEPTIONS', count: 2 }],
+            },
+            { item: 'OWS_KNOWN', state: 'NOT_APPLICABLE', reasons: [] },
+          ],
+          sheet: [
+            {
+              requirement: 'SITE_ROLLBACK',
+              scope: 'SITE',
+              required: true,
+              current: rollback ? { status: rollback, hotelValue: 'Front office manager' } : null,
+            },
+          ],
+          instances: [
+            {
+              id: FIAS,
+              connectorCode: 'OPERA5_FIAS',
+              name: 'IFC8',
+              health: 'HEALTHY',
+              commissionedAt: null,
+              unverified: verified ? [] : ['CHECKIN_EVENT'],
+              lastRun: { status: 'PASSED' },
+              profileGaps: [{ record: 'GI', gaps: ['GL', 'GV'] }],
+            },
+          ],
+        },
+      });
+    if (path === `${integration}/commissioning/sheet/SITE_ROLLBACK` && method === 'PUT') {
+      rollback = (body as { status: string }).status;
+      return r.fulfill({ json: { id: 'row1', requirement: 'SITE_ROLLBACK', status: rollback } });
+    }
+    if (path === `${integration}/commissioning/runs` && method === 'POST')
+      return r.fulfill({ json: { id: 'run1', status: 'PASSED', checks: [] } });
+    if (path === `${integration}/capabilities/CHECKIN_EVENT/verify` && method === 'POST') {
+      verified = true;
+      return r.fulfill({ json: { verified: true } });
+    }
     return r.fulfill({ status: 404, json: { code: 'platform.not_found' } });
   });
   return { calls };
@@ -234,6 +294,70 @@ test('in Arabic, the control plane is right-to-left', async ({ page }) => {
   await expect(page.locator('[data-tenant="NILE"]')).toContainText('بدون ترخيص');
   await page.getByRole('tab', { name: 'الباقات' }).click();
   await expect(page.locator('[data-plan="PRO"]')).toContainText('الاحترافية');
+});
+
+test('an installer commissions a property: checklist, sheet, verification run and capability sign-off', async ({
+  page,
+}) => {
+  const backend = await mockBackend(page);
+  await page.goto('/en/control');
+  await page.getByRole('tab', { name: 'Integrations' }).click();
+  await page.locator('[data-tenant="NILE"]').click();
+  await page.locator('[data-property="NILE-CAI"]').click();
+  await expect(page.getByText('Not ready', { exact: true })).toBeVisible();
+  const rollback = page.locator('[data-item="ROLLBACK_AGREED"]');
+  await expect(rollback).toContainText('Rollback contacts and steps agreed');
+  await expect(rollback).toContainText('Not stated yet: SITE_ROLLBACK');
+  await expect(page.locator('[data-item="MAPPINGS_CONFIRMED"]')).toContainText(
+    '2 open integration exceptions',
+  );
+  await expect(page.locator('[data-item="OWS_KNOWN"]')).toContainText('Not applicable');
+  const fias = page.locator('[data-instance="OPERA5_FIAS"]');
+  await expect(fias).toContainText('Last run: passed');
+  await expect(fias).toContainText('Profile gaps: GI — GL GV');
+
+  // The Interface Sheet: one statement, kept as history on the platform.
+  const row = page.locator('[data-requirement="SITE_ROLLBACK"]');
+  await row.getByRole('combobox').selectOption('MATCH');
+  await row.getByPlaceholder("Hotel's value").fill('Front office manager');
+  await row.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toHaveText('Statement recorded.');
+  expect(backend.calls.find((c) => c.method === 'PUT')?.body).toEqual({
+    status: 'MATCH',
+    hotelValue: 'Front office manager',
+  });
+  await expect(rollback).toContainText('Done');
+
+  // A verification run, then a capability verified with evidence (disabled without it).
+  await page.getByPlaceholder('Test confirmation number (optional)').fill('771234');
+  await fias.getByRole('button', { name: 'Run verification' }).click();
+  await expect(page.getByRole('status')).toHaveText('Verification run recorded.');
+  expect(
+    backend.calls.find((c) => c.method === 'POST' && c.path.endsWith('/commissioning/runs'))?.body,
+  ).toEqual({ instanceId: FIAS, sample: { confirmationNumber: '771234' } });
+  const verify = fias.locator('[data-verify="CHECKIN_EVENT"]');
+  await expect(verify).toBeDisabled();
+  await page.getByLabel('Evidence reference').fill('COMM-12 check-in seen in OPERA');
+  await verify.click();
+  await expect(page.getByRole('status')).toHaveText('Capability verified.');
+  expect(
+    backend.calls.find((c) => c.path.endsWith('/capabilities/CHECKIN_EVENT/verify'))?.body,
+  ).toEqual({ instanceId: FIAS, evidenceRef: 'COMM-12 check-in seen in OPERA' });
+  await expect(fias).toContainText('All capabilities verified');
+});
+
+test('in Arabic, commissioning reads right-to-left with Arabic plurals', async ({ page }) => {
+  await mockBackend(page);
+  await page.goto('/ar/control');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await page.getByRole('tab', { name: 'التكاملات' }).click();
+  await page.locator('[data-tenant="NILE"]').click();
+  await page.locator('[data-property="NILE-CAI"]').click();
+  await expect(page.getByText('غير جاهز', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-item="MAPPINGS_CONFIRMED"]')).toContainText('استثناءان مفتوحان');
+  await expect(page.locator('[data-requirement="SITE_ROLLBACK"]')).toContainText(
+    'الاتفاق على جهات الاتصال وخطوات التراجع',
+  );
 });
 
 test('hotel staff never see the control plane', async ({ page }) => {

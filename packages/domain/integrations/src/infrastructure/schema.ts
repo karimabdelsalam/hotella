@@ -1066,3 +1066,95 @@ export const profileObservations = classify(
 );
 
 export type ProfileObservationRow = typeof profileObservations.$inferSelect;
+
+export const commissioningSheetStatus = integration.enum('commissioning_sheet_status', [
+  'MATCH',
+  'GAP',
+  'CHANGE_REQUIRED',
+  'NOT_APPLICABLE',
+]);
+
+/**
+ * The hotel's Interface Sheet compared with the standard (guide §16.2; BUILD_PLAN 10.9): one row per statement,
+ * append-only — the latest row of a requirement is current, earlier ones are its history (rule 10). Interface settings
+ * and notes, never guest data.
+ */
+export const commissioningSheetRows = classify(
+  integration.table(
+    'commissioning_sheet_rows',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      requirement: varchar('requirement', { length: 64 }).notNull(),
+      status: commissioningSheetStatus('status').notNull(),
+      hotelValue: varchar('hotel_value', { length: 500 }),
+      note: varchar('note', { length: 1000 }),
+      recordedByType: varchar('recorded_by_type', { length: 16 }).notNull(),
+      recordedById: varchar('recorded_by_id', { length: 64 }),
+    },
+    (t) => [
+      index('commissioning_sheet_rows_property_idx').on(t.propertyId, t.requirement, t.createdAt),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    requirement: 'INTERNAL',
+    status: 'INTERNAL',
+    hotelValue: 'INTERNAL',
+    note: 'INTERNAL',
+    recordedByType: 'INTERNAL',
+    recordedById: 'INTERNAL',
+  },
+);
+
+export type CommissioningSheetRow = typeof commissioningSheetRows.$inferSelect;
+
+export const commissioningRunStatus = integration.enum('commissioning_run_status', [
+  'PASSED',
+  'FAILED',
+]);
+
+/** A verification run of one connector instance (guide §16.3–§16.4): its checks with counts and reasons only. */
+export const commissioningRuns = classify(
+  integration.table(
+    'commissioning_runs',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => integrationInstances.id),
+      connectorCode: varchar('connector_code', { length: 48 }).notNull(),
+      status: commissioningRunStatus('status').notNull(),
+      checks: jsonb('checks').notNull().default([]),
+      startedAt: tz('started_at').notNull(),
+      finishedAt: tz('finished_at').notNull(),
+      requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
+      requestedById: varchar('requested_by_id', { length: 64 }),
+    },
+    (t) => [index('commissioning_runs_instance_idx').on(t.instanceId, t.startedAt)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    connectorCode: 'INTERNAL',
+    status: 'INTERNAL',
+    checks: 'INTERNAL',
+    startedAt: 'INTERNAL',
+    finishedAt: 'INTERNAL',
+    requestedByType: 'INTERNAL',
+    requestedById: 'INTERNAL',
+  },
+);
+
+export type CommissioningRunRow = typeof commissioningRuns.$inferSelect;

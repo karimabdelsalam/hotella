@@ -14,9 +14,12 @@ import {
   IntegrationInstancesController,
   IntegrationQueueController,
   PropertyCapabilitiesController,
+  CommissioningController,
   WebhooksController,
 } from './api/controllers';
 import { CapabilityAdminService } from './application/capability-admin.service';
+import { CommissioningService } from './application/commissioning.service';
+import { CommissioningRepositories } from './infrastructure/commissioning-repositories';
 import { CapabilityRegistry } from './application/capability-registry';
 import { PmsService } from './application/pms.service';
 import { CapabilityRepositories } from './infrastructure/capability-repositories';
@@ -94,6 +97,7 @@ export class IntegrationsCoreModule {}
     IntegrationInstancesController,
     IntegrationQueueController,
     PropertyCapabilitiesController,
+    CommissioningController,
     WebhooksController,
   ],
   providers: [
@@ -109,6 +113,8 @@ export class IntegrationsCoreModule {}
     EnrollmentService,
     WebhookService,
     CapabilityAdminService,
+    CommissioningService,
+    CommissioningRepositories,
   ],
   exports: [IngestService, HealthService, AgentKeys, EnrollmentService],
 })

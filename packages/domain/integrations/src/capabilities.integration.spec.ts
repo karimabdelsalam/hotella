@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Global, type INestApplication, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { ENTITLEMENT_API } from '@hotella/domain-licensing/public';
 import { OrganizationModule } from '@hotella/domain-organization';
 import { AuditModule } from '@hotella/platform-audit';
@@ -34,7 +34,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { integrationCommands, integrationHealth } from './infrastructure/schema';
 import { IntegrationsModule } from './integrations.module';
-import { PMS_API, type PmsPublicApi } from './public';
+import { INTEGRATIONS_API, type IntegrationsPublicApi, PMS_API, type PmsPublicApi } from './public';
 
 const admin = JSON.stringify({ type: 'USER', id: 'admin', tenantId: null, isPlatformAdmin: true });
 const user = (id: string, tenantId: string): string =>
@@ -373,6 +373,117 @@ describe.skipIf(needsInfra())(
       expect(routeOf(await view(hotels.B), 'SET_ROOM_STATUS')).toEqual(['OPERA5_FIAS']);
     });
 
+    it('connectors of one PMS share its ids: a reservation known through OWS resolves through FIAS', async () => {
+      const api = app.get<IntegrationsPublicApi>(INTEGRATIONS_API);
+      const ref = (instanceId: string, internalEntityId: string) =>
+        api.linkReference({
+          tenantId: tenant,
+          integrationInstanceId: instanceId,
+          internalEntityType: 'guest.stay',
+          internalEntityId,
+          externalEntityType: 'RESERVATION',
+          externalId: `R-${stamp}`,
+        });
+      const stay = '01900000-0000-7000-8000-00000000000a';
+      expect(await ref(instances.bOws!, stay)).toBe(stay);
+      expect(
+        await api.resolveReference(tenant, instances.bFias!, 'RESERVATION', `R-${stamp}`),
+      ).toBe(stay);
+      // FIAS links the same reservation to a stay of its own: the family's first holder wins.
+      expect(await ref(instances.bFias!, '01900000-0000-7000-8000-00000000000b')).toBe(stay);
+      // Another property, or a connector outside the family, is another namespace.
+      expect(
+        await api.resolveReference(tenant, instances.aFias!, 'RESERVATION', `R-${stamp}`),
+      ).toBeNull();
+      expect(
+        await api.resolveReference(tenant, instances.cSim!, 'RESERVATION', `R-${stamp}`),
+      ).toBeNull();
+    });
+
+    it('commissioning: the sheet keeps its history, a run without an agent fails, the checklist says why', async () => {
+      const base = `${cap(hotels.B)}/commissioning`;
+      const put = (requirement: string, body: object) =>
+        http().put(`${base}/sheet/${requirement}`).set('X-Test-Actor', gm()).send(body);
+      await put('FIAS_DATABASE_SWAP', {
+        status: 'CHANGE_REQUIRED',
+        hotelValue: 'swap disabled for this interface',
+        note: 'asked the IFC8 administrator',
+      }).expect(200);
+      await put('FIAS_DATABASE_SWAP', { status: 'MATCH', hotelValue: 'enabled' }).expect(200);
+      expect((await put('NOT_A_ROW', { status: 'MATCH' }).expect(404)).body.code).toBe(
+        'integration.commissioning.unknown_requirement',
+      );
+      await put('FIAS_CHARSET', { status: 'PERHAPS' }).expect(400);
+      const history = (
+        await http().get(`${base}/sheet/history`).set('X-Test-Actor', gm()).expect(200)
+      ).body as Array<{ requirement: string; status: string }>;
+      expect(
+        history.filter((r) => r.requirement === 'FIAS_DATABASE_SWAP').map((r) => r.status),
+      ).toEqual(['MATCH', 'CHANGE_REQUIRED']);
+      // History is kept by the database too: a statement is never edited, a new one is added.
+      await expect(
+        db.execute(
+          sql`update integration.commissioning_sheet_rows set status = 'GAP' where property_id = ${hotels.B}`,
+        ),
+      ).rejects.toThrow();
+
+      const run = (
+        await http()
+          .post(`${base}/runs`)
+          .set('X-Test-Actor', gm())
+          .send({ instanceId: instances.bOws, sample: { confirmationNumber: 'C1' } })
+          .expect(200)
+      ).body as {
+        status: string;
+        connectorCode: string;
+        checks: Array<{ code: string; outcome: string }>;
+      };
+      expect(run).toMatchObject({ status: 'FAILED', connectorCode: 'OPERA5_OWS' });
+      expect(run.checks.map((c) => [c.code, c.outcome])).toEqual([
+        ['AGENT_LINK', 'FAIL'],
+        ['HEALTH', 'FAIL'],
+        ['ARRIVALS_TOMORROW', 'SKIPPED'],
+        ['SAMPLE_RESERVATION', 'SKIPPED'],
+      ]);
+
+      const view = (await http().get(base).set('X-Test-Actor', gm()).expect(200)).body as {
+        ready: boolean;
+        checklist: Array<{ item: string; state: string; reasons: Array<{ code: string }> }>;
+        sheet: Array<{
+          requirement: string;
+          current: { status: string; hotelValue: string } | null;
+        }>;
+        instances: Array<{
+          id: string;
+          lastRun: { status: string } | null;
+          profileGaps: Array<{ record: string; received: number }> | null;
+        }>;
+      };
+      expect(view.ready).toBe(false);
+      expect(view.sheet.find((r) => r.requirement === 'FIAS_DATABASE_SWAP')!.current).toMatchObject(
+        {
+          status: 'MATCH',
+          hotelValue: 'enabled',
+        },
+      );
+      expect(view.instances.find((i) => i.id === instances.bOws)!.lastRun).toMatchObject({
+        status: 'FAILED',
+      });
+      expect(view.instances.find((i) => i.id === instances.bOws)!.profileGaps).toBeNull();
+      expect(view.instances.find((i) => i.id === instances.bFias)!.profileGaps).toEqual(
+        expect.arrayContaining([expect.objectContaining({ record: 'GI', received: 0 })]),
+      );
+      const item = (code: string) => view.checklist.find((i) => i.item === code)!;
+      expect(item('OWS_KNOWN').state).toBe('OPEN');
+      expect(item('DB_ACCOUNT').state).toBe('NOT_APPLICABLE');
+      expect(item('VERIFICATION_RUNS').reasons).toEqual(
+        expect.arrayContaining([
+          { code: 'RUN_FAILED', subject: 'OPERA5_OWS' },
+          { code: 'NO_RUN', subject: 'OPERA5_FIAS' },
+        ]),
+      );
+    });
+
     it('never shows or changes another tenant’s registry', async () => {
       const stranger = user('other', other);
       await http()
@@ -405,6 +516,21 @@ describe.skipIf(needsInfra())(
         .set('X-Test-Actor', gm())
         .expect(200);
       expect(own.body.profile).toEqual({ code: 'PLANOVA_FIAS_STANDARD', version: 1 });
+      // Commissioning: another tenant sees nothing; an instance of another property is not this property's.
+      await http()
+        .get(`${cap(hotels.B)}/commissioning`)
+        .set('X-Test-Actor', stranger)
+        .expect(404);
+      await http()
+        .put(`${cap(hotels.B)}/commissioning/sheet/SITE_ROLLBACK`)
+        .set('X-Test-Actor', stranger)
+        .send({ status: 'MATCH' })
+        .expect(404);
+      await http()
+        .post(`${cap(hotels.C)}/commissioning/runs`)
+        .set('X-Test-Actor', gm())
+        .send({ instanceId: instances.bOws })
+        .expect(404);
     });
   },
 );

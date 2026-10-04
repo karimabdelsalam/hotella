@@ -31,7 +31,7 @@ import type {
   RoutingOverrideRow,
 } from '../infrastructure/schema';
 
-interface InstanceFacts {
+export interface InstanceFacts {
   readonly row: IntegrationInstanceRow;
   readonly manifest: ConnectorManifest | undefined;
   readonly health: IntegrationHealthState | null;

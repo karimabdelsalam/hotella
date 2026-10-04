@@ -41,14 +41,20 @@ export interface IntegrationInstanceSummary {
  * through this API, inside their own transaction (calls join the ambient unit of work).
  */
 export interface IntegrationsPublicApi {
-  /** Internal id linked to an external id, or null. */
+  /**
+   * Internal id linked to an external id, or null. External ids of one connector family at a property (OPERA5_DB,
+   * OPERA5_FIAS, OPERA5_OWS: the same OPERA) are one namespace: an id known through a sibling connector resolves too.
+   */
   resolveReference(
     tenantId: string,
     integrationInstanceId: string,
     externalEntityType: string,
     externalId: string,
   ): Promise<string | null>;
-  /** Links an external id; when another internal entity already holds it, that one wins and its id is returned. */
+  /**
+   * Links an external id; when another internal entity already holds it — through this instance or a sibling of its
+   * connector family — that one wins and its id is returned.
+   */
   linkReference(input: LinkReferenceInput): Promise<string>;
   referencesFor(
     tenantId: string,
@@ -110,6 +116,11 @@ export interface IntegrationsPublicApi {
 export interface ReconciliationSnapshot {
   readonly runId: string;
   readonly integrationInstanceId: string;
+  /**
+   * The instances that read the same PMS at this property (the run's own first): their reservation references are
+   * one namespace, so a stay linked through any of them is compared.
+   */
+  readonly familyInstanceIds: readonly string[];
   readonly propertyId: string;
   readonly status: 'RUNNING' | 'COMPLETED' | 'FAILED';
   readonly entries: ReadonlyArray<{

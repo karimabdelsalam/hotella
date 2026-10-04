@@ -61,7 +61,12 @@ export const CAPABILITIES = [
   'RECONCILIATION_READ',
 ];
 
-const admin = JSON.stringify({ type: 'USER', id: 'admin', tenantId: null, isPlatformAdmin: true });
+export const admin = JSON.stringify({
+  type: 'USER',
+  id: 'admin',
+  tenantId: null,
+  isPlatformAdmin: true,
+});
 const user = (id: string, tenantId: string): string =>
   JSON.stringify({ type: 'USER', id, tenantId, isPlatformAdmin: false });
 
@@ -98,6 +103,14 @@ export interface GatewayHarness {
   projectAll(): Promise<void>;
   /** A single-use enrollment token for the agent integration. */
   enrollmentToken(): Promise<string>;
+  /**
+   * Another active integration instance at the same property (a hotel with several connectors, guide §5.4), with its
+   * rooms mapped by number; returns its id and a way to get enrollment tokens for its agent.
+   */
+  addInstance(
+    connectorCode: string,
+    capabilities: readonly string[],
+  ): Promise<{ instanceId: string; enrollmentToken: () => Promise<string> }>;
 }
 
 function entitlementsModule(api: EntitlementPublicApi): DynamicModule {
@@ -201,22 +214,36 @@ export async function startGatewayHarness(
       .set('X-Test-Actor', gm)
       .send({ parentId: root, roomNumber: n })
       .expect(201);
-  const instanceId = (
+  const createInstance = async (
+    connector: { connectorCode: string; capabilities: readonly string[] },
+    name: string,
+  ) => {
+    const id = (
+      await http()
+        .post(`${base}/integrations`)
+        .set('X-Test-Actor', gm)
+        .send({ ...connector, name })
+        .expect(201)
+    ).body.id as string;
     await http()
-      .post(`${base}/integrations`)
+      .patch(`${base}/integrations/${id}`)
       .set('X-Test-Actor', gm)
-      .send({ ...integration, name: 'Agent' })
-      .expect(201)
-  ).body.id as string;
-  await http()
-    .patch(`${base}/integrations/${instanceId}`)
-    .set('X-Test-Actor', gm)
-    .send({ version: 1, status: 'ACTIVE' })
-    .expect(200);
-  await http()
-    .post(`${base}/integrations/${instanceId}/mappings/rooms-by-number`)
-    .set('X-Test-Actor', gm)
-    .expect(200);
+      .send({ version: 1, status: 'ACTIVE' })
+      .expect(200);
+    await http()
+      .post(`${base}/integrations/${id}/mappings/rooms-by-number`)
+      .set('X-Test-Actor', gm)
+      .expect(200);
+    return id;
+  };
+  const tokenFor = async (id: string) =>
+    (
+      await http()
+        .post(`${base}/integrations/${id}/enrollment-tokens`)
+        .set('X-Test-Actor', gm)
+        .expect(201)
+    ).body.token as string;
+  const instanceId = await createInstance(integration, 'Agent');
 
   const project = projectOnce(app.get(IdempotentConsumer), app.get(StayProjector));
   return {
@@ -250,12 +277,10 @@ export async function startGatewayHarness(
         .orderBy(asc(eventsSchema.outbox.createdAt), asc(eventsSchema.outbox.id));
       for (const r of rows) await project(r.envelope as EventEnvelope);
     },
-    enrollmentToken: async () =>
-      (
-        await http()
-          .post(`${base}/integrations/${instanceId}/enrollment-tokens`)
-          .set('X-Test-Actor', gm)
-          .expect(201)
-      ).body.token as string,
+    enrollmentToken: () => tokenFor(instanceId),
+    addInstance: async (connectorCode, capabilities) => {
+      const id = await createInstance({ connectorCode, capabilities }, connectorCode);
+      return { instanceId: id, enrollmentToken: () => tokenFor(id) };
+    },
   };
 }

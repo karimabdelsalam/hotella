@@ -73,6 +73,12 @@ export interface ConnectorManifest {
    * received messages are compared with it and what a hotel does not deliver is reported as a profile gap.
    */
   readonly profile?: InterfaceProfile;
+  /**
+   * Connectors of one family read the same source system (OPERA5_DB, OPERA5_FIAS and OPERA5_OWS all read the
+   * property's OPERA): their external ids are one namespace within a property, so a reservation seen by two of them
+   * is one stay. Absent = the connector is its own namespace.
+   */
+  readonly family?: string;
 }
 
 export class ConnectorDefinitionError extends Error {
@@ -93,6 +99,8 @@ export function defineConnector(manifest: ConnectorManifest): ConnectorManifest 
   if (!CONNECTOR_CATEGORIES.includes(manifest.category)) fail(`unknown category`);
   if (manifest.entitlement !== undefined && !CONNECTOR_CODE_RE.test(manifest.entitlement))
     fail('entitlement must be UPPER_SNAKE_CASE');
+  if (manifest.family !== undefined && !CONNECTOR_CODE_RE.test(manifest.family))
+    fail('family must be UPPER_SNAKE_CASE');
   const caps = new Set<string>(manifest.capabilities);
   for (const c of manifest.capabilities) {
     if (!isConnectorCapability(c)) fail(`unknown capability ${c}`);

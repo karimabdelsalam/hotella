@@ -2097,7 +2097,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.6 | Unified OPERA Adapter (`PMS_API`) and per-property capability registry (10.D) | delivered (writes routed; reads arrive with 10.7, see notes) |
 | 10.7 | Link protocol 2 (`query`/`query_result`) and the `OPERA5_DB` read-only connector (10.D) | delivered (see notes; real Oracle verified at the pilot) |
 | 10.8 | Planova Standard IFC8/FIAS Profile v1 alignment and OWS standard connector v1 (reads + supported writes) (10.D) | delivered (see notes; reservation writes held until verified) |
-| 10.9 | Commissioning tooling: Interface Sheet comparison, DB probe, OWS verification, capability sign-off; OPERA integration acceptance (10.D) | scheduled after Phase 11, before M4 |
+| 10.9 | Commissioning tooling: Interface Sheet comparison, DB probe, OWS verification, capability sign-off; OPERA integration acceptance (10.D) | delivered (`docs/acceptance/opera-integration.md`; the real hotel at the pilot) |
 
 **Reality notes for 10.1 (delivered).**
 - Solution `apps/hotel-agent/Hotella.Agent.slnx`: `Hotella.Agent.Core` (identity, durable queue, link, command
@@ -2402,6 +2402,67 @@ Phase 11 does not wait for pilot-specific IFC8/OWS details.
   `verified` facts of 10.6. Staff never see this; it is a control-plane/installer screen.
 - Acceptance: the pilot readiness checklist (guide §20) is executable against the simulator end to end for the three
   hotel shapes; at the pilot only the hotel's values change.
+- *Domain model (schema `integration`, data class INTERNAL — interface settings, counts and reasons, never guest
+  data):* `commissioning_sheet_rows` (tenant, property, requirement code, hotel value, status, note, recorded by, at) —
+  append-only, the latest row per requirement is current (rule 10); `commissioning_runs` (tenant, property, instance,
+  connector, status PASSED/FAILED, checks `[{code, outcome PASS/FAIL/SKIPPED, detail}]`, started/finished, requested
+  by). The requirement catalog is code (`domain/commissioning.ts`): FIAS (interface/version, connection, guest records,
+  `RE` to and from the interface, database swap, character set, IfcAuthKey, interface number), OWS (licence/version,
+  endpoint/TLS, entities, user rights), DB (read-only account, network), and site items (versions recorded, agent host,
+  on-site tests, rollback agreed); each with its connector (or the site), whether it is required and the capabilities
+  it affects. Labels are locale keys (rule 7).
+- *Verification runs (deterministic, rule 11):* for one instance, the checks of its connector run through the agent
+  over link protocol 2 directly against that instance (not routed): the agent is linked with protocol 2; DB — room
+  inventory, arrivals of tomorrow, in-house list answer; OWS — arrivals of tomorrow answer, and a lookup of a sample
+  confirmation number / profile when given; FIAS — the link is up and the profile coverage shows the mandatory records
+  with no refused record. Rows are counted and dropped; only counts and reasons are stored.
+- *Readiness (pure function, unit-tested):* the guide §20 checklist computed from the facts — versions recorded, IFC8
+  interface, sheet compared (every required row of a present connector MATCH or NOT_APPLICABLE), OWS known, DB account
+  and a passed DB run, agent host, agents linked/licensed/healthy, mappings confirmed (no open integration exception),
+  capabilities signed off (every instance commissioned, every effective-candidate capability verified), on-site tests
+  and a reconciliation with only MATCH, rollback agreed — each DONE / OPEN (with reason codes) / NOT_APPLICABLE;
+  `ready` when nothing is OPEN.
+- *APIs (installer/control plane; permissions of 10.6, no new ones):* `GET /properties/:id/integration/commissioning`
+  (`integration.read`: sheet with current rows, instances with last run and coverage summary, checklist, ready);
+  `PUT …/commissioning/sheet/:requirement` (`integration.capability.verify`, audited; appends a row);
+  `GET …/commissioning/sheet/history`; `POST …/commissioning/runs` (`integration.capability.verify`, audited;
+  `{ instanceId, sample?: { confirmationNumber?, profileId? } }`); `GET …/commissioning/runs`.
+- *UI:* the control plane gains an "Integrations" tab (platform administrators only, English and Arabic, LTR/RTL):
+  property picker, the checklist, the sheet with status per requirement, instances with their last run and profile
+  gaps, run and verify actions.
+- *Tests:* unit (catalog, readiness for hotels A/B/C, run checks); integration (sheet history, runs, readiness, 404
+  across tenants); e2e (hotel B shape — DB + FIAS + OWS agents against the simulator — taken from nothing to `ready`
+  through the API only); Playwright (the tab in both directions).
+
+**Reality notes for 10.9 (delivered).**
+- As designed above: `domain/commissioning.ts` (19 requirements over FIAS, OWS, DB and the site; 12 checklist items;
+  pure `readiness()`), migration 0044 (`commissioning_sheet_rows` — an UPDATE is refused by trigger, the latest row per
+  requirement is current — and `commissioning_runs`, both with RLS), `CommissioningService` and
+  `CommissioningController` at `/properties/:id/integration/commissioning` (view, `sheet/:requirement`,
+  `sheet/history`, `runs`), no new permission (`integration.read` / `integration.capability.verify`).
+- Verification run checks: `AGENT_LINK` (a protocol-2 agent is linked), `HEALTH` (instance HEALTHY), then the reads the
+  connector serves against that instance only — `ROOM_INVENTORY` (rows > 0), `ARRIVALS_TOMORROW` (answered, the
+  property's local date), `IN_HOUSE` (answered), `SAMPLE_RESERVATION` / `SAMPLE_PROFILE` (exactly one row) when a sample
+  is given — and, for a connector with a profile, `PROFILE_COVERAGE` (GI and GO received, no refused record). Rows are
+  counted and dropped. A run passes when something passed and nothing failed.
+- "Capabilities signed off" asks every instance to be commissioned and every capability the hotel uses on it
+  (supported ∧ enabled ∧ not refused by the agent) to be verified — reads included, which matches 10.6's rule after
+  sign-off. "Verification runs" is an item the guide's checklist implies ("probe passes") and is now explicit for every
+  connector.
+- Deviation found by the acceptance and fixed (ADR-0019 amendment): the three OPERA connectors share one id namespace
+  per property. Manifests declare `family: 'OPERA5'`; `resolveReference`/`linkReference` look across the family's
+  instances of the property (first holder wins); the projector locks reservations and profiles per property;
+  `ReconciliationSnapshot.familyInstanceIds` lets the reconciler compare a DB snapshot with stays FIAS and OWS made.
+  Before this, a reservation seen by OWS and checked in by FIAS would have become two stays.
+- UI: control plane tab "Integrations" (`control-integrations.tsx`): tenant → property → checklist with reasons,
+  connectors (health, last run, capabilities to verify, sign-off, profile gaps), the Interface Sheet; English and
+  Arabic (ICU plurals), logical CSS.
+- Tests: `commissioning.spec.ts` (hotels A/B/C ready, fresh property with reasons, sheet statuses, DB run, inactive
+  instances); `capabilities.integration.spec.ts` (sheet history and the append-only trigger, a run without an agent,
+  the view, the family namespace, 404 across tenants and properties); e2e `opera-commissioning.e2e-spec.ts` (hotel B:
+  three .NET agents — DB fixture, IFC8 face, OWS face — one stay per reservation across OWS and FIAS, then sheet → runs
+  → verification → sign-off → DB reconciliation MATCH → `ready`); Playwright `control.spec.ts` (the tab in English and
+  Arabic).
 
 ### Phase 11 — Licensing & Control Plane (M4b)
 `license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent. Developer platform v1 (Spec §75): API clients with scoped keys, signed outbound webhooks with retry/DLQ/replay (ADR-0012), OAuth clients later; no untrusted code plugins in the runtime.

@@ -92,3 +92,14 @@ record, never in code.
 - Research limits recorded honestly: the profile and data contract are derived from Oracle's published FIAS 2.25 / OWS
   5.1 / OPERA 5.6 material as reachable during design; each is marked *to verify against the official document* where a
   detail could not be read in full, and the commissioning checklist verifies them per hotel.
+
+## Amendment 2026-10-04 (Sprint 10.9) — one PMS, one id namespace
+Implementing the acceptance of hotel shape B showed a gap the decision implied but did not state: OPERA5_DB,
+OPERA5_FIAS and OPERA5_OWS read the **same** OPERA, so a reservation's id (`RESV_NAME_ID`, FIAS `G#`) and a profile's
+`NAME_ID` are the same whichever connector reports them (guide §9). External references therefore form one namespace
+per **connector family** at a property: connector manifests declare `family` (`OPERA5` for the three), the integration
+context resolves and links references across the property's instances of that family (the family's first holder
+wins, as within one instance), the guest projector locks reservations and profiles per property, and reconciliation
+compares a snapshot with stays linked through any connector of the family. Without it a reservation seen by OWS and
+checked in through FIAS would become two stays. Rule 3 is unchanged: external ids still live only in
+`integration.external_references`. Connectors without a family keep their own namespace.

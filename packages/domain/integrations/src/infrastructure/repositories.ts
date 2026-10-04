@@ -509,6 +509,29 @@ export class IntegrationRepositories {
       )
       .then((r) => r[0]);
   }
+  /** The first reference of this external id held by any of these instances (a connector family of one property). */
+  externalReferenceAmong(
+    scope: TenantScope,
+    instanceIds: readonly string[],
+    externalEntityType: string,
+    externalId: string,
+  ): Promise<ExternalReferenceRow | undefined> {
+    return this.x
+      .select()
+      .from(externalReferences)
+      .where(
+        tenantWhere(
+          externalReferences,
+          scope,
+          inArray(externalReferences.integrationInstanceId, [...instanceIds]),
+          eq(externalReferences.externalEntityType, externalEntityType),
+          eq(externalReferences.externalId, externalId),
+        ),
+      )
+      .orderBy(asc(externalReferences.firstSeenAt), asc(externalReferences.id))
+      .limit(1)
+      .then((r) => r[0]);
+  }
   referencesForInternal(
     scope: TenantScope,
     internalEntityType: string,

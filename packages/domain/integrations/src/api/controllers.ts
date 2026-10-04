@@ -54,6 +54,11 @@ import {
   unverifyCapabilitySchema,
   verifyCapabilitySchema,
 } from '../application/capability-admin.service';
+import {
+  CommissioningService,
+  commissioningRunSchema,
+  sheetEntrySchema,
+} from '../application/commissioning.service';
 import { EnrollmentService } from '../link/enrollment.service';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '../public';
 
@@ -72,6 +77,8 @@ class UnverifyCapabilityDto extends createZodDto(unverifyCapabilitySchema) {}
 class RoutingOverrideDto extends createZodDto(routingOverrideSchema) {}
 class CommissionInstanceDto extends createZodDto(commissionSchema) {}
 class ResetProfileDto extends createZodDto(resetProfileSchema) {}
+class CommissioningSheetEntryDto extends createZodDto(sheetEntrySchema) {}
+class CommissioningRunDto extends createZodDto(commissioningRunSchema) {}
 class CreateWebhookDto extends createZodDto(createWebhookSchema) {}
 class UpdateWebhookDto extends createZodDto(updateWebhookSchema) {}
 class WebhookDeliveriesQueryDto extends createZodDto(webhookDeliveriesQuerySchema) {}
@@ -503,5 +510,58 @@ export class WebhooksController {
     @Param('deliveryId') deliveryId: string,
   ) {
     return this.webhooks.replay({ tenantId }, webhookId, deliveryId);
+  }
+}
+
+/**
+ * Commissioning of a property's PMS integration (guide §16, §20; BUILD_PLAN 10.9): the Interface Sheet compared with
+ * the standard, verification runs, and the readiness checklist. Installer and control-plane work.
+ */
+@Controller('properties/:propertyId/integration/commissioning')
+@PropertyScoped({ from: 'param' })
+export class CommissioningController {
+  constructor(
+    private readonly commissioning: CommissioningService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get()
+  @RequirePermission('integration.read', { checkedBy: 'gate' })
+  view(@Param('propertyId') propertyId: string) {
+    return this.commissioning.view(propertyScope(this.ctx, this.actors, propertyId));
+  }
+
+  @Get('sheet/history')
+  @RequirePermission('integration.read', { checkedBy: 'gate' })
+  sheetHistory(@Param('propertyId') propertyId: string) {
+    return this.commissioning.sheetHistory(propertyScope(this.ctx, this.actors, propertyId));
+  }
+
+  @Put('sheet/:requirement')
+  @RequirePermission('integration.capability.verify', { checkedBy: 'gate' })
+  recordSheet(
+    @Param('propertyId') propertyId: string,
+    @Param('requirement') requirement: string,
+    @Body() body: CommissioningSheetEntryDto,
+  ) {
+    return this.commissioning.recordSheet(
+      propertyScope(this.ctx, this.actors, propertyId),
+      requirement,
+      body,
+    );
+  }
+
+  @Get('runs')
+  @RequirePermission('integration.read', { checkedBy: 'gate' })
+  runs(@Param('propertyId') propertyId: string) {
+    return this.commissioning.runs(propertyScope(this.ctx, this.actors, propertyId));
+  }
+
+  @Post('runs')
+  @HttpCode(200)
+  @RequirePermission('integration.capability.verify', { checkedBy: 'gate' })
+  run(@Param('propertyId') propertyId: string, @Body() body: CommissioningRunDto) {
+    return this.commissioning.run(propertyScope(this.ctx, this.actors, propertyId), body);
   }
 }

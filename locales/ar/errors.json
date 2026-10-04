@@ -368,5 +368,6 @@
   "errors.integration.routing.not_allowed": "لا يُسمح إلا بالموصلات القياسية للعملية {operation}.",
   "errors.integration.routing.read_only_write_target": "العملية {operation} تغيّر بيانات نظام إدارة الفندق ولا يمكن أن تمر أبدًا عبر موصل قاعدة البيانات للقراءة فقط.",
   "errors.integration.query.unknown": "لا يعرّف الموصل عملية القراءة {query}.",
-  "errors.integration.query.invalid_params": "معاملات {query} غير صالحة."
+  "errors.integration.query.invalid_params": "معاملات {query} غير صالحة.",
+  "errors.integration.commissioning.unknown_requirement": "هذا البند ليس من متطلبات التشغيل القياسية: {requirement}."
 }

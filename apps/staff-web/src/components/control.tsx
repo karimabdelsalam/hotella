@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge, Button, cx } from '@hotella/ui';
+import { Integrations } from './control-integrations';
 import { Header } from './header';
 import { useRouter } from '../i18n/navigation';
 import { useMe } from '../lib/access';
@@ -96,7 +97,7 @@ export function ControlApp() {
   const session = useSession();
   const router = useRouter();
   const me = useMe();
-  const [tab, setTab] = useState<'tenants' | 'plans'>('tenants');
+  const [tab, setTab] = useState<'tenants' | 'plans' | 'integrations'>('tenants');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -146,7 +147,7 @@ export function ControlApp() {
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 text-sm">
         <h1 className="text-base font-bold">{t('title')}</h1>
         <div className="flex gap-1" role="tablist">
-          {(['tenants', 'plans'] as const).map((x) => (
+          {(['tenants', 'plans', 'integrations'] as const).map((x) => (
             <button
               key={x}
               role="tab"
@@ -175,8 +176,10 @@ export function ControlApp() {
       )}
       {tab === 'tenants' ? (
         <Tenants catalog={catalog} plans={plans} act={act} fail={fail} />
-      ) : (
+      ) : tab === 'plans' ? (
         <Plans catalog={catalog} plans={plans} reload={loadPlans} act={act} />
+      ) : (
+        <Integrations act={act} fail={fail} />
       )}
     </>
   );
