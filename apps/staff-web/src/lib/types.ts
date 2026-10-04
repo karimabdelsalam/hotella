@@ -418,3 +418,62 @@ export interface LostFoundDetail extends LostFoundItem {
     readonly createdAt: string;
   }>;
 }
+
+// ---- logbook (see the logbook context's service) ----
+
+export type ShiftName = 'MORNING' | 'EVENING' | 'NIGHT';
+
+export interface DepartmentRow {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly status: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface HandoverFacts {
+  readonly work: { readonly open: number; readonly urgent: number; readonly overdue: number };
+  readonly complaints: { readonly open: number; readonly high_or_critical: number } | null;
+  readonly rooms_out_of_order: ReadonlyArray<{
+    readonly room: string;
+    readonly kind: string;
+  }> | null;
+  readonly lost_found: {
+    readonly found_waiting: number;
+    readonly lost_reports_open: number;
+    readonly matches_to_decide: number;
+    readonly past_retention: number;
+  } | null;
+  readonly entries: { readonly total: number; readonly incidents: number };
+}
+
+export interface Handover {
+  readonly id: string;
+  readonly departmentCode: string;
+  readonly shiftDate: string;
+  readonly shift: ShiftName;
+  readonly summary: string;
+  readonly facts: HandoverFacts;
+  readonly source: 'AI' | 'WRITTEN';
+  readonly edited: boolean;
+  readonly status: 'DRAFT' | 'ACKNOWLEDGED';
+  readonly draftedById: string | null;
+  readonly acknowledgedAt: string | null;
+  readonly version: number;
+}
+
+export interface ShiftView {
+  readonly departmentCode: string;
+  readonly shiftDate: string;
+  readonly shift: ShiftName;
+  readonly window: { readonly from: string; readonly to: string };
+  readonly facts: HandoverFacts;
+  readonly entries: ReadonlyArray<{
+    readonly id: string;
+    readonly kind: 'NOTE' | 'INCIDENT' | 'HANDOVER_ITEM';
+    readonly text: string;
+    readonly roomNumber: string | null;
+    readonly correctsEntryId: string | null;
+    readonly createdAt: string;
+  }>;
+  readonly handover: Handover | null;
+}
