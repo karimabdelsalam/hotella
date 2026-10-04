@@ -84,6 +84,13 @@ export class ComplaintsController {
     return { tenantId: tenantOf(this.ctx, this.actors), propertyId };
   }
 
+  /** The group's categories, for the desk of this hotel. */
+  @Get('complaint-categories')
+  @RequirePermission('complaint.read', { checkedBy: 'gate' })
+  categories(@Param('propertyId') propertyId: string) {
+    return this.complaints.listCategories(this.scope(propertyId), this.locale.get());
+  }
+
   @Get('complaints')
   @RequirePermission('complaint.read', { checkedBy: 'gate' })
   list(@Param('propertyId') propertyId: string, @Query() query: ListComplaintsDto) {

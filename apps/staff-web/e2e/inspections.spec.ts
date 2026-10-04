@@ -93,7 +93,7 @@ async function mockBackend(page: Page, permissions: readonly string[]) {
       });
     if (path === '/properties')
       return r.fulfill({ json: [{ id: PROPERTY, name: 'Red Sea Resort' }] });
-    if (path === '/inspection/templates')
+    if (path === `${base}/inspection-templates`)
       return r.fulfill({
         json: [
           {

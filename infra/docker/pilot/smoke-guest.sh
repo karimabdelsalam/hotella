@@ -219,6 +219,8 @@ template=$(call "$API/inspection/templates" "${group_auth[@]}" -d '{"code":"ROOM
     {"code":"SMOKE_DETECTOR","rule":{"kind":"PASS_FAIL","failSeverity":"CRITICAL"},"labels":[{"locale":"en","label":"Smoke detector works"}]},
     {"code":"DOOR_LOCK","rule":{"kind":"YES_NO","expected":"YES"},"labels":[{"locale":"en","label":"Door locks"}]}]}]}')
 call -X POST "$API/inspection/templates/versions/$(jq -r .draftVersionId <<<"$template")/publish" "${group_auth[@]}" >/dev/null
+# The hotel's GM (a property membership) sees the group's published checklist from the hotel.
+call "$P/inspection-templates" "${auth[@]}" | jq -e '[.[] | select(.code == "ROOM_SAFETY" and .publishedVersionNo == 1)] | length == 1' >/dev/null
 inspection=$(call "$P/inspections" "${auth[@]}" -d "{\"templateId\":\"$(jq -r .id <<<"$template")\",\"locationId\":\"$guest_room\"}" | jq -r .id)
 call -X PUT "$P/inspections/$inspection/answers" "${auth[@]}" -d '{"itemCode":"SMOKE_DETECTOR","answer":{"kind":"PASS_FAIL","value":"FAIL"}}' >/dev/null
 call -X PUT "$P/inspections/$inspection/answers" "${auth[@]}" -d '{"itemCode":"DOOR_LOCK","answer":{"kind":"YES_NO","value":"YES"}}' >/dev/null
@@ -229,7 +231,7 @@ jq -e '.result == "FAIL" and ([.findings[] | select(.severity == "CRITICAL" and 
 echo "inspections: OK"
 # Guest relations: the group's categories, a complaint on the stay, a discount that waits for the group GM's approval.
 call -X POST "$API/relations/categories/starter" "${group_auth[@]}" | jq -e '.created >= 8' >/dev/null
-noise=$(call "$API/relations/categories" "${auth[@]}" | jq -r '.[] | select(.code == "NOISE") | .id')
+noise=$(call "$P/complaint-categories" "${auth[@]}" | jq -r '.[] | select(.code == "NOISE") | .id')
 complaint=$(call "$P/complaints" "${auth[@]}" -d "{\"categoryId\":\"$noise\",\"summary\":\"Loud music next door after midnight\",\"stayId\":\"$stay\"}")
 recovery=$(call "$P/complaints/$(jq -r .id <<<"$complaint")/recovery" "${auth[@]}" -d '{"kind":"DISCOUNT","amountMinor":20000,"note":"One night"}')
 jq -e '.status == "PENDING_APPROVAL"' <<<"$recovery" >/dev/null

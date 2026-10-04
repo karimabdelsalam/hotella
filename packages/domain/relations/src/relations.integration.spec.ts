@@ -34,6 +34,8 @@ describe.skipIf(needsInfra())(`Guest relations (${infraSkipReason()})`, () => {
     'approval.decide',
   ];
   let h: RelationsHarness;
+  let grants: Record<string, string[]>;
+  const hotelDeskId = newId();
   let hotel: Hotel;
   let other: Hotel;
   let complaintId: string;
@@ -67,12 +69,15 @@ describe.skipIf(needsInfra())(`Guest relations (${infraSkipReason()})`, () => {
   });
 
   beforeAll(async () => {
-    h = await startRelationsApp(url, 'hotella_app_relations', {
+    grants = {
       [gmId]: GM,
       [grId]: ['complaint.read', 'complaint.manage', 'complaint.recovery.manage'],
       [deskId]: ['complaint.read'],
-    });
+    };
+    h = await startRelationsApp(url, 'hotella_app_relations', grants);
     hotel = await createHotel(h, `rel-a-${stamp}`, gmId);
+    // A desk whose membership is for this hotel only (not tenant-wide).
+    grants[hotelDeskId] = [`complaint.read@${hotel.propertyId}`];
     other = await createHotel(h, `rel-b-${stamp}`, gmId);
   });
   afterAll(() => h?.app.close());
@@ -123,6 +128,22 @@ describe.skipIf(needsInfra())(`Guest relations (${infraSkipReason()})`, () => {
       .expect(200);
     expect(ar.body.find((c: { code: string }) => c.code === 'POOL').name).toBe('حمام السباحة');
     expect(ar.body.find((c: { code: string }) => c.code === 'NOISE').name).toBe('الضوضاء');
+    // A hotel's own desk reads the group's categories from its hotel, not tenant-wide (pilot smoke finding).
+    const hotelDesk = staff(hotelDeskId, hotel.tenantId);
+    await h.http().get('/relations/categories').set('X-Test-Actor', hotelDesk).expect(403);
+    const fromHotel = await h
+      .http()
+      .get(`${base()}/complaint-categories`)
+      .set('X-Test-Actor', hotelDesk)
+      .expect(200);
+    expect(fromHotel.body.map((c: { code: string }) => c.code)).toEqual(
+      ar.body.map((c: { code: string }) => c.code),
+    );
+    await h
+      .http()
+      .get(`/properties/${other.propertyId}/complaint-categories`)
+      .set('X-Test-Actor', hotelDesk)
+      .expect(404);
   });
 
   it('records a complaint against a stay and a room, numbered per property, with every status change kept', async () => {

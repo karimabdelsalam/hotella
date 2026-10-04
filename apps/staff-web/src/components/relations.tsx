@@ -105,7 +105,7 @@ export function RelationsApp() {
     const [list, pending, cats, roomRows] = await Promise.all([
       session.api<ComplaintSummary[]>(`${base}/complaints${status}`),
       session.api<ComplaintCandidate[]>(`${base}/complaint-candidates`),
-      session.api<ComplaintCategory[]>('/relations/categories'),
+      session.api<ComplaintCategory[]>(`${base}/complaint-categories`),
       session.api<RoomRow[]>(`${base}/rooms`),
     ]);
     setComplaints(list);

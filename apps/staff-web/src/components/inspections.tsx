@@ -77,7 +77,7 @@ export function InspectionsApp() {
     if (!base) return;
     const [inspections, all, roomRows] = await Promise.all([
       session.api<InspectionSummary[]>(`${base}/inspections`),
-      session.api<InspectionTemplate[]>('/inspection/templates'),
+      session.api<InspectionTemplate[]>(`${base}/inspection-templates`),
       session.api<RoomRow[]>(`${base}/rooms`),
     ]);
     setList(inspections);

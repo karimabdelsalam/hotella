@@ -163,10 +163,15 @@ export class ComplaintService {
     );
   }
 
-  listCategories(scope: TenantScope, lang: string) {
-    return this.gate.execute({ action: 'complaint.read', tenantId: scope.tenantId }, () =>
+  /**
+   * The tenant's categories. With a property, the permission is checked there: the desk of one hotel reads the
+   * group's categories without a tenant-wide membership.
+   */
+  listCategories(scope: TenantScope & { propertyId?: string | null }, lang: string) {
+    const { tenantId, propertyId = null } = scope;
+    return this.gate.execute({ action: 'complaint.read', tenantId, propertyId }, () =>
       this.tx.read(async () => {
-        const rows = await this.repo.categoriesOf(scope);
+        const rows = await this.repo.categoriesOf({ tenantId });
         const names = await this.repo.categoryNames(rows.map((r) => r.id));
         return rows.map((r) => ({ ...r, name: nameIn(names.get(r.id), lang, r.code) }));
       }),

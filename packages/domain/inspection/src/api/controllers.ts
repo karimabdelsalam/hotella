@@ -109,6 +109,7 @@ export class TemplatesController {
 export class InspectionsController {
   constructor(
     private readonly inspections: InspectionService,
+    private readonly templates: TemplateService,
     private readonly ctx: RequestContext,
     private readonly actors: ActorStore,
     private readonly locale: CurrentLocale,
@@ -116,6 +117,13 @@ export class InspectionsController {
 
   private scope(propertyId: string) {
     return { tenantId: tenantOf(this.ctx, this.actors), propertyId };
+  }
+
+  /** The group's checklists, for the supervisors of this hotel. */
+  @Get('inspection-templates')
+  @RequirePermission('inspection.read', { checkedBy: 'gate' })
+  checklists(@Param('propertyId') propertyId: string) {
+    return this.templates.list(this.scope(propertyId), this.locale.get());
   }
 
   @Get('inspections')

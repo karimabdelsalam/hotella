@@ -100,6 +100,8 @@ describe.skipIf(needsInfra())(`Inspection engine (${infraSkipReason()})`, () => 
     'task.read',
   ];
   let h: InspectionHarness;
+  let grants: Record<string, string[]>;
+  const hotelSupervisorId = newId();
   let hotel: Hotel;
   let other: Hotel;
   let templateId: string;
@@ -123,11 +125,11 @@ describe.skipIf(needsInfra())(`Inspection engine (${infraSkipReason()})`, () => 
       .send({ itemCode, answer: value });
 
   beforeAll(async () => {
-    h = await startInspectionApp(url, 'hotella_app_inspection', {
-      [gmId]: STAFF,
-      [supervisorId]: ['inspection.read'],
-    });
+    grants = { [gmId]: STAFF, [supervisorId]: ['inspection.read'] };
+    h = await startInspectionApp(url, 'hotella_app_inspection', grants);
     hotel = await createHotel(h, `insp-a-${stamp}`, gmId, ['504']);
+    // A supervisor whose membership is for this hotel only (not tenant-wide).
+    grants[hotelSupervisorId] = [`inspection.read@${hotel.propertyId}`];
     other = await createHotel(h, `insp-b-${stamp}`, gmId, ['900']);
     await h
       .http()
@@ -258,6 +260,22 @@ describe.skipIf(needsInfra())(`Inspection engine (${infraSkipReason()})`, () => 
         {},
       ],
     });
+  });
+
+  it('a hotel’s supervisors read the group’s checklists from their hotel, not tenant-wide', async () => {
+    const supervisor = staff(hotelSupervisorId, hotel.tenantId);
+    await h.http().get('/inspection/templates').set('X-Test-Actor', supervisor).expect(403);
+    const list = await h
+      .http()
+      .get(`${base()}/inspection-templates`)
+      .set('X-Test-Actor', supervisor);
+    expect(list.status, JSON.stringify(list.body)).toBe(200);
+    expect(list.body.map((t: { id: string }) => t.id)).toContain(templateId);
+    await h
+      .http()
+      .get(`/properties/${other.propertyId}/inspection-templates`)
+      .set('X-Test-Actor', supervisor)
+      .expect(404);
   });
 
   it('answers item by item with typed checks and photos of its own', async () => {

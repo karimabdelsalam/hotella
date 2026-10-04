@@ -177,22 +177,30 @@ export class TemplateService {
     );
   }
 
-  list(scope: TenantScope, locale: string) {
-    return this.gate.execute({ action: 'inspection.read', tenantId: scope.tenantId }, () =>
-      this.tx.read(async () => {
-        const rows = await this.repo.templatesOf(scope);
-        const names = await this.repo.templateNames(rows.map((r) => r.id));
-        const out = [];
-        for (const t of rows) {
-          const published = await this.repo.publishedVersion(scope, t.id);
-          out.push({
-            ...t,
-            name: pick(names.get(t.id), locale)?.name ?? t.code,
-            publishedVersionNo: published?.versionNo ?? null,
-          });
-        }
-        return out;
-      }),
+  /**
+   * The tenant's checklists. With a property, the permission is checked there: a hotel's supervisors run the group's
+   * checklists without a tenant-wide membership.
+   */
+  list(input: TenantScope & { propertyId?: string | null }, locale: string) {
+    const scope: TenantScope = { tenantId: input.tenantId };
+    const propertyId = input.propertyId ?? null;
+    return this.gate.execute(
+      { action: 'inspection.read', tenantId: scope.tenantId, propertyId },
+      () =>
+        this.tx.read(async () => {
+          const rows = await this.repo.templatesOf(scope);
+          const names = await this.repo.templateNames(rows.map((r) => r.id));
+          const out = [];
+          for (const t of rows) {
+            const published = await this.repo.publishedVersion(scope, t.id);
+            out.push({
+              ...t,
+              name: pick(names.get(t.id), locale)?.name ?? t.code,
+              publishedVersionNo: published?.versionNo ?? null,
+            });
+          }
+          return out;
+        }),
     );
   }
 

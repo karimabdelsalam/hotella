@@ -10595,6 +10595,37 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/inspection-templates": {
+      "get": {
+        "operationId": "InspectionsController_checklists",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/inspections": {
       "get": {
         "operationId": "InspectionsController_list",
@@ -11079,6 +11110,37 @@
         },
         "tags": [
           "Categories"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/complaint-categories": {
+      "get": {
+        "operationId": "ComplaintsController_categories",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Complaints"
         ]
       }
     },
