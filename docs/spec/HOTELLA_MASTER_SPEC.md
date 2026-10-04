@@ -3,7 +3,7 @@
 ## Master Architecture & Engineering Specification
 
 **Status:** Architecture Baseline / Source of Truth  
-**Version:** 1.0  
+**Version:** 1.1 (amended 2026-10-04: OPERA integration — §47, §48, §53, Phase 10; see ADR-0019)  
 **Date:** 2026-10-03  
 **Audience:** Claude / engineering agents / solution architects / implementation team
 
@@ -1888,6 +1888,24 @@ The platform must resolve actual instance capability dynamically.
 
 AI and UI must not offer actions that the active integration cannot perform.
 
+**Amendment 2026-10-04 (ADR-0019).** Capability is recorded per property in a **capability registry**, never as a single
+"connected" flag. For each business capability (for example DB read, IFC8 link, OWS API, guest lookup, reservation
+lookup, check-in events, check-out events, room-move events, room-status write-back, profile operations, reservation
+operations) the registry records which connector can serve it, whether the hotel enabled it, whether it was verified at
+commissioning and its live health. Effective capability is computed deterministically:
+
+```text
+connector manifest supports it
+  AND instance enabled it
+  AND agent reports it
+  AND commissioning verified it
+  AND licence/entitlement allows it
+  AND the connector is healthy
+```
+
+Modules ask the registry (through the PMS API of §48) before offering or executing an action; they never assume that a
+particular connector exists.
+
 ---
 
 # 48. OPERA 5 On-Premise Architecture
@@ -1911,6 +1929,42 @@ Prefer outbound HTTPS/WSS from the hotel network.
 Do not expose a generic remote shell.
 
 Cloud commands must map to predefined signed/authenticated connector operations.
+
+**Amendment 2026-10-04 (ADR-0019) — Unified OPERA Integration Layer.** OPERA is reached through three separately
+deployed connectors, each with its own purpose:
+
+```text
+Core modules (guest, ops, hk, eng, comms, AI tools)
+      |  business operations + canonical events only
+PMS API — Unified OPERA Adapter (integration context)
+      |  operation routing table  x  per-property capability registry (§47)
++-----------------------+-----------------------+---------------------+
+| A  OPERA5_DB          | B  OPERA5_FIAS        | C  OPERA5_OWS       |
+| Oracle, READ-ONLY     | IFC8 / FIAS TCP       | OWS SOAP (optional) |
+| reads, lookups,       | real-time events,     | structured read and |
+| snapshots, reconcile  | room-status writes    | supported writes    |
++-----------------------+-----------------------+---------------------+
+      all three run in the outbound-only hotel agent (§49, ADR-0017)
+```
+
+- **Direct read-only database access is an officially supported method.** It uses a dedicated Oracle account holding
+  only `CREATE SESSION` and `SELECT` on the objects listed in the Planova OPERA DB read-only data contract. The platform
+  never performs `INSERT`, `UPDATE`, `DELETE`, DDL, stored-procedure execution or any other write against the OPERA
+  database; the agent runs only predefined, parameterised `SELECT` statements in read-only transactions and refuses to
+  start if its account can write.
+- **Every write to OPERA goes through an officially supported interface**: IFC8/FIAS or OWS, chosen by operation and by
+  what the hotel has.
+- **IFC8/FIAS follows the Planova Standard OPERA IFC8/FIAS Integration Profile** (built on standard OPERA 5.6 + IFC8,
+  independent of any single hotel). A hotel's IFC8 Interface Sheet is compared against the profile at commissioning; it
+  never redefines it.
+- **OWS is an optional enhanced capability**, implemented once as a standard connector configured per hotel.
+- **Routing preference** (deterministic, configurable per property): real-time events prefer IFC8/FIAS; reads,
+  lookups and snapshots prefer the read-only database, then OWS; structured writes prefer OWS, with room status and
+  room restrictions through IFC8 where verified. Fallbacks are reported as degraded.
+- A property may run *DB + IFC8*, *DB + IFC8 + OWS* or *IFC8 + OWS* (or a subset) with the same core and no
+  hotel-specific code. Hotel-specific facts live in integration settings and the commissioning record.
+
+The deployment reference is the **Planova OPERA Integration Guide** (`docs/integrations/opera/OPERA_INTEGRATION_GUIDE.md`).
 
 ---
 
@@ -2039,6 +2093,11 @@ Outbound actions use durable commands with:
 - errors
 
 AI never calls a PMS connector directly.
+
+**Amendment 2026-10-04 (ADR-0019).** Commands are requested from the PMS API as business operations; the Unified OPERA
+Adapter picks the connector by capability. Writes to OPERA are carried only by IFC8/FIAS or OWS — never by the
+read-only database connector. Read requests that need an answer (lookups, snapshots) use signed, predefined *queries*
+over the agent link (link protocol 2): a fixed query type plus parameters, never free SQL or a remote shell.
 
 Example:
 
@@ -3153,6 +3212,9 @@ Deliver:
 - outbound connection
 - local durable queue
 - FIAS/IFC adapter according to actual available interface
+- (amended 2026-10-04, ADR-0019) Planova Standard IFC8/FIAS Profile, standard OWS connector (optional), OPERA DB
+  read-only connector, Unified OPERA Adapter and per-property capability registry; the latter group is delivered after
+  Phase 11 and before the first pilot hotel
 - mapping
 - canonical events
 - reconciliation

@@ -2018,7 +2018,8 @@ Reality notes for 9.4:
   acknowledged by the group GM; the new staff pages render in both directions.
 
 ### Phase 10 — Real OPERA 5 On-Premise Integration (M4a)
-`apps/hotel-agent` (.NET 10 LTS worker service — CLAUDE.md stack; this line said .NET 8 before the version policy of ADR-0016): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account.
+`apps/hotel-agent` (.NET 10 LTS worker service — CLAUDE.md stack; this line said .NET 8 before the version policy of ADR-0016): registration with signed identity, outbound WSS/HTTPS, SQLite durable queue (pending events, acks, checkpoints, config cache, license token, health), the link of ADR-0017 (MSI installer, enrollment, mTLS, WSS/HTTPS client, SQLite WAL queue with ordering and acks, signed-command verification, licence verification, signed updater with rollback) and three adapters per ADR-0014 — `OPERA5_FIAS` (IFC8/FIAS TCP link: link-alive, DB-sync handshake, GI/GO/GC/RE records → canonical events; primary, real-time), `OPERA5_OWS` (SOAP OPERA Web Services: future reservations, arrivals, profiles, ETA → `RESERVATION_READ`/`GUEST_READ`, enabling pre-arrival and arrival-risk; where licensed), `OPERA5_DBVIEW` (optional read-only Oracle views, reconciliation only, never an event source; **superseded by
+ADR-0019**: the read-only database becomes the first-class connector `OPERA5_DB`, see 10.D) — mapping, canonical events, reconciliation jobs (MATCH/MISSING_INTERNAL/MISSING_EXTERNAL/DIFFERENT), health states, signed offline license validation (public key), controlled update/rollback. Platform side: the three adapters share one connector manifest family through the same Connector SDK as `SIM_PMS`; predefined signed operations only (no remote shell). Room-status/OOO writes toward OPERA are enabled per instance only after verification at the pilot. **Pilot prerequisites:** IFC8 license for a new generic interface, OWS license status, contractual possibility of a read-only DB account (the dedicated `HOTELLA_RO` account of the OPERA Integration Guide §6).
 
 **Goal / acceptance (Spec §48–§54, §57, §62; ADR-0014, ADR-0017):** a hotel installs one agent, pastes an enrollment
 token and allows outbound 443; from then on OPERA 5's FIAS records reach the platform as canonical events in order,
@@ -2042,7 +2043,9 @@ apps/hotel-agent/                      .NET 10 solution (built and tested in CI 
                                        room status (only when the capability is enabled)
   src/Hotella.Agent.Ows                OWS SOAP client: arrivals/reservations polling window → `OWS_RESERVATION`,
                                        profiles → `OWS_PROFILE` (same payloads as the simulator's OWS face)
-  src/Hotella.Agent.DbView             optional read-only Oracle views → in-house snapshot for reconciliation only
+  src/Hotella.Agent.OperaDb            (10.7, ADR-0019; replaces the planned DbView) read-only Oracle connector:
+                                       allow-listed parameterised SELECTs of data contract v1, read-only transactions,
+                                       privilege self-check, answers link-protocol-2 queries
   src/Hotella.Agent.Updater            signed package manifest → download, verify (SHA-256 + Ed25519), stage, swap,
                                        health check, rollback
   test/…                               xUnit: framing, queue, canonical JSON/signature vectors shared with TypeScript
@@ -2091,6 +2094,10 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.3 | OWS adapter (SOAP polling, reservations and profiles), simulator OWS SOAP face, `OPERA5_OWS` connector; optional `OPERA5_DBVIEW` reconciliation adapter | delivered (DBVIEW deferred, see notes) |
 | 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | delivered (MSI: owner decision, see notes) |
 | 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | delivered |
+| 10.6 | Unified OPERA Adapter (`PMS_API`) and per-property capability registry (10.D) | scheduled after Phase 11, before M4 |
+| 10.7 | Link protocol 2 (`query`/`query_result`) and the `OPERA5_DB` read-only connector (10.D) | scheduled after Phase 11, before M4 |
+| 10.8 | Planova Standard IFC8/FIAS Profile v1 alignment and OWS standard connector v1 (reads + supported writes) (10.D) | scheduled after Phase 11, before M4 |
+| 10.9 | Commissioning tooling: Interface Sheet comparison, DB probe, OWS verification, capability sign-off; OPERA integration acceptance (10.D) | scheduled after Phase 11, before M4 |
 
 **Reality notes for 10.1 (delivered).**
 - Solution `apps/hotel-agent/Hotella.Agent.slnx`: `Hotella.Agent.Core` (identity, durable queue, link, command
@@ -2203,6 +2210,73 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
   pay the Open Source Maintenance Fee by sponsoring the project (10–60 USD a month by company size); WiX v5 has no fee
   but is the older line. Spending money is the owner's call; until then Windows hotels install with `install.ps1`.
 
+#### 10.D Unified OPERA Integration Layer (ADR-0019; owner decisions of 2026-10-04)
+The owner confirmed on 2026-10-04: direct **read-only** OPERA database access is an officially supported method (a
+dedicated Oracle account with `SELECT` only; never any write); every write to OPERA goes through IFC8/FIAS or OWS; the
+FIAS integration follows a **Planova Standard OPERA IFC8/FIAS Profile** independent of any one hotel, against which each
+hotel's Interface Sheet is compared; OWS is an optional enhanced capability built once as a standard connector; modules
+reach OPERA only through a **Unified OPERA Adapter** routed by a **per-property capability registry**. The standards
+live in `docs/integrations/opera/OPERA_INTEGRATION_GUIDE.md` (profile §7.3, OWS §8, DB data contract §6.3, adapter §4,
+registry §5, commissioning §16, pilot checklist §20). Sprints 10.6–10.9 run **after Phase 11 and before the M4 pilot**;
+Phase 11 does not wait for pilot-specific IFC8/OWS details.
+
+**Connectors (one agent service per instance, ADR-0017).**
+| Connector | Purpose | Writes |
+|---|---|---|
+| `OPERA5_DB` (A) | reads, lookups, arrivals/in-house lists, profiles, room inventory, reconciliation snapshots, fallback change polling | never |
+| `OPERA5_FIAS` (B) | real-time GI/GO/GC events, database swap, room status | `RE` room status (verified per hotel) |
+| `OPERA5_OWS` (C, optional) | structured reads (`FetchBooking`, `FutureBookingSummary`, `FetchProfile`) | profile contact, reservation notes/ETA, room status/restrictions where the hotel's OWS supports them |
+
+**10.6 — Capability registry and `PMS_API`.**
+- *Domain model (integration context, schema `integration`):* `property_capabilities` (tenant_id, property_id,
+  capability, connector_code, instance_id, enabled, verified_at, verified_by, verification_ref, version) and
+  `capability_status` (derived from health; AVAILABLE / DEGRADED / UNAVAILABLE, last change). Effective capability =
+  manifest supported ∧ enabled ∧ agent reported ∧ verified ∧ licence ∧ not UNAVAILABLE — pure function, unit-tested.
+  Operation routing table per operation (guide §4.2) with per-property reordering limited to allowed connectors; the
+  database is never a write target (a validation error, not a convention).
+- *Migrations:* the two tables above (data class INTERNAL), `routing_overrides` (property, operation, ordered
+  connector list), history rows for verification changes (rule 10).
+- *APIs:* `GET /properties/:id/integration/capabilities` (effective view with reasons), `PUT …/capabilities/:code`
+  (enable/disable, permission `integration.capability.manage`), `POST …/capabilities/:code/verify` (commissioning,
+  `integration.capability.verify`, audited with evidence reference). Public service `PmsApi` (`can`, `explain`,
+  operations of guide §4.2) exported from `integrations/src/public`; housekeeping's room-status command and
+  engineering's room restriction move onto it; AI tools check `can` before being offered.
+- *Events:* `integration.capability.changed.v1` (property, capability, effective, reason).
+- *Tests:* unit (effective rule, routing incl. "never DB write", fallbacks for reads only), integration (registry with
+  real Postgres, tenant-leak test), e2e: hotels A/B/C of guide §5.4 run the same scenario with different connector sets
+  and the same core.
+
+**10.7 — Link protocol 2 and `OPERA5_DB`.**
+- *Contracts:* `query` (signed like commands: query_type, params, deadline) and `query_result` (rows, page token,
+  truncated) frames in `contracts/connectors/link.ts`; protocol negotiated in `hello`; protocol-1 agents unaffected.
+- *Agent:* `Hotella.Agent.OperaDb` with `Oracle.ManagedDataAccess.Core` (managed, no native install); statements of
+  data contract v1 compiled in, bind variables only, `SET TRANSACTION READ ONLY`, row caps, 30 s timeouts, pool ≤ 2;
+  privilege self-check at start and daily (any privilege beyond `CREATE SESSION` + contract `SELECT`s ⇒ UNHEALTHY and
+  refuse); `hotella-agent opera-db probe` (objects, columns, privileges, sample counts — no personal data printed);
+  password via `hotella-agent secret set opera.db.password`; fallback change polling as `OPERA_DB_RESERVATION`.
+- *Platform:* `OPERA5_DB` manifest (read capabilities only, no commands), canonical row parser, query routing.
+- *Tests:* statement allow-list and privilege self-check unit tests (fixture privilege sets including a writable
+  account ⇒ refused); simulator gains a DB face (an Oracle-shaped fixture behind the agent's data-source interface — CI
+  does not run Oracle); cross-language e2e for queries (lookup, arrivals, in-house snapshot, reconciliation via DB).
+- *Acceptance:* the agent cannot be made to write: no write statement exists, the session is read-only and a writable
+  account is refused.
+
+**10.8 — Standard FIAS profile v1 and OWS standard connector v1.**
+- FIAS: align the agent's `LR` request list and the parser with Planova Standard Profile v1 (guide §7.3): GI/GO/GC with
+  the profile's mandatory and optional fields, RE both directions, DR/DS/DE, link records; optional records requested
+  only when configured; fields not delivered by a hotel are reported as profile gaps in health, never guessed.
+- OWS: services and operations of guide §8 (Reservation `FetchBooking`/`FutureBookingSummary`, Name `FetchProfile`,
+  and the write operations the hotel's OWS supports), configured per hotel (endpoint, WSDL version, OGHeader entities,
+  domain, enabled operations); writes are commands with idempotency and audit, offered only when verified.
+- Tests: simulator FIAS and OWS faces extended to the profile; e2e per profile record and per OWS operation.
+
+**10.9 — Commissioning tooling and acceptance.**
+- Interface Sheet comparison (guide §16.2) recorded as a commissioning record per property (requirement, hotel value,
+  status MATCH/GAP/CHANGE_REQUIRED/NOT_APPLICABLE, note); OWS and DB verification runs; capability sign-off writes the
+  `verified` facts of 10.6. Staff never see this; it is a control-plane/installer screen.
+- Acceptance: the pilot readiness checklist (guide §20) is executable against the simulator end to end for the three
+  hotel shapes; at the pilot only the hotel's values change.
+
 ### Phase 11 — Licensing & Control Plane (M4b)
 `license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent. Developer platform v1 (Spec §75): API clients with scoped keys, signed outbound webhooks with retry/DLQ/replay (ADR-0012), OAuth clients later; no untrusted code plugins in the runtime.
 
@@ -2264,12 +2338,12 @@ A module/phase is accepted only when all of the following are true:
 | Q2 | WhatsApp provider | — | **Answered:** both Meta Cloud API and BSP, selectable per channel (ADR-0015). Concrete first BSP picked at pilot |
 | Q3 | OTP fallback | — | **Answered:** WhatsApp → SMS (auto + manual) → optional voice → staff-assisted (ADR-0015). Concrete SMS aggregator picked at pilot |
 | Q4 | Guest-web domain model: `*.hotella.app` subdomain per property vs custom property domains (affects activation URLs & branding resolution). With on-prem hosting, DNS for `*.guest.hotella.app` must point at the on-prem ingress, or properties use their own domains | Phase 4 | `{property-code}.guest.hotella.app` + optional custom domain |
-| Q5 | OPERA 5 interface | — | **Answered:** FIAS primary; OWS secondary where licensed; optional read-only DB views for reconciliation (ADR-0014). Pilot to confirm IFC8/OWS licenses |
+| Q5 | OPERA 5 interface | — | **Answered (amended 2026-10-04, ADR-0019):** three connectors behind the Unified OPERA Adapter — read-only OPERA DB (first-class read source, never written), IFC8/FIAS (real-time events, Planova Standard Profile), OWS (optional, standard connector); capability registry per property. Pilot to confirm IFC8/OWS licences and the read-only account |
 | Q6 | Hosting target | — | **Answered:** on-premises (ADR-0013): Compose → k3s/RKE2, OpenBao (Vault API), SeaweedFS, Grafana stack, pgBackRest |
 | Q7 | Data residency / region constraints | — | **Answered by Q6:** data stays within the on-prem installation; multi-region = multiple installations |
 | Q8 | First AI provider(s), data egress to them, and budget caps (ADR-0018) | Phase 6 | **Answered 2026-10-03:** Anthropic (Claude) and OpenAI (ChatGPT) behind the gateway, masked and class-limited; cap 100 USD per hotel per month (`ai.budget.monthly_limit_minor` default, per property). CI keeps `FAKE` |
 | Q9 | Initial platform role catalog (GM, Duty Manager, HK Supervisor, Room Attendant, Engineer, Front Desk, Guest Relations, Platform Admin, Support) — confirm names and Arabic labels | Phase 1 | as listed |
-| Q10 | Pilot property: IFC8 interface license, OWS license status, read-only DB account possibility (ADR-0014) | before Phase 10 | FIAS available; OWS unknown |
+| Q10 | Pilot property: IFC8 interface license, OWS license status, read-only DB account possibility (ADR-0014, ADR-0019); compared against the standards of the OPERA Integration Guide (§16, §20) | before the M4 pilot | IFC8 available (owner, 2026-10-04); OWS per hotel; read-only DB access allowed |
 | Q11 | Concrete BSP and SMS aggregator for the pilot (ADR-0015) | Phase 4 end | Meta Cloud API adapter first; BSP/SMS adapters implemented against fakes until chosen |
 
 ---

@@ -1,6 +1,7 @@
 # ADR-0014: OPERA 5 integration interfaces — FIAS primary, OWS secondary, optional read-only DB reconciliation
 
-**Status:** Accepted — 2026-10-03 (product owner confirmed FIAS; additional interface recommended by engineering and approved)
+**Status:** Accepted — 2026-10-03 (product owner confirmed FIAS; additional interface recommended by engineering and approved).
+**Amended by [ADR-0019](0019-unified-opera-integration-layer.md) (2026-10-04):** the read-only database is a first-class read connector (`OPERA5_DB`), not reconciliation-only; all three connectors sit behind the Unified OPERA Adapter and a per-property capability registry; the OPERA database is never written.
 
 ## Context
 Spec §48–§54 and Phase 10 require an on-prem .NET hotel agent integrating OPERA 5.x without modifying OPERA. The product owner confirmed **FIAS** is the available interface and asked whether an additional interface should be added.
