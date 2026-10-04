@@ -110,6 +110,19 @@ internal static class Cli
                 + (due ? " (renewal due)" : ""));
             if (notAfter <= now) problems.Add("certificate expired: the agent must be enrolled again");
         }
+        if (identity is not null)
+        {
+            var licence = new Core.Licensing.LicenceStore(settings.DataDirectory,
+                new CommandSignature(identity.CommandPublicKeyPem), identity.InstanceId);
+            var state = licence.StateAt(DateTimeOffset.UtcNow);
+            Console.WriteLine("licence:      " + state.ToString().ToUpperInvariant()
+                + (licence.Current is { } l ? " until " + l.ExpiresAt.ToString("u", CultureInfo.InvariantCulture)
+                    + $" (+{l.GraceDays} days grace)" : ""));
+        }
+        var healthFile = Path.Combine(settings.DataDirectory, "health.json");
+        if (File.Exists(healthFile) && System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(healthFile)) is { } health)
+            Console.WriteLine($"health:       {health["status"]} at {health["at"]}"
+                + string.Concat((health["reasons"]?.AsArray() ?? []).Select(r => $"\n              - {r}")));
         var queueFile = Path.Combine(settings.DataDirectory, "queue.db");
         if (File.Exists(queueFile))
         {

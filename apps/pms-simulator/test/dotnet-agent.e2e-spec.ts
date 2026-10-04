@@ -143,11 +143,41 @@ describe.skipIf(skip)(`.NET hotel agent ↔ agent gateway (${skip ? reason : 'do
     });
     expect(done.attempts).toBe(1);
     expect(agent.commands.map((c) => c.command_type)).toEqual(['RESYNC_IN_HOUSE']);
+    // The welcome carried a licence the agent verified against the pinned key.
+    expect((await agent.state()).licence).toMatchObject({
+      state: 'VALID',
+      capabilities: expect.arrayContaining(['CHECKIN_EVENT', 'RECONCILIATION_READ']),
+    });
     const state = await agent.state();
     expect(state.stats).toMatchObject({ commands: 1, rejected_commands: 0 });
     // The resync the command asked for (database-sync start) came back through the link.
     await agent.drained();
     expect((await h.messages()).length).toBeGreaterThan(before);
+  });
+
+  it('offline past its licence grace it refuses commands; a fresh licence lifts that', async () => {
+    const ask = (key: string) =>
+      h.api.requestCommand({
+        tenantId: h.tenant,
+        integrationInstanceId: h.instanceId,
+        commandType: 'RESYNC_IN_HOUSE',
+        payload: {},
+        idempotencyKey: `${key}-${stamp}`,
+        requestedBy: { type: 'SYSTEM', id: null },
+      });
+    const settled = (commandId: string) =>
+      until(async () => {
+        const c = await h.api.getCommand(h.tenant, commandId);
+        return c && c.status !== 'PENDING' && c.status !== 'SENT' ? c : undefined;
+      });
+    await agent.licenceClock(45);
+    expect((await agent.state()).licence!.state).toBe('EXPIRED');
+    const refused = await settled((await ask('expired')).id);
+    expect(refused).toMatchObject({ status: 'FAILED' });
+    expect(refused.error).toMatch(/licence expired/);
+    await agent.licenceClock(0);
+    const accepted = await settled((await ask('licensed')).id);
+    expect(accepted.status).toBe('ACKNOWLEDGED');
   });
 
   it('renews its certificate with a fresh key, authenticated by the current one', async () => {

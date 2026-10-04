@@ -38,6 +38,7 @@ export interface DotnetAgentState {
   queue_depth: number;
   ifc8?: { link_up: boolean; sessions: number; forwarded: number };
   ows?: { polls: number; failures: number; forwarded: number; last_error: string | null };
+  licence?: { state: string; expires_at: string | null; capabilities: string[] | null };
   stats?: {
     connects: number;
     welcomes: number;
@@ -179,6 +180,11 @@ export class DotnetAgent implements ScenarioLink {
       acked_through: r['acked_through'] as number,
       resend_from: (r['resend_from'] as number | null) ?? null,
     };
+  }
+
+  /** Evaluates the licence as if this many days had passed (an agent offline past its grace). */
+  async licenceClock(days: number): Promise<void> {
+    await this.call({ op: 'licence_clock', days });
   }
 
   async renew(): Promise<string> {

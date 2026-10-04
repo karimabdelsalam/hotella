@@ -1,4 +1,5 @@
 using Hotella.Agent.Core.Hosting;
+using Hotella.Agent.Core.Licensing;
 using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
@@ -63,15 +64,25 @@ internal sealed partial class AgentWorker(
         await using var link = new LinkClient(identity, queue, options, fias?.Commands() ?? [],
             loggers.CreateLogger("hotella.link"));
         link.Welcomed += () => _log.LogInformation("linked as instance {Instance}", identity.InstanceId);
+        var licences = new LicenceStore(settings.DataDirectory, new CommandSignature(identity.CommandPublicKeyPem),
+            identity.InstanceId);
+        link.LicenceOffered += token =>
+        {
+            if (licences.Offer(token))
+                _log.LogInformation("licence valid until {ExpiresAt:u}", licences.Current!.ExpiresAt);
+        };
+        link.CommandGate = () => licences.CommandRefusal(DateTimeOffset.UtcNow);
+        IAdapterHealth? pms = (IAdapterHealth?)fias ?? ows;
 
         using var session = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         var running = link.RunAsync(session.Token);
         var upkeep = UpkeepAsync(store, queue, link, session.Token);
+        var health = HealthAsync(store, queue, link, licences, pms, session.Token);
         // The PMS side keeps reading while the platform is unreachable: records wait in the durable queue.
         var adapter = fias?.RunAsync(link, session.Token) ?? ows?.RunAsync(link, session.Token) ?? Task.CompletedTask;
         await Task.WhenAny(running, upkeep).ConfigureAwait(false);
         await session.CancelAsync().ConfigureAwait(false);
-        await Task.WhenAll(running, Quietly(upkeep), Quietly(adapter)).ConfigureAwait(false);
+        await Task.WhenAll(running, Quietly(upkeep), Quietly(adapter), Quietly(health)).ConfigureAwait(false);
 
         if (link.Revoked)
         {
@@ -88,6 +99,35 @@ internal sealed partial class AgentWorker(
             var evicted = queue.Evict(TimeSpan.FromDays(settings.QueueRetentionDays));
             if (evicted > 0) _log.LogWarning("dropped {Count} messages older than the retention", evicted);
             await RenewIfDueAsync(store, link, ct).ConfigureAwait(false);
+        }
+        while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false));
+    }
+
+    /// <summary>Writes health.json every minute (and logs when the status changes).</summary>
+    private async Task HealthAsync(
+        IdentityStore store, DurableOutbox queue, LinkClient link, LicenceStore licences, IAdapterHealth? pms,
+        CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        DateTimeOffset? downSince = null;
+        var last = (HealthStatus?)null;
+        do
+        {
+            var now = DateTimeOffset.UtcNow;
+            downSince = link.Connected ? null : downSince ?? now;
+            var inputs = new HealthInputs(now, link.Connected, downSince, pms?.Up, pms?.Problem,
+                licences.StateAt(now), queue.Depth, RenewalPolicy.Validity(store.Load()!.CertificatePem).notAfter);
+            var report = AgentHealth.Report(inputs, Cli.AgentVersion);
+            var path = Path.Combine(settings.DataDirectory, "health.json");
+            await File.WriteAllTextAsync(path + ".tmp", report.ToJsonString(), ct).ConfigureAwait(false);
+            File.Move(path + ".tmp", path, overwrite: true);
+            var (status, reasons) = AgentHealth.Classify(inputs);
+            if (status != last)
+            {
+                if (status == HealthStatus.Healthy) _log.LogInformation("health: HEALTHY");
+                else _log.LogWarning("health: {Status}: {Reasons}", status, string.Join("; ", reasons));
+                last = status;
+            }
         }
         while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false));
     }

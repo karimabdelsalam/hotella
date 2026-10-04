@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Json;
 using Hotella.Agent.Core.Link;
 using Microsoft.Data.Sqlite;
@@ -17,7 +18,7 @@ namespace Hotella.Agent.Ows;
 /// <c>OWS_RESERVATION</c> messages (NEW, CHANGE, CANCEL, NOSHOW) through the durable link. Nothing is ever written to
 /// OPERA. The message id is derived from the reservation and its fingerprint, so a repeat is a no-op on the platform.
 /// </summary>
-public sealed class OwsAdapter : IDisposable
+public sealed class OwsAdapter : IAdapterHealth, IDisposable
 {
     public const string ConnectorCode = "OPERA5_OWS";
     public const string MessageType = "OWS_RESERVATION";
@@ -64,6 +65,10 @@ public sealed class OwsAdapter : IDisposable
     public int Failures { get; private set; }
     public long Forwarded { get; private set; }
     public string? LastError { get; private set; }
+    private int _failingInARow;
+
+    public bool Up => Polls > 0 && _failingInARow == 0;
+    public string? Problem => Up ? null : LastError ?? "no successful OWS poll yet";
 
     public async Task RunAsync(IMessagePublisher publisher, CancellationToken ct)
     {
@@ -83,6 +88,7 @@ public sealed class OwsAdapter : IDisposable
 #pragma warning restore CA1031
             {
                 Failures++;
+                _failingInARow++;
                 LastError = e is OwsFaultException or HttpRequestException or TaskCanceledException ? e.Message : e.GetType().Name;
                 _log.LogWarning("OWS poll failed: {Reason}", LastError);
             }
@@ -109,6 +115,8 @@ public sealed class OwsAdapter : IDisposable
         var reservations = OwsSoap.ParseFutureBookingSummary(body);
         if (!response.IsSuccessStatusCode) throw new OwsFaultException($"OWS answered HTTP {(int)response.StatusCode}");
         Polls++;
+        _failingInARow = 0;
+        LastError = null;
         var forwarded = 0;
         foreach (var r in reservations)
             if (Forward(publisher, r)) forwarded++;

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Hotella.Agent.Core.Licensing;
 using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
@@ -31,6 +32,9 @@ LinkClient? client = null;
 CancellationTokenSource? running = null;
 Task? run = null;
 FiasAdapter? fias = null;
+LicenceStore? licences = null;
+var licenceClockDays = 0;
+var licenceDir = Directory.CreateTempSubdirectory("hotella-conformance-").FullName;
 OwsAdapter? ows = null;
 using var adapterStop = new CancellationTokenSource();
 Task? adapterRun = null;
@@ -45,6 +49,7 @@ async Task QuitAsync()
     }
     fias?.Dispose();
     ows?.Dispose();
+    Directory.Delete(licenceDir, recursive: true);
 }
 
 async Task StopAsync()
@@ -106,6 +111,14 @@ while (Console.ReadLine() is { } text)
                     fias?.Commands() ?? request["commands"]!.AsArray()
                         .Select(c => (ICommandHandler)new ReportingHandler(c!.GetValue<string>(), Write)),
                     log);
+                if (licences is null)
+                {
+                    licences = new LicenceStore(licenceDir, new CommandSignature(identity!.CommandPublicKeyPem),
+                        identity.InstanceId);
+                    var store = licences;
+                    client.LicenceOffered += token => store.Offer(token);
+                    client.CommandGate = () => store.CommandRefusal(DateTimeOffset.UtcNow.AddDays(licenceClockDays));
+                }
                 if (fias is not null && adapterRun is null)
                 {
                     var link = client;
@@ -136,6 +149,10 @@ while (Console.ReadLine() is { } text)
                 if (request["duplicate_next"]?.GetValue<bool>() == true) client!.Chaos.DuplicateNext = true;
                 if (request["drop_connection"]?.GetValue<bool>() == true) client!.DropConnection();
                 break;
+            case "licence_clock":
+                // Days added to "now" when the licence is evaluated: simulates an agent offline past its grace.
+                licenceClockDays = request["days"]!.GetValue<int>();
+                break;
             case "drained":
                 await client!.DrainedAsync(
                     TimeSpan.FromMilliseconds(request["timeout_ms"]?.GetValue<int>() ?? 15_000), CancellationToken.None);
@@ -149,6 +166,13 @@ while (Console.ReadLine() is { } text)
                 reply["connected"] = client?.Connected ?? false;
                 reply["revoked"] = client?.Revoked ?? false;
                 reply["queue_depth"] = queue.Depth;
+                if (licences is not null)
+                    reply["licence"] = new JsonObject
+                    {
+                        ["state"] = licences.StateAt(DateTimeOffset.UtcNow.AddDays(licenceClockDays)).ToString().ToUpperInvariant(),
+                        ["expires_at"] = licences.Current?.ExpiresAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                        ["capabilities"] = licences.Current is { } l ? new JsonArray([.. l.Capabilities.Select(c => (JsonNode)c)]) : null,
+                    };
                 if (ows is not null)
                     reply["ows"] = new JsonObject
                     {

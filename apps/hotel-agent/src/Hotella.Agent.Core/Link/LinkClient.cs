@@ -124,6 +124,12 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
     /// <summary>Raised after each welcome (conformance and health).</summary>
     public event Action? Welcomed;
 
+    /// <summary>The licence the platform sent with a welcome, unverified (the host's licence store verifies it).</summary>
+    public event Action<JsonObject>? LicenceOffered;
+
+    /// <summary>Asked before a verified command runs: a reason refuses it (e.g. the licence expired past its grace).</summary>
+    public Func<string?>? CommandGate { get; set; }
+
     /// <summary>Durably queues a vendor message and wakes the sender; it goes out when the link is up.</summary>
     public QueuedMessage Publish(string sourceMessageId, string messageType, string? occurredAt, string payloadJson)
     {
@@ -310,6 +316,7 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
                         heartbeat ??= Task.Run(() => HeartbeatLoopAsync(TimeSpan.FromSeconds(seconds), session.Token),
                             session.Token);
                         _flushSignal.Release();
+                        if (frame["licence"] is JsonObject licence) LicenceOffered?.Invoke(licence);
                         Welcomed?.Invoke();
                         break;
                     case "ack":
@@ -437,6 +444,9 @@ public sealed class LinkClient : IMessagePublisher, IAsyncDisposable
         CommandOutcome outcome;
         if (previous is { } done)
             outcome = new CommandOutcome(done.status == "ACKNOWLEDGED", done.error);
+        else if (CommandGate?.Invoke() is { } refusal)
+            // Not recorded as executed: the same command may run once a fresh licence arrives.
+            outcome = CommandOutcome.Failed(refusal);
         else
         {
             Stats.Executed();

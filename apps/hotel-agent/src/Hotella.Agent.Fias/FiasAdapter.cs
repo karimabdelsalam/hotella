@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Link;
 using Microsoft.Extensions.Logging;
 
@@ -16,7 +17,7 @@ namespace Hotella.Agent.Fias;
 /// no-op on the platform. Commands: <c>RESYNC_IN_HOUSE</c> asks IFC8 for a database sync (DR); <c>SET_ROOM_STATUS</c>
 /// writes a room status (RE) and is advertised only when the hotel enabled it.
 /// </summary>
-public sealed class FiasAdapter : IDisposable
+public sealed class FiasAdapter : IAdapterHealth, IDisposable
 {
     public const string ConnectorCode = "OPERA5_FIAS";
     public const string MessageType = "FIAS_RECORD";
@@ -53,6 +54,9 @@ public sealed class FiasAdapter : IDisposable
 
     /// <summary>True between IFC8's answer to the link description and the end of the session.</summary>
     public bool LinkUp => _linkUp;
+
+    public bool Up => _linkUp;
+    public string? Problem => _linkUp ? null : "IFC8 link down";
 
     public int Sessions { get; private set; }
     public long Forwarded { get; private set; }
