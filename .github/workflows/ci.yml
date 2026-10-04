@@ -159,10 +159,13 @@ jobs:
             psql -U hotella_admin -d hotella -Atc "select count(*) from pg_stat_activity where usename='hotella_app'" | grep -qv '^0$'
       - name: Backup (pgBackRest full) and restore drill
         run: |
+          # The backup must hold every tenant the smokes created (PILOT, and UNLICENSED from the Phase 11 smoke).
+          tenants=$(docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml exec -T postgres \
+            psql -U hotella_admin -d hotella -Atc 'select count(*) from org.tenants')
           infra/docker/pilot/pilot.sh backup full
           infra/docker/pilot/pilot.sh restore-drill | tee drill.log
           grep -q 'restore-drill: OK' drill.log
-          grep -A1 'restored-tenants:' drill.log | tail -1 | grep -qx 1
+          grep -A1 'restored-tenants:' drill.log | tail -1 | grep -qx "$tenants"
       - name: Logs on failure
         if: failure()
         run: docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml logs --tail=200
