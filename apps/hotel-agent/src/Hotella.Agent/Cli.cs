@@ -5,6 +5,7 @@ using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
 using Hotella.Agent.Ows;
+using Hotella.Agent.Updater;
 using Microsoft.Extensions.Configuration;
 
 namespace Hotella.Agent;
@@ -24,6 +25,7 @@ internal static class Cli
                    hotella-agent status                      identity, certificate and queue
                    hotella-agent secret set <name>           store a credential read from stdin (e.g. ows.password)
                    hotella-agent secret list|remove <name>
+                   hotella-agent update status|check|apply|rollback
                    hotella-agent version
             """);
         return ExitCodes.Usage;
@@ -154,6 +156,54 @@ internal static class Cli
                 return ExitCodes.Ok;
             case "list":
                 foreach (var name in store.Names()) Console.WriteLine(name);
+                return ExitCodes.Ok;
+            default:
+                return Usage();
+        }
+    }
+
+    /// <summary>The operator's view of self-updates; `apply` stages and switches, the service restart runs it.</summary>
+    public static async Task<int> UpdateAsync(string[] args)
+    {
+        var settings = UpdateSettings.From(Config(args.Skip(1).ToArray()));
+        var updater = settings.Updater();
+        if (updater is null)
+        {
+            Console.Error.WriteLine("updates are off: Updates:ManifestUrl and Updates:PublicKeyFile must be set, and the "
+                + "agent must run from <root>/versions/<version>/");
+            return ExitCodes.NotConfigured;
+        }
+        try
+        {
+            return await UpdateCommandAsync(args, settings, updater).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is InvalidDataException or HttpRequestException or IOException
+                                    or System.Text.Json.JsonException or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"update refused: {e.Message}");
+            return ExitCodes.Refused;
+        }
+    }
+
+    private static async Task<int> UpdateCommandAsync(string[] args, UpdateSettings settings, AgentUpdater updater)
+    {
+        switch (args.FirstOrDefault())
+        {
+            case "status":
+                Console.WriteLine(AgentUpdater.Describe(updater.State));
+                return ExitCodes.Ok;
+            case "check" or "apply":
+                var manifest = await updater.CheckAsync(settings.ManifestUrl!, UpdateSettings.Running, CancellationToken.None)
+                    .ConfigureAwait(false);
+                Console.WriteLine(manifest is null ? $"{AgentVersion} is current" : $"available: {manifest}");
+                if (manifest is null || args[0] == "check") return ExitCodes.Ok;
+                await updater.StageAsync(manifest, CancellationToken.None).ConfigureAwait(false);
+                updater.Switch(manifest.Version, UpdateSettings.Running, DateTimeOffset.UtcNow);
+                Console.WriteLine($"switched to {manifest.Version}; restart the service to run it");
+                return ExitCodes.Ok;
+            case "rollback":
+                updater.Rollback("rolled back by an operator");
+                Console.WriteLine(AgentUpdater.Describe(updater.State) + "; restart the service to run it");
                 return ExitCodes.Ok;
             default:
                 return Usage();

@@ -91,7 +91,7 @@ export interface GatewayHarness {
   readonly http: () => ReturnType<typeof request>;
   /** The X-Test-Actor header of the property's GM. */
   readonly gm: string;
-  /** The integration messages the gateway stored for this agent. */
+  /** The integration messages the gateway stored for this agent, in sequence order. */
   messages(): Promise<(typeof integrationSchema.integrationMessages.$inferSelect)[]>;
   /** Projects every canonical `hotel.*` event of the tenant like the worker does. */
   projectAll(): Promise<void>;
@@ -220,7 +220,8 @@ export async function startGatewayHarness(
       db
         .select()
         .from(integrationSchema.integrationMessages)
-        .where(eq(integrationSchema.integrationMessages.instanceId, instanceId)),
+        .where(eq(integrationSchema.integrationMessages.instanceId, instanceId))
+        .orderBy(asc(integrationSchema.integrationMessages.sequenceNo)),
     projectAll: async () => {
       const rows = await db
         .select()

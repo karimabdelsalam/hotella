@@ -5,6 +5,7 @@ using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
 using Hotella.Agent.Ows;
+using Hotella.Agent.Updater;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -18,6 +19,12 @@ internal static class ExitCodes
     public const int NotConfigured = 2;
     public const int Revoked = 3;
     public const int Refused = 4;
+
+    /// <summary>A new version is in place: the service manager restarts into it.</summary>
+    public const int RestartIntoUpdate = 10;
+
+    /// <summary>The candidate failed its probation: the service manager restarts into the previous version.</summary>
+    public const int RolledBack = 11;
 }
 
 /// <summary>
@@ -31,6 +38,7 @@ internal sealed partial class AgentWorker(
     AgentSettings settings,
     FiasSettings fiasSettings,
     OwsSettings owsSettings,
+    UpdateSettings updateSettings,
     IHostApplicationLifetime lifetime,
     ILoggerFactory loggers) : BackgroundService
 {
@@ -76,8 +84,9 @@ internal sealed partial class AgentWorker(
 
         using var session = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         var running = link.RunAsync(session.Token);
-        var upkeep = UpkeepAsync(store, queue, link, session.Token);
-        var health = HealthAsync(store, queue, link, licences, pms, session.Token);
+        var updater = updateSettings.Updater();
+        var upkeep = UpkeepAsync(store, queue, link, updater, session.Token);
+        var health = HealthAsync(store, queue, link, licences, pms, updater, session.Token);
         // The PMS side keeps reading while the platform is unreachable: records wait in the durable queue.
         var adapter = fias?.RunAsync(link, session.Token) ?? ows?.RunAsync(link, session.Token) ?? Task.CompletedTask;
         await Task.WhenAny(running, upkeep).ConfigureAwait(false);
@@ -91,22 +100,54 @@ internal sealed partial class AgentWorker(
         }
     }
 
-    private async Task UpkeepAsync(IdentityStore store, DurableOutbox queue, LinkClient link, CancellationToken ct)
+    private async Task UpkeepAsync(
+        IdentityStore store, DurableOutbox queue, LinkClient link, AgentUpdater? updater, CancellationToken ct)
     {
         using var timer = new PeriodicTimer(UpkeepEvery);
+        var lastCheck = DateTimeOffset.MinValue;
         do
         {
             var evicted = queue.Evict(TimeSpan.FromDays(settings.QueueRetentionDays));
             if (evicted > 0) _log.LogWarning("dropped {Count} messages older than the retention", evicted);
             await RenewIfDueAsync(store, link, ct).ConfigureAwait(false);
+            if (updater is not null && updateSettings.Auto
+                && DateTimeOffset.UtcNow - lastCheck >= TimeSpan.FromHours(updateSettings.CheckHours)
+                && updater.State.Status != UpdateStatus.Probation)
+            {
+                lastCheck = DateTimeOffset.UtcNow;
+                if (await TryUpdateAsync(updater, ct).ConfigureAwait(false)) return;
+            }
         }
         while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false));
+    }
+
+    /// <summary>Applies a newer signed release and asks for a restart into it; true when the service should stop.</summary>
+    private async Task<bool> TryUpdateAsync(AgentUpdater updater, CancellationToken ct)
+    {
+        try
+        {
+            var manifest = await updater.CheckAsync(updateSettings.ManifestUrl!, UpdateSettings.Running, ct)
+                .ConfigureAwait(false);
+            if (manifest is null) return false;
+            await updater.StageAsync(manifest, ct).ConfigureAwait(false);
+            updater.Switch(manifest.Version, UpdateSettings.Running, DateTimeOffset.UtcNow);
+            _log.LogWarning("updated to {Version}; restarting into it (probation {Minutes} min)",
+                manifest.Version, (int)AgentUpdater.Probation.TotalMinutes);
+            Stop(ExitCodes.RestartIntoUpdate);
+            return true;
+        }
+        catch (Exception e) when (e is HttpRequestException or InvalidDataException or IOException
+                                    or System.Text.Json.JsonException or TaskCanceledException)
+        {
+            _log.LogWarning("update check failed: {Reason}", e.Message);
+            return false;
+        }
     }
 
     /// <summary>Writes health.json every minute (and logs when the status changes).</summary>
     private async Task HealthAsync(
         IdentityStore store, DurableOutbox queue, LinkClient link, LicenceStore licences, IAdapterHealth? pms,
-        CancellationToken ct)
+        AgentUpdater? updater, CancellationToken ct)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
         DateTimeOffset? downSince = null;
@@ -122,6 +163,7 @@ internal sealed partial class AgentWorker(
             await File.WriteAllTextAsync(path + ".tmp", report.ToJsonString(), ct).ConfigureAwait(false);
             File.Move(path + ".tmp", path, overwrite: true);
             var (status, reasons) = AgentHealth.Classify(inputs);
+            if (updater is not null && !Probation(updater, link.Connected && pms?.Up != false, now)) return;
             if (status != last)
             {
                 if (status == HealthStatus.Healthy) _log.LogInformation("health: HEALTHY");
@@ -130,6 +172,23 @@ internal sealed partial class AgentWorker(
             }
         }
         while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false));
+    }
+
+    /// <summary>A candidate on probation stays once its links are up; past the probation it goes back. False = stop.</summary>
+    private bool Probation(AgentUpdater updater, bool linked, DateTimeOffset now)
+    {
+        if (updater.State.Status != UpdateStatus.Probation) return true;
+        if (linked)
+        {
+            updater.Confirm(UpdateSettings.Running);
+            _log.LogInformation("update {Version} confirmed", UpdateSettings.Running);
+            return true;
+        }
+        if (!updater.ProbationFailed(UpdateSettings.Running, now)) return true;
+        updater.Rollback("the new version stayed unhealthy");
+        _log.LogError("update {Version} rolled back: it stayed unhealthy", UpdateSettings.Running);
+        Stop(ExitCodes.RolledBack);
+        return false;
     }
 
     private async Task RenewIfDueAsync(IdentityStore store, LinkClient link, CancellationToken ct)

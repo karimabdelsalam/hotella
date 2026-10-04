@@ -62,6 +62,12 @@ internal static class AgentHost
 
     public static async Task<int> RunAsync(string[] args)
     {
+        // A candidate that keeps failing to start goes back before anything else runs.
+        var startup = new ConfigurationBuilder();
+        AddSources(startup, args);
+        if (UpdateSettings.From(startup.Build()).Updater() is { } updater
+            && !updater.OnStartup(UpdateSettings.Running, DateTimeOffset.UtcNow))
+            return ExitCodes.RolledBack;
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             Args = args,
@@ -75,6 +81,7 @@ internal static class AgentHost
         builder.Services.AddSingleton(Settings(builder.Configuration));
         builder.Services.AddSingleton(FiasSettings(builder.Configuration));
         builder.Services.AddSingleton(OwsSettings(builder.Configuration));
+        builder.Services.AddSingleton(UpdateSettings.From(builder.Configuration));
         builder.Services.AddHostedService<AgentWorker>();
         using var host = builder.Build();
         await host.RunAsync().ConfigureAwait(false);

@@ -1,0 +1,33 @@
+# The Hotella hotel agent (ADR-0013/0017): outbound-only link from the hotel to the platform.
+# Installed by packaging/linux/install.sh; settings in /etc/hotella-agent/agent.json, data in /var/lib/hotella-agent.
+[Unit]
+Description=Hotella hotel agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+User=hotella-agent
+Group=hotella-agent
+ExecStart=/opt/hotella-agent/current/hotella-agent run
+# Exit 10 (restart into an update) and 11 (rolled back) both mean "start me again".
+Restart=always
+RestartSec=5
+StateDirectory=hotella-agent
+StateDirectoryMode=0700
+ConfigurationDirectory=hotella-agent
+# Hardening: the agent needs its data, its install tree (updates) and outbound network, nothing else.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/hotella-agent /var/lib/hotella-agent
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

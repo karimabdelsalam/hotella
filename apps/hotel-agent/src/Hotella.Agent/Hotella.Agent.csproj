@@ -15,6 +15,7 @@
     <ProjectReference Include="../Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
     <ProjectReference Include="../Hotella.Agent.Fias/Hotella.Agent.Fias.csproj" />
     <ProjectReference Include="../Hotella.Agent.Ows/Hotella.Agent.Ows.csproj" />
+    <ProjectReference Include="../Hotella.Agent.Updater/Hotella.Agent.Updater.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="agent.example.json" CopyToOutputDirectory="PreserveNewest" />

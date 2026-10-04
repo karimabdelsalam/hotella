@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Signed self-update with probation and rollback (BUILD_PLAN §10 Phase 10.B "Updates"). -->
+  <PropertyGroup>
+    <RootNamespace>Hotella.Agent.Updater</RootNamespace>
+    <!-- Only for the source-generated rename(2) import (atomic switch of `current`); no hand-written unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hotella.Agent.Tests" />
+  </ItemGroup>
+</Project>

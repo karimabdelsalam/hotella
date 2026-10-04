@@ -7,6 +7,7 @@ return args.FirstOrDefault() switch
     "enroll" => await Cli.EnrollAsync(args.Skip(1).ToArray()),
     "status" => Cli.Status(args.Skip(1).ToArray()),
     "secret" => await Cli.SecretAsync(args.Skip(1).ToArray()),
+    "update" => await Cli.UpdateAsync(args.Skip(1).ToArray()),
     "version" or "--version" => Cli.Version(),
     _ => Cli.Usage(),
 };

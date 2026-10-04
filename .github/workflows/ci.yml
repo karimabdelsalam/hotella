@@ -72,6 +72,12 @@ jobs:
           global-json-file: apps/hotel-agent/global.json
       - name: Hotel agent (.NET 10 LTS) — analyzers as errors, unit tests and shared vectors
         run: dotnet test apps/hotel-agent/Hotella.Agent.slnx -c Release
+      - name: Hotel agent packages (self-contained linux-x64 and win-x64) and a signed self-update round trip
+        run: |
+          apps/hotel-agent/packaging/publish.sh 0.10.1 linux-x64 "$RUNNER_TEMP/agent"
+          apps/hotel-agent/packaging/publish.sh 0.10.2 linux-x64 "$RUNNER_TEMP/agent"
+          apps/hotel-agent/packaging/publish.sh 0.10.2 win-x64 "$RUNNER_TEMP/agent"
+          apps/hotel-agent/packaging/smoke-update.sh "$RUNNER_TEMP/agent"
       - run: pnpm test
       - name: Staff web in English (LTR) and Arabic (RTL) — Playwright, API mocked in the browser
         run: |
