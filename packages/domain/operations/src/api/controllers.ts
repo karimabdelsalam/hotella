@@ -420,7 +420,7 @@ export class ApprovalsController {
   }
 }
 
-class InboxQueryDto extends createZodDto(inboxQuerySchema) {}
+class ApprovalInboxQueryDto extends createZodDto(inboxQuerySchema) {}
 class PreferenceDto extends createZodDto(preferenceSchema) {}
 
 /** A staff member's own notifications at a property (in-app inbox) and channel preferences (Spec §25). */
@@ -435,7 +435,7 @@ export class NotificationsController {
 
   @Get('notifications')
   @RequirePermission('notification.read')
-  list(@Param('propertyId') propertyId: string, @Query() query: InboxQueryDto) {
+  list(@Param('propertyId') propertyId: string, @Query() query: ApprovalInboxQueryDto) {
     return this.inbox.inbox(propertyScope(this.ctx, this.actors, propertyId), query);
   }
 

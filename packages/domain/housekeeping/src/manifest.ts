@@ -31,6 +31,7 @@ export const HOUSEKEEPING_MANIFEST = defineManifest({
     { code: 'housekeeping.set_room_signal', risk: 'LOW', requiredPermission: 'hk.room.manage' },
   ],
   entitlements: ['HOUSEKEEPING'],
+  entitlement: 'HOUSEKEEPING',
   localeNamespaces: ['hk'],
   integrationCapabilities: ['ROOM_STATUS_READ', 'ROOM_STATUS_WRITE'],
 });

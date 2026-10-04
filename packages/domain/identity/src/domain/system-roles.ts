@@ -106,6 +106,10 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       // Commercial catalog and plans (Spec §58, §63).
       'license.catalog.read',
       'license.plan.manage',
+      'license.subscription.manage',
+      'license.grant.manage',
+      'license.entitlement.read',
+      'license.tenant.read',
     ],
   },
   { code: 'SUPPORT', audience: 'PLATFORM', permissions: ['support.access.request'] },
@@ -123,6 +127,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'iam.role.manage',
       'iam.membership.manage',
       'support.access.approve',
+      'license.tenant.read',
       'audit.read',
       'config.read',
       'config.manage',

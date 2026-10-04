@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
 import { z } from 'zod';
 import {
   COMMUNICATIONS_API,
@@ -8,6 +9,7 @@ import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { FeatureFlagService } from '@hotella/platform-flags';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import {
+  AGENT_ENTITLEMENTS,
   GUEST_CONCIERGE,
   HANDOFF_REASONS,
   type HandoffReason,
@@ -47,6 +49,9 @@ export class ConciergeRuntime {
     @Inject(COMMUNICATIONS_API) private readonly comms: CommunicationsPublicApi,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @InjectLogger() private readonly logger: Logger,
+    @Optional()
+    @Inject(ENTITLEMENT_API)
+    private readonly entitlements?: EntitlementPublicApi,
   ) {}
 
   async onGuestMessage(input: {
@@ -90,6 +95,23 @@ export class ConciergeRuntime {
     const assist = conversation.aiMode === 'ASSIST';
     try {
       const at = { tenantId: input.tenantId, propertyId: conversation.propertyId };
+      const entitlement = AGENT_ENTITLEMENTS[agent.code];
+      if (
+        entitlement &&
+        this.entitlements &&
+        !(await this.entitlements.can(at.tenantId, at.propertyId, entitlement))
+      ) {
+        // Not in the hotel's licence (Spec §59): a person answers, exactly as with a disabled guest AI.
+        await this.executor.step(handle, {
+          type: 'DECISION',
+          name: 'entitlement',
+          outcome: 'NOT_ENTITLED',
+        });
+        return await this.finish(
+          handle,
+          assist ? 'SKIPPED' : await this.handOff(handle, 'AI_FAILURE'),
+        );
+      }
       if (
         (await this.flags.isEnabled(killSwitch.guestAi, at)) ||
         (await this.flags.isEnabled(killSwitch.agent(agent.code), at))

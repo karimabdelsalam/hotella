@@ -36,7 +36,7 @@ class MappingQueryDto extends createZodDto(z.object({ type: z.enum(MAPPING_TYPES
 class RevokeAgentDto extends createZodDto(
   z.object({ reason: z.string().trim().min(3).max(500) }),
 ) {}
-class ReferenceQueryDto extends createZodDto(
+class ExternalReferenceQueryDto extends createZodDto(
   z.object({ entityType: z.string().regex(/^[a-z]+\.[a-z_]+$/), entityId: z.uuid() }),
 ) {}
 
@@ -281,7 +281,7 @@ export class IntegrationQueueController {
   /** Which external ids an internal entity carries (support and reconciliation; Spec §6 external references). */
   @Get('external-references')
   @RequirePermission('integration.read')
-  references(@Param('propertyId') propertyId: string, @Query() query: ReferenceQueryDto) {
+  references(@Param('propertyId') propertyId: string, @Query() query: ExternalReferenceQueryDto) {
     const scope = propertyScope(this.ctx, this.actors, propertyId);
     return this.gate.execute(
       { action: 'integration.read', tenantId: scope.tenantId, propertyId: scope.propertyId },

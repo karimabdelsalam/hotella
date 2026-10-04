@@ -2328,10 +2328,12 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
   every subscription that covers the property and is *in force* (TRIAL/ACTIVE, or PAST_DUE within `grace_days` after
   `ends_at`), plus unrevoked manual/trial/promo grants valid now (tenant-wide or for that property). A feature is
   entitled by its own code, or by its module's code when `default_included`. `CORE` is mandatory in every published
-  plan version (publish refuses otherwise). Pure function, unit-tested; results cached in Valkey per
-  (tenant, property) for 60 s and dropped on `license.entitlements.changed.v1` (Spec §2.3 entitlement cache).
+  plan version (publish refuses otherwise). Pure function, unit-tested; a tenant's licensing facts are cached in the
+  process for 30 s and dropped at once by the process that changes them (11.2: simpler than a Valkey round trip on
+  every gated action; other processes converge within the TTL; `license.entitlements.changed.v1` announces changes).
 - **The action-gate stage** (`ENTITLEMENT_STAGE`, composed by `apps/api` and `apps/worker`): requests with a null
-  tenant (platform-level actions) pass; the required code is `request.entitlement` when given, otherwise the
+  tenant (platform-level actions) and platform administrators (onboarding a tenant is not customer use) pass, and a
+  tenant can always read its own licence (`license.*` permissions); the required code is `request.entitlement` when given, otherwise the
   entitlement declared by the module manifest that owns the permission (`hk.*` → `HOUSEKEEPING`, `eng.*` →
   `ENGINEERING`, …; modules without one → `CORE`). **SYSTEM and INTEGRATION actors are not gated** — PMS truth,
   checkout revocations, SLA timers and retention keep running when a subscription lapses (integrity and security over
@@ -2377,7 +2379,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 |---|---|---|
 | 11.0 | This section | delivered |
 | 11.1 | Licensing context: catalog (products, modules, features, metrics) seeded from Spec §59/§61, plans and immutable plan versions with items and limits, control-plane plan API, manifest ↔ catalog test | delivered (manifest ↔ catalog test moves to 11.2 with the stage) |
-| 11.2 | Subscriptions (scope, status machine, history), manual grants, `EntitlementEngine` with cache and invalidation, real `ENTITLEMENT_STAGE` in api/worker, HARD/SOFT limits, AI agent entitlements, agent licence from entitlements, `GET /me/entitlements` and staff/guest apps hiding unentitled modules, CI/pilot subscribe step | planned |
+| 11.2 | Subscriptions (scope, status machine, history), manual grants, `EntitlementEngine` with cache and invalidation, real `ENTITLEMENT_STAGE` in api/worker, HARD/SOFT limits, AI agent entitlements, agent licence from entitlements, `GET /me/entitlements` and staff/guest apps hiding unentitled modules, CI/pilot subscribe step | delivered (SOFT-limit alerts in 11.3; guest web: the API refuses, nothing to hide yet) |
 | 11.3 | Usage metering: `USAGE_API.record`, collectors with cursors, DAY/MONTH aggregates, usage report API, SOFT-limit alerts | planned |
 | 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | planned |
 | 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | planned |
@@ -2395,6 +2397,40 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 - Found while adding the routes: Swagger keys component schemas by DTO class name, so a second `UpdateDraftDto`
   silently replaced the catalog context's schema in the OpenAPI document; the licensing DTOs carry distinct names,
   and the three older duplicates (`CreateCategoryDto`, `InboxQueryDto`, `ReferenceQueryDto`) are renamed in 11.2.
+
+**Reality notes for 11.2 (delivered).**
+- `EntitlementEngine` (`ENTITLEMENT_API`: `can`, `entitledUntil`, `effective`, `assertWithinLimit`) loads a tenant's
+  subscriptions (with covered properties, plan items and limits), grants, overrides and features once and evaluates
+  per property with the pure rules of `domain/entitlements.ts` (in force: TRIAL/ACTIVE within the period, PAST_DUE
+  through `grace_days`; limits: most generous in-force plan, replaced by an override). Other contexts inject it
+  `@Optional()`, so module test harnesses without licensing keep working exactly like the pass-through stage.
+- Gate stage: the required code is the request's `entitlement` or the gate entitlement of the module that owns the
+  permission — a new optional `entitlement` field of the module manifest (`hk` → HOUSEKEEPING, `eng` → ENGINEERING,
+  `inspection` → INSPECTIONS, `relations` → GUEST_RELATIONS, `lostfound` → LOST_FOUND, `logbook` → LOGBOOK,
+  `catalog`/`comms` → GUEST_EXPERIENCE; everything else CORE). The manifest registry validates it and answers
+  `ownerOfPermission`. The worker composes only route-free modules, which register no manifests, so it now registers
+  every manifest itself (`WorkerManifestsModule`) — the same set as the API, so both gate alike.
+- Control plane: `/control/tenants/:tenantId/{subscriptions,grants,limit-overrides,entitlements}`; subscriptions
+  only to PUBLISHED versions, status machine (`SUBSCRIPTION_TRANSITIONS`, CANCELLED/EXPIRED final), plan/terms
+  changes in one recorded step, every step in `subscription_history` + audit + `license.subscription.changed.v1` +
+  `license.entitlements.changed.v1`; grants and overrides revoked, never deleted. Tenant view
+  `GET /tenants/:tenantId/license` (`license.tenant.read`, General Manager) and `GET /me/entitlements` (codes
+  anywhere in the tenant when no property is named, for the apps' navigation).
+- HARD limits where the owning context counts: properties not INACTIVE at property creation (organization), staff
+  not DISABLED at user creation (identity) → `409 license.limit_reached`.
+- AI: `AGENT_ENTITLEMENTS` (GUEST_CONCIERGE → AI_GUEST, ENGINEERING_COPILOT → AI_ENGINEERING, SHIFT_HANDOVER →
+  AI_MANAGER); not entitled = the kill-switch path (concierge hands off, staff assistant answers DISABLED), recorded as a
+  DECISION step `entitlement: NOT_ENTITLED`, no model call.
+- Agent licence: connector manifests name their entitlement (`SIM_PMS` → CONNECTOR_PMS, `OPERA5_*` →
+  CONNECTOR_OPERA5); the gateway composes licensing and issues the licence only while entitled, ending no later than
+  the entitlement (`link.e2e-spec.ts`).
+- Staff web hides sections whose module the hotel is not licensed for (`useEntitled`; a failed read hides nothing,
+  the API refuses anyway); Playwright en/ar in `e2e/licence.spec.ts`.
+- Pilot/CI: `infra/docker/pilot/license-pilot.sh <token> [TENANT]` publishes `PILOT_ALL` (every module) once and
+  subscribes the tenant; CI runs it right after creating `PILOT`, before the smokes.
+- Guard added after 11.1's finding: `apps/api/test/dto-names.spec.ts` fails on duplicate DTO class names; the three
+  older duplicates are renamed (`CreateComplaintCategoryDto`, `ExternalReferenceQueryDto`, `ApprovalInboxQueryDto`),
+  restoring their schemas in the OpenAPI document.
 
 **APIs (all mutations through `ActionGate`, audited).**
 | Route | Permission |

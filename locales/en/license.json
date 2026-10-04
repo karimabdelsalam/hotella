@@ -39,5 +39,9 @@
   "license.metric.active_properties": "Active properties",
   "license.metric.api_calls": "API calls",
   "license.permission.catalog_read": "Read the licensing catalog (modules, entitlements, metrics)",
-  "license.permission.plan_manage": "Create, edit, publish and retire plans"
+  "license.permission.plan_manage": "Create, edit, publish and retire plans",
+  "license.permission.subscription_manage": "Subscribe tenants to plans and change or end subscriptions",
+  "license.permission.grant_manage": "Give or revoke extra entitlements and limit overrides",
+  "license.permission.entitlement_read": "See any tenant's effective entitlements and limits",
+  "license.permission.tenant_read": "See your organisation's licence: plans, entitlements and limits"
 }

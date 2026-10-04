@@ -13,6 +13,7 @@ import { CatalogServicesModule, CatalogWorkerModule } from '@hotella/domain-cata
 import { CommunicationsWorkerModule } from '@hotella/domain-communications';
 import { OperationsWorkerModule } from '@hotella/domain-operations';
 import { OrganizationCoreModule } from '@hotella/domain-organization';
+import { LicensingCoreModule } from '@hotella/domain-licensing';
 import { AuditCoreModule } from '@hotella/platform-audit';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
@@ -26,6 +27,7 @@ import { BULLMQ_EVENT_TRANSPORT, QueueModule } from '@hotella/platform-queue';
 import { SecretsModule } from '@hotella/platform-secrets';
 import { SettingsCoreModule } from '@hotella/platform-settings';
 import { WorkerRuntimeModule } from './runtime/runtime.module';
+import { WorkerManifestsModule } from './runtime/manifests.module';
 
 /** Everything the worker runs besides its configuration. */
 const WORKER_MODULES = [
@@ -58,9 +60,15 @@ const WORKER_MODULES = [
   CatalogWorkerModule,
   CatalogServicesModule,
   // AI tools act through the ActionGate as AI_AGENT (no HTTP guard: the worker's routes are health checks).
+  // Entitlements (Spec §58): the engine and the gate stage, so AI tools are gated like people (BUILD_PLAN 11.B).
+  LicensingCoreModule,
   AuthModule.forRoot({
     httpGuard: false,
-    stages: [IntegrationsModule.capabilityStage(), ...AiModule.gateStages()],
+    stages: [
+      LicensingCoreModule.entitlementStage(),
+      IntegrationsModule.capabilityStage(),
+      ...AiModule.gateStages(),
+    ],
   }),
   // The Model Gateway and the Guest Concierge runtime on `background-ai` (ADR-0018, BUILD_PLAN 6.3).
   AiWorkerModule,
@@ -75,6 +83,8 @@ const WORKER_MODULES = [
   // AI-derived attributes of lost and found items on `background-ai`, then matching again.
   LostFoundWorkerModule,
   WorkerRuntimeModule,
+  // Last: every manifest, for the gate's permission → module lookup (after the modules that register their own).
+  WorkerManifestsModule,
 ];
 
 /** The worker process. `forRoot()` reads the environment through platform-config (main.ts); tests pass `env`. */

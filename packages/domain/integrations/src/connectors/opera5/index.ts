@@ -20,6 +20,7 @@ export const OPERA5_FIAS_MANIFEST = defineConnector({
   code: 'OPERA5_FIAS',
   version: 1,
   category: 'PMS',
+  entitlement: 'CONNECTOR_OPERA5',
   description:
     'OPERA 5 via the IFC8 FIAS interface: check-in, check-out, room moves, guest changes and room status in real time; database sync for reconciliation.',
   capabilities: [
@@ -100,6 +101,7 @@ export const OPERA5_OWS_MANIFEST = defineConnector({
   code: 'OPERA5_OWS',
   version: 1,
   category: 'PMS',
+  entitlement: 'CONNECTOR_OPERA5',
   description:
     'OPERA 5 via OPERA Web Services (OWS): future reservations, arrivals with ETA, sharers and guest profiles, polled by the hotel agent.',
   capabilities: ['RESERVATION_READ', 'GUEST_READ', 'PROFILE_EVENT'],

@@ -17,5 +17,6 @@ export const INSPECTION_MANIFEST = defineManifest({
   ],
   events: [InspectionCompleted.name, InspectionFindingRaised.name],
   entitlements: ['INSPECTIONS'],
+  entitlement: 'INSPECTIONS',
   localeNamespaces: ['inspection'],
 });

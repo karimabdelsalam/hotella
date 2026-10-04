@@ -18,5 +18,6 @@ export const LOGBOOK_MANIFEST = defineManifest({
   events: [HandoverAcknowledged.name],
   aiTools: [{ code: 'logbook.get_shift_facts', risk: 'READ', requiredPermission: 'logbook.read' }],
   entitlements: ['LOGBOOK'],
+  entitlement: 'LOGBOOK',
   localeNamespaces: ['logbook'],
 });

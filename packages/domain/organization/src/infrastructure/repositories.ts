@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import {
   DATABASE,
   type Database,
@@ -116,6 +116,14 @@ export class OrganizationRepositories {
       .from(properties)
       .where(tenantWhere(properties, scope, eq(properties.code, code)))
       .then((r) => r[0]);
+  }
+  /** Properties that count against the licence (Spec §61 ACTIVE_PROPERTIES): every one not switched off. */
+  async countLiveProperties(scope: TenantScope): Promise<number> {
+    const [row] = await this.x
+      .select({ n: sql<number>`count(*)::int` })
+      .from(properties)
+      .where(tenantWhere(properties, scope, ne(properties.status, 'INACTIVE')));
+    return row?.n ?? 0;
   }
   listProperties(scope: TenantScope): Promise<PropertyRow[]> {
     return this.x

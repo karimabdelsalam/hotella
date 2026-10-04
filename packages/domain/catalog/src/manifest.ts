@@ -25,5 +25,7 @@ export const CATALOG_MANIFEST = defineManifest({
     ServiceRequestStatusChanged.name,
     ServiceRequestRelated.name,
   ],
+  entitlements: ['GUEST_EXPERIENCE'],
+  entitlement: 'GUEST_EXPERIENCE',
   localeNamespaces: ['catalog'],
 });

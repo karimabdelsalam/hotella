@@ -1,13 +1,24 @@
 import 'reflect-metadata';
-import type { INestApplication } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  type INestApplication,
+  Module,
+  type OnModuleInit,
+  Query,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
 import { AuditModule } from '@hotella/platform-audit';
 import {
+  ActionGate,
+  ActorStore,
   AUTHENTICATION_STRATEGY,
   AuthModule,
   HeaderActorStrategy,
   PERMISSION_RESOLVER,
+  PROPERTY_SCOPE_VERIFIER,
+  type PropertyScopeVerifier,
   StaticPermissionResolver,
 } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
@@ -23,14 +34,69 @@ import { EventsModule } from '@hotella/platform-events';
 import { FeatureFlagsModule } from '@hotella/platform-flags';
 import { HttpConventionsModule } from '@hotella/platform-http';
 import { I18nModule } from '@hotella/platform-i18n';
-import { ManifestModule } from '@hotella/platform-manifest';
+import { defineManifest, ManifestModule, ManifestRegistry } from '@hotella/platform-manifest';
 import { ObservabilityModule } from '@hotella/platform-observability';
 import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import { LicenseCatalogService } from '../application/catalog.service';
-import { LicensingModule } from '../licensing.module';
+import { LicensingCoreModule, LicensingModule } from '../licensing.module';
 
 /** Test-only composition of the licensing context with the platform it needs; tenants are inserted as rows. */
+
+/** A stand-in module whose permission needs HOUSEKEEPING, and a CORE action (a permission no module declares). */
+const DEMO_MANIFEST = defineManifest({
+  code: 'demo',
+  schema: 'platform',
+  description: 'Test-only module gated by an entitlement.',
+  permissions: [{ code: 'demo.board.read', descriptionKey: 'demo.read', risk: 'READ' }],
+  entitlements: ['HOUSEKEEPING'],
+  entitlement: 'HOUSEKEEPING',
+});
+
+@Controller('demo')
+class DemoController {
+  constructor(
+    private readonly gate: ActionGate,
+    private readonly actors: ActorStore,
+  ) {}
+  @Get('board')
+  board(@Query('propertyId') propertyId?: string) {
+    const tenantId = this.actors.require().tenantId;
+    return this.gate.execute(
+      { action: 'demo.board.read', tenantId, propertyId: propertyId ?? null },
+      async () => ({ ok: true }),
+    );
+  }
+  @Get('core')
+  core(@Query('propertyId') propertyId?: string) {
+    const tenantId = this.actors.require().tenantId;
+    return this.gate.execute(
+      { action: 'org.property.read', tenantId, propertyId: propertyId ?? null },
+      async () => ({ ok: true }),
+    );
+  }
+}
+
+@Module({ controllers: [DemoController] })
+class DemoModule implements OnModuleInit {
+  constructor(private readonly manifests: ManifestRegistry) {}
+  onModuleInit(): void {
+    this.manifests.register(DEMO_MANIFEST);
+  }
+}
+
+/** Property ownership straight from the rows (the organization context is not composed here). */
+function rowVerifier(db: () => Database): PropertyScopeVerifier {
+  const owner = async (propertyId: string) =>
+    (
+      (await db().execute(sql`select tenant_id from org.properties where id = ${propertyId}`))
+        .rows[0] as { tenant_id: string } | undefined
+    )?.tenant_id ?? null;
+  return {
+    propertyBelongsToTenant: async (propertyId, tenantId) => (await owner(propertyId)) === tenantId,
+    tenantOfProperty: owner,
+  };
+}
 
 export const ADMIN = JSON.stringify({
   type: 'USER',
@@ -74,8 +140,15 @@ export async function startLicensingApp(
       AuthModule.forRoot({
         strategy: { provide: AUTHENTICATION_STRATEGY, useClass: HeaderActorStrategy },
         resolver: { provide: PERMISSION_RESOLVER, useValue: new StaticPermissionResolver(grants) },
+        propertyVerifier: {
+          provide: PROPERTY_SCOPE_VERIFIER,
+          inject: [DATABASE],
+          useFactory: (db: Database) => rowVerifier(() => db),
+        },
+        stages: [LicensingCoreModule.entitlementStage()],
       }),
       LicensingModule,
+      DemoModule,
     ],
   }).compile();
   const app = ref.createNestApplication({ logger: false });

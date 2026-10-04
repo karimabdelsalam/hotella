@@ -335,5 +335,17 @@
   "errors.license.plan_version.not_found": "نسخة الباقة هذه غير موجودة.",
   "errors.license.plan_version.not_draft": "لا يمكن تغيير أو نشر إلا المسودة؛ النسخ المنشورة لا تتغير أبدًا.",
   "errors.license.plan_version.not_published": "لا يمكن إيقاف إلا نسخة منشورة.",
-  "errors.license.plan_version.version_conflict": "عدّل شخص آخر هذه النسخة. حدّث الصفحة وحاول مرة أخرى."
+  "errors.license.plan_version.version_conflict": "عدّل شخص آخر هذه النسخة. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.license.not_entitled": "ترخيص فندقك لا يشمل هذه الميزة.",
+  "errors.license.limit_reached": "يسمح ترخيصك بحد أقصى {limit} لهذا ({metric}). تواصل مع Planova لرفعه.",
+  "errors.license.subscription.not_found": "هذا الاشتراك غير موجود.",
+  "errors.license.subscription.version_conflict": "عدّل شخص آخر هذا الاشتراك. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.license.subscription.transition_invalid": "لا يمكن أن ينتقل الاشتراك من {from} إلى {to}.",
+  "errors.license.subscription.ended": "انتهى هذا الاشتراك؛ ابدأ اشتراكًا جديدًا بدلًا منه.",
+  "errors.license.subscription.period_invalid": "يجب أن تأتي النهاية بعد البداية.",
+  "errors.license.subscription.scope_invalid": "اختر الفنادق فقط عندما يغطي الاشتراك فنادق محددة.",
+  "errors.license.grant.not_found": "هذا المنح غير موجود.",
+  "errors.license.grant.already_revoked": "سُحب هذا المنح بالفعل.",
+  "errors.license.grant.period_invalid": "يجب أن تأتي النهاية بعد البداية.",
+  "errors.license.limit_override.not_found": "تجاوز الحد هذا غير موجود أو سُحب بالفعل."
 }

@@ -1,4 +1,5 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
+import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
 import { MembershipChanged, RolePermissionsChanged, UserCreated } from '@hotella/contracts-events';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
 import { ActionGate, ActorStore, type RequestActor } from '@hotella/platform-auth';
@@ -95,6 +96,9 @@ export class IdentityAdminService {
     private readonly audit: AuditWriter,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    @Optional()
+    @Inject(ENTITLEMENT_API)
+    private readonly entitlements?: EntitlementPublicApi,
   ) {}
 
   // ---------- users ----------
@@ -111,6 +115,13 @@ export class IdentityAdminService {
         const actor = this.actors.require();
         if (await this.repo.userByLogin(scope.tenantId, input.email))
           throw AppError.conflict('iam.user.email_taken');
+        // A HARD licence limit on staff stops the account that would cross it (Spec §61).
+        await this.entitlements?.assertWithinLimit({
+          tenantId: scope.tenantId,
+          propertyId: null,
+          metric: 'ACTIVE_STAFF',
+          current: await this.repo.countLiveStaff(scope),
+        });
         const person = await this.repo.insertPerson({
           id: newId(),
           tenantId: scope.tenantId,

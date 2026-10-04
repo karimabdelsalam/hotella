@@ -19,6 +19,7 @@ export const SIM_PMS_MANIFEST = defineConnector({
   code: 'SIM_PMS',
   version: 1,
   category: 'PMS',
+  entitlement: 'CONNECTOR_PMS',
   description:
     'PMS simulator (FIAS-shaped event stream and OWS-shaped query face) for development and CI.',
   capabilities: [

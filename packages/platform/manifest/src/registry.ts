@@ -13,7 +13,8 @@ export interface ManifestProblem {
     | 'EVENT_OWNERSHIP'
     | 'DUPLICATE_AI_TOOL'
     | 'UNKNOWN_PERMISSION'
-    | 'UNCLASSIFIED_TABLE';
+    | 'UNCLASSIFIED_TABLE'
+    | 'UNDECLARED_ENTITLEMENT';
   readonly message: string;
 }
 
@@ -23,7 +24,8 @@ export interface ManifestProblem {
  *  - every declared event exists in the event registry and belongs to the module's namespace;
  *  - every registered event in a module's namespace is declared by that module (nothing published undeclared);
  *  - AI tool codes are unique and each tool's required permission is declared by some module;
- *  - every classified table in the module's schema exists (data classes are enforced at load by classify()).
+ *  - every classified table in the module's schema exists (data classes are enforced at load by classify());
+ *  - the module's gate entitlement is one of the entitlements it declares.
  * `assertValid()` runs at app boot and fails fast (CLAUDE.md rule 22).
  */
 @Injectable()
@@ -43,6 +45,22 @@ export class ManifestRegistry {
   get(code: string): ModuleManifest | undefined {
     return this.manifests.get(code);
   }
+
+  /** The manifest declaring a permission (its owner), if any module of this process declares it. */
+  ownerOfPermission(permission: string): ModuleManifest | undefined {
+    if (
+      !this.byPermission ||
+      this.byPermission.size === 0 ||
+      this.byPermissionVersion !== this.manifests.size
+    ) {
+      this.byPermission = new Map();
+      for (const m of this.all()) for (const p of m.permissions) this.byPermission.set(p.code, m);
+      this.byPermissionVersion = this.manifests.size;
+    }
+    return this.byPermission.get(permission);
+  }
+  private byPermission: Map<string, ModuleManifest> | undefined;
+  private byPermissionVersion = -1;
 
   /** Permission catalog across modules (feeds IAM seeding in Phase 1). */
   permissions(): Array<{ module: string; code: string; descriptionKey: string; risk: string }> {
@@ -66,6 +84,13 @@ export class ManifestRegistry {
         permissionOwner.set(p.code, m.code);
       }
     }
+    for (const m of manifests)
+      if (m.entitlement && !m.entitlements.includes(m.entitlement))
+        problems.push({
+          module: m.code,
+          kind: 'UNDECLARED_ENTITLEMENT',
+          message: `gate entitlement "${m.entitlement}" is not listed in entitlements`,
+        });
     const toolOwner = new Map<string, string>();
     for (const m of manifests) {
       for (const t of m.aiTools) {

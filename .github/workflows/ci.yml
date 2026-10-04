@@ -126,7 +126,7 @@ jobs:
         run: infra/docker/pilot/pilot.sh migrate
       - name: Start api, worker, agent gateway and staff web
         run: infra/docker/pilot/pilot.sh start
-      - name: Create the first platform administrator and sign in
+      - name: Create the first platform administrator, sign in and license the pilot tenant (Phase 11)
         run: |
           infra/docker/pilot/pilot.sh admin ops@planova.example Ops
           token=$(curl -fsS localhost:3000/api/v1/auth/login -H 'content-type: application/json' \
@@ -134,6 +134,7 @@ jobs:
           curl -fsS localhost:3000/api/v1/me -H "authorization: Bearer $token" | jq -e '.user.isPlatformAdmin == true'
           curl -fsS localhost:3000/api/v1/tenants -H "authorization: Bearer $token" -H 'content-type: application/json' \
             -d '{"code":"PILOT","name":"Pilot Hotels"}' | jq -e '.code == "PILOT"'
+          infra/docker/pilot/license-pilot.sh "$token"
           curl -fsS localhost:3000/api/v1/public/branding?property=00000000-0000-7000-8000-000000000000 -o /dev/null -w '%{http_code}\n' | grep -q 404
       - name: A simulated hotel agent enrolls over mutual TLS and the worker projects its stay (Phase 2)
         run: |

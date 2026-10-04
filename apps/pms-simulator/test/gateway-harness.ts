@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import type { INestApplication } from '@nestjs/common';
+import type { DynamicModule, INestApplication } from '@nestjs/common';
+import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
 import { Test } from '@nestjs/testing';
 import { and, asc, eq, like } from 'drizzle-orm';
 import type { EventEnvelope } from '@hotella/contracts-events';
@@ -99,6 +100,15 @@ export interface GatewayHarness {
   enrollmentToken(): Promise<string>;
 }
 
+function entitlementsModule(api: EntitlementPublicApi): DynamicModule {
+  return {
+    module: class FakeLicensingModule {},
+    global: true,
+    providers: [{ provide: ENTITLEMENT_API, useValue: api }],
+    exports: [ENTITLEMENT_API],
+  };
+}
+
 export async function startGatewayHarness(
   databaseUrl: string,
   code: string,
@@ -106,6 +116,10 @@ export async function startGatewayHarness(
     connectorCode: 'SIM_PMS',
     capabilities: CAPABILITIES,
   },
+  options: {
+    /** Stands in for the licensing context (Spec §62: the agent licence follows the connector entitlement). */
+    readonly entitlements?: EntitlementPublicApi;
+  } = {},
 ): Promise<GatewayHarness> {
   await runMigrations(databaseUrl);
   const grants: Record<string, string[]> = {
@@ -151,6 +165,7 @@ export async function startGatewayHarness(
       IntegrationsModule,
       GuestModule,
       AgentGatewayModule,
+      ...(options.entitlements ? [entitlementsModule(options.entitlements)] : []),
     ],
   }).compile();
   const app = ref.createNestApplication({ logger: false });

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   type AgentFrame,
   type BatchResponse,
@@ -20,7 +20,9 @@ import { EventPublisher } from '@hotella/platform-events';
 import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { signCanonical } from '@hotella/platform-pki';
+import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
 import { HealthService } from '../application/health.service';
+import { ConnectorRegistry } from '../connectors/registry';
 import { IngestService } from '../application/ingest.service';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import { LinkRepositories } from '../infrastructure/link-repositories';
@@ -65,7 +67,11 @@ export class AgentLinkService {
     private readonly events: EventPublisher,
     private readonly audit: AuditWriter,
     private readonly keys: AgentKeys,
+    private readonly connectors: ConnectorRegistry,
     @InjectLogger() private readonly logger: Logger,
+    @Optional()
+    @Inject(ENTITLEMENT_API)
+    private readonly entitlements?: EntitlementPublicApi,
   ) {}
 
   /** The agent behind a presented client certificate, or null (unknown, revoked, expired, disabled). */
@@ -129,10 +135,29 @@ export class AgentLinkService {
   /**
    * The agent's licence (Spec §62): what this instance may serve, valid for {@link LICENCE_DAYS} with an offline grace,
    * renewed at every welcome. Signed with the command key; the `typ` keeps a licence from ever passing as a command.
-   * Phase 11 derives it from the tenant's entitlements instead of the instance alone.
+   * Issued only while the tenant is entitled to the connector at the property (Spec §59 connector entitlement), and
+   * never beyond that entitlement's end; without it the agent keeps buffering PMS records and, past its grace, refuses
+   * commands (BUILD_PLAN 11.B).
    */
   private async licence(instance: IntegrationInstanceRow) {
     const now = new Date();
+    let expires = new Date(now.getTime() + LICENCE_DAYS * 86_400_000);
+    const entitlement = this.connectors.get(instance.connectorCode)?.manifest.entitlement;
+    if (this.entitlements && entitlement) {
+      const until = await this.entitlements.entitledUntil(
+        instance.tenantId,
+        instance.propertyId,
+        entitlement,
+      );
+      if (until === undefined) {
+        this.logger.warn(
+          { instance_id: instance.id, entitlement },
+          'no licence issued: the tenant is not entitled to this connector',
+        );
+        return undefined;
+      }
+      if (until && until < expires) expires = until;
+    }
     const body: LicenceBody = {
       typ: 'hotella.licence.v1',
       instance_id: instance.id,
@@ -141,7 +166,7 @@ export class AgentLinkService {
       connector_code: instance.connectorCode,
       capabilities: [...instance.enabledCapabilities] as LicenceBody['capabilities'],
       issued_at: now.toISOString(),
-      expires_at: new Date(now.getTime() + LICENCE_DAYS * 86_400_000).toISOString(),
+      expires_at: expires.toISOString(),
       grace_days: LICENCE_GRACE_DAYS,
     };
     return { ...body, signature: signCanonical(body, (await this.keys.get()).commandSigningKey) };

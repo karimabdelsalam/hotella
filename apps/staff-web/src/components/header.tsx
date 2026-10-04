@@ -4,22 +4,22 @@ import { useLocale, useTranslations } from 'next-intl';
 import { BrandMark, Button, cx, GlobeIcon } from '@hotella/ui';
 import { Link, usePathname, useRouter } from '../i18n/navigation';
 import { routing } from '../i18n/routing';
-import { holdsAnywhere, useMe } from '../lib/access';
+import { holdsAnywhere, useEntitled, useMe } from '../lib/access';
 import { logoUrl, useStaffBrand } from '../lib/brand';
 import { useSession } from '../lib/session';
 
 const NAMES: Record<string, string> = { en: 'English', ar: 'العربية' };
-/** Each section and the permission that opens it (held at any property). */
+/** Each section, the permission that opens it (held at any property) and the licensed module it belongs to. */
 const SECTIONS = [
-  ['inbox', 'inbox.read'],
-  ['housekeeping', 'hk.board.read'],
-  ['engineering', 'eng.work_order.read'],
-  ['inspections', 'inspection.read'],
-  ['relations', 'complaint.read'],
-  ['lostfound', 'lostfound.register'],
-  ['logbook', 'logbook.read'],
-  ['arrivals', 'hk.arrivals.read'],
-  ['branding', 'branding.manage'],
+  ['inbox', 'inbox.read', 'GUEST_EXPERIENCE'],
+  ['housekeeping', 'hk.board.read', 'HOUSEKEEPING'],
+  ['engineering', 'eng.work_order.read', 'ENGINEERING'],
+  ['inspections', 'inspection.read', 'INSPECTIONS'],
+  ['relations', 'complaint.read', 'GUEST_RELATIONS'],
+  ['lostfound', 'lostfound.register', 'LOST_FOUND'],
+  ['logbook', 'logbook.read', 'LOGBOOK'],
+  ['arrivals', 'hk.arrivals.read', 'HOUSEKEEPING'],
+  ['branding', 'branding.manage', 'CORE'],
 ] as const;
 
 /** The hotel's logo and name, the sections, the language and sign-out; logical spacing so it mirrors in Arabic. */
@@ -31,7 +31,12 @@ export function Header() {
   const session = useSession();
   const { brand } = useStaffBrand();
   const me = useMe();
-  const sections = me ? SECTIONS.filter(([, permission]) => holdsAnywhere(me, permission)) : [];
+  const entitled = useEntitled();
+  const sections = me
+    ? SECTIONS.filter(
+        ([, permission, capability]) => holdsAnywhere(me, permission) && entitled(capability),
+      )
+    : [];
   const name = brand?.displayName ?? t('title');
   return (
     <header className="border-b border-slate-200 bg-white shadow-sm">

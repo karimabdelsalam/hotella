@@ -28,6 +28,7 @@
   "dependencies": {
     "@hotella/contracts-api": "workspace:*",
     "@hotella/contracts-events": "workspace:*",
+    "@hotella/domain-licensing": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-audit": "workspace:*",
     "@hotella/platform-auth": "workspace:*",

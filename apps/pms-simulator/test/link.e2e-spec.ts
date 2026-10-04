@@ -5,7 +5,11 @@ import { and, asc, eq, like, sql } from 'drizzle-orm';
 import { WebSocket } from 'ws';
 import type { EventEnvelope } from '@hotella/contracts-events';
 import { projectOnce, reconcileOnce, StayProjector, StayReconciler } from '@hotella/domain-guest';
-import type { IntegrationsPublicApi } from '@hotella/domain-integrations';
+import {
+  AgentLinkService,
+  integrationSchema,
+  type IntegrationsPublicApi,
+} from '@hotella/domain-integrations';
 import type { Database } from '@hotella/platform-database';
 import { eventsSchema, IdempotentConsumer } from '@hotella/platform-events';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
@@ -23,6 +27,18 @@ import {
 import { CAPABILITIES, type GatewayHarness, startGatewayHarness, until } from './gateway-harness';
 
 const stamp = Date.now().toString(36).toUpperCase();
+
+/** The connector entitlement the fake licensing context reports (null: open-ended; undefined: not entitled). */
+const ENTITLED: { until: Date | null | undefined; asked: string[] } = { until: null, asked: [] };
+const entitlements = {
+  can: async () => ENTITLED.until !== undefined,
+  entitledUntil: async (_t: string, _p: string | null, code: string) => {
+    ENTITLED.asked.push(code);
+    return ENTITLED.until;
+  },
+  effective: async () => [],
+  assertWithinLimit: async () => undefined,
+};
 
 describe.skipIf(needsInfra())(
   `hotel agent link: simulator ↔ gateway over mutual TLS (${infraSkipReason()})`,
@@ -45,7 +61,9 @@ describe.skipIf(needsInfra())(
     const messages = () => h.messages();
 
     beforeAll(async () => {
-      h = await startGatewayHarness(readTestInfra().databaseUrl!, `sim-${stamp}`);
+      h = await startGatewayHarness(readTestInfra().databaseUrl!, `sim-${stamp}`, undefined, {
+        entitlements,
+      });
       ({ app, db, api, gatewayUrl, caPem, tenant, instanceId } = h);
     });
     afterAll(async () => {
@@ -345,6 +363,28 @@ describe.skipIf(needsInfra())(
       expect(res.resend_from).toBeNull();
       expect(queue.depth).toBe(0);
       expect((await messages()).length).toBe(before + 2);
+    });
+
+    it('issues the agent licence only while the tenant is entitled to the connector (Spec §62)', async () => {
+      const link = app.get(AgentLinkService) as unknown as {
+        licence(instance: unknown): Promise<{ expires_at: string } | undefined>;
+      };
+      const [instance] = await db
+        .select()
+        .from(integrationSchema.integrationInstances)
+        .where(eq(integrationSchema.integrationInstances.id, instanceId));
+      ENTITLED.until = null;
+      const open = await link.licence(instance);
+      expect(ENTITLED.asked.at(-1)).toBe('CONNECTOR_PMS');
+      expect(new Date(open!.expires_at).getTime()).toBeGreaterThan(Date.now() + 29 * 86_400_000);
+      // A subscription ending in five days: the licence ends with it, not 30 days out.
+      const ends = new Date(Date.now() + 5 * 86_400_000);
+      ENTITLED.until = ends;
+      expect((await link.licence(instance))!.expires_at).toBe(ends.toISOString());
+      // Not entitled: no licence at all (the agent buffers and, past its grace, refuses commands).
+      ENTITLED.until = undefined;
+      expect(await link.licence(instance)).toBeUndefined();
+      ENTITLED.until = null;
     });
 
     it('revocation closes the link at once and the certificate stops working', async () => {

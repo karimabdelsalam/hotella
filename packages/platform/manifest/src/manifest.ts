@@ -49,6 +49,11 @@ export const moduleManifestSchema = z.object({
   events: z.array(z.string()).default([]),
   /** Entitlement capability codes the module checks (Spec §58–§60), e.g. `HOUSEKEEPING`, `AI_GUEST`. */
   entitlements: z.array(z.string().regex(CODE_RE)).default([]),
+  /**
+   * The entitlement every permission of this module requires at the action gate (Spec §60), e.g. `HOUSEKEEPING`.
+   * Absent: the module is part of `CORE`. Must also be listed in `entitlements`.
+   */
+  entitlement: z.string().regex(CODE_RE).optional(),
   aiTools: z.array(aiToolSchema).default([]),
   /** Files under /locales/<locale>/ this module owns, e.g. `housekeeping`. */
   localeNamespaces: z.array(z.string().regex(/^[a-z][a-z0-9_-]*$/)).default([]),

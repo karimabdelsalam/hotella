@@ -3,6 +3,7 @@ import type { EventEnvelope } from '@hotella/contracts-events';
 import { newId } from '@hotella/platform-database';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { LicenseCatalogService } from './application/catalog.service';
 import { CAPABILITIES, METRICS } from './domain/catalog';
 import { ADMIN, type LicensingHarness, staff, startLicensingApp } from './testing/harness';
 
@@ -55,7 +56,7 @@ describe.skipIf(needsInfra())(`Licensing catalog and plans (${infraSkipReason()}
     );
     // Re-running is a no-op; nothing is duplicated.
     const before = await h.db.execute(sql`select count(*)::int as n from license.capabilities`);
-    await startLicensingApp(url, 'hotella_app_license').then((x) => x.app.close());
+    await h.app.get(LicenseCatalogService).sync();
     const after = await h.db.execute(sql`select count(*)::int as n from license.capabilities`);
     expect(after.rows[0]).toEqual(before.rows[0]);
   });

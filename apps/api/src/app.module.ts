@@ -11,7 +11,7 @@ import { InspectionModule } from '@hotella/domain-inspection';
 import { RelationsModule } from '@hotella/domain-relations';
 import { LostFoundModule } from '@hotella/domain-lostfound';
 import { LogbookModule } from '@hotella/domain-logbook';
-import { LicensingModule } from '@hotella/domain-licensing';
+import { LicensingCoreModule, LicensingModule } from '@hotella/domain-licensing';
 import { HousekeepingModule } from '@hotella/domain-housekeeping';
 import { KnowledgeModule } from '@hotella/domain-knowledge';
 import { CatalogModule } from '@hotella/domain-catalog';
@@ -57,7 +57,11 @@ import { MetaModule } from './meta/meta.module';
     AuthModule.forRoot({
       ...identityAuthOptions(),
       propertyVerifier: OrganizationModule.propertyVerifier(),
-      stages: [IntegrationsModule.capabilityStage(), ...AiModule.gateStages()],
+      stages: [
+        LicensingCoreModule.entitlementStage(),
+        IntegrationsModule.capabilityStage(),
+        ...AiModule.gateStages(),
+      ],
     }),
     OrganizationModule,
     IdentityModule,

@@ -1,9 +1,15 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
 import { z } from 'zod';
 import { FeatureFlagService } from '@hotella/platform-flags';
 import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
-import { ENGINEERING_COPILOT, replyLocale, SHIFT_HANDOVER } from '../domain/agents';
+import {
+  AGENT_ENTITLEMENTS,
+  ENGINEERING_COPILOT,
+  replyLocale,
+  SHIFT_HANDOVER,
+} from '../domain/agents';
 import { killSwitch } from '../domain/settings';
 import {
   type ClassifiedText,
@@ -56,7 +62,19 @@ export class StaffAssistantRuntime implements StaffAssistantApi {
     private readonly flags: FeatureFlagService,
     @Inject(MODEL_GATEWAY) private readonly gateway: ModelGatewayApi,
     @InjectLogger() private readonly logger: Logger,
+    @Optional()
+    @Inject(ENTITLEMENT_API)
+    private readonly entitlements?: EntitlementPublicApi,
   ) {}
+
+  /** Spec §59: the agent's AI entitlement at the property (always true without the licensing context). */
+  private async entitled(
+    agentCode: string,
+    at: { tenantId: string; propertyId: string | null },
+  ): Promise<boolean> {
+    const code = AGENT_ENTITLEMENTS[agentCode];
+    return !code || !this.entitlements || this.entitlements.can(at.tenantId, at.propertyId, code);
+  }
 
   async ask(input: StaffAssistantInput): Promise<StaffAssistantAnswer> {
     if (!STAFF_AGENTS.has(input.agentCode)) throw AppError.notFound('ai.agent.not_found');
@@ -88,6 +106,15 @@ export class StaffAssistantRuntime implements StaffAssistantApi {
     });
     try {
       const at = { tenantId: input.tenantId, propertyId: input.propertyId };
+      if (!(await this.entitled(agent.code, at))) {
+        await this.executor.step(handle, {
+          type: 'DECISION',
+          name: 'entitlement',
+          outcome: 'NOT_ENTITLED',
+        });
+        await this.executor.finish(handle, 'COMPLETED');
+        return result('DISABLED');
+      }
       if (await this.flags.isEnabled(killSwitch.agent(agent.code), at)) {
         await this.executor.step(handle, {
           type: 'DECISION',

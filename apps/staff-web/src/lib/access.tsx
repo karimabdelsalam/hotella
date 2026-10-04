@@ -19,14 +19,18 @@ export function holdsAnywhere(me: Me, permission: string): boolean {
 }
 
 const MeContext = createContext<Me | null>(null);
+/** The licensed capability codes (Spec §58) anywhere in the tenant; null while unknown (then nothing is hidden). */
+const EntitlementsContext = createContext<ReadonlySet<string> | null>(null);
 
 /** Who is signed in (`/me`), loaded once per session for the header and the screens. */
 export function MeProvider({ children }: { readonly children: ReactNode }) {
   const session = useSession();
   const [me, setMe] = useState<Me | null>(null);
+  const [entitlements, setEntitlements] = useState<ReadonlySet<string> | null>(null);
   useEffect(() => {
     if (session.state !== 'signed-in') {
       setMe(null);
+      setEntitlements(null);
       return;
     }
     let live = true;
@@ -34,11 +38,26 @@ export function MeProvider({ children }: { readonly children: ReactNode }) {
       .api<Me>('/me')
       .then((m) => live && setMe(m))
       .catch(() => undefined);
+    // The licence only hides what cannot be used; the API refuses it anyway, so a failed read hides nothing.
+    session
+      .api<{ unrestricted: boolean; codes: string[] }>('/me/entitlements')
+      .then((e) => live && setEntitlements(e.unrestricted ? null : new Set(e.codes)))
+      .catch(() => undefined);
     return () => {
       live = false;
     };
   }, [session]);
-  return <MeContext.Provider value={me}>{children}</MeContext.Provider>;
+  return (
+    <MeContext.Provider value={me}>
+      <EntitlementsContext.Provider value={entitlements}>{children}</EntitlementsContext.Provider>
+    </MeContext.Provider>
+  );
+}
+
+/** Whether the hotel's licence includes a capability (true while the licence is unknown). */
+export function useEntitled(): (capability: string) => boolean {
+  const entitlements = useContext(EntitlementsContext);
+  return (capability) => entitlements === null || entitlements.has(capability);
 }
 
 export function useMe(): Me | null {

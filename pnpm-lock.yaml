@@ -50,6 +50,9 @@ importers:
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../../packages/domain/integrations
+      '@hotella/domain-licensing':
+        specifier: workspace:*
+        version: link:../../packages/domain/licensing
       '@hotella/domain-organization':
         specifier: workspace:*
         version: link:../../packages/domain/organization
@@ -363,6 +366,9 @@ importers:
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../../packages/domain/integrations
+      '@hotella/domain-licensing':
+        specifier: workspace:*
+        version: link:../../packages/domain/licensing
       '@hotella/domain-organization':
         specifier: workspace:*
         version: link:../../packages/domain/organization
@@ -538,6 +544,12 @@ importers:
       '@hotella/domain-knowledge':
         specifier: workspace:*
         version: link:../../packages/domain/knowledge
+      '@hotella/domain-licensing':
+        specifier: workspace:*
+        version: link:../../packages/domain/licensing
+      '@hotella/domain-logbook':
+        specifier: workspace:*
+        version: link:../../packages/domain/logbook
       '@hotella/domain-lostfound':
         specifier: workspace:*
         version: link:../../packages/domain/lostfound
@@ -701,6 +713,9 @@ importers:
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../guest
+      '@hotella/domain-licensing':
+        specifier: workspace:*
+        version: link:../licensing
       '@hotella/domain-operations':
         specifier: workspace:*
         version: link:../operations
@@ -1415,6 +1430,9 @@ importers:
       '@hotella/contracts-events':
         specifier: workspace:*
         version: link:../../contracts/events
+      '@hotella/domain-licensing':
+        specifier: workspace:*
+        version: link:../licensing
       '@hotella/domain-organization':
         specifier: workspace:*
         version: link:../organization
@@ -1645,6 +1663,9 @@ importers:
       '@hotella/contracts-events':
         specifier: workspace:*
         version: link:../../contracts/events
+      '@hotella/domain-licensing':
+        specifier: workspace:*
+        version: link:../licensing
       '@hotella/domain-organization':
         specifier: workspace:*
         version: link:../organization
@@ -2329,6 +2350,9 @@ importers:
       '@hotella/contracts-events':
         specifier: workspace:*
         version: link:../../contracts/events
+      '@hotella/domain-licensing':
+        specifier: workspace:*
+        version: link:../licensing
       '@hotella/platform-audit':
         specifier: workspace:*
         version: link:../../platform/audit

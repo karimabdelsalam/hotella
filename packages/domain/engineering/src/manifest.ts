@@ -54,5 +54,6 @@ export const ENGINEERING_MANIFEST = defineManifest({
   ],
   integrationCapabilities: ['OOO_WRITE'],
   entitlements: ['ENGINEERING'],
+  entitlement: 'ENGINEERING',
   localeNamespaces: ['eng'],
 });

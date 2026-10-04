@@ -17,6 +17,7 @@ export const LOSTFOUND_MANIFEST = defineManifest({
     { code: 'lostfound.release', descriptionKey: 'lostfound.permission.release', risk: 'MEDIUM' },
   ],
   events: [LostFoundItemRegistered.name, LostFoundItemReleased.name, LostFoundItemDisposed.name],
-  entitlements: ['LOST_AND_FOUND'],
+  entitlements: ['LOST_FOUND'],
+  entitlement: 'LOST_FOUND',
   localeNamespaces: ['lostfound'],
 });

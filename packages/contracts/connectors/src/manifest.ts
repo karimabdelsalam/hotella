@@ -42,6 +42,11 @@ export interface ConnectorManifest {
    * the platform at all (ADR-0017 §5).
    */
   readonly credentialSchema: ZodType;
+  /**
+   * The licensing entitlement a tenant needs to run this connector (Spec §59), e.g. `CONNECTOR_OPERA5`; the agent's
+   * offline licence is issued only while it is entitled (Spec §62).
+   */
+  readonly entitlement?: string;
 }
 
 export class ConnectorDefinitionError extends Error {
@@ -60,6 +65,8 @@ export function defineConnector(manifest: ConnectorManifest): ConnectorManifest 
   if (!Number.isInteger(manifest.version) || manifest.version < 1)
     fail('version must be a positive integer');
   if (!CONNECTOR_CATEGORIES.includes(manifest.category)) fail(`unknown category`);
+  if (manifest.entitlement !== undefined && !CONNECTOR_CODE_RE.test(manifest.entitlement))
+    fail('entitlement must be UPPER_SNAKE_CASE');
   const caps = new Set<string>(manifest.capabilities);
   for (const c of manifest.capabilities)
     if (!isConnectorCapability(c)) fail(`unknown capability ${c}`);

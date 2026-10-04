@@ -1,11 +1,21 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
-import { RequirePermission } from '@hotella/platform-auth';
+import { PropertyScoped, RequirePermission, TenantScoped } from '@hotella/platform-auth';
 import { LicenseCatalogService } from '../application/catalog.service';
+import { GrantService } from '../application/grant.service';
+import { LicenseViewService } from '../application/license-view.service';
+import { SubscriptionService } from '../application/subscription.service';
 import { PlanService } from '../application/plan.service';
 import {
+  changeSubscriptionSchema,
   createDraftSchema,
+  createGrantSchema,
+  createOverrideSchema,
   createPlanSchema,
+  createSubscriptionSchema,
+  entitlementQuerySchema,
+  revokeSchema,
+  transitionSubscriptionSchema,
   updateDraftSchema,
   updatePlanSchema,
   versionActionSchema,
@@ -91,5 +101,141 @@ export class LicenseCatalogController {
     @Body() body: PlanVersionActionDto,
   ) {
     return this.plans.retire(planId, versionId, body);
+  }
+}
+
+class CreateSubscriptionDto extends createZodDto(createSubscriptionSchema) {}
+class TransitionSubscriptionDto extends createZodDto(transitionSubscriptionSchema) {}
+class ChangeSubscriptionDto extends createZodDto(changeSubscriptionSchema) {}
+class CreateEntitlementGrantDto extends createZodDto(createGrantSchema) {}
+class CreateLimitOverrideDto extends createZodDto(createOverrideSchema) {}
+class LicenseRevokeDto extends createZodDto(revokeSchema) {}
+class EntitlementQueryDto extends createZodDto(entitlementQuerySchema) {}
+
+/** A tenant's subscriptions, grants and limit overrides (control plane; platform administrators). */
+@Controller('control/tenants/:tenantId')
+@TenantScoped({ from: 'param' })
+export class TenantLicenseController {
+  constructor(
+    private readonly subscriptions: SubscriptionService,
+    private readonly grants: GrantService,
+    private readonly views: LicenseViewService,
+  ) {}
+
+  @Get('subscriptions')
+  @RequirePermission('license.subscription.manage', { checkedBy: 'gate' })
+  listSubscriptions(@Param('tenantId') tenantId: string) {
+    return this.subscriptions.list({ tenantId });
+  }
+
+  @Post('subscriptions')
+  @RequirePermission('license.subscription.manage', { checkedBy: 'gate' })
+  createSubscription(@Param('tenantId') tenantId: string, @Body() body: CreateSubscriptionDto) {
+    return this.subscriptions.create({ tenantId }, body);
+  }
+
+  @Get('subscriptions/:subscriptionId')
+  @RequirePermission('license.subscription.manage', { checkedBy: 'gate' })
+  subscription(@Param('tenantId') tenantId: string, @Param('subscriptionId') id: string) {
+    return this.subscriptions.get({ tenantId }, id);
+  }
+
+  @Post('subscriptions/:subscriptionId/transition')
+  @HttpCode(200)
+  @RequirePermission('license.subscription.manage', { checkedBy: 'gate' })
+  transition(
+    @Param('tenantId') tenantId: string,
+    @Param('subscriptionId') id: string,
+    @Body() body: TransitionSubscriptionDto,
+  ) {
+    return this.subscriptions.transition({ tenantId }, id, body);
+  }
+
+  @Post('subscriptions/:subscriptionId/change')
+  @HttpCode(200)
+  @RequirePermission('license.subscription.manage', { checkedBy: 'gate' })
+  change(
+    @Param('tenantId') tenantId: string,
+    @Param('subscriptionId') id: string,
+    @Body() body: ChangeSubscriptionDto,
+  ) {
+    return this.subscriptions.change({ tenantId }, id, body);
+  }
+
+  @Get('grants')
+  @RequirePermission('license.grant.manage', { checkedBy: 'gate' })
+  listGrants(@Param('tenantId') tenantId: string) {
+    return this.grants.listGrants({ tenantId });
+  }
+
+  @Post('grants')
+  @RequirePermission('license.grant.manage', { checkedBy: 'gate' })
+  createGrant(@Param('tenantId') tenantId: string, @Body() body: CreateEntitlementGrantDto) {
+    return this.grants.createGrant({ tenantId }, body);
+  }
+
+  @Post('grants/:grantId/revoke')
+  @HttpCode(200)
+  @RequirePermission('license.grant.manage', { checkedBy: 'gate' })
+  revokeGrant(
+    @Param('tenantId') tenantId: string,
+    @Param('grantId') id: string,
+    @Body() body: LicenseRevokeDto,
+  ) {
+    return this.grants.revokeGrant({ tenantId }, id, body);
+  }
+
+  @Get('limit-overrides')
+  @RequirePermission('license.grant.manage', { checkedBy: 'gate' })
+  listOverrides(@Param('tenantId') tenantId: string) {
+    return this.grants.listOverrides({ tenantId });
+  }
+
+  @Post('limit-overrides')
+  @RequirePermission('license.grant.manage', { checkedBy: 'gate' })
+  createOverride(@Param('tenantId') tenantId: string, @Body() body: CreateLimitOverrideDto) {
+    return this.grants.createOverride({ tenantId }, body);
+  }
+
+  @Post('limit-overrides/:overrideId/revoke')
+  @HttpCode(200)
+  @RequirePermission('license.grant.manage', { checkedBy: 'gate' })
+  revokeOverride(
+    @Param('tenantId') tenantId: string,
+    @Param('overrideId') id: string,
+    @Body() body: LicenseRevokeDto,
+  ) {
+    return this.grants.revokeOverride({ tenantId }, id, body);
+  }
+
+  @Get('entitlements')
+  @RequirePermission('license.entitlement.read', { checkedBy: 'gate' })
+  entitlements(@Param('tenantId') tenantId: string, @Query() query: EntitlementQueryDto) {
+    return this.views.effective({ tenantId }, query.propertyId ?? null);
+  }
+}
+
+/** A tenant's own licence, read-only (its managers). */
+@Controller('tenants/:tenantId')
+@TenantScoped({ from: 'param' })
+export class TenantOwnLicenseController {
+  constructor(private readonly views: LicenseViewService) {}
+
+  @Get('license')
+  @RequirePermission('license.tenant.read', { checkedBy: 'gate' })
+  license(@Param('tenantId') tenantId: string) {
+    return this.views.tenantLicense({ tenantId });
+  }
+}
+
+/** The entitled codes for the signed-in staff member's property, so the apps offer only what may be used. */
+@Controller('me')
+export class MyEntitlementsController {
+  constructor(private readonly views: LicenseViewService) {}
+
+  @Get('entitlements')
+  @PropertyScoped({ from: 'query', optional: true })
+  mine(@Query() query: EntitlementQueryDto) {
+    return this.views.mine(query.propertyId ?? null);
   }
 }

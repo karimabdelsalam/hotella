@@ -29,5 +29,6 @@ export const AI_MANIFEST = defineManifest({
     },
     { code: 'communication.send_message', risk: 'LOW', requiredPermission: 'inbox.reply' },
   ],
+  entitlements: ['AI_GUEST', 'AI_ENGINEERING', 'AI_MANAGER'],
   localeNamespaces: ['ai'],
 });

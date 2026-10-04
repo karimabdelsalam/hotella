@@ -1,4 +1,5 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
+import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
 import {
   BrandProfileUpdated,
   LocationCreated,
@@ -184,6 +185,9 @@ export class PropertyService {
     private readonly tx: TransactionRunner,
     private readonly events: EventPublisher,
     private readonly audit: AuditWriter,
+    @Optional()
+    @Inject(ENTITLEMENT_API)
+    private readonly entitlements?: EntitlementPublicApi,
   ) {}
 
   create(scope: TenantScope, input: CreatePropertyInput): Promise<PropertyRow> {
@@ -192,6 +196,13 @@ export class PropertyService {
         const code = normalizeCode(input.code);
         if (await this.repo.propertyByCode(scope, code))
           throw AppError.conflict('org.property.code_taken', { code });
+        // A HARD licence limit on properties stops the one that would cross it (Spec §61).
+        await this.entitlements?.assertWithinLimit({
+          tenantId: scope.tenantId,
+          propertyId: null,
+          metric: 'ACTIVE_PROPERTIES',
+          current: await this.repo.countLiveProperties(scope),
+        });
         if (
           input.organizationId &&
           !(await this.repo.organizationById(scope, input.organizationId))

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { IdentityCoreModule, identityAuthOptions } from '@hotella/domain-identity';
 import { AgentGatewayModule, IntegrationsModule } from '@hotella/domain-integrations';
 import { OrganizationModule } from '@hotella/domain-organization';
+import { LicensingCoreModule } from '@hotella/domain-licensing';
 import { AuditModule } from '@hotella/platform-audit';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
@@ -39,6 +40,8 @@ import { SettingsModule } from '@hotella/platform-settings';
     }),
     OrganizationModule,
     IntegrationsModule,
+    // The agent's offline licence follows the tenant's connector entitlement (Spec §62).
+    LicensingCoreModule,
     AgentGatewayModule,
   ],
 })

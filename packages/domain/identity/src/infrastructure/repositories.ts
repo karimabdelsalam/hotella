@@ -52,6 +52,14 @@ export class IdentityRepositories {
     return row!;
   }
   /** Login lookup: tenant users by (tenant, email); platform staff by email with tenant null. */
+  /** Staff accounts that count against the licence (Spec §61 ACTIVE_STAFF): invited or active, not disabled. */
+  async countLiveStaff(scope: TenantScope): Promise<number> {
+    const [row] = await this.x
+      .select({ n: sql<number>`count(*)::int` })
+      .from(users)
+      .where(and(eq(users.tenantId, scope.tenantId), sql`${users.status} <> 'DISABLED'`));
+    return row?.n ?? 0;
+  }
   userByLogin(tenantId: string | null, email: string): Promise<UserRow | undefined> {
     return this.x
       .select()

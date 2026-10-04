@@ -182,6 +182,16 @@ export const SHIFT_HANDOVER: BuiltInAgent = {
   maxSteps: 4,
 };
 
+/**
+ * The licensing entitlement each agent needs (Spec §59 AI entitlements). Commercial metadata of the agent, not of a
+ * version: a tenant without it gets the agent's usual "not available" path (hand-off or DISABLED), never a model call.
+ */
+export const AGENT_ENTITLEMENTS: Readonly<Record<string, string>> = {
+  GUEST_CONCIERGE: 'AI_GUEST',
+  ENGINEERING_COPILOT: 'AI_ENGINEERING',
+  SHIFT_HANDOVER: 'AI_MANAGER',
+};
+
 export const BUILT_IN_AGENTS: readonly BuiltInAgent[] = [
   GUEST_CONCIERGE,
   ENGINEERING_COPILOT,

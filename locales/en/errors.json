@@ -335,5 +335,17 @@
   "errors.license.plan_version.not_found": "This plan version does not exist.",
   "errors.license.plan_version.not_draft": "Only a draft can be changed or published; published versions never change.",
   "errors.license.plan_version.not_published": "Only a published version can be retired.",
-  "errors.license.plan_version.version_conflict": "Someone else changed this version. Refresh and try again."
+  "errors.license.plan_version.version_conflict": "Someone else changed this version. Refresh and try again.",
+  "errors.license.not_entitled": "Your hotel's licence does not include this feature.",
+  "errors.license.limit_reached": "Your licence allows at most {limit} for this ({metric}). Contact Planova to raise it.",
+  "errors.license.subscription.not_found": "This subscription does not exist.",
+  "errors.license.subscription.version_conflict": "Someone else changed this subscription. Refresh and try again.",
+  "errors.license.subscription.transition_invalid": "A subscription cannot go from {from} to {to}.",
+  "errors.license.subscription.ended": "This subscription has ended; start a new one instead.",
+  "errors.license.subscription.period_invalid": "The end must come after the start.",
+  "errors.license.subscription.scope_invalid": "Choose properties exactly when the subscription covers chosen properties.",
+  "errors.license.grant.not_found": "This grant does not exist.",
+  "errors.license.grant.already_revoked": "This grant was already revoked.",
+  "errors.license.grant.period_invalid": "The end must come after the start.",
+  "errors.license.limit_override.not_found": "This limit override does not exist or was already revoked."
 }

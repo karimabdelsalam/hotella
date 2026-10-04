@@ -39,5 +39,9 @@
   "license.metric.active_properties": "الفنادق النشطة",
   "license.metric.api_calls": "طلبات واجهة البرمجة",
   "license.permission.catalog_read": "عرض كتالوج التراخيص (الوحدات والاستحقاقات والمقاييس)",
-  "license.permission.plan_manage": "إنشاء الباقات وتعديلها ونشرها وإيقافها"
+  "license.permission.plan_manage": "إنشاء الباقات وتعديلها ونشرها وإيقافها",
+  "license.permission.subscription_manage": "اشتراك الفنادق في الباقات وتعديل الاشتراكات أو إنهاؤها",
+  "license.permission.grant_manage": "منح استحقاقات إضافية وتجاوزات الحدود أو سحبها",
+  "license.permission.entitlement_read": "عرض الاستحقاقات والحدود الفعلية لأي جهة",
+  "license.permission.tenant_read": "عرض ترخيص مؤسستك: الباقات والاستحقاقات والحدود"
 }

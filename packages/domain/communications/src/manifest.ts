@@ -39,5 +39,7 @@ export const COMMUNICATIONS_MANIFEST = defineManifest({
     HandoffRequested.name,
     ReplyDraftUsed.name,
   ],
+  entitlements: ['GUEST_EXPERIENCE'],
+  entitlement: 'GUEST_EXPERIENCE',
   localeNamespaces: ['comms'],
 });

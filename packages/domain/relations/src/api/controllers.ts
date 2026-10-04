@@ -18,7 +18,7 @@ import {
 } from '../application/complaint.service';
 import { addRecoverySchema, RecoveryService } from '../application/recovery.service';
 
-class CreateCategoryDto extends createZodDto(createCategorySchema) {}
+class CreateComplaintCategoryDto extends createZodDto(createCategorySchema) {}
 class OpenComplaintDto extends createZodDto(openComplaintSchema) {}
 class MoveComplaintDto extends createZodDto(moveComplaintSchema) {}
 class NoteDto extends createZodDto(noteSchema) {}
@@ -54,7 +54,7 @@ export class CategoriesController {
 
   @Post()
   @RequirePermission('complaint.category.manage', { checkedBy: 'gate' })
-  create(@Body() body: CreateCategoryDto) {
+  create(@Body() body: CreateComplaintCategoryDto) {
     return this.complaints.createCategory({ tenantId: tenantOf(this.ctx, this.actors) }, body);
   }
 

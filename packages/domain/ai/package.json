@@ -2,7 +2,7 @@
   "name": "@hotella/domain-ai",
   "version": "0.0.0",
   "private": true,
-  "description": "AI platform (Spec \u00a727\u2013\u00a743): the Model Gateway with capability routing, provider adapters, data egress policy, cost and kill switches; tool registry, agents, context engine and execution audit.",
+  "description": "AI platform (Spec §27–§43): the Model Gateway with capability routing, provider adapters, data egress policy, cost and kill switches; tool registry, agents, context engine and execution audit.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -30,6 +30,7 @@
     "@hotella/domain-catalog": "workspace:*",
     "@hotella/domain-communications": "workspace:*",
     "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-licensing": "workspace:*",
     "@hotella/domain-operations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-audit": "workspace:*",

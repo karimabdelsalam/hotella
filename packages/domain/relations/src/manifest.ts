@@ -26,5 +26,6 @@ export const RELATIONS_MANIFEST = defineManifest({
     { code: 'relations.suggest_complaint', risk: 'LOW', requiredPermission: 'complaint.suggest' },
   ],
   entitlements: ['GUEST_RELATIONS'],
+  entitlement: 'GUEST_RELATIONS',
   localeNamespaces: ['relations'],
 });
