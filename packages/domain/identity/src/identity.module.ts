@@ -19,6 +19,7 @@ import {
 import { SupportAccessService } from './application/support-access.service';
 import { SupportAccessAuditInterceptor } from './auth/support-audit.interceptor';
 import { IdentityAdminService } from './application/admin.service';
+import { ApiClientService } from './application/api-client.service';
 import { AuthService } from './application/auth.service';
 import { IdentityBootstrapService } from './application/bootstrap.service';
 import { IdentityCatalogService } from './application/catalog.service';
@@ -42,6 +43,7 @@ import { IdentityPublicApiService } from './public-api.service';
   providers: [
     AuthService,
     IdentityAdminService,
+    ApiClientService,
     ProfileService,
     IdentityCatalogService,
     IdentityBootstrapService,

@@ -2,7 +2,13 @@ export {
   AgentGatewayModule,
   IntegrationsCoreModule,
   IntegrationsModule,
+  WEBHOOK_FANOUT_CONSUMER,
+  WEBHOOK_SWEEP_JOB,
+  WebhooksWorkerModule,
 } from './integrations.module';
+export { WEBHOOK_TRANSPORT, WebhookDispatcher } from './application/webhook-delivery';
+export type { WebhookTransport } from './application/webhook-delivery';
+export { WEBHOOK_EVENTS } from './domain/webhooks';
 export { AgentKeys, ephemeralAgentKeys } from './link/agent-keys';
 export type { AgentKeyMaterial } from './link/agent-keys';
 export { AgentGatewayServer, LINK_CLOSE } from './link/gateway-server';

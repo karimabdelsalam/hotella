@@ -14,6 +14,11 @@ export const IDENTITY_MANIFEST = defineManifest({
   permissions: [
     { code: 'iam.user.read', descriptionKey: 'iam.permission.user_read', risk: 'READ' },
     { code: 'iam.user.manage', descriptionKey: 'iam.permission.user_manage', risk: 'HIGH' },
+    {
+      code: 'iam.api_client.manage',
+      descriptionKey: 'iam.permission.api_client_manage',
+      risk: 'HIGH',
+    },
     { code: 'iam.role.manage', descriptionKey: 'iam.permission.role_manage', risk: 'HIGH' },
     {
       code: 'iam.membership.manage',

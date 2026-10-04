@@ -675,3 +675,103 @@ export const reconciliationResults = classify(
 export type ReconciliationRunRow = typeof reconciliationRuns.$inferSelect;
 export type ReconciliationEntryRow = typeof reconciliationEntries.$inferSelect;
 export type ReconciliationResultRow = typeof reconciliationResults.$inferSelect;
+
+// ---- outbound webhooks (Spec §74–§75, ADR-0012; BUILD_PLAN 11.5) ----
+
+export const webhookEndpointStatus = integration.enum('webhook_endpoint_status', [
+  'ACTIVE',
+  'PAUSED',
+]);
+export const webhookDeliveryStatus = integration.enum('webhook_delivery_status', [
+  'PENDING',
+  'DELIVERED',
+  'DEAD',
+]);
+
+/**
+ * A tenant's receiver of domain events. Its signing secret is never stored: it is derived from the platform's
+ * signing key (a SecretRef) and the endpoint id and `secret_version`, shown once at creation or rotation.
+ */
+export const webhookEndpoints = classify(
+  integration.table(
+    'webhook_endpoints',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id'),
+      url: text('url').notNull(),
+      eventTypes: text('event_types').array().notNull(),
+      description: text('description'),
+      status: webhookEndpointStatus('status').notNull().default('ACTIVE'),
+      secretVersion: integer('secret_version').notNull().default(1),
+      createdBy: uuid('created_by'),
+      ...versioned(),
+    },
+    (t) => [index('webhook_endpoints_tenant_idx').on(t.tenantId, t.status)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    url: 'CONFIDENTIAL',
+    eventTypes: 'INTERNAL',
+    description: 'INTERNAL',
+    status: 'INTERNAL',
+    secretVersion: 'INTERNAL',
+    createdBy: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/**
+ * One event for one endpoint: retried with exponential back-off, then DEAD (the dead-letter state) until someone
+ * replays it. The body is the event envelope (ids and codes only, Spec §51).
+ */
+export const webhookDeliveries = classify(
+  integration.table(
+    'webhook_deliveries',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      endpointId: uuid('endpoint_id')
+        .notNull()
+        .references(() => webhookEndpoints.id, { onDelete: 'restrict' }),
+      eventId: uuid('event_id').notNull(),
+      eventType: varchar('event_type', { length: 128 }).notNull(),
+      body: jsonb('body').notNull(),
+      status: webhookDeliveryStatus('status').notNull().default('PENDING'),
+      attempts: integer('attempts').notNull().default(0),
+      nextAttemptAt: tz('next_attempt_at').notNull(),
+      lastStatusCode: integer('last_status_code'),
+      lastError: varchar('last_error', { length: 300 }),
+      deliveredAt: tz('delivered_at'),
+      replays: integer('replays').notNull().default(0),
+    },
+    (t) => [
+      uniqueIndex('webhook_deliveries_event_uq').on(t.endpointId, t.eventId),
+      index('webhook_deliveries_due_idx').on(t.status, t.nextAttemptAt),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    endpointId: 'INTERNAL',
+    eventId: 'INTERNAL',
+    eventType: 'INTERNAL',
+    body: 'INTERNAL',
+    status: 'INTERNAL',
+    attempts: 'INTERNAL',
+    nextAttemptAt: 'INTERNAL',
+    lastStatusCode: 'INTERNAL',
+    lastError: 'INTERNAL',
+    deliveredAt: 'INTERNAL',
+    replays: 'INTERNAL',
+  },
+);
+
+export type WebhookEndpointRow = typeof webhookEndpoints.$inferSelect;
+export type WebhookDeliveryRow = typeof webhookDeliveries.$inferSelect;

@@ -1,7 +1,18 @@
-import { Global, Module, type OnModuleInit, type Provider } from '@nestjs/common';
+import { Global, Inject, Module, type OnModuleInit, type Provider } from '@nestjs/common';
+import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
+import { InjectLogger, type Logger } from '@hotella/platform-observability';
+import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
+import { WebhookDispatcher } from './application/webhook-delivery';
+import { WebhookKeys, WebhookService } from './application/webhook.service';
+import { WEBHOOK_EVENTS } from './domain/webhooks';
+import { WebhookRepositories } from './infrastructure/webhook-repositories';
 import { CONNECTOR_CAPABILITY_STAGE } from '@hotella/platform-auth';
 import { ManifestRegistry } from '@hotella/platform-manifest';
-import { IntegrationInstancesController, IntegrationQueueController } from './api/controllers';
+import {
+  IntegrationInstancesController,
+  IntegrationQueueController,
+  WebhooksController,
+} from './api/controllers';
 import {
   ConnectorCatalogService,
   ExceptionService,
@@ -36,6 +47,8 @@ import { IntegrationsPublicApiService } from './public-api.service';
     IntegrationRepositories,
     LinkRepositories,
     ReconciliationRepositories,
+    WebhookRepositories,
+    WebhookKeys,
     IntegrationsPublicApiService,
     { provide: INTEGRATIONS_API, useExisting: IntegrationsPublicApiService },
   ],
@@ -45,6 +58,8 @@ import { IntegrationsPublicApiService } from './public-api.service';
     IntegrationRepositories,
     LinkRepositories,
     ReconciliationRepositories,
+    WebhookRepositories,
+    WebhookKeys,
   ],
 })
 export class IntegrationsCoreModule {}
@@ -52,7 +67,7 @@ export class IntegrationsCoreModule {}
 /** The full Integration Platform for the API: administration, ingestion, catalog sync, manifest. */
 @Module({
   imports: [IntegrationsCoreModule],
-  controllers: [IntegrationInstancesController, IntegrationQueueController],
+  controllers: [IntegrationInstancesController, IntegrationQueueController, WebhooksController],
   providers: [
     ConnectorCatalogService,
     InstanceService,
@@ -64,6 +79,7 @@ export class IntegrationsCoreModule {}
     ReconciliationService,
     AgentKeys,
     EnrollmentService,
+    WebhookService,
   ],
   exports: [IngestService, HealthService, AgentKeys, EnrollmentService],
 })
@@ -93,3 +109,46 @@ export class IntegrationsModule implements OnModuleInit {
   exports: [AgentLinkService, AgentGatewayServer],
 })
 export class AgentGatewayModule {}
+
+export const WEBHOOK_FANOUT_CONSUMER = 'integration.webhooks';
+export const WEBHOOK_SWEEP_JOB = 'integration.webhooks.sweep';
+const WEBHOOK_SWEEP_EVERY_MS = 30_000;
+
+/**
+ * Worker side of outbound webhooks (BUILD_PLAN 11.5): every offered event becomes deliveries for the subscribed
+ * endpoints (through the inbox, so exactly once per event), and the sweep sends what is due every 30 seconds.
+ */
+@Module({
+  imports: [IntegrationsCoreModule],
+  providers: [WebhookDispatcher],
+  exports: [WebhookDispatcher],
+})
+export class WebhooksWorkerModule implements OnModuleInit {
+  constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly consumers: EventConsumerRegistry,
+    private readonly queues: QueueRegistry,
+    private readonly dispatcher: WebhookDispatcher,
+    @InjectLogger() private readonly logger: Logger,
+  ) {}
+  async onModuleInit(): Promise<void> {
+    for (const name of WEBHOOK_EVENTS)
+      this.consumers.on(name, WEBHOOK_FANOUT_CONSUMER, async (envelope) => {
+        await this.dispatcher.enqueue(name, envelope);
+      });
+    this.consumers.onJob(WEBHOOK_SWEEP_JOB, async () => {
+      const n = await this.dispatcher.sweep();
+      if (n > 0) this.logger.info({ attempted: n }, 'webhook deliveries attempted');
+    });
+    if (!this.config.worker.schedulerEnabled) return;
+    await this.queues.queue('normal').upsertJobScheduler(
+      WEBHOOK_SWEEP_JOB,
+      { every: WEBHOOK_SWEEP_EVERY_MS },
+      {
+        name: WEBHOOK_SWEEP_JOB,
+        data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
+        opts: { removeOnComplete: 10, removeOnFail: 50 },
+      },
+    );
+  }
+}

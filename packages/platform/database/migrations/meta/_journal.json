@@ -281,6 +281,13 @@
       "when": 1791092957135,
       "tag": "0039_usage_metering",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791094788922,
+      "tag": "0040_developer_platform",
+      "breakpoints": true
     }
   ]
 }

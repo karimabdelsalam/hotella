@@ -40,6 +40,11 @@ import {
 } from '../application/dto';
 import { SupportAccessService } from '../application/support-access.service';
 import { ProfileService } from '../application/profile.service';
+import {
+  ApiClientService,
+  createApiClientSchema,
+  revokeApiClientSchema,
+} from '../application/api-client.service';
 
 class LoginDto extends createZodDto(loginSchema) {}
 class MfaVerifyDto extends createZodDto(mfaVerifySchema) {}
@@ -54,6 +59,8 @@ class CreateRoleDto extends createZodDto(createRoleSchema) {}
 class ReplaceRolePermissionsDto extends createZodDto(replaceRolePermissionsSchema) {}
 class SupportAccessRequestDto extends createZodDto(supportAccessRequestSchema) {}
 class SupportAccessRevokeDto extends createZodDto(supportAccessRevokeSchema) {}
+class CreateApiClientDto extends createZodDto(createApiClientSchema) {}
+class RevokeApiClientDto extends createZodDto(revokeApiClientSchema) {}
 
 function clientMeta(req: Request): ClientMeta {
   const ua = req.headers['user-agent'];
@@ -159,6 +166,7 @@ export class TenantIdentityController {
   constructor(
     private readonly admin: IdentityAdminService,
     private readonly support: SupportAccessService,
+    private readonly apiClientService: ApiClientService,
   ) {}
 
   // ---- support access (Spec §64) ----
@@ -196,6 +204,30 @@ export class TenantIdentityController {
   @RequirePermission('iam.user.read')
   listUsers(@Param('tenantId') tenantId: string) {
     return this.admin.listUsers({ tenantId });
+  }
+
+  // ---- API clients (Spec §75 developer platform) ----
+  @Get('api-clients')
+  @RequirePermission('iam.api_client.manage', { checkedBy: 'gate' })
+  apiClients(@Param('tenantId') tenantId: string) {
+    return this.apiClientService.list({ tenantId });
+  }
+
+  @Post('api-clients')
+  @RequirePermission('iam.api_client.manage', { checkedBy: 'gate' })
+  createApiClient(@Param('tenantId') tenantId: string, @Body() body: CreateApiClientDto) {
+    return this.apiClientService.create({ tenantId }, body);
+  }
+
+  @Post('api-clients/:clientId/revoke')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('iam.api_client.manage', { checkedBy: 'gate' })
+  revokeApiClient(
+    @Param('tenantId') tenantId: string,
+    @Param('clientId') clientId: string,
+    @Body() body: RevokeApiClientDto,
+  ) {
+    return this.apiClientService.revoke({ tenantId }, clientId, body.reason);
   }
 
   @Post('users')

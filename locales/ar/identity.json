@@ -25,5 +25,6 @@
   "iam.role.front_desk.description": "يستقبل النزلاء ويتابع طلباتهم في مكتب الاستقبال.",
   "iam.role.guest_relations.name": "علاقات النزلاء",
   "iam.role.guest_relations.description": "يهتم بتجربة النزلاء وملاحظاتهم وطلباتهم الخاصة.",
-  "iam.setting.password_min_length": "الحد الأدنى لطول كلمة مرور حسابات الموظفين (12 على الأقل)."
+  "iam.setting.password_min_length": "الحد الأدنى لطول كلمة مرور حسابات الموظفين (12 على الأقل).",
+  "iam.permission.api_client_manage": "إنشاء مفاتيح الواجهة البرمجية للأنظمة المتصلة وإلغاؤها"
 }

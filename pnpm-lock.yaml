@@ -1699,6 +1699,9 @@ importers:
       '@hotella/platform-pki':
         specifier: workspace:*
         version: link:../../platform/pki
+      '@hotella/platform-queue':
+        specifier: workspace:*
+        version: link:../../platform/queue
       '@hotella/platform-secrets':
         specifier: workspace:*
         version: link:../../platform/secrets

@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import type { AuthenticationStrategy, RequestActor } from '@hotella/platform-auth';
 import type { LocalePreferenceProvider } from '@hotella/platform-i18n';
 import { TokenService } from '../application/token.service';
+import { ApiKeyAuthenticator } from './api-key.authenticator';
 import { staffActorType } from '../domain/access';
 import { IdentityRepositories } from '../infrastructure/repositories';
 
@@ -22,11 +23,14 @@ export class JwtAuthenticationStrategy implements AuthenticationStrategy {
   constructor(
     private readonly tokens: TokenService,
     private readonly repo: IdentityRepositories,
+    private readonly apiKeys: ApiKeyAuthenticator,
   ) {}
 
   async authenticate(req: Request): Promise<RequestActor | null> {
     const token = bearerToken(req);
     if (!token) return null;
+    // A tenant's API client (Spec §75) presents its key the same way.
+    if (ApiKeyAuthenticator.looksLikeKey(token)) return this.apiKeys.authenticate(token);
     const claims = await this.tokens.verifyAccess(token);
     if (!claims) return null;
     const live = await this.repo.liveSession(claims.sessionId, new Date());

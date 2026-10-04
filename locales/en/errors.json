@@ -348,5 +348,15 @@
   "errors.license.grant.already_revoked": "This grant was already revoked.",
   "errors.license.grant.period_invalid": "The end must come after the start.",
   "errors.license.limit_override.not_found": "This limit override does not exist or was already revoked.",
-  "errors.license.metric.unknown": "This usage metric does not exist."
+  "errors.license.metric.unknown": "This usage metric does not exist.",
+  "errors.iam.api_client.not_found": "This API client does not exist or was already revoked.",
+  "errors.iam.api_client.scope_not_allowed": "An API client cannot hold {permission}.",
+  "errors.integration.webhook.unavailable": "Webhooks are not available on this platform yet.",
+  "errors.integration.webhook.not_found": "Webhook not found.",
+  "errors.integration.webhook.version_conflict": "This webhook was changed by someone else. Reload and try again.",
+  "errors.integration.webhook.delivery_not_found": "Webhook delivery not found.",
+  "errors.integration.webhook.delivery_pending": "This delivery is still being sent.",
+  "errors.integration.webhook.url_invalid": "Enter a valid web address without credentials.",
+  "errors.integration.webhook.url_insecure": "The address must use https.",
+  "errors.integration.webhook.url_private": "The address must be reachable on the internet, not a private or local network."
 }

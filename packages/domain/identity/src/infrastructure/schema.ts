@@ -9,6 +9,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -408,6 +409,60 @@ export const supportAccessGrants = classify(
   },
 );
 
+export const apiClientStatus = iam.enum('api_client_status', ['ACTIVE', 'REVOKED']);
+
+/**
+ * Developer platform v1 (Spec §75, BUILD_PLAN 11.5): a tenant's machine client. Its key is `hk_<prefix>_<secret>`,
+ * shown once; only the prefix (to find it) and a SHA-256 digest (to check it) are stored. Scopes are permissions the
+ * creator held, optionally for one property. Revoked, never deleted.
+ */
+export const apiClients = classify(
+  iam.table(
+    'api_clients',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id'),
+      name: varchar('name', { length: 120 }).notNull(),
+      keyPrefix: varchar('key_prefix', { length: 16 }).notNull(),
+      secretHash: varchar('secret_hash', { length: 64 }).notNull(),
+      scopes: text('scopes').array().notNull(),
+      status: apiClientStatus('status').notNull().default('ACTIVE'),
+      expiresAt: tz('expires_at'),
+      lastUsedAt: tz('last_used_at'),
+      createdBy: uuid('created_by'),
+      revokedAt: tz('revoked_at'),
+      revokedBy: uuid('revoked_by'),
+      revokeReason: text('revoke_reason'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('api_clients_prefix_uq').on(t.keyPrefix),
+      index('api_clients_tenant_idx').on(t.tenantId, t.status),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    name: 'INTERNAL',
+    keyPrefix: 'INTERNAL',
+    secretHash: 'RESTRICTED',
+    scopes: 'INTERNAL',
+    status: 'INTERNAL',
+    expiresAt: 'INTERNAL',
+    lastUsedAt: 'INTERNAL',
+    createdBy: 'INTERNAL',
+    revokedAt: 'INTERNAL',
+    revokedBy: 'INTERNAL',
+    revokeReason: 'CONFIDENTIAL',
+    version: 'INTERNAL',
+  },
+);
+
+export type ApiClientRow = typeof apiClients.$inferSelect;
 export type PersonRow = typeof persons.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
 export type RoleRow = typeof roles.$inferSelect;

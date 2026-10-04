@@ -7,6 +7,7 @@ import { IdentityRepositories } from './infrastructure/repositories';
 import { IDENTITY_API } from './public';
 import { IdentityPublicApiService } from './public-api.service';
 import { IdentityUsageGauge } from './application/usage-gauge';
+import { ApiKeyAuthenticator } from './auth/api-key.authenticator';
 
 /**
  * What platform-auth and platform-i18n need from identity, with no dependency back on them: key material,
@@ -19,6 +20,7 @@ import { IdentityUsageGauge } from './application/usage-gauge';
     IdentityRepositories,
     IdentityKeys,
     TokenService,
+    ApiKeyAuthenticator,
     JwtAuthenticationStrategy,
     MembershipPermissionResolver,
     IdentityLocalePreferences,

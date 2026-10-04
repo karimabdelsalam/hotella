@@ -30,6 +30,7 @@ export class MembershipPermissionResolver implements PermissionResolver {
     scope: PermissionScope,
   ): Promise<boolean> {
     if (actor.isPlatformAdmin) return (await this.platformAdminPermissions()).has(permission);
+    if (actor.apiClient) return apiClientAllows(actor, permission, scope);
     if (actor.type === 'SUPPORT') return this.supportHas(actor, permission, scope);
     if (actor.type !== 'USER' || !actor.tenantId) return false;
     if (scope.tenantId && scope.tenantId !== actor.tenantId) return false;
@@ -42,6 +43,8 @@ export class MembershipPermissionResolver implements PermissionResolver {
 
   async permissionsFor(actor: RequestActor, scope: PermissionScope): Promise<readonly string[]> {
     if (actor.isPlatformAdmin) return [...(await this.platformAdminPermissions())].sort();
+    if (actor.apiClient)
+      return actor.apiClient.scopes.filter((p) => apiClientAllows(actor, p, scope)).sort();
     if (actor.type === 'SUPPORT') {
       const own = await this.supportRolePermissions();
       if (!scope.tenantId) return [...own].sort();
@@ -144,4 +147,17 @@ export class MembershipPermissionResolver implements PermissionResolver {
     this.support = null;
     this.risks = null;
   }
+}
+
+/** An API client may use its scopes in its own tenant, and only at its property when bound to one (Spec §75). */
+export function apiClientAllows(
+  actor: RequestActor,
+  permission: string,
+  scope: PermissionScope,
+): boolean {
+  const client = actor.apiClient;
+  if (!client || !actor.tenantId) return false;
+  if (scope.tenantId && scope.tenantId !== actor.tenantId) return false;
+  if (client.propertyId && scope.propertyId !== client.propertyId) return false;
+  return client.scopes.includes(permission);
 }

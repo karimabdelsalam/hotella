@@ -1,6 +1,10 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { GuestEventsModule } from '@hotella/domain-guest';
-import { IntegrationsCoreModule, IntegrationsModule } from '@hotella/domain-integrations';
+import {
+  IntegrationsCoreModule,
+  IntegrationsModule,
+  WebhooksWorkerModule,
+} from '@hotella/domain-integrations';
 import { IdentityDirectoryModule } from '@hotella/domain-identity';
 import { AiModule, AiWorkerModule } from '@hotella/domain-ai';
 import { EngineeringWorkerModule } from '@hotella/domain-engineering';
@@ -83,6 +87,8 @@ const WORKER_MODULES = [
   RelationsWorkerModule,
   // AI-derived attributes of lost and found items on `background-ai`, then matching again.
   LostFoundWorkerModule,
+  // Outbound webhooks of the developer platform (Spec §75): fan-out of offered events and the signed delivery sweep.
+  WebhooksWorkerModule,
   WorkerRuntimeModule,
   // Last: every manifest, for the gate's permission → module lookup (after the modules that register their own).
   WorkerManifestsModule,

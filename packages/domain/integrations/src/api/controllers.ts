@@ -2,7 +2,12 @@ import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Query } fr
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { MAPPING_TYPES } from '@hotella/contracts-connectors';
-import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform-auth';
+import {
+  ActorStore,
+  PropertyScoped,
+  RequirePermission,
+  TenantScoped,
+} from '@hotella/platform-auth';
 import { type PropertyScope, TransactionRunner } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
@@ -23,6 +28,12 @@ import {
 } from '../application/admin.services';
 import { ReconciliationService } from '../application/reconciliation.service';
 import { ReplayService } from '../application/replay.service';
+import {
+  createWebhookSchema,
+  updateWebhookSchema,
+  webhookDeliveriesQuerySchema,
+  WebhookService,
+} from '../application/webhook.service';
 import { EnrollmentService } from '../link/enrollment.service';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '../public';
 
@@ -36,6 +47,9 @@ class MappingQueryDto extends createZodDto(z.object({ type: z.enum(MAPPING_TYPES
 class RevokeAgentDto extends createZodDto(
   z.object({ reason: z.string().trim().min(3).max(500) }),
 ) {}
+class CreateWebhookDto extends createZodDto(createWebhookSchema) {}
+class UpdateWebhookDto extends createZodDto(updateWebhookSchema) {}
+class WebhookDeliveriesQueryDto extends createZodDto(webhookDeliveriesQuerySchema) {}
 class ExternalReferenceQueryDto extends createZodDto(
   z.object({ entityType: z.string().regex(/^[a-z]+\.[a-z_]+$/), entityId: z.uuid() }),
 ) {}
@@ -290,5 +304,62 @@ export class IntegrationQueueController {
           this.integrations.referencesFor(scope.tenantId, query.entityType, query.entityId),
         ),
     );
+  }
+}
+
+/** Outbound webhooks of a tenant (Spec §75 developer platform, BUILD_PLAN 11.5). */
+@Controller('tenants/:tenantId/webhooks')
+@TenantScoped({ from: 'param' })
+export class WebhooksController {
+  constructor(private readonly webhooks: WebhookService) {}
+
+  @Get()
+  @RequirePermission('integration.webhook.manage', { checkedBy: 'gate' })
+  list(@Param('tenantId') tenantId: string) {
+    return this.webhooks.list({ tenantId });
+  }
+
+  @Post()
+  @RequirePermission('integration.webhook.manage', { checkedBy: 'gate' })
+  create(@Param('tenantId') tenantId: string, @Body() body: CreateWebhookDto) {
+    return this.webhooks.create({ tenantId }, body);
+  }
+
+  @Patch(':webhookId')
+  @RequirePermission('integration.webhook.manage', { checkedBy: 'gate' })
+  update(
+    @Param('tenantId') tenantId: string,
+    @Param('webhookId') webhookId: string,
+    @Body() body: UpdateWebhookDto,
+  ) {
+    return this.webhooks.update({ tenantId }, webhookId, body);
+  }
+
+  @Post(':webhookId/rotate-secret')
+  @HttpCode(200)
+  @RequirePermission('integration.webhook.manage', { checkedBy: 'gate' })
+  rotate(@Param('tenantId') tenantId: string, @Param('webhookId') webhookId: string) {
+    return this.webhooks.rotateSecret({ tenantId }, webhookId);
+  }
+
+  @Get(':webhookId/deliveries')
+  @RequirePermission('integration.webhook.manage', { checkedBy: 'gate' })
+  deliveries(
+    @Param('tenantId') tenantId: string,
+    @Param('webhookId') webhookId: string,
+    @Query() query: WebhookDeliveriesQueryDto,
+  ) {
+    return this.webhooks.deliveries({ tenantId }, webhookId, query);
+  }
+
+  @Post(':webhookId/deliveries/:deliveryId/replay')
+  @HttpCode(200)
+  @RequirePermission('integration.webhook.manage', { checkedBy: 'gate' })
+  replay(
+    @Param('tenantId') tenantId: string,
+    @Param('webhookId') webhookId: string,
+    @Param('deliveryId') deliveryId: string,
+  ) {
+    return this.webhooks.replay({ tenantId }, webhookId, deliveryId);
   }
 }

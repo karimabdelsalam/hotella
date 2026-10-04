@@ -5,10 +5,15 @@ import type { ManifestRegistry } from '@hotella/platform-manifest';
 import { CORE } from '../domain/catalog';
 import type { EntitlementEngine } from './entitlement-engine';
 
+/** The add-on that lets a tenant use the API with its own clients (Spec §75). */
+export const API_ACCESS = 'API_ACCESS';
+
 /** Who is never stopped by a missing entitlement (BUILD_PLAN 11.B). */
 export function entitlementApplies(request: ActionRequest, actor: RequestActor): boolean {
   // Platform-level actions (no tenant) and platform administrators onboarding a tenant are not customer use.
   if (!request.tenantId || actor.isPlatformAdmin) return false;
+  // A tenant's API client is customer use like any person (Spec §75).
+  if (actor.apiClient) return true;
   // PMS truth, checkout revocations, timers and retention keep running when a subscription lapses: integrity and
   // security before commerce. People, guests, AI agents and support engineers are gated.
   return actor.type !== 'SYSTEM' && actor.type !== 'INTEGRATION';
@@ -32,7 +37,9 @@ export class EntitlementStage implements GateStage {
     // A tenant can always read its own licence, also when it has lapsed.
     if (this.manifests.ownerOfPermission(request.action)?.code === 'license') return;
     const code = requiredEntitlement(request, this.manifests);
-    if (!(await this.engine.can(request.tenantId!, request.propertyId ?? null, code)))
-      throw new AppError('license.not_entitled', HttpStatus.FORBIDDEN, { capability: code });
+    const property = request.propertyId ?? null;
+    for (const needed of actor.apiClient ? [API_ACCESS, code] : [code])
+      if (!(await this.engine.can(request.tenantId!, property, needed)))
+        throw new AppError('license.not_entitled', HttpStatus.FORBIDDEN, { capability: needed });
   }
 }

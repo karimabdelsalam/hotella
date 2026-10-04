@@ -2382,7 +2382,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 | 11.2 | Subscriptions (scope, status machine, history), manual grants, `EntitlementEngine` with cache and invalidation, real `ENTITLEMENT_STAGE` in api/worker, HARD/SOFT limits, AI agent entitlements, agent licence from entitlements, `GET /me/entitlements` and staff/guest apps hiding unentitled modules, CI/pilot subscribe step | delivered (SOFT-limit alerts in 11.3; guest web: the API refuses, nothing to hide yet) |
 | 11.3 | Usage metering: `USAGE_API.record`, collectors with cursors, DAY/MONTH aggregates, usage report API, SOFT-limit alerts | delivered (alerts as `license.limit.reached.v1`; STORAGE_BYTES, VOICE_MINUTES and API_CALLS wait for their producers, see notes) |
 | 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | delivered (screens: tenants and plans; flags, connectors, AI providers, support access and health stay API/Grafana, see notes) |
-| 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | planned |
+| 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | delivered (management by API; screens follow with the tenant settings area, see notes) |
 | 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`) | planned |
 
 **Reality notes for 11.1 (delivered).**
@@ -2472,6 +2472,48 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
   `/ai/models`, Phase 6), connector manifests (per property, `/properties/:id/integrations/connectors`), support
   access (`/support-access`, Phase 1) and system health (`/ready`, the Grafana stack of ADR-0013).
 
+**Reality notes for 11.5 (delivered).**
+- API clients (identity, `iam.api_clients`, migration `0040`): `GET|POST /tenants/:tenantId/api-clients`,
+  `POST …/:clientId/revoke` (reason), permission `iam.api_client.manage` (risk HIGH; GM role), entitlement
+  `API_ACCESS`. The key `hk_<12-char prefix>_<43-char secret>` is returned once; only the prefix and the SHA-256 digest
+  are stored (constant-time compare). Scopes must be catalog permissions the creator holds at the client's scope
+  (same delegation rule as roles) and never `iam.*`, `support.*` or `license.*`. A client may be bound to one
+  property. Clients are revoked, never deleted (trigger), with a CHECK tying `REVOKED` to `revoked_at`.
+- A key authenticates as an `INTEGRATION` actor with `apiClient` set: the permission resolver allows only its scopes,
+  in its tenant (and property); the entitlement stage gates it (API_ACCESS **and** the module's entitlement). Reads
+  do not pass the gate, so the authenticator itself refuses a valid key with `403 license.not_entitled` while the
+  tenant lacks `API_ACCESS`. Every authenticated call is metered as `API_CALLS` (one usage event per request,
+  idempotent on the correlation id) — simpler than the planned per-minute interceptor flush, same aggregates.
+- Outbound webhooks (integrations, `integration.webhook_endpoints` / `webhook_deliveries`, RLS): `GET|POST
+  /tenants/:tenantId/webhooks`, `PATCH …/:webhookId` (url, events, status ACTIVE/PAUSED, optimistic `version`),
+  `POST …/:webhookId/rotate-secret`, `GET …/:webhookId/deliveries?status=`, `POST …/deliveries/:deliveryId/replay`;
+  permission `integration.webhook.manage` (risk HIGH; GM role), entitlement `API_ACCESS`.
+- Secrets: no per-endpoint secret is stored. The endpoint secret is `whsec_` + HMAC-SHA256(platform signing key,
+  endpoint id + `secret_version`), shown at creation and rotation; the platform key is the SecretRef
+  `WEBHOOK_SIGNING_KEY_REF` (pilot: `vault://kv/hotella/app#webhook_signing_key`). Without it webhooks answer
+  `503 integration.webhook.unavailable` and nothing is sent (no ephemeral fallback: a secret must verify in every
+  process).
+- Events offered (`WEBHOOK_EVENTS`): operational facts with ids and codes only — ops work items/tasks/SLA breaches,
+  hk room states/readiness/jobs, eng work orders/PM/room restrictions, inspections, complaints, lost & found. No
+  canonical `hotel.*`, guest, identity, comms or AI events. The worker's `WebhooksWorkerModule` subscribes consumer
+  `integration.webhooks` to each (inbox-idempotent) and creates one delivery per matching ACTIVE endpoint (tenant,
+  event, property or tenant-wide), unique per endpoint and event, only while the tenant holds `API_ACCESS`.
+- Delivery: job `integration.webhooks.sweep` every 30 s claims due rows with `FOR UPDATE SKIP LOCKED` and a 2-minute
+  lease (the attempt is counted at claim), then POSTs outside the transaction (10 s timeout, no redirects) with
+  `X-Hotella-Event`, `X-Hotella-Delivery` and `X-Hotella-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "t.body")>`.
+  2xx ⇒ DELIVERED; otherwise retry after 30 s·2^(n−1); after 8 attempts DEAD (the dead letter), replayable with a
+  fresh attempt budget (`replays` counted, audited). A paused endpoint keeps its deliveries waiting.
+- Targets: https only and no private, loopback, link-local or `*.internal` hosts; `WEBHOOK_ALLOW_INSECURE=true`
+  (refused in production) allows http/local targets for development and tests. Resolution-time (DNS) checks belong
+  to the deployment's egress proxy.
+- Tests: `domain/webhooks.spec.ts` (back-off, dead letter, secret derivation, signature, target policy);
+  `webhooks.integration.spec.ts` (entitlement, validation, signed delivery to a local server, idempotent fan-out,
+  tenant/property isolation, retry → DEAD → replay, rotation, pause); identity `api-clients.integration.spec.ts`
+  (real licensing engine: API_ACCESS refusal, scope rules, key shown once and stored hashed, scope/property/tenant
+  limits, API_CALLS metering, audit as INTEGRATION, lapse and revocation).
+- Not in this sprint: staff-web screens for API clients and webhooks (the tenant settings area does not exist yet;
+  GMs use the API), per-client rate limits beyond the global HTTP limiter, and a public developer portal.
+
 **APIs (all mutations through `ActionGate`, audited).**
 | Route | Permission |
 |---|---|
@@ -2485,6 +2527,8 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 | `GET /control/tenants/:tenantId/usage?metric&from&to&granularity&propertyId` | `license.usage.read` |
 | `GET /me/entitlements?propertyId=` (codes only, for the apps' navigation) | authenticated staff of the property |
 | `GET /tenants/:tenantId/license` (the tenant's own plan, entitlements and usage, read-only) | `license.tenant.read` |
+| `GET/POST /tenants/:tenantId/api-clients`, `POST …/:clientId/revoke` (11.5, entitlement `API_ACCESS`) | `iam.api_client.manage` |
+| `GET/POST /tenants/:tenantId/webhooks`, `PATCH …/:id`, `POST …/:id/rotate-secret`, `GET …/:id/deliveries`, `POST …/deliveries/:deliveryId/replay` (11.5, entitlement `API_ACCESS`) | `integration.webhook.manage` |
 
 **Events.** `license.plan_version.published.v1`, `license.subscription.changed.v1`,
 `license.entitlements.changed.v1` (tenant, property or null, reason — cache invalidation, agent licence refresh, apps),

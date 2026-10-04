@@ -3,5 +3,6 @@
   "integration.permission.configure": "إنشاء عمليات الربط وإعدادها",
   "integration.permission.replay": "إعادة معالجة رسائل الربط",
   "integration.permission.mapping_confirm": "تأكيد ربط الرموز وإغلاق استثناءات الربط",
-  "integration.permission.reconcile": "تشغيل المطابقة مع الأنظمة الخارجية ومراجعتها"
+  "integration.permission.reconcile": "تشغيل المطابقة مع الأنظمة الخارجية ومراجعتها",
+  "integration.permission.webhook_manage": "إدارة الإشعارات البرمجية الصادرة (Webhooks) وإعادة إرسالها"
 }

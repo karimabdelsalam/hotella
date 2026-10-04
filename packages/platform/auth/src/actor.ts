@@ -16,6 +16,11 @@ export interface RequestActor {
   readonly locale?: string | null;
   /** The staff session behind the request, when authenticated with an access token (logout, audit). */
   readonly sessionId?: string | null;
+  /**
+   * Set for an INTEGRATION actor authenticated with a tenant's API key (Spec §75 developer platform): it may do only
+   * what its scopes name, only in its tenant (and property, when bound to one), and only while licensed.
+   */
+  readonly apiClient?: { readonly scopes: readonly string[]; readonly propertyId: string | null };
 }
 
 const CLS_ACTOR_KEY = 'request_actor';

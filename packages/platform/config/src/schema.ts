@@ -123,6 +123,10 @@ export const envSchema = z.object({
   AGENT_CERT_VALIDITY_DAYS: z.coerce.number().int().min(1).max(397).default(90),
   AGENT_ENROLLMENT_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   AGENT_HEARTBEAT_SECONDS: z.coerce.number().int().min(5).max(300).default(30),
+  // Outbound webhooks (Spec §75, ADR-0012): the master key endpoint signing secrets derive from, and whether plain
+  // http or private addresses may be targets (development and tests only).
+  WEBHOOK_SIGNING_KEY_REF: secretRef('vault://kv/hotella/webhooks#signing_key').optional(),
+  WEBHOOK_ALLOW_INSECURE: z.stringbool().default(false),
 
   /**
    * E-mail channel of staff notifications (Spec §25). Unset host = the channel is off (deliveries are recorded as
@@ -235,6 +239,10 @@ export interface AppConfig {
     readonly enrollmentTtlHours: number;
     readonly heartbeatSeconds: number;
   };
+  readonly webhooks: {
+    readonly signingKeyRef: string | null;
+    readonly allowInsecure: boolean;
+  };
 }
 
 export class ConfigValidationError extends Error {
@@ -280,6 +288,10 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
       throw new ConfigValidationError(
         missing.map(([path]) => ({ path, message: 'required in production' })),
       );
+    if (e.WEBHOOK_ALLOW_INSECURE)
+      throw new ConfigValidationError([
+        { path: 'WEBHOOK_ALLOW_INSECURE', message: 'not allowed in production' },
+      ]);
   }
   return {
     env: e.NODE_ENV,
@@ -376,6 +388,10 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
       certValidityDays: e.AGENT_CERT_VALIDITY_DAYS,
       enrollmentTtlHours: e.AGENT_ENROLLMENT_TTL_HOURS,
       heartbeatSeconds: e.AGENT_HEARTBEAT_SECONDS,
+    },
+    webhooks: {
+      signingKeyRef: e.WEBHOOK_SIGNING_KEY_REF ?? null,
+      allowInsecure: e.WEBHOOK_ALLOW_INSECURE,
     },
   };
 }

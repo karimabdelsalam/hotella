@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { DATABASE, type Database, executor, type TenantScope } from '@hotella/platform-database';
 import {
+  apiClients,
+  type ApiClientRow,
   memberships,
   membershipRoles,
   permissions,
@@ -52,6 +54,55 @@ export class IdentityRepositories {
     return row!;
   }
   /** Login lookup: tenant users by (tenant, email); platform staff by email with tenant null. */
+  // ---- API clients (Spec §75) ----
+  async insertApiClient(values: typeof apiClients.$inferInsert): Promise<ApiClientRow> {
+    const [row] = await this.x.insert(apiClients).values(values).returning();
+    return row!;
+  }
+  apiClients(scope: TenantScope): Promise<ApiClientRow[]> {
+    return this.x
+      .select()
+      .from(apiClients)
+      .where(eq(apiClients.tenantId, scope.tenantId))
+      .orderBy(asc(apiClients.createdAt));
+  }
+  /** By key prefix regardless of tenant — only for authenticating a presented key. */
+  apiClientByPrefix(prefix: string): Promise<ApiClientRow | undefined> {
+    return this.x
+      .select()
+      .from(apiClients)
+      .where(eq(apiClients.keyPrefix, prefix))
+      .then((r) => r[0]);
+  }
+  async revokeApiClient(
+    scope: TenantScope,
+    id: string,
+    by: string | null,
+    reason: string,
+  ): Promise<ApiClientRow | undefined> {
+    const [row] = await this.x
+      .update(apiClients)
+      .set({
+        status: 'REVOKED',
+        revokedAt: new Date(),
+        revokedBy: by,
+        revokeReason: reason,
+        version: sql`${apiClients.version} + 1`,
+      })
+      .where(
+        and(
+          eq(apiClients.tenantId, scope.tenantId),
+          eq(apiClients.id, id),
+          eq(apiClients.status, 'ACTIVE'),
+        ),
+      )
+      .returning();
+    return row;
+  }
+  async markApiClientUsed(id: string, at: Date): Promise<void> {
+    await this.x.update(apiClients).set({ lastUsedAt: at }).where(eq(apiClients.id, id));
+  }
+
   /** Staff accounts that count against the licence (Spec §61 ACTIVE_STAFF): invited or active, not disabled. */
   async countLiveStaff(scope: TenantScope): Promise<number> {
     const [row] = await this.x

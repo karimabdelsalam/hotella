@@ -48,6 +48,10 @@ Releases that introduce a new secret say so in their notes. Add it to OpenBao **
 (never rewrite the whole `kv/hotella/app` secret: values added by hand, such as `smtp_password`, would be lost). The
 Phase 4 release needs the guest OTP key: `bao kv patch kv/hotella/app otp_hmac_key="$(openssl rand -base64 32)"`
 (fresh installations get it from `pilot.sh init`). Without it guests cannot receive codes (`comms.otp.unavailable`).
+The Phase 11 release (developer platform) needs the webhook signing key:
+`bao kv patch kv/hotella/app webhook_signing_key="$(openssl rand -base64 32)"`. Never change it afterwards: every
+tenant's webhook secret derives from it, so a new key silently invalidates all of them (tenants rotate one endpoint at a
+time instead).
 
 Read the release notes first: a release that contains a *contract* migration (dropping a column) requires that the previous release was already running the *expand* step; never skip releases that say so.
 

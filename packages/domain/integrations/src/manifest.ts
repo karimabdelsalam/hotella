@@ -38,6 +38,11 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
       descriptionKey: 'integration.permission.reconcile',
       risk: 'LOW',
     },
+    {
+      code: 'integration.webhook.manage',
+      descriptionKey: 'integration.permission.webhook_manage',
+      risk: 'HIGH',
+    },
   ],
   // The Integration Platform is the only producer of canonical hotel.* events (Spec §51).
   events: [

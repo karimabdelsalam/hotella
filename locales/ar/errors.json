@@ -348,5 +348,15 @@
   "errors.license.grant.already_revoked": "سُحب هذا المنح بالفعل.",
   "errors.license.grant.period_invalid": "يجب أن تأتي النهاية بعد البداية.",
   "errors.license.limit_override.not_found": "تجاوز الحد هذا غير موجود أو سُحب بالفعل.",
-  "errors.license.metric.unknown": "مقياس الاستخدام هذا غير موجود."
+  "errors.license.metric.unknown": "مقياس الاستخدام هذا غير موجود.",
+  "errors.iam.api_client.not_found": "عميل الواجهة البرمجية هذا غير موجود أو أُلغي بالفعل.",
+  "errors.iam.api_client.scope_not_allowed": "لا يمكن لعميل الواجهة البرمجية أن يحمل {permission}.",
+  "errors.integration.webhook.unavailable": "الإشعارات البرمجية (Webhooks) غير متاحة على المنصة بعد.",
+  "errors.integration.webhook.not_found": "لم يُعثر على الإشعار البرمجي.",
+  "errors.integration.webhook.version_conflict": "عدّل شخص آخر هذا الإشعار البرمجي. أعد التحميل وحاول مرة أخرى.",
+  "errors.integration.webhook.delivery_not_found": "لم يُعثر على عملية الإرسال.",
+  "errors.integration.webhook.delivery_pending": "ما زال الإرسال جاريًا.",
+  "errors.integration.webhook.url_invalid": "أدخل عنوان ويب صالحًا بدون بيانات دخول.",
+  "errors.integration.webhook.url_insecure": "يجب أن يستخدم العنوان https.",
+  "errors.integration.webhook.url_private": "يجب أن يكون العنوان متاحًا على الإنترنت، لا على شبكة خاصة أو محلية."
 }

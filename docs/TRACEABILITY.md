@@ -89,8 +89,8 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 71 | Deployables; isolated worker pools; five queue priorities; guest realtime isolation; stateless | ADR-0004/0013; BP §3 worker mapping; §4 0.3.5 | P0, P1 |
 | 72 | Backups, PITR, replicas, restore tests, RPO/RTO, DR; expand/contract migrations | ADR-0013 pgBackRest → `infra/docker/postgres` (WAL archiving, retention, `restore-drill`), `docs/runbooks/backup-restore.md`, CI pilot job (backup + drill); ADR-0002; BP §5.8 | P1 ✔ (1.4) |
 | 73 | Config inheritance; audited/versioned critical config; flags ≠ licensing | BP §5.2 `platform.configuration(+history)` → `@hotella/platform-settings` (typed keys, property → tenant → platform → default, history, event, audit); §4 0.3.11 | P0, P1 ✔ (1.3) |
-| 74 | Versioned APIs; idempotency keys; signed webhooks with retry/DLQ/replay; rate limiting dimensions | ADR-0012; BP §4 0.3.9; §10 P11 webhooks | P0, P11 |
-| 75 | Developer platform later; no untrusted plugins; contract-based extension | BP §10 P11 developer platform v1 | P11 |
+| 74 | Versioned APIs; idempotency keys; signed webhooks with retry/DLQ/replay; rate limiting dimensions | ADR-0012; BP §4 0.3.9; §10 P11 11.5 (`integration.webhook_endpoints/deliveries`, `WebhookDispatcher`: HMAC `t.body` signature, 30 s·2^n back-off, DEAD after 8, replay) | P0, P11 |
+| 75 | Developer platform later; no untrusted plugins; contract-based extension | BP §10 P11 11.5: scoped API clients (`iam.api_clients`, INTEGRATION actor gated by `API_ACCESS`, `API_CALLS` metered) and outbound webhooks; no plugins | P11 |
 | 76 | Module manifest concept | BP §4 0.3.12 `ModuleManifest` (brought forward as enforcement); DoD §12.16; CM 22 | P0 |
 | 77 | Repository structure; `/domain` not a blob | BP §3; ADR-0001 (mapping of extra contexts) | P0 |
 | 78 | Schema ownership `org.* … audit.*` | BP §0.8 schema list (+ catalog, lostfound, logbook, knowledge, platform); ADR-0002 | P0+ |

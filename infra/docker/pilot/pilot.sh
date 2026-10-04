@@ -41,6 +41,7 @@ cmd_init() {
   secret_file s3_secret_key rand 40
   secret_file mfa_key openssl rand -base64 32
   secret_file otp_hmac_key openssl rand -base64 32
+  secret_file webhook_signing_key openssl rand -base64 32
   secret_file jwt_private_key.pem openssl genpkey -algorithm ed25519
   [ -s "$SECRETS/valkey.conf" ] || {
     printf 'requirepass %s\nappendonly yes\nprotected-mode yes\n' "$(cat "$SECRETS/valkey_password")" >"$SECRETS/valkey.conf"
@@ -167,7 +168,8 @@ d = pathlib.Path(sys.argv[1])
 r = lambda n: (d/n).read_text().strip() if not n.endswith(".pem") else (d/n).read_text()
 print(json.dumps({"data": {"db_password": r("db_app_password"), "valkey_password": r("valkey_password"),
   "s3_access_key": r("s3_access_key"), "s3_secret_key": r("s3_secret_key"), "mfa_key": r("mfa_key"),
-  "otp_hmac_key": r("otp_hmac_key"), "jwt_private_key": r("jwt_private_key.pem")}}))
+  "otp_hmac_key": r("otp_hmac_key"), "jwt_private_key": r("jwt_private_key.pem"),
+  "webhook_signing_key": r("webhook_signing_key")}}))
 PY
   log "writing hotel-agent PKI to kv/hotella/agent"
   python3 - "$SECRETS" <<'PY' | bao write kv/data/hotella/agent - >/dev/null

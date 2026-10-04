@@ -132,6 +132,9 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'iam.membership.manage',
       'support.access.approve',
       'license.tenant.read',
+      // Developer platform (Spec §75): API keys and outbound webhooks, while the tenant holds API_ACCESS.
+      'iam.api_client.manage',
+      'integration.webhook.manage',
       'audit.read',
       'config.read',
       'config.manage',
