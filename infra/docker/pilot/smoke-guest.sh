@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 4–6 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
+# Phase 4–9 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
 # a general manager signs in, issues an activation link, the guest asks for a code (the OTP key is read from OpenBao;
 # the SMS channel here cannot deliver), front desk confirms the guest in person, the guest gets a session and sees
 # their stay (through the guest web app's BFF); the printable room QR sheet renders; the realtime gateway accepts a
@@ -202,6 +202,63 @@ call "$eng/work-orders/$(jq -r .id <<<"$order")/complete" "${auth[@]}" \
   jq -e '.status == "DONE"' >/dev/null
 call "$hk/arrival-risk?day=tomorrow" "${auth[@]}" | jq -e '(.arrivals | type) == "array"' >/dev/null
 echo "engineering: OK"
+
+# Phase 9 (BUILD_PLAN 9.4) on the deployed stack. Checklists and complaint categories are the hotel group's
+# (tenant-wide): its general manager sets them up and decides approvals; the property's GM works the hotel.
+group_invite=$(curl -fsS "$API/tenants/$tenant/users" -H "authorization: Bearer $admin" "${json[@]}" \
+  -d '{"email":"group-gm@pilot.example","givenName":"Pilot Group GM","memberships":[{"propertyId":null,"roleCodes":["GENERAL_MANAGER"]}]}' |
+  jq -r .invitation.token)
+curl -fsS "$API/auth/invitations/accept" "${json[@]}" -d "{\"token\":\"$group_invite\",\"password\":\"$password\"}" >/dev/null
+group=$(curl -fsS "$API/auth/login" "${json[@]}" -d "{\"tenantCode\":\"PILOT\",\"email\":\"group-gm@pilot.example\",\"password\":\"$password\"}" | jq -r .accessToken)
+group_auth=(-H "authorization: Bearer $group" "${json[@]}")
+P="$API/properties/$property"
+# Inspections: a published room checklist, run on the guest's room; a critical failure opens urgent work at once.
+template=$(call "$API/inspection/templates" "${group_auth[@]}" -d '{"code":"ROOM_SAFETY","scope":"ROOM","departmentCode":"ENG",
+  "names":[{"locale":"en","name":"Room safety"},{"locale":"ar","name":"سلامة الغرفة"}],
+  "sections":[{"code":"SAFETY","titles":[{"locale":"en","title":"Safety"}],"items":[
+    {"code":"SMOKE_DETECTOR","rule":{"kind":"PASS_FAIL","failSeverity":"CRITICAL"},"labels":[{"locale":"en","label":"Smoke detector works"}]},
+    {"code":"DOOR_LOCK","rule":{"kind":"YES_NO","expected":"YES"},"labels":[{"locale":"en","label":"Door locks"}]}]}]}')
+call -X POST "$API/inspection/templates/versions/$(jq -r .draftVersionId <<<"$template")/publish" "${group_auth[@]}" >/dev/null
+inspection=$(call "$P/inspections" "${auth[@]}" -d "{\"templateId\":\"$(jq -r .id <<<"$template")\",\"locationId\":\"$guest_room\"}" | jq -r .id)
+call -X PUT "$P/inspections/$inspection/answers" "${auth[@]}" -d '{"itemCode":"SMOKE_DETECTOR","answer":{"kind":"PASS_FAIL","value":"FAIL"}}' >/dev/null
+call -X PUT "$P/inspections/$inspection/answers" "${auth[@]}" -d '{"itemCode":"DOOR_LOCK","answer":{"kind":"YES_NO","value":"YES"}}' >/dev/null
+call -X POST "$P/inspections/$inspection/complete" "${auth[@]}" >/dev/null
+completed=$(call "$P/inspections/$inspection" "${auth[@]}")
+echo "inspection: $(jq -c '{result, score, findings: [.findings[] | {severity, status}]}' <<<"$completed")"
+jq -e '.result == "FAIL" and ([.findings[] | select(.severity == "CRITICAL" and .status == "LINKED")] | length) == 1' <<<"$completed" >/dev/null
+echo "inspections: OK"
+# Guest relations: the group's categories, a complaint on the stay, a discount that waits for the group GM's approval.
+call -X POST "$API/relations/categories/starter" "${group_auth[@]}" | jq -e '.created >= 8' >/dev/null
+noise=$(call "$API/relations/categories" "${auth[@]}" | jq -r '.[] | select(.code == "NOISE") | .id')
+complaint=$(call "$P/complaints" "${auth[@]}" -d "{\"categoryId\":\"$noise\",\"summary\":\"Loud music next door after midnight\",\"stayId\":\"$stay\"}")
+recovery=$(call "$P/complaints/$(jq -r .id <<<"$complaint")/recovery" "${auth[@]}" -d '{"kind":"DISCOUNT","amountMinor":20000,"note":"One night"}')
+jq -e '.status == "PENDING_APPROVAL"' <<<"$recovery" >/dev/null
+call "$P/approvals/$(jq -r .approvalId <<<"$recovery")/decision" "${group_auth[@]}" -d '{"decision":"APPROVE"}' >/dev/null
+call "$P/complaints/$(jq -r .id <<<"$complaint")" "${auth[@]}" | jq -e '.recovery[0].status == "DONE" and .number == 1' >/dev/null
+echo "guest relations: OK"
+# Lost & Found: a phone found in the guest's room matches the guest's report by rules; it goes back against a claim.
+found=$(call "$P/lostfound/items" "${auth[@]}" -d "{\"kind\":\"FOUND\",\"category\":\"PHONE\",\"colour\":\"BLACK\",\"brand\":\"Samsung\",\"description\":\"Black phone under the bed\",\"locationId\":\"$guest_room\"}")
+call "$P/lostfound/items" "${auth[@]}" -d "{\"kind\":\"LOST\",\"category\":\"PHONE\",\"colour\":\"BLACK\",\"description\":\"Guest lost a black Samsung phone\",\"stayId\":\"$stay\"}" >/dev/null
+match=$(call "$P/lostfound/matches" "${auth[@]}" | jq -c '.[0]')
+echo "match: $(jq -c '{score, reasons}' <<<"$match")"
+call -X POST "$P/lostfound/matches/$(jq -r .id <<<"$match")/confirm" "${auth[@]}" -d "{\"version\":$(jq .version <<<"$match")}" >/dev/null
+call -X POST "$P/lostfound/items/$(jq -r .id <<<"$found")/release" "${auth[@]}" \
+  -d '{"version":2,"claimantName":"Pilot Guest","stayId":"'"$stay"'","idDocument":"PASSPORT","verificationNote":"Unlocked the phone at the desk"}' |
+  jq -e '.item.status == "RELEASED"' >/dev/null
+echo "lost & found: OK"
+# Logbook: an incident on the running shift; the SHIFT_HANDOVER assistant drafts the handover from facts the platform
+# counted (through the same on-prem model adapter, reading only through the logbook's tool); the group GM takes over.
+call "$P/logbook/entries" "${auth[@]}" -d "{\"departmentCode\":\"ENG\",\"kind\":\"INCIDENT\",\"text\":\"Smoke detector failed in the guest room\",\"roomId\":\"$guest_room\"}" >/dev/null
+handover=$(call "$P/logbook/handovers" "${auth[@]}" -d '{"departmentCode":"ENG"}')
+echo "handover: $(jq -c '{source, summary, work: .facts.work, entries: .facts.entries}' <<<"$handover")"
+jq -e '.source == "AI" and .facts.entries.incidents == 1 and (.summary | contains("1 incident"))' <<<"$handover" >/dev/null
+call "$P/ai/executions/$(jq -r .executionId <<<"$handover")" "${auth[@]}" |
+  jq -e '.agentCode == "SHIFT_HANDOVER" and .status == "COMPLETED"
+    and ([.steps[] | select(.type == "TOOL_CALL" and .outcome == "OK")] | length) == 1' >/dev/null
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$P/logbook/handovers/$(jq -r .id <<<"$handover")/acknowledge" "${auth[@]}" -d '{"version":1}')" = 409 ]
+call "$P/logbook/handovers/$(jq -r .id <<<"$handover")/acknowledge" "${group_auth[@]}" -d '{"version":1}' |
+  jq -e '.status == "ACKNOWLEDGED"' >/dev/null
+echo "logbook: OK"
 # The link was single use.
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$API/guest/activation/start" "${json[@]}" -d "{\"token\":\"$token\"}")" = 410 ]
 
@@ -224,7 +281,8 @@ bff=$(curl -fsS -D "$DIR/.bff-headers" "$WEB/bff/login" "${json[@]}" \
 grep -qi '^set-cookie: hotella_rt=.*httponly' "$DIR/.bff-headers"; rm -f "$DIR/.bff-headers"
 jq -e 'has("refreshToken") | not' <<<"$bff" >/dev/null
 curl -fsS "$WEB/hotella/properties/$property/conversations" -H "authorization: Bearer $(jq -r .accessToken <<<"$bff")" | jq -e 'type == "array"' >/dev/null
-for page in en/engineering ar/engineering en/arrivals ar/arrivals ar/branding; do
+for page in en/engineering ar/engineering en/arrivals ar/arrivals ar/branding en/inspections ar/relations \
+  en/lostfound ar/logbook; do
   [ "$(curl -s -o /dev/null -w '%{http_code}' "$WEB/$page")" = 200 ]
 done
 echo "staff web: OK"

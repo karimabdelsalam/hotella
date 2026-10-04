@@ -1,7 +1,7 @@
 // Development/CI only: an OpenAI-compatible model stand-in for the deployed AI smoke (BUILD_PLAN 6.5). It answers the
-// Guest Concierge deterministically — look at the services, create AC_PROBLEM, answer in Arabic — and the Engineering
-// Copilot (read the asset's history, answer naming it), so the pilot proves
-// the real path: worker queue → concierge runtime → Model Gateway → OPENAI_COMPATIBLE adapter → tools → comms.
+// Guest Concierge deterministically — look at the services, create AC_PROBLEM, answer in Arabic — the Engineering
+// Copilot (read the asset's history, answer naming it) and the Shift Handover (read the facts, quote them), so the
+// pilot proves the real path: worker queue → concierge runtime → Model Gateway → OPENAI_COMPATIBLE adapter → tools → comms.
 import { createServer } from 'node:http';
 import { stdout } from 'node:process';
 
@@ -58,6 +58,37 @@ function copilot(messages, toolResults) {
   );
 }
 
+/**
+ * The Shift Handover assistant: read the shift's facts through the logbook's tool (department, date and shift are in
+ * the request), then write a summary quoting the counts it returned — proof the numbers came from the platform.
+ */
+function handover(messages, toolResults) {
+  if (toolResults.length === 0) {
+    const request = messages.filter((m) => m.role === 'user').at(-1)?.content ?? '';
+    const [, department, shift, date] =
+      /department (\S+) for the (\w+) shift of (\d{4}-\d{2}-\d{2})/.exec(request) ?? [];
+    return toolCall('logbook__get_shift_facts', {
+      department_code: department,
+      shift_date: date,
+      shift,
+    });
+  }
+  // The tool outcome arrives as JSON text (possibly cut short): read the counts from it as they appear.
+  const result = toolResults.at(-1).content;
+  const read = (pattern) => pattern.exec(result)?.[1] ?? '?';
+  const department = read(/"department":"([A-Z0-9_]+)"/);
+  const work = /"work":\{"open":(\d+),"urgent":(\d+)/.exec(result) ?? [];
+  const incidents = read(/"incidents":(\d+)/);
+  return completion(
+    {
+      content: JSON.stringify({
+        answer: `${department}: ${incidents} incident, ${work[1] ?? '?'} open jobs (${work[2] ?? '?'} urgent).`,
+      }),
+    },
+    'stop',
+  );
+}
+
 /** The next turn of the concierge (or copilot) conversation, decided from what the model has already seen. */
 function answer(body) {
   const messages = body.messages ?? [];
@@ -65,6 +96,7 @@ function answer(body) {
   const toolResults = messages.slice(lastUser + 1).filter((m) => m.role === 'tool');
   const tools = (body.tools ?? []).map((t) => t.function.name);
   if (tools.includes('engineering__get_asset_history')) return copilot(messages, toolResults);
+  if (tools.includes('logbook__get_shift_facts')) return handover(messages, toolResults);
   if (toolResults.length === 0 && tools.includes('catalog__list_services'))
     return toolCall('catalog__list_services', {});
   const last = toolResults.at(-1)?.content ?? '';
