@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { inboundRecordSchema } from '@hotella/contracts-connectors';
-import { opera5FiasAdapter } from '../connectors/opera5';
+import { opera5FiasAdapter, opera5OwsAdapter } from '../connectors/opera5';
 import { simPmsAdapter } from '../connectors/sim-pms';
 import { classifyHealth, effectiveCapabilities, HEALTH_WINDOW, recordOutcome } from './instance';
 import { type CanonicalRecord, codesOf, toCanonical } from './mapping';
@@ -199,6 +199,57 @@ describe('OPERA5_FIAS adapter', () => {
       ['SET_ROOM_STATUS', 'ROOM_STATUS_WRITE'],
     ]);
     expect(m.capabilities).not.toContain('RESERVATION_READ');
+  });
+});
+
+describe('OPERA5_OWS adapter', () => {
+  const ows = (message_type: string, payload: unknown) =>
+    opera5OwsAdapter.parse(
+      { message_type, source_message_id: 'x', sequence_no: 1, occurred_at: null, payload },
+      ctx,
+    );
+
+  it('reads a polled future reservation with ETA and sharers, and its cancellation', () => {
+    const upsert = ows('OWS_RESERVATION', {
+      action: 'NEW',
+      modifiedAt: '2026-10-04T09:00:00Z',
+      reservation: {
+        reservationId: '771234',
+        confirmationNo: '99887766',
+        arrivalDate: '2026-10-10',
+        departureDate: '2026-10-13',
+        expectedArrivalTime: '2026-10-10T14:30:00+03:00',
+        adults: 2,
+        guest: { profileId: 'P1', firstName: 'Amira', lastName: 'Nile', language: 'AR' },
+        sharers: [{ firstName: 'Omar', lastName: 'Nile' }],
+      },
+    });
+    expect(upsert.ok && upsert.records).toEqual([
+      expect.objectContaining({
+        kind: 'RESERVATION_UPSERT',
+        change: 'CREATED',
+        reservation: { external_id: '771234', confirmation_number: '99887766' },
+        eta: '2026-10-10T14:30:00+03:00',
+        primary_guest: expect.objectContaining({ external_id: 'P1', locale: 'ar' }),
+        accompanying_guests: [expect.objectContaining({ given_name: 'Omar' })],
+      }),
+    ]);
+    const cancel = ows('OWS_RESERVATION', {
+      action: 'CANCEL',
+      modifiedAt: '2026-10-05T09:00:00Z',
+      reservation: { reservationId: '771234' },
+    });
+    expect(cancel.ok && cancel.records).toEqual([
+      expect.objectContaining({ kind: 'RESERVATION_CANCELLED', outcome: 'CANCELLED' }),
+    ]);
+  });
+
+  it('is read-only: no commands, and FIAS records are not its messages', () => {
+    expect(opera5OwsAdapter.manifest.commands).toEqual([]);
+    expect(ows('FIAS_RECORD', { record: 'GI|' })).toEqual({
+      ok: false,
+      error: 'unsupported message type FIAS_RECORD',
+    });
   });
 });
 

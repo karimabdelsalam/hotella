@@ -2,8 +2,9 @@ import { z } from 'zod';
 import type { InboundRecordInput } from '@hotella/contracts-connectors';
 
 /**
- * OWS-shaped query results for the simulator's second face (ADR-0014): future reservations, profile details and
- * ETA, as an on-site agent would forward them after querying OPERA Web Services. Field names follow OWS naming.
+ * OWS query results as the hotel agent forwards them after polling OPERA Web Services (ADR-0014), shared by
+ * `OPERA5_OWS` and the simulator's OWS-shaped face: future reservations, profile details and ETA. The agent turns the
+ * SOAP response into this JSON (one message per reservation that changed); field names follow OWS naming.
  */
 
 const owsProfile = z.object({

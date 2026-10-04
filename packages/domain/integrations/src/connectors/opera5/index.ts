@@ -8,6 +8,7 @@ import {
   type RawInboundMessage,
 } from '@hotella/contracts-connectors';
 import { parseFiasRecord } from '../fias';
+import { parseOwsProfile, parseOwsReservation } from '../ows';
 
 /**
  * `OPERA5_FIAS` — OPERA 5 through its IFC8 FIAS interface (ADR-0014, BUILD_PLAN §10 Phase 10): the primary, real-time
@@ -79,6 +80,62 @@ export const opera5FiasAdapter: ConnectorAdapter = {
       return parsedRecords(parseFiasRecord(fiasMessage.parse(message.payload).record, context));
     } catch (err) {
       // Zod issues name paths and rules, never values, so the error stays free of guest data.
+      const error =
+        err instanceof z.ZodError
+          ? z.prettifyError(err)
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      return { ok: false, error: error.slice(0, 1000) };
+    }
+  },
+};
+
+/**
+ * `OPERA5_OWS` — OPERA Web Services, where the hotel has them licensed (ADR-0014): what FIAS cannot give — future
+ * reservations, arrivals with ETA, sharers and profiles — for pre-arrival and arrival risk. The agent polls OWS over
+ * SOAP for a window of arrivals and forwards each reservation that changed; nothing is written to OPERA through OWS.
+ */
+export const OPERA5_OWS_MANIFEST = defineConnector({
+  code: 'OPERA5_OWS',
+  version: 1,
+  category: 'PMS',
+  description:
+    'OPERA 5 via OPERA Web Services (OWS): future reservations, arrivals with ETA, sharers and guest profiles, polled by the hotel agent.',
+  capabilities: ['RESERVATION_READ', 'GUEST_READ', 'PROFILE_EVENT'],
+  messageTypes: [
+    {
+      code: 'OWS_RESERVATION',
+      description: 'A reservation that changed in the polled window (NEW, CHANGE, CANCEL, NOSHOW).',
+      requires: 'RESERVATION_READ',
+    },
+    {
+      code: 'OWS_PROFILE',
+      description: 'A guest profile that changed.',
+      requires: 'GUEST_READ',
+    },
+  ],
+  commands: [],
+  configSchema: z.object({
+    label: z.string().max(200).optional(),
+  }),
+  // The OWS user and password stay at the hotel, in the agent's protected store; the platform never holds them.
+  credentialSchema: z.object({}),
+});
+
+export const opera5OwsAdapter: ConnectorAdapter = {
+  manifest: OPERA5_OWS_MANIFEST,
+  parse(message: RawInboundMessage): ParseResult {
+    try {
+      switch (message.message_type) {
+        case 'OWS_RESERVATION':
+          return parsedRecords(parseOwsReservation(message.payload));
+        case 'OWS_PROFILE':
+          return parsedRecords(parseOwsProfile(message.payload));
+        default:
+          return { ok: false, error: `unsupported message type ${message.message_type}` };
+      }
+    } catch (err) {
       const error =
         err instanceof z.ZodError
           ? z.prettifyError(err)

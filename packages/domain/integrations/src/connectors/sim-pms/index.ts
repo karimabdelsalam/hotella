@@ -8,7 +8,7 @@ import {
   type RawInboundMessage,
 } from '@hotella/contracts-connectors';
 import { parseFiasRecord } from '../fias';
-import { parseOwsProfile, parseOwsReservation } from './ows';
+import { parseOwsProfile, parseOwsReservation } from '../ows';
 
 /**
  * `SIM_PMS` — the PMS simulator connector (BUILD_PLAN §6.3). Two faces so capability negotiation is exercised long
