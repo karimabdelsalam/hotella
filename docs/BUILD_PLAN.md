@@ -2290,13 +2290,14 @@ check is `EntitlementEngine.can(…)`. Billing (invoices, payment) stays out: en
 
 #### 11.A Domain model (schema `license`; data class INTERNAL unless stated)
 ```text
-products(id, code, status)                    + product_translations(product_id, locale, name, description)
-modules(id, product_id, code, kind MODULE|AI|CONNECTOR|ADDON, status)
-                                              + module_translations   — the entitlement-code catalog of Spec §59
-features(id, module_id, code, default_included bool, status)
-                                              + feature_translations  — finer capabilities inside a module
-metrics(code, unit, kind COUNTER|GAUGE, aggregation SUM|MAX, status)
-                                              + metric_translations   — Spec §61 usage metrics
+products(id, code, status)
+capabilities(id, code, product_code, kind MODULE|AI|CONNECTOR|ADDON|FEATURE, module_code, default_included, status)
+                                              — the entitlement-code catalog of Spec §59 (modules and features are
+                                                kinds of capability, so plan items and grants have one FK target)
+metrics(id, code, unit, kind COUNTER|GAUGE, status)                          — Spec §61 usage metrics
+                                              (catalog rows are code-defined, synchronised at boot and labelled by
+                                               locale keys `license.capability.<code>` / `license.metric.<code>`,
+                                               like permissions and system roles; codes are retired, never deleted)
 plans(id, code, status ACTIVE|RETIRED)        + plan_translations
 plan_versions(id, plan_id, version_no, status DRAFT|PUBLISHED|RETIRED, published_at, published_by, notes)
                                               — immutable once published (trigger, CLAUDE.md rule 9)
@@ -2375,12 +2376,25 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 | Sprint | Scope | Status |
 |---|---|---|
 | 11.0 | This section | delivered |
-| 11.1 | Licensing context: catalog (products, modules, features, metrics) seeded from Spec §59/§61, plans and immutable plan versions with items and limits, control-plane plan API, manifest ↔ catalog test | planned |
+| 11.1 | Licensing context: catalog (products, modules, features, metrics) seeded from Spec §59/§61, plans and immutable plan versions with items and limits, control-plane plan API, manifest ↔ catalog test | delivered (manifest ↔ catalog test moves to 11.2 with the stage) |
 | 11.2 | Subscriptions (scope, status machine, history), manual grants, `EntitlementEngine` with cache and invalidation, real `ENTITLEMENT_STAGE` in api/worker, HARD/SOFT limits, AI agent entitlements, agent licence from entitlements, `GET /me/entitlements` and staff/guest apps hiding unentitled modules, CI/pilot subscribe step | planned |
 | 11.3 | Usage metering: `USAGE_API.record`, collectors with cursors, DAY/MONTH aggregates, usage report API, SOFT-limit alerts | planned |
 | 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | planned |
 | 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | planned |
 | 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`) | planned |
+
+**Reality notes for 11.1 (delivered).**
+- New context `packages/domain/licensing` (manifest code `license`, schema `license`, migration 0038 with the whole
+  Phase 11 model so later sprints add services, not tables). `LicenseCatalogService` syncs `CAPABILITIES`/`METRICS`
+  at every boot under an advisory lock (API and worker boot together). Plans: create (with draft v1), drafts copied
+  from the latest published version, draft edits validated against the catalog (`planProblems`, pure), publish
+  (needs CORE and a name; event `license.plan_version.published.v1` with a null tenant), retire. The database freezes
+  published versions and their items/limits (triggers), keeps subscription history append-only and refuses deletes
+  of subscriptions, grants and overrides; tenant-owned tables have RLS.
+- `PLATFORM_ADMIN` holds `license.catalog.read` and `license.plan.manage`; hotel roles hold neither.
+- Found while adding the routes: Swagger keys component schemas by DTO class name, so a second `UpdateDraftDto`
+  silently replaced the catalog context's schema in the OpenAPI document; the licensing DTOs carry distinct names,
+  and the three older duplicates (`CreateCategoryDto`, `InboxQueryDto`, `ReferenceQueryDto`) are renamed in 11.2.
 
 **APIs (all mutations through `ActionGate`, audited).**
 | Route | Permission |

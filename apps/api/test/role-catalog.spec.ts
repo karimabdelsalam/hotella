@@ -12,6 +12,7 @@ import { INSPECTION_MANIFEST } from '@hotella/domain-inspection/public';
 import { KNOWLEDGE_MANIFEST } from '@hotella/domain-knowledge/public';
 import { OPERATIONS_MANIFEST } from '@hotella/domain-operations/public';
 import { LOGBOOK_MANIFEST } from '@hotella/domain-logbook/public';
+import { LICENSING_MANIFEST } from '@hotella/domain-licensing/public';
 import { LOSTFOUND_MANIFEST } from '@hotella/domain-lostfound/public';
 import { RELATIONS_MANIFEST } from '@hotella/domain-relations/public';
 import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
@@ -42,6 +43,7 @@ describe('system role catalog', () => {
         RELATIONS_MANIFEST,
         LOSTFOUND_MANIFEST,
         LOGBOOK_MANIFEST,
+        LICENSING_MANIFEST,
       ].flatMap((m) => m.permissions.map((p) => p.code)),
     );
     for (const role of SYSTEM_ROLES)

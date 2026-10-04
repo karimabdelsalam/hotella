@@ -17,6 +17,7 @@ import { InspectionModule } from '@hotella/domain-inspection';
 import { RelationsModule } from '@hotella/domain-relations';
 import { LostFoundModule } from '@hotella/domain-lostfound';
 import { LogbookModule } from '@hotella/domain-logbook';
+import { LicensingModule } from '@hotella/domain-licensing';
 import { KnowledgeModule } from '@hotella/domain-knowledge';
 import { CatalogModule } from '@hotella/domain-catalog';
 import { CommunicationsModule } from '@hotella/domain-communications';
@@ -95,6 +96,7 @@ describe('api skeleton (e2e)', () => {
         RelationsModule,
         LostFoundModule,
         LogbookModule,
+        LicensingModule,
         HealthModule,
         MetaModule,
       ],
@@ -193,6 +195,7 @@ describe('api skeleton (e2e)', () => {
       'inspection',
       'integration',
       'knowledge',
+      'license',
       'logbook',
       'lostfound',
       'ops',

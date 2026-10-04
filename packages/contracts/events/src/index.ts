@@ -127,3 +127,9 @@ export {
   resetEventRegistryForTests,
 } from './registry';
 export type { EnvelopeInput, EventDefinition, EventDefinitionInput } from './registry';
+export {
+  EntitlementsChanged,
+  LimitReached,
+  PlanVersionPublished,
+  SubscriptionChanged,
+} from './license-events';

@@ -319,5 +319,21 @@
   "errors.logbook.handover.version_conflict": "Someone else changed this handover. Refresh and try again.",
   "errors.logbook.handover.acknowledged": "This handover was already acknowledged and cannot change.",
   "errors.logbook.handover.empty": "Write the handover before acknowledging it.",
-  "errors.logbook.handover.self_acknowledge": "The handover is acknowledged by the person taking the shift over, not by the one who drafted it."
+  "errors.logbook.handover.self_acknowledge": "The handover is acknowledged by the person taking the shift over, not by the one who drafted it.",
+  "errors.license.plan.not_found": "This plan does not exist.",
+  "errors.license.plan.code_taken": "A plan with this code already exists.",
+  "errors.license.plan.version_conflict": "Someone else changed this plan. Refresh and try again.",
+  "errors.license.plan.draft_exists": "This plan already has a draft version; finish or publish it first.",
+  "errors.license.plan.retired": "This plan is retired; nothing new can be published for it.",
+  "errors.license.plan.translation_missing": "Give the plan a name in at least one language before publishing.",
+  "errors.license.plan.unknown_capability": "\"{code}\" is not an active module or entitlement.",
+  "errors.license.plan.feature_without_module": "The feature \"{code}\" needs its module \"{module}\" in the same plan.",
+  "errors.license.plan.unknown_metric": "\"{code}\" is not an active usage metric.",
+  "errors.license.plan.limit_period_invalid": "The limit on \"{code}\" cannot use the period \"{period}\": levels have no period, counters need a day or a month.",
+  "errors.license.plan.limit_duplicate": "\"{code}\" has the same limit twice.",
+  "errors.license.plan.core_required": "Every plan must include the core platform.",
+  "errors.license.plan_version.not_found": "This plan version does not exist.",
+  "errors.license.plan_version.not_draft": "Only a draft can be changed or published; published versions never change.",
+  "errors.license.plan_version.not_published": "Only a published version can be retired.",
+  "errors.license.plan_version.version_conflict": "Someone else changed this version. Refresh and try again."
 }

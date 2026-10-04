@@ -267,6 +267,13 @@
       "when": 1791077426352,
       "tag": "0037_logbook",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791090510999,
+      "tag": "0038_license",
+      "breakpoints": true
     }
   ]
 }

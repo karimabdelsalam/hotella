@@ -319,5 +319,21 @@
   "errors.logbook.handover.version_conflict": "قام شخص آخر بتعديل هذا التسليم. حدّث الصفحة وحاول مرة أخرى.",
   "errors.logbook.handover.acknowledged": "تم تأكيد هذا التسليم بالفعل ولا يمكن تغييره.",
   "errors.logbook.handover.empty": "اكتب التسليم قبل تأكيده.",
-  "errors.logbook.handover.self_acknowledge": "يؤكد التسليمَ من يستلم الوردية، وليس من أعدّ المسودة."
+  "errors.logbook.handover.self_acknowledge": "يؤكد التسليمَ من يستلم الوردية، وليس من أعدّ المسودة.",
+  "errors.license.plan.not_found": "هذه الباقة غير موجودة.",
+  "errors.license.plan.code_taken": "توجد باقة بهذا الرمز بالفعل.",
+  "errors.license.plan.version_conflict": "عدّل شخص آخر هذه الباقة. حدّث الصفحة وحاول مرة أخرى.",
+  "errors.license.plan.draft_exists": "لهذه الباقة نسخة مسودة بالفعل؛ أكملها أو انشرها أولًا.",
+  "errors.license.plan.retired": "هذه الباقة موقوفة؛ لا يمكن نشر شيء جديد لها.",
+  "errors.license.plan.translation_missing": "أعطِ الباقة اسمًا بلغة واحدة على الأقل قبل النشر.",
+  "errors.license.plan.unknown_capability": "\"{code}\" ليست وحدة أو استحقاقًا نشطًا.",
+  "errors.license.plan.feature_without_module": "الميزة \"{code}\" تحتاج وحدتها \"{module}\" في الباقة نفسها.",
+  "errors.license.plan.unknown_metric": "\"{code}\" ليس مقياس استخدام نشطًا.",
+  "errors.license.plan.limit_period_invalid": "لا يمكن أن يستخدم حد \"{code}\" الفترة \"{period}\": المستويات بلا فترة، والعدادات تحتاج يومًا أو شهرًا.",
+  "errors.license.plan.limit_duplicate": "للمقياس \"{code}\" الحد نفسه مرتين.",
+  "errors.license.plan.core_required": "يجب أن تتضمن كل باقة المنصة الأساسية.",
+  "errors.license.plan_version.not_found": "نسخة الباقة هذه غير موجودة.",
+  "errors.license.plan_version.not_draft": "لا يمكن تغيير أو نشر إلا المسودة؛ النسخ المنشورة لا تتغير أبدًا.",
+  "errors.license.plan_version.not_published": "لا يمكن إيقاف إلا نسخة منشورة.",
+  "errors.license.plan_version.version_conflict": "عدّل شخص آخر هذه النسخة. حدّث الصفحة وحاول مرة أخرى."
 }

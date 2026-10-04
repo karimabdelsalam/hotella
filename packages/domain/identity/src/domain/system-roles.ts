@@ -103,6 +103,9 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'integration.reconcile',
       // AI providers, models and the platform default routing (ADR-0018).
       'ai.provider.manage',
+      // Commercial catalog and plans (Spec §58, §63).
+      'license.catalog.read',
+      'license.plan.manage',
     ],
   },
   { code: 'SUPPORT', audience: 'PLATFORM', permissions: ['support.access.request'] },
