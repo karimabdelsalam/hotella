@@ -2383,7 +2383,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 | 11.3 | Usage metering: `USAGE_API.record`, collectors with cursors, DAY/MONTH aggregates, usage report API, SOFT-limit alerts | delivered (alerts as `license.limit.reached.v1`; STORAGE_BYTES, VOICE_MINUTES and API_CALLS wait for their producers, see notes) |
 | 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | delivered (screens: tenants and plans; flags, connectors, AI providers, support access and health stay API/Grafana, see notes) |
 | 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | delivered (management by API; screens follow with the tenant settings area, see notes) |
-| 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`) | planned |
+| 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`), deployed smoke `smoke-developer.sh` | delivered |
 
 **Reality notes for 11.1 (delivered).**
 - New context `packages/domain/licensing` (manifest code `license`, schema `license`, migration 0038 with the whole

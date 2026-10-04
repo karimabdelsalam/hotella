@@ -146,6 +146,11 @@ jobs:
           token=$(curl -fsS localhost:3000/api/v1/auth/login -H 'content-type: application/json' \
             -d "{\"email\":\"ops@planova.example\",\"password\":\"$HOTELLA_ADMIN_PASSWORD\"}" | jq -r .accessToken)
           infra/docker/pilot/smoke-guest.sh "$token"
+      - name: Entitlements refuse and grant; API clients and signed webhooks work through the deployed stack (Phase 11)
+        run: |
+          token=$(curl -fsS localhost:3000/api/v1/auth/login -H 'content-type: application/json' \
+            -d "{\"email\":\"ops@planova.example\",\"password\":\"$HOTELLA_ADMIN_PASSWORD\"}" | jq -r .accessToken)
+          infra/docker/pilot/smoke-developer.sh "$token"
       - name: The application connects as an ordinary role bound by row-level security
         run: |
           docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml exec -T postgres \
