@@ -127,7 +127,8 @@ public class FiasTests
         await WaitUntil(() => !adapter.LinkUp, cts.Token);
         // The agent comes back on its own.
         using var again = await ifc8.AcceptTcpClientAsync(cts.Token);
-        Assert.Equal(2, adapter.Sessions);
+        // The connection is accepted before the agent starts serving it.
+        await WaitUntil(() => adapter.Sessions == 2, cts.Token);
         await cts.CancelAsync();
         await running;
     }

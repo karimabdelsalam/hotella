@@ -54,7 +54,7 @@ describe.skipIf(skip)(
       const port = await ifc8.listen();
       agent = new DotnetAgent(agentBinaries(artifacts!).conformance);
       await agent.enroll(h.gatewayUrl, await h.enrollmentToken(), h.caPem);
-      await agent.start('OPERA5_FIAS', CAPABILITIES, [], { host: '127.0.0.1', port });
+      await agent.start('OPERA5_FIAS', CAPABILITIES, [], { ifc8: { host: '127.0.0.1', port } });
     });
     afterAll(async () => {
       await agent?.quit();

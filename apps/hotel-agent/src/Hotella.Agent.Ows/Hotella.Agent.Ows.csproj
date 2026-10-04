@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- OPERA 5 through OPERA Web Services (ADR-0014): polled future reservations, forwarded through the link. -->
+  <PropertyGroup>
+    <RootNamespace>Hotella.Agent.Ows</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hotella.Agent.Tests" />
+  </ItemGroup>
+</Project>

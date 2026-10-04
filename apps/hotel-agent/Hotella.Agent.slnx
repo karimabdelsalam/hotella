@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
     <Project Path="src/Hotella.Agent.Fias/Hotella.Agent.Fias.csproj" />
+    <Project Path="src/Hotella.Agent.Ows/Hotella.Agent.Ows.csproj" />
     <Project Path="src/Hotella.Agent/Hotella.Agent.csproj" />
   </Folder>
   <Folder Name="/test/">

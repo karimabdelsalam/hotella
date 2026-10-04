@@ -1,5 +1,6 @@
 using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Fias;
+using Hotella.Agent.Ows;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -43,11 +44,19 @@ internal static class AgentHost
         return settings;
     }
 
+    public static OwsSettings OwsSettings(IConfiguration config)
+    {
+        var settings = new OwsSettings();
+        config.GetSection(Ows.OwsSettings.Section).Bind(settings);
+        return settings;
+    }
+
     /// <summary>Settings problems of the agent and of the adapter its connector needs.</summary>
-    public static List<string> Problems(AgentSettings agent, FiasSettings fias)
+    public static List<string> Problems(AgentSettings agent, FiasSettings fias, OwsSettings ows)
     {
         var problems = agent.Problems().ToList();
         if (agent.ConnectorCode == FiasAdapter.ConnectorCode) problems.AddRange(fias.Problems());
+        if (agent.ConnectorCode == OwsAdapter.ConnectorCode) problems.AddRange(ows.Problems());
         return problems;
     }
 
@@ -65,6 +74,7 @@ internal static class AgentHost
         builder.Services.AddSystemd();
         builder.Services.AddSingleton(Settings(builder.Configuration));
         builder.Services.AddSingleton(FiasSettings(builder.Configuration));
+        builder.Services.AddSingleton(OwsSettings(builder.Configuration));
         builder.Services.AddHostedService<AgentWorker>();
         using var host = builder.Build();
         await host.RunAsync().ConfigureAwait(false);

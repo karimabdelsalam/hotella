@@ -6,6 +6,7 @@ export { AgentLinkClient } from './agent/link-client';
 export type { CommandFrame, CommandHandler, LinkClientOptions } from './agent/link-client';
 export { fiasRecord, SimulatedPms, SimulationError, wallClock } from './pms/hotel';
 export { Ifc8Face } from './pms/ifc8';
+export { OwsSoapFace } from './pms/ows-soap';
 export type { Face, SimGuest, SimReservation } from './pms/hotel';
 export { loadScenario, runScenario, scenarioSchema } from './scenario';
 export type { Scenario, ScenarioLink } from './scenario';

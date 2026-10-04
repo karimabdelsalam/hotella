@@ -3,6 +3,7 @@ using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
+using Hotella.Agent.Ows;
 using Microsoft.Extensions.Logging;
 
 // The agent under test, remote-controlled line by line. Answers carry the request's "id"; commands the platform sends
@@ -30,18 +31,20 @@ LinkClient? client = null;
 CancellationTokenSource? running = null;
 Task? run = null;
 FiasAdapter? fias = null;
-using var fiasStop = new CancellationTokenSource();
-Task? fiasRun = null;
+OwsAdapter? ows = null;
+using var adapterStop = new CancellationTokenSource();
+Task? adapterRun = null;
 
 async Task QuitAsync()
 {
     await StopAsync();
-    if (fiasRun is not null)
+    if (adapterRun is not null)
     {
-        await fiasStop.CancelAsync();
-        await fiasRun;
+        await adapterStop.CancelAsync();
+        await adapterRun;
     }
     fias?.Dispose();
+    ows?.Dispose();
 }
 
 async Task StopAsync()
@@ -85,16 +88,33 @@ while (Console.ReadLine() is { } text)
                         LinkAliveSeconds = 5,
                     }, identity!.InstanceId, log);
                 }
+                if (client is null && request["ows"] is JsonObject owsRequest)
+                {
+                    // OPERA5_OWS: the poller publishes into the link (it has no commands).
+                    var password = owsRequest["password"]!.GetValue<string>();
+                    ows = new OwsAdapter(new OwsSettings
+                    {
+                        Url = new Uri(owsRequest["url"]!.GetValue<string>()),
+                        Username = owsRequest["user"]!.GetValue<string>(),
+                        HotelCode = "SIM",
+                        PollSeconds = owsRequest["poll_seconds"]?.GetValue<int>() ?? 1,
+                    }, identity!.InstanceId, () => password, ":memory:", log);
+                }
                 client ??= new LinkClient(identity!, queue,
                     new LinkOptions(gateway!, request["connector"]!.GetValue<string>(),
                         request["capabilities"]!.AsArray().Select(c => c!.GetValue<string>()).ToList(), "conformance"),
                     fias?.Commands() ?? request["commands"]!.AsArray()
                         .Select(c => (ICommandHandler)new ReportingHandler(c!.GetValue<string>(), Write)),
                     log);
-                if (fias is not null && fiasRun is null)
+                if (fias is not null && adapterRun is null)
                 {
                     var link = client;
-                    fiasRun = Task.Run(() => fias.RunAsync(link, fiasStop.Token));
+                    adapterRun = Task.Run(() => fias.RunAsync(link, adapterStop.Token));
+                }
+                if (ows is not null && adapterRun is null)
+                {
+                    var link = client;
+                    adapterRun = Task.Run(() => ows.RunAsync(link, adapterStop.Token));
                 }
                 if (running is null)
                 {
@@ -129,6 +149,14 @@ while (Console.ReadLine() is { } text)
                 reply["connected"] = client?.Connected ?? false;
                 reply["revoked"] = client?.Revoked ?? false;
                 reply["queue_depth"] = queue.Depth;
+                if (ows is not null)
+                    reply["ows"] = new JsonObject
+                    {
+                        ["polls"] = ows.Polls,
+                        ["failures"] = ows.Failures,
+                        ["forwarded"] = ows.Forwarded,
+                        ["last_error"] = ows.LastError,
+                    };
                 if (fias is not null)
                     reply["ifc8"] = new JsonObject
                     {

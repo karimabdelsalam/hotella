@@ -3,6 +3,7 @@ using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
+using Hotella.Agent.Ows;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -21,12 +22,14 @@ internal static class ExitCodes
 /// <summary>
 /// Runs the link (ADR-0017) for as long as the service runs: the durable queue, the mutual-TLS link with reconnects,
 /// and upkeep every hour — renew the device certificate before it expires and drop acknowledged history past the
-/// retention. The connector's adapter (OPERA5_FIAS: the IFC8 session) runs beside the link, publishes into it and
-/// handles its commands.
+/// retention. The connector's adapter (OPERA5_FIAS: the IFC8 session; OPERA5_OWS: the OWS poller) runs beside the
+/// link, publishes into it and handles its commands. One agent service serves one integration instance; a hotel with
+/// FIAS and OWS runs two (BUILD_PLAN 10.3 notes).
 /// </summary>
 internal sealed partial class AgentWorker(
     AgentSettings settings,
     FiasSettings fiasSettings,
+    OwsSettings owsSettings,
     IHostApplicationLifetime lifetime,
     ILoggerFactory loggers) : BackgroundService
 {
@@ -35,7 +38,7 @@ internal sealed partial class AgentWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var problems = AgentHost.Problems(settings, fiasSettings);
+        var problems = AgentHost.Problems(settings, fiasSettings, owsSettings);
         var store = new IdentityStore(settings.DataDirectory);
         var identity = problems.Count == 0 ? store.Load() : null;
         if (problems.Count > 0 || identity is null)
@@ -52,6 +55,11 @@ internal sealed partial class AgentWorker(
         using var fias = settings.ConnectorCode == FiasAdapter.ConnectorCode
             ? new FiasAdapter(fiasSettings, identity.InstanceId, loggers.CreateLogger("hotella.fias"))
             : null;
+        var secrets = new SecretStore(settings.DataDirectory);
+        using var ows = settings.ConnectorCode == OwsAdapter.ConnectorCode
+            ? new OwsAdapter(owsSettings, identity.InstanceId, () => secrets.Get(owsSettings.PasswordSecret),
+                Path.Combine(settings.DataDirectory, "ows.db"), loggers.CreateLogger("hotella.ows"))
+            : null;
         await using var link = new LinkClient(identity, queue, options, fias?.Commands() ?? [],
             loggers.CreateLogger("hotella.link"));
         link.Welcomed += () => _log.LogInformation("linked as instance {Instance}", identity.InstanceId);
@@ -60,7 +68,7 @@ internal sealed partial class AgentWorker(
         var running = link.RunAsync(session.Token);
         var upkeep = UpkeepAsync(store, queue, link, session.Token);
         // The PMS side keeps reading while the platform is unreachable: records wait in the durable queue.
-        var adapter = fias?.RunAsync(link, session.Token) ?? Task.CompletedTask;
+        var adapter = fias?.RunAsync(link, session.Token) ?? ows?.RunAsync(link, session.Token) ?? Task.CompletedTask;
         await Task.WhenAny(running, upkeep).ConfigureAwait(false);
         await session.CancelAsync().ConfigureAwait(false);
         await Task.WhenAll(running, Quietly(upkeep), Quietly(adapter)).ConfigureAwait(false);

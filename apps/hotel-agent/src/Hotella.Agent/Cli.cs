@@ -4,6 +4,7 @@ using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
+using Hotella.Agent.Ows;
 using Microsoft.Extensions.Configuration;
 
 namespace Hotella.Agent;
@@ -21,6 +22,8 @@ internal static class Cli
             usage: hotella-agent [run]                       run the link (as a service or in the foreground)
                    hotella-agent enroll --token-file <file|-> --ca <file> [--replace] [--Agent:Gateway=<url>]
                    hotella-agent status                      identity, certificate and queue
+                   hotella-agent secret set <name>           store a credential read from stdin (e.g. ows.password)
+                   hotella-agent secret list|remove <name>
                    hotella-agent version
             """);
         return ExitCodes.Usage;
@@ -80,13 +83,21 @@ internal static class Cli
         var config = Config(args);
         var settings = AgentHost.Settings(config);
         var fias = AgentHost.FiasSettings(config);
-        var problems = AgentHost.Problems(settings, fias);
+        var ows = AgentHost.OwsSettings(config);
+        var problems = AgentHost.Problems(settings, fias, ows);
         Console.WriteLine($"version:      {AgentVersion}");
         Console.WriteLine($"gateway:      {settings.Gateway}");
         Console.WriteLine($"connector:    {settings.ConnectorCode} [{string.Join(", ", settings.Capabilities)}]");
         Console.WriteLine($"data:         {settings.DataDirectory}");
         if (settings.ConnectorCode == FiasAdapter.ConnectorCode)
             Console.WriteLine($"ifc8:         {fias.Mode} {fias.Host}:{fias.Port} ({fias.Encoding})");
+        var secrets = new SecretStore(settings.DataDirectory);
+        if (settings.ConnectorCode == OwsAdapter.ConnectorCode)
+        {
+            Console.WriteLine($"ows:          {ows.Url} as {ows.Username}, every {ows.PollSeconds} s, {ows.WindowDays} days ahead");
+            if (secrets.Get(ows.PasswordSecret) is null) problems.Add($"secret {ows.PasswordSecret} is not set");
+        }
+        Console.WriteLine($"secrets:      {string.Join(", ", secrets.Names())}");
         var identity = new IdentityStore(settings.DataDirectory).Load();
         if (identity is null) problems.Add("not enrolled");
         else
@@ -107,6 +118,33 @@ internal static class Cli
         }
         foreach (var p in problems) Console.WriteLine($"problem:      {p}");
         return problems.Count == 0 ? ExitCodes.Ok : ExitCodes.NotConfigured;
+    }
+
+    /// <summary>
+    /// Credentials the adapters need at the hotel, read from stdin (never from the command line) and kept in the
+    /// protected store; values are never printed.
+    /// </summary>
+    public static async Task<int> SecretAsync(string[] args)
+    {
+        var store = new SecretStore(SettingsFrom(args.Where(a => a.StartsWith("--Agent:", StringComparison.Ordinal)).ToArray())
+            .DataDirectory);
+        switch (args.FirstOrDefault())
+        {
+            case "set" when args.Length >= 2:
+                var value = (await Console.In.ReadLineAsync().ConfigureAwait(false))?.TrimEnd('\r', '\n');
+                if (string.IsNullOrEmpty(value)) return Usage();
+                store.Set(args[1], value);
+                Console.WriteLine($"secret {args[1]} stored");
+                return ExitCodes.Ok;
+            case "remove" when args.Length >= 2:
+                Console.WriteLine(store.Remove(args[1]) ? $"secret {args[1]} removed" : $"no secret {args[1]}");
+                return ExitCodes.Ok;
+            case "list":
+                foreach (var name in store.Names()) Console.WriteLine(name);
+                return ExitCodes.Ok;
+            default:
+                return Usage();
+        }
     }
 
     private static AgentSettings SettingsFrom(string[] args) => AgentHost.Settings(Config(args));
