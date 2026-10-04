@@ -7,6 +7,7 @@
  *  TEST_INFRA_UNAVAILABLE=<reason> and integration suites skip with that reason.
  *  TEST_DOTNET_AGENT — the .NET hotel agent's build output (`apps/hotel-agent/artifacts/bin`); its cross-language
  *  conformance suite runs only when it is set (CI builds the agent and sets it).
+ *  CI — set by CI services: suites that may skip locally (the .NET agent) must run there instead of skipping.
  */
 /* eslint-disable no-restricted-properties */
 export interface TestInfra {
@@ -15,6 +16,7 @@ export interface TestInfra {
   readonly s3?: { endpoint: string; accessKey: string; secretKey: string; bucket: string };
   readonly unavailableReason?: string;
   readonly dotnetAgent?: string;
+  readonly ci: boolean;
 }
 
 export function readTestInfra(): TestInfra {
@@ -33,6 +35,7 @@ export function readTestInfra(): TestInfra {
         : undefined,
     unavailableReason: e['TEST_INFRA_UNAVAILABLE'] || undefined,
     dotnetAgent: e['TEST_DOTNET_AGENT'] || undefined,
+    ci: Boolean(e['CI']),
   };
 }
 
@@ -44,6 +47,15 @@ export function writeTestInfra(values: Record<string, string>): void {
 export function needsInfra(): boolean {
   return !readTestInfra().databaseUrl;
 }
+/**
+ * `describe.skipIf(needsDotnetAgent())` — the .NET hotel agent's suites skip without its build, except on CI, where
+ * they run and fail loudly (a silently skipped suite once hid that CI never passed the build path along).
+ */
+export function needsDotnetAgent(): boolean {
+  const infra = readTestInfra();
+  return !infra.databaseUrl || (!infra.dotnetAgent && !infra.ci);
+}
+
 export function infraSkipReason(): string {
   return readTestInfra().unavailableReason ?? 'TEST_DATABASE_URL not set';
 }

@@ -2119,7 +2119,9 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 - Upkeep runs hourly: renew once a third of the certificate's lifetime remains (`RenewalPolicy`) and drop acknowledged
   history past `QueueRetentionDays`. Exit codes for the service manager: 2 not configured/enrolled, 3 revoked.
 - CI: the `verify` job sets up .NET from `apps/hotel-agent/global.json`, runs `dotnet test` in Release, and the
-  simulator's e2e finds the build through `TEST_DOTNET_AGENT` (without it the suite is skipped locally).
+  simulator's e2e finds the build through `TEST_DOTNET_AGENT` (without it the suite is skipped locally; on CI it
+  fails instead — until 10.5 Turborepo's strict environment filtered the variable out and CI skipped the .NET suites
+  silently, found while collecting the Phase 10 evidence; `turbo.json` now passes it and `CI` through).
 
 **Reality notes for 10.2 (delivered).**
 - Platform: `OPERA5_FIAS` connector (`connectors/opera5`) with message type `FIAS_RECORD`, commands

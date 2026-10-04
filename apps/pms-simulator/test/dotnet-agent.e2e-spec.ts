@@ -3,7 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
-import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
+import {
+  infraSkipReason,
+  needsDotnetAgent,
+  needsInfra,
+  readTestInfra,
+} from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadScenario, runScenario, SimulatedPms } from '../src';
 import { agentBinaries, DotnetAgent, type DotnetAgentError } from './dotnet-agent';
@@ -16,7 +21,7 @@ import { CAPABILITIES, type GatewayHarness, startGatewayHarness, until } from '.
  * sets TEST_DOTNET_AGENT; without it (no .NET SDK on this machine) the suite is skipped.
  */
 const artifacts = readTestInfra().dotnetAgent;
-const skip = needsInfra() || !artifacts;
+const skip = needsDotnetAgent();
 const reason = needsInfra() ? infraSkipReason() : 'TEST_DOTNET_AGENT not set';
 const stamp = Date.now().toString(36).toUpperCase();
 
@@ -28,7 +33,7 @@ describe.skipIf(skip)(`.NET hotel agent ↔ agent gateway (${skip ? reason : 'do
   let host: string;
 
   beforeAll(async () => {
-    ({ conformance: dll, host } = agentBinaries(artifacts!));
+    ({ conformance: dll, host } = agentBinaries(artifacts));
     h = await startGatewayHarness(readTestInfra().databaseUrl!, `dn-${stamp}`);
     agent = new DotnetAgent(dll);
   });

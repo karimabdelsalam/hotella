@@ -2,7 +2,12 @@ import { and, eq } from 'drizzle-orm';
 import type { EventEnvelope } from '@hotella/contracts-events';
 import { reconcileOnce, StayReconciler } from '@hotella/domain-guest';
 import { eventsSchema, IdempotentConsumer } from '@hotella/platform-events';
-import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
+import {
+  infraSkipReason,
+  needsDotnetAgent,
+  needsInfra,
+  readTestInfra,
+} from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Ifc8Face, SimulatedPms } from '../src';
 import { agentBinaries, DotnetAgent } from './dotnet-agent';
@@ -15,7 +20,7 @@ import { type GatewayHarness, startGatewayHarness, until } from './gateway-harne
  * built agent (TEST_DOTNET_AGENT), like the link conformance suite.
  */
 const artifacts = readTestInfra().dotnetAgent;
-const skip = needsInfra() || !artifacts;
+const skip = needsDotnetAgent();
 const reason = needsInfra() ? infraSkipReason() : 'TEST_DOTNET_AGENT not set';
 const stamp = Date.now().toString(36).toUpperCase();
 const CAPABILITIES = [
@@ -52,7 +57,7 @@ describe.skipIf(skip)(
       });
       ifc8 = new Ifc8Face(pms);
       const port = await ifc8.listen();
-      agent = new DotnetAgent(agentBinaries(artifacts!).conformance);
+      agent = new DotnetAgent(agentBinaries(artifacts).conformance);
       await agent.enroll(h.gatewayUrl, await h.enrollmentToken(), h.caPem);
       await agent.start('OPERA5_FIAS', CAPABILITIES, [], { ifc8: { host: '127.0.0.1', port } });
     });

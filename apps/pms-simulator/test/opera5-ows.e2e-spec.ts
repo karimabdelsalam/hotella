@@ -2,7 +2,12 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
+import {
+  infraSkipReason,
+  needsDotnetAgent,
+  needsInfra,
+  readTestInfra,
+} from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OwsSoapFace, SimulatedPms } from '../src';
 import { agentBinaries, DotnetAgent } from './dotnet-agent';
@@ -15,7 +20,7 @@ import { type GatewayHarness, startGatewayHarness, until } from './gateway-harne
  * password lives in the agent's protected store. Skipped without a built agent (TEST_DOTNET_AGENT).
  */
 const artifacts = readTestInfra().dotnetAgent;
-const skip = needsInfra() || !artifacts;
+const skip = needsDotnetAgent();
 const reason = needsInfra() ? infraSkipReason() : 'TEST_DOTNET_AGENT not set';
 const stamp = Date.now().toString(36).toUpperCase();
 const CAPABILITIES = ['RESERVATION_READ', 'GUEST_READ', 'PROFILE_EVENT'];
@@ -54,7 +59,7 @@ describe.skipIf(skip)(
       // The PMS's own interfaces are not used here: the agent asks OWS.
       pms = new SimulatedPms({ timezone: 'Africa/Cairo', faces: new Set(), emit: () => undefined });
       ows = new OwsSoapFace(pms, { user: OWS_USER, password: OWS_PASSWORD });
-      agent = new DotnetAgent(agentBinaries(artifacts!).conformance);
+      agent = new DotnetAgent(agentBinaries(artifacts).conformance);
       await agent.enroll(h.gatewayUrl, await h.enrollmentToken(), h.caPem);
     });
     afterAll(async () => {
@@ -139,7 +144,7 @@ describe.skipIf(skip)(
     it('the OWS password is set from stdin into the protected store and never shown', async () => {
       const dir = mkdtempSync(join(tmpdir(), 'hotella-agent-'));
       try {
-        const host = agentBinaries(artifacts!).host;
+        const host = agentBinaries(artifacts).host;
         const data = `--Agent:DataDirectory=${join(dir, 'data')}`;
         const set = await run(host, ['secret', 'set', 'ows.password', data], `${OWS_PASSWORD}\n`);
         expect(set).toMatchObject({ code: 0 });

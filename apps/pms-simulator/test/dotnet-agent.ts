@@ -11,7 +11,12 @@ import type { QueuedMessage, ScenarioLink } from '../src';
  */
 
 /** The built agent (`dotnet build` → artifacts/bin/<project>/<release|debug>/), release preferred. */
-export function agentBinaries(artifacts: string): { conformance: string; host: string } {
+export function agentBinaries(artifacts: string | undefined): {
+  conformance: string;
+  host: string;
+} {
+  if (!artifacts)
+    throw new Error('TEST_DOTNET_AGENT is not set: CI must build the .NET agent and point at it');
   for (const config of ['release', 'debug']) {
     const conformance = join(
       artifacts,

@@ -13,7 +13,14 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "env": ["TEST_DATABASE_URL", "TEST_VALKEY_URL", "TEST_S3_*", "TEST_INFRA_UNAVAILABLE"]
+      "env": [
+        "TEST_DATABASE_URL",
+        "TEST_VALKEY_URL",
+        "TEST_S3_*",
+        "TEST_INFRA_UNAVAILABLE",
+        "TEST_DOTNET_AGENT",
+        "CI"
+      ]
     },
     "dev": {
       "cache": false,
