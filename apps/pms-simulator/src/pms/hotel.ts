@@ -65,6 +65,8 @@ export class SimulatedPms {
       adults?: number;
       children?: number;
     },
+    /** When the booking was made (OWS modifiedAt); defaults to now. Scenarios dated in the past set it. */
+    at?: string,
   ): SimReservation {
     if (this.reservations.has(input.id))
       throw new SimulationError(`reservation ${input.id} exists`);
@@ -77,7 +79,7 @@ export class SimulatedPms {
       status: 'RESERVED',
     };
     this.reservations.set(r.id, r);
-    this.ows('NEW', r);
+    this.ows('NEW', r, at);
     return r;
   }
 

@@ -186,7 +186,8 @@ export class StayProjector {
       return;
     }
     const open = await this.repo.openAssignment(ctx.scope, stay.id);
-    if (open && at < open.assignedAt) {
+    // Only a newer fact makes a move stale; a plan (pre-assignment) recorded later never does.
+    if (open && open.reason !== 'PRE_ASSIGNMENT' && at < open.assignedAt) {
       this.logger.info(
         { event_id: e.event_id },
         'stale room change ignored (newer assignment exists)',
@@ -570,7 +571,13 @@ export class StayProjector {
     at: Date,
     eventId: string,
   ): Promise<void> {
-    const open = await this.repo.openAssignment(ctx.scope, stay.id);
+    let open = await this.repo.openAssignment(ctx.scope, stay.id);
+    if (open?.reason === 'PRE_ASSIGNMENT' && reason !== 'PRE_ASSIGNMENT' && at < open.assignedAt) {
+      // The plan was recorded after this fact happened, so it was never in effect: settle the plans at the fact's
+      // time and record the fact where it belongs (the same history in any delivery order).
+      await this.repo.settlePlansAt(ctx.scope, stay.id, at);
+      open = await this.repo.openAssignment(ctx.scope, stay.id);
+    }
     if (open?.roomId === roomId) return;
     // An older fact (e.g. a check-in processed after a later room move) never moves the guest back, but it is still
     // history (rule 10): the room is recorded as a closed assignment ending where the newer one starts. A
@@ -578,7 +585,7 @@ export class StayProjector {
     if (open && open.reason !== 'PRE_ASSIGNMENT' && at < open.assignedAt) {
       const history = await this.repo.assignments(ctx.scope, stay.id);
       if (!history.some((a) => a.sourceEventId === eventId)) {
-        await this.repo.endPlansAfter(ctx.scope, stay.id, at);
+        await this.repo.settlePlansAt(ctx.scope, stay.id, at);
         await this.repo.insertAssignment({
           id: newId(),
           tenantId: ctx.tenantId,

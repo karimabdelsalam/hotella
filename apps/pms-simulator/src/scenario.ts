@@ -36,6 +36,8 @@ const step = z.union([
       room: z.string().optional(),
       rate: z.string().optional(),
       market: z.string().optional(),
+      /** When the booking was made; a scenario dated in the past books before its check-in. */
+      at,
     }),
   }),
   z.object({
@@ -97,8 +99,10 @@ export async function runScenario(
   link: ScenarioLink,
 ): Promise<void> {
   for (const s of scenario.steps) {
-    if ('reserve' in s) pms.reserve(s.reserve);
-    else if ('modify' in s) {
+    if ('reserve' in s) {
+      const { at: when, ...booking } = s.reserve;
+      pms.reserve(booking, when);
+    } else if ('modify' in s) {
       const { id, at: when, ...changes } = s.modify;
       pms.modify(id, changes, when);
     } else if ('cancel' in s) pms.cancel(s.cancel.id, s.cancel.outcome);

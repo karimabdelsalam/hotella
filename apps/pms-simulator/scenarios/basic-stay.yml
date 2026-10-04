@@ -5,6 +5,7 @@ faces: [FIAS, OWS]
 steps:
   - reserve:
       id: SIM-R1
+      at: '2026-09-20T10:00:00Z'
       confirmation: SIM-C1
       guest: { profileId: SIM-P1, first: Amira, last: Nile, language: ar, email: amira@example.com }
       sharers: [{ first: Omar, last: Nile }]

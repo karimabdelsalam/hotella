@@ -250,6 +250,25 @@ export class GuestRepositories {
    * A pre-assignment is a plan: once the guest is known to have been in a room from `at`, a plan still shown as
    * running after that ends there (the facts themselves are never changed).
    */
+  /**
+   * A late, older check-in settles what the stay's plans were at its time: a pre-assignment running then ends there,
+   * and one recorded only after it never was a plan in effect — projecting the facts in time order would not have
+   * created it (the stay was already in house), so it is removed and the history converges whatever the order.
+   */
+  async settlePlansAt(scope: TenantScope, stayId: string, at: Date): Promise<void> {
+    await this.x
+      .delete(roomAssignments)
+      .where(
+        tenantWhere(
+          roomAssignments,
+          scope,
+          eq(roomAssignments.stayId, stayId),
+          eq(roomAssignments.reason, 'PRE_ASSIGNMENT'),
+          sql`${roomAssignments.assignedAt} > ${at}`,
+        ),
+      );
+    await this.endPlansAfter(scope, stayId, at);
+  }
   async endPlansAfter(scope: TenantScope, stayId: string, at: Date): Promise<void> {
     await this.x
       .update(roomAssignments)

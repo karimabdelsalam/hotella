@@ -661,6 +661,59 @@ describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReaso
     expect(stay.status).toBe('CHECKED_OUT');
   });
 
+  it('a plan recorded after the check-in it gave way to is not history: any delivery order, the same stay', async () => {
+    // The PMS: check-in to 504 on the 5th, a move to 505 an hour later; the reservation (pre-assigned to 506) was
+    // last modified only on the 6th. Delivered as the pilot's worker once did: reservation, move, then check-in.
+    await fias(`GI|RN504|G#X2-${stamp}|GNWest|GFSara|GD261008|DA261005|TI090000|`);
+    await fias(`GC|RN505|RO504|G#X2-${stamp}|DA261005|TI100000|`);
+    await ows({
+      action: 'NEW',
+      modifiedAt: '2026-10-06T03:00:00Z',
+      reservation: {
+        reservationId: `X2-${stamp}`,
+        arrivalDate: '2026-10-05',
+        departureDate: '2026-10-08',
+        roomNumber: '506',
+        guest: { profileId: `PX2-${stamp}`, firstName: 'Sara', lastName: 'West' },
+      },
+    });
+    const of = async (type: string) =>
+      (
+        await db
+          .select()
+          .from(eventsSchema.outbox)
+          .where(
+            and(
+              eq(eventsSchema.outbox.tenantId, tenantA),
+              eq(eventsSchema.outbox.eventType, type),
+              sql`${eventsSchema.outbox.envelope}::text like ${`%X2-${stamp}%`}`,
+            ),
+          )
+      ).map((r) => r.envelope as EventEnvelope);
+    const [reservation] = await of('hotel.reservation.created');
+    const [move] = await of('hotel.stay.room_changed');
+    const [checkIn] = await of('hotel.guest.checked_in');
+    expect(await project(reservation!)).toBe('processed');
+    expect(await project(move!)).toBe('processed');
+    expect(await project(checkIn!)).toBe('processed');
+    const [ref] = (
+      await db.execute<{ id: string }>(
+        sql`select internal_entity_id as id from integration.external_references
+             where external_id = ${`X2-${stamp}`} and internal_entity_type = 'guest.stay'`,
+      )
+    ).rows;
+    const history = await db.execute<{ room: string; reason: string; open: boolean }>(
+      sql`select r.room_number as room, a.reason, a.unassigned_at is null as open
+            from guest.room_assignments a join org.rooms r on r.location_id = a.room_id
+           where a.stay_id = ${ref!.id} order by a.assigned_at, a.id`,
+    );
+    // What time order gives (the reservation found the guest already in house): no plan to 506.
+    expect(history.rows).toEqual([
+      { room: '504', reason: 'INITIAL', open: false },
+      { room: '505', reason: 'ROOM_MOVE', open: true },
+    ]);
+  });
+
   it('guest access follows the stay: pre-arrival, arrival, check-out window, staff revocation', async () => {
     const api = app.get<GuestPublicApi>(GUEST_API);
     // Dates relative to now: grant validity is checked against the real clock.
