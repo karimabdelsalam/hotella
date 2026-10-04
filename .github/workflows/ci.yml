@@ -38,6 +38,10 @@ jobs:
       STORAGE_ACCESS_KEY: ci
       STORAGE_SECRET_KEY: ci-secret
       TURBO_TELEMETRY_DISABLED: '1'
+      # The .NET hotel agent's build output: the cross-language link e2e (apps/pms-simulator) drives it.
+      TEST_DOTNET_AGENT: ${{ github.workspace }}/apps/hotel-agent/artifacts/bin
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -63,6 +67,11 @@ jobs:
         run: pnpm db:check
       - name: Migrations apply to a real PostgreSQL 18
         run: pnpm db:migrate
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: apps/hotel-agent/global.json
+      - name: Hotel agent (.NET 10 LTS) — analyzers as errors, unit tests and shared vectors
+        run: dotnet test apps/hotel-agent/Hotella.Agent.slnx -c Release
       - run: pnpm test
       - name: Staff web in English (LTR) and Arabic (RTL) — Playwright, API mocked in the browser
         run: |

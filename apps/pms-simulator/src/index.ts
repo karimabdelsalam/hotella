@@ -7,4 +7,4 @@ export type { CommandFrame, CommandHandler, LinkClientOptions } from './agent/li
 export { SimulatedPms, SimulationError, wallClock } from './pms/hotel';
 export type { Face, SimGuest, SimReservation } from './pms/hotel';
 export { loadScenario, runScenario, scenarioSchema } from './scenario';
-export type { Scenario } from './scenario';
+export type { Scenario, ScenarioLink } from './scenario';

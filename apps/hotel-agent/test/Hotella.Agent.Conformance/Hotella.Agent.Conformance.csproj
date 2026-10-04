@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Drives the agent's link from the platform's TypeScript e2e (apps/pms-simulator/test/dotnet-agent.e2e-spec.ts):
+    one JSON request per stdin line, one JSON answer per stdout line. Test tooling only; never shipped.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Hotella.Agent.Core/Hotella.Agent.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,33 @@
+{
+  "description": "A command frame signed by platform-pki (Ed25519 over canonical JSON). The .NET agent must produce the same canonical bytes and accept the signature; a one-character change must fail.",
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAni7cnSS5VXk/XopHC64wBlo8dU0gvLesEIM2hpYfaM8=\n-----END PUBLIC KEY-----\n",
+  "canonical": "{\"command_id\":\"01900000-0000-7000-8000-00000000c0de\",\"command_type\":\"SET_ROOM_STATUS\",\"expires_at\":null,\"idempotency_key\":\"room-504-INSPECTED\",\"instance_id\":\"01900000-0000-7000-8000-0000000001aa\",\"issued_at\":\"2026-10-04T10:00:00.000Z\",\"payload\":{\"big\":12345678901,\"count\":3,\"empty\":null,\"flag\":true,\"list\":[1,\"a\",{\"a\":2,\"z\":1}],\"note\":\"Ünïcode \\\"quoted\\\" \\\\ ✓ غرفة\\n\\u0001\",\"ratio\":0.5,\"room\":\"504\",\"status\":\"INSPECTED\"},\"type\":\"command\"}",
+  "frame": {
+    "type": "command",
+    "command_id": "01900000-0000-7000-8000-00000000c0de",
+    "instance_id": "01900000-0000-7000-8000-0000000001aa",
+    "command_type": "SET_ROOM_STATUS",
+    "payload": {
+      "room": "504",
+      "status": "INSPECTED",
+      "note": "Ünïcode \"quoted\" \\ ✓ غرفة\n\u0001",
+      "count": 3,
+      "ratio": 0.5,
+      "big": 12345678901,
+      "empty": null,
+      "flag": true,
+      "list": [
+        1,
+        "a",
+        {
+          "z": 1,
+          "a": 2
+        }
+      ]
+    },
+    "idempotency_key": "room-504-INSPECTED",
+    "issued_at": "2026-10-04T10:00:00.000Z",
+    "expires_at": null,
+    "signature": "rWNjTFbW0ce5myia2-RiOylBnUCqivg5e0ISt9oTu5jAJeMDhHLZRwti7S6o8xsn9LzaC0hvz7HIXB-s5GQcDQ"
+  }
+}

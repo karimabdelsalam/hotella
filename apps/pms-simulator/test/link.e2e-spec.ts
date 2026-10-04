@@ -1,55 +1,14 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import { join } from 'node:path';
 import { and, asc, eq, like, sql } from 'drizzle-orm';
 import { WebSocket } from 'ws';
 import type { EventEnvelope } from '@hotella/contracts-events';
-import {
-  GuestModule,
-  projectOnce,
-  reconcileOnce,
-  StayProjector,
-  StayReconciler,
-} from '@hotella/domain-guest';
-import {
-  AgentGatewayModule,
-  AgentGatewayServer,
-  AgentKeys,
-  ephemeralAgentKeys,
-  INTEGRATIONS_API,
-  integrationSchema,
-  IntegrationsModule,
-  type IntegrationsPublicApi,
-} from '@hotella/domain-integrations';
-import { OrganizationModule } from '@hotella/domain-organization';
-import { AuditModule } from '@hotella/platform-audit';
-import {
-  AUTHENTICATION_STRATEGY,
-  AuthModule,
-  HeaderActorStrategy,
-  PERMISSION_RESOLVER,
-  StaticPermissionResolver,
-} from '@hotella/platform-auth';
-import { ConfigModule } from '@hotella/platform-config';
-import {
-  applicationRoleUrl,
-  DATABASE,
-  type Database,
-  DatabaseModule,
-  runMigrations,
-} from '@hotella/platform-database';
-import { EventsModule, eventsSchema, IdempotentConsumer } from '@hotella/platform-events';
-import { FeatureFlagsModule } from '@hotella/platform-flags';
-import { HttpConventionsModule } from '@hotella/platform-http';
-import { I18nModule } from '@hotella/platform-i18n';
-import { ManifestModule } from '@hotella/platform-manifest';
-import { ObservabilityModule } from '@hotella/platform-observability';
-import { SecretsModule } from '@hotella/platform-secrets';
-import { SettingsModule } from '@hotella/platform-settings';
+import { projectOnce, reconcileOnce, StayProjector, StayReconciler } from '@hotella/domain-guest';
+import type { IntegrationsPublicApi } from '@hotella/domain-integrations';
+import type { Database } from '@hotella/platform-database';
+import { eventsSchema, IdempotentConsumer } from '@hotella/platform-events';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
-import { ZodValidationPipe } from 'nestjs-zod';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   type AgentIdentity,
@@ -61,157 +20,33 @@ import {
   runScenario,
   SimulatedPms,
 } from '../src';
+import { CAPABILITIES, type GatewayHarness, startGatewayHarness, until } from './gateway-harness';
 
-const admin = JSON.stringify({ type: 'USER', id: 'admin', tenantId: null, isPlatformAdmin: true });
-const user = (id: string, tenantId: string): string =>
-  JSON.stringify({ type: 'USER', id, tenantId, isPlatformAdmin: false });
 const stamp = Date.now().toString(36).toUpperCase();
-const CAPABILITIES = [
-  'CHECKIN_EVENT',
-  'CHECKOUT_EVENT',
-  'ROOM_MOVE_EVENT',
-  'PROFILE_EVENT',
-  'ROOM_STATUS_READ',
-  'RESERVATION_READ',
-  'GUEST_READ',
-  'RECONCILIATION_READ',
-];
-
-async function until<T>(fn: () => Promise<T | undefined | false>, timeoutMs = 15_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const v = await fn();
-    if (v) return v;
-    if (Date.now() > deadline) throw new Error('condition not met in time');
-    await new Promise((r) => setTimeout(r, 50));
-  }
-}
 
 describe.skipIf(needsInfra())(
   `hotel agent link: simulator ↔ gateway over mutual TLS (${infraSkipReason()})`,
   () => {
-    const url = readTestInfra().databaseUrl!;
+    let h: GatewayHarness;
     let app: INestApplication;
     let db: Database;
     let api: IntegrationsPublicApi;
     let gatewayUrl: string;
     let caPem: string;
     let tenant: string;
-    let property: string;
     let instanceId: string;
     let identity: AgentIdentity;
     let client: AgentLinkClient;
     let pms: SimulatedPms;
     const queue = DurableQueue.memory();
-    const grants: Record<string, string[]> = {
-      gm: [
-        'org.property.read',
-        'org.property.manage',
-        'org.location.manage',
-        'integration.read',
-        'integration.configure',
-        'integration.mapping.confirm',
-        'integration.reconcile',
-        'stay.read',
-        'guest.read',
-      ],
-    };
-    const http = () => request(app.getHttpServer());
-    const gm = () => user('gm', tenant);
-    const base = () => `/properties/${property}`;
-
-    const messages = () =>
-      db
-        .select()
-        .from(integrationSchema.integrationMessages)
-        .where(eq(integrationSchema.integrationMessages.instanceId, instanceId));
+    const http = () => h.http();
+    const gm = () => h.gm;
+    const base = () => h.base;
+    const messages = () => h.messages();
 
     beforeAll(async () => {
-      await runMigrations(url);
-      const env = {
-        NODE_ENV: 'test',
-        LOG_LEVEL: 'silent',
-        DATABASE_URL: await applicationRoleUrl(url, 'hotella_app_sim'),
-        VALKEY_URL: 'redis://127.0.0.1:1',
-        AGENT_HEARTBEAT_SECONDS: '5',
-      };
-      const ref = await Test.createTestingModule({
-        imports: [
-          ConfigModule.forRoot({ env }),
-          ObservabilityModule.forRoot(),
-          I18nModule.forRoot(),
-          SecretsModule.forRoot(),
-          HttpConventionsModule.forRoot({ store: 'memory' }),
-          DatabaseModule.forRoot(),
-          EventsModule.forRoot(),
-          FeatureFlagsModule,
-          ManifestModule.forRoot(),
-          AuditModule,
-          SettingsModule,
-          AuthModule.forRoot({
-            strategy: { provide: AUTHENTICATION_STRATEGY, useClass: HeaderActorStrategy },
-            resolver: {
-              provide: PERMISSION_RESOLVER,
-              useValue: new StaticPermissionResolver(grants),
-            },
-            propertyVerifier: OrganizationModule.propertyVerifier(),
-            stages: [IntegrationsModule.capabilityStage()],
-          }),
-          OrganizationModule,
-          IntegrationsModule,
-          GuestModule,
-          AgentGatewayModule,
-        ],
-      }).compile();
-      app = ref.createNestApplication({ logger: false });
-      app.useGlobalPipes(new ZodValidationPipe());
-      await app.init();
-      db = app.get(DATABASE);
-      api = app.get(INTEGRATIONS_API);
-      const keys = await ephemeralAgentKeys(['localhost']);
-      caPem = keys.caCertificatePem;
-      app.get(AgentKeys).use(keys);
-      const port = await app.get(AgentGatewayServer).listen({ host: '127.0.0.1', port: 0 });
-      gatewayUrl = `https://localhost:${port}`;
-
-      tenant = (
-        await http()
-          .post('/tenants')
-          .set('X-Test-Actor', admin)
-          .send({ code: `sim-${stamp}`, name: 'Sim Hotels' })
-          .expect(201)
-      ).body.id;
-      property = (
-        await http()
-          .post('/properties')
-          .set('X-Test-Actor', gm())
-          .send({ code: 'SIM', name: 'Simulated', timezone: 'Africa/Cairo', currency: 'EGP' })
-          .expect(201)
-      ).body.id;
-      const tree = await http().get(`${base()}/locations`).set('X-Test-Actor', gm()).expect(200);
-      const root = Array.isArray(tree.body) ? tree.body[0].id : tree.body.id;
-      for (const n of ['504', '505', '506'])
-        await http()
-          .post(`${base()}/rooms`)
-          .set('X-Test-Actor', gm())
-          .send({ parentId: root, roomNumber: n })
-          .expect(201);
-      instanceId = (
-        await http()
-          .post(`${base()}/integrations`)
-          .set('X-Test-Actor', gm())
-          .send({ connectorCode: 'SIM_PMS', name: 'Agent', capabilities: CAPABILITIES })
-          .expect(201)
-      ).body.id;
-      await http()
-        .patch(`${base()}/integrations/${instanceId}`)
-        .set('X-Test-Actor', gm())
-        .send({ version: 1, status: 'ACTIVE' })
-        .expect(200);
-      await http()
-        .post(`${base()}/integrations/${instanceId}/mappings/rooms-by-number`)
-        .set('X-Test-Actor', gm())
-        .expect(200);
+      h = await startGatewayHarness(readTestInfra().databaseUrl!, `sim-${stamp}`);
+      ({ app, db, api, gatewayUrl, caPem, tenant, instanceId } = h);
     });
     afterAll(async () => {
       client?.stop();
@@ -219,12 +54,7 @@ describe.skipIf(needsInfra())(
     });
 
     it('enrolls once with a single-use token and gets a device certificate', async () => {
-      const token = (
-        await http()
-          .post(`${base()}/integrations/${instanceId}/enrollment-tokens`)
-          .set('X-Test-Actor', gm())
-          .expect(201)
-      ).body.token as string;
+      const token = await h.enrollmentToken();
       identity = await enroll({ gatewayUrl, token, caCertificatePem: caPem, agentVersion: 'test' });
       expect(identity.instanceId).toBe(instanceId);
       await expect(

@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import type { AgentLinkClient } from './agent/link-client';
 import type { SimulatedPms } from './pms/hotel';
 
 /**
@@ -81,6 +80,13 @@ export const scenarioSchema = z.object({
 });
 export type Scenario = z.infer<typeof scenarioSchema>;
 
+/** What a scenario needs from an agent's link: the reference client and the .NET agent's driver both provide it. */
+export interface ScenarioLink {
+  readonly chaos: { reorderNext: boolean; duplicateNext: boolean };
+  dropConnection(): void;
+  drained(timeoutMs?: number): Promise<void>;
+}
+
 export function loadScenario(file: string): Scenario {
   return scenarioSchema.parse(parse(readFileSync(file, 'utf8')));
 }
@@ -88,7 +94,7 @@ export function loadScenario(file: string): Scenario {
 export async function runScenario(
   scenario: Scenario,
   pms: SimulatedPms,
-  link: AgentLinkClient,
+  link: ScenarioLink,
 ): Promise<void> {
   for (const s of scenario.steps) {
     if ('reserve' in s) pms.reserve(s.reserve);

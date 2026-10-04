@@ -1,0 +1,10 @@
+root = false
+
+[*.cs]
+# The agent logs a few lines a minute; LoggerMessage source generation would add ceremony without a measurable gain.
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none
+
+[test/**.cs]
+# Test names read as sentences.
+dotnet_diagnostic.CA1707.severity = none

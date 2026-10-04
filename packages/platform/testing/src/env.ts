@@ -5,6 +5,8 @@
  *  TEST_DATABASE_URL / TEST_VALKEY_URL / TEST_S3_*  — set by CI service containers or by the Vitest
  *  global setup after starting Testcontainers. When neither is possible (no Docker), the setup sets
  *  TEST_INFRA_UNAVAILABLE=<reason> and integration suites skip with that reason.
+ *  TEST_DOTNET_AGENT — the .NET hotel agent's build output (`apps/hotel-agent/artifacts/bin`); its cross-language
+ *  conformance suite runs only when it is set (CI builds the agent and sets it).
  */
 /* eslint-disable no-restricted-properties */
 export interface TestInfra {
@@ -12,6 +14,7 @@ export interface TestInfra {
   readonly valkeyUrl?: string;
   readonly s3?: { endpoint: string; accessKey: string; secretKey: string; bucket: string };
   readonly unavailableReason?: string;
+  readonly dotnetAgent?: string;
 }
 
 export function readTestInfra(): TestInfra {
@@ -29,6 +32,7 @@ export function readTestInfra(): TestInfra {
           }
         : undefined,
     unavailableReason: e['TEST_INFRA_UNAVAILABLE'] || undefined,
+    dotnetAgent: e['TEST_DOTNET_AGENT'] || undefined,
   };
 }
 

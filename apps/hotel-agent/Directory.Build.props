@@ -1,0 +1,19 @@
+<Project>
+  <!-- One set of rules for every project of the hotel agent (ADR-0016 version policy, CLAUDE.md stack: .NET 10 LTS). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <Deterministic>true</Deterministic>
+    <!-- artifacts/bin/<project>/<debug|release>/: one stable place for CI and the cross-language e2e. -->
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <Company>Planova</Company>
+    <Product>Hotella Hotel Agent</Product>
+    <Version>0.10.1</Version>
+  </PropertyGroup>
+</Project>

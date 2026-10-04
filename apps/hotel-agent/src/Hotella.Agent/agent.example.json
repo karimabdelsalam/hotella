@@ -1,0 +1,17 @@
+{
+  "Agent": {
+    "Gateway": "https://agents.hotella.example",
+    "ConnectorCode": "OPERA5_FIAS",
+    "Capabilities": [
+      "CHECKIN_EVENT",
+      "CHECKOUT_EVENT",
+      "ROOM_MOVE_EVENT",
+      "PROFILE_EVENT",
+      "ROOM_STATUS_READ"
+    ],
+    "QueueRetentionDays": 14
+  },
+  "Logging": {
+    "LogLevel": { "Default": "Information", "Microsoft.Hosting.Lifetime": "Warning" }
+  }
+}

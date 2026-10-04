@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The hotel agent's link to the platform (ADR-0017): identity, durable queue, mTLS link, signed commands. -->
+  <PropertyGroup>
+    <RootNamespace>Hotella.Agent.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="BouncyCastle.Cryptography" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hotella.Agent.Tests" />
+  </ItemGroup>
+</Project>
