@@ -1,6 +1,6 @@
-# Phase 10 acceptance — Real OPERA 5 on-premise integration (M4a) — draft, CI evidence pending
+# Phase 10 acceptance — Real OPERA 5 on-premise integration (M4a)
 
-**Date:** 2026-10-04 · **Branch:** `claude/hopeful-archimedes-jskowx` · **CI:** GitHub Actions workflow `CI` run RUN_ID on `SHA` — "lint · typecheck · build · test" (with the .NET agent's build, unit tests, cross-language e2e, packages and signed-update smoke) and "pilot deployment smoke" green
+**Date:** 2026-10-04 · **Branch:** `claude/hopeful-archimedes-jskowx` · **CI:** GitHub Actions workflow `CI` run 37176477045 on `3f608da` — "lint · typecheck · build · test" and "pilot deployment smoke" green. Agent evidence from that run: `Passed! - Failed: 0, Passed: 49` (Hotella.Agent.Tests) · `agent update smoke: OK` · `✓ test/dotnet-agent.e2e-spec.ts (9 tests)` · `✓ test/opera5-fias.e2e-spec.ts (4 tests)` · `✓ test/opera5-ows.e2e-spec.ts (3 tests)` · `✓ test/link.e2e-spec.ts (8 tests)`
 
 Goal (Spec §48–§54, §57, §62; ADR-0013, ADR-0014, ADR-0017; BUILD_PLAN §10 Phase 10): a hotel installs one agent,
 gives it an enrollment token and allows outbound 443; from then on OPERA 5's FIAS records reach the platform as
@@ -37,6 +37,11 @@ end against the simulator's byte-level IFC8 and OWS faces; the pilot swaps the s
   later crashes); a separate launcher is the follow-up if the pilot needs it — 10.4 notes.
 - Fixed on the way (found by the cross-language tests): resend undone by a send pass in flight, the link stopping
   silently on an unexpected exception, a renewed certificate not used, the simulator writing to a dropping socket.
+- Found while collecting this evidence: CI had skipped the .NET cross-language suites (Turborepo dropped
+  `TEST_DOTNET_AGENT`) and had never built the agent host (`dotnet test` builds test projects only); both fixed, and
+  on CI those suites now fail instead of skipping. The pilot smoke also showed that a pre-assignment recorded after
+  a check-in could stay in the room history out of order — the guest projector now gives the same history in any
+  delivery order (commit `fix(guest)`).
 
 ## Open items carried forward
 - 🟡 Owner decisions: MSI toolset (WiX v6 fee or another installer); contractual possibility of a read-only OPERA DB

@@ -2090,7 +2090,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.2 | FIAS adapter (IFC8 TCP, link handshake, link-alive, database sync, records), simulator IFC8 face, `OPERA5_FIAS` connector, `RESYNC_IN_HOUSE` and gated `SET_ROOM_STATUS` | delivered |
 | 10.3 | OWS adapter (SOAP polling, reservations and profiles), simulator OWS SOAP face, `OPERA5_OWS` connector; optional `OPERA5_DBVIEW` reconciliation adapter | delivered (DBVIEW deferred, see notes) |
 | 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | delivered (MSI: owner decision, see notes) |
-| 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | planned |
+| 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | delivered |
 
 **Reality notes for 10.1 (delivered).**
 - Solution `apps/hotel-agent/Hotella.Agent.slnx`: `Hotella.Agent.Core` (identity, durable queue, link, command
