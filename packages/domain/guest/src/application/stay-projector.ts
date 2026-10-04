@@ -572,12 +572,28 @@ export class StayProjector {
   ): Promise<void> {
     const open = await this.repo.openAssignment(ctx.scope, stay.id);
     if (open?.roomId === roomId) return;
-    // An older fact (e.g. a check-in processed after a later room move) never moves the guest back. A pre-assignment
-    // is a plan, stamped when the reservation arrived, and always gives way.
+    // An older fact (e.g. a check-in processed after a later room move) never moves the guest back, but it is still
+    // history (rule 10): the room is recorded as a closed assignment ending where the newer one starts. A
+    // pre-assignment is a plan, stamped when the reservation arrived, and always gives way.
     if (open && open.reason !== 'PRE_ASSIGNMENT' && at < open.assignedAt) {
+      const history = await this.repo.assignments(ctx.scope, stay.id);
+      if (!history.some((a) => a.sourceEventId === eventId)) {
+        await this.repo.endPlansAfter(ctx.scope, stay.id, at);
+        await this.repo.insertAssignment({
+          id: newId(),
+          tenantId: ctx.tenantId,
+          propertyId: ctx.propertyId,
+          stayId: stay.id,
+          roomId,
+          assignedAt: at,
+          unassignedAt: open.assignedAt,
+          reason,
+          sourceEventId: eventId,
+        });
+      }
       this.logger.info(
         { event_id: eventId },
-        'stale room assignment ignored (newer assignment exists)',
+        'late room assignment recorded as history (newer assignment exists)',
       );
       return;
     }

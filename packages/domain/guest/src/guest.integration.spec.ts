@@ -646,6 +646,16 @@ describe.skipIf(needsInfra())(`Guest & Stay against PostgreSQL (${infraSkipReaso
     let stay = await stayOf();
     expect(stay.currentRoom).toMatchObject({ roomNumber: '505', reason: 'ROOM_MOVE' });
     expect(stay.status).toBe('IN_HOUSE');
+    // …yet the check-in room is not lost: it is history, closed where the move starts (rule 10).
+    const history = await db.execute<{ room: string; reason: string; open: boolean }>(
+      sql`select r.room_number as room, a.reason, a.unassigned_at is null as open
+            from guest.room_assignments a join org.rooms r on r.location_id = a.room_id
+           where a.stay_id = ${ref!.id} order by a.assigned_at, a.id`,
+    );
+    expect(history.rows).toEqual([
+      { room: '504', reason: 'INITIAL', open: false },
+      { room: '505', reason: 'ROOM_MOVE', open: true },
+    ]);
     expect(await project(checkOut!)).toBe('processed');
     stay = await stayOf();
     expect(stay.status).toBe('CHECKED_OUT');

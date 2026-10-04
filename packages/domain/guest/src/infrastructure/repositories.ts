@@ -246,6 +246,25 @@ export class GuestRepositories {
   async insertAssignment(values: typeof roomAssignments.$inferInsert): Promise<void> {
     await this.x.insert(roomAssignments).values(values);
   }
+  /**
+   * A pre-assignment is a plan: once the guest is known to have been in a room from `at`, a plan still shown as
+   * running after that ends there (the facts themselves are never changed).
+   */
+  async endPlansAfter(scope: TenantScope, stayId: string, at: Date): Promise<void> {
+    await this.x
+      .update(roomAssignments)
+      .set({ unassignedAt: at })
+      .where(
+        tenantWhere(
+          roomAssignments,
+          scope,
+          eq(roomAssignments.stayId, stayId),
+          eq(roomAssignments.reason, 'PRE_ASSIGNMENT'),
+          sql`${roomAssignments.unassignedAt} > ${at}`,
+          sql`${roomAssignments.assignedAt} <= ${at}`,
+        ),
+      );
+  }
   async closeAssignment(scope: TenantScope, id: string, at: Date): Promise<void> {
     await this.x
       .update(roomAssignments)
