@@ -4,6 +4,7 @@ import {
   type BatchResponse,
   type LinkMessage,
   type PlatformFrame,
+  type LicenceBody,
 } from '@hotella/contracts-connectors';
 import { IntegrationExceptionOpened } from '@hotella/contracts-events';
 import { AuditWriter } from '@hotella/platform-audit';
@@ -46,6 +47,10 @@ export type MessageOutcome =
  * processed one at a time. Correctness does not depend on that: the sequence only advances by compare-and-set, and
  * a repeated source message id is a no-op in the inbox.
  */
+/** A licence lasts this long and is renewed at every welcome; offline, the agent keeps working through the grace. */
+const LICENCE_DAYS = 30;
+const LICENCE_GRACE_DAYS = 14;
+
 @Injectable()
 export class AgentLinkService {
   private readonly queues = new Map<string, Promise<unknown>>();
@@ -114,10 +119,32 @@ export class AgentLinkService {
           next_expected_sequence: link.lastSequenceNo + 1,
           heartbeat_interval_seconds: this.config.agent.heartbeatSeconds,
           server_time: new Date().toISOString(),
+          licence: await this.licence(fresh!),
         };
       },
       { tenantId: scope.tenantId },
     );
+  }
+
+  /**
+   * The agent's licence (Spec §62): what this instance may serve, valid for {@link LICENCE_DAYS} with an offline grace,
+   * renewed at every welcome. Signed with the command key; the `typ` keeps a licence from ever passing as a command.
+   * Phase 11 derives it from the tenant's entitlements instead of the instance alone.
+   */
+  private async licence(instance: IntegrationInstanceRow) {
+    const now = new Date();
+    const body: LicenceBody = {
+      typ: 'hotella.licence.v1',
+      instance_id: instance.id,
+      tenant_id: instance.tenantId,
+      property_id: instance.propertyId,
+      connector_code: instance.connectorCode,
+      capabilities: [...instance.enabledCapabilities] as LicenceBody['capabilities'],
+      issued_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + LICENCE_DAYS * 86_400_000).toISOString(),
+      grace_days: LICENCE_GRACE_DAYS,
+    };
+    return { ...body, signature: signCanonical(body, (await this.keys.get()).commandSigningKey) };
   }
 
   /** One inbound message, in strict sequence order. */

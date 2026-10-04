@@ -79,6 +79,25 @@ export const commandFrameBodySchema = z.object({
 });
 export type CommandFrameBody = z.infer<typeof commandFrameBodySchema>;
 
+/**
+ * The agent's licence (Spec §62, BUILD_PLAN §10 Phase 10): signed by the platform with the command key over the
+ * canonical JSON of this body (the `typ` keeps it apart from command frames), verified offline by the agent. Past
+ * `expires_at` plus `grace_days` the agent keeps buffering PMS records but runs no command.
+ */
+export const licenceBodySchema = z.object({
+  typ: z.literal('hotella.licence.v1'),
+  instance_id: z.uuid(),
+  tenant_id: z.uuid(),
+  property_id: z.uuid(),
+  connector_code: z.string().regex(/^[A-Z][A-Z0-9_]{1,47}$/),
+  capabilities: z.array(z.enum(CONNECTOR_CAPABILITIES)).max(64),
+  issued_at: instant,
+  expires_at: instant,
+  grace_days: z.number().int().min(0).max(90),
+});
+export type LicenceBody = z.infer<typeof licenceBodySchema>;
+export const signedLicenceSchema = licenceBodySchema.extend({ signature: z.string().min(16) });
+
 export const platformFrameSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('welcome'),
@@ -88,6 +107,8 @@ export const platformFrameSchema = z.discriminatedUnion('type', [
     next_expected_sequence: sequence,
     heartbeat_interval_seconds: z.number().int().min(5).max(300),
     server_time: instant,
+    /** A fresh licence with every welcome (absent from platforms before Phase 10). */
+    licence: signedLicenceSchema.optional(),
   }),
   z.object({ type: z.literal('ack'), sequence_no: z.number().int().min(0) }),
   z.object({ type: z.literal('resend'), from_sequence: sequence }),

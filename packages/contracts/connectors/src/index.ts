@@ -52,6 +52,7 @@ export {
   ENROLL_PATH,
   enrollRequestSchema,
   enrollResponseSchema,
+  licenceBodySchema,
   LINK_PATH,
   LINK_PROTOCOL_VERSION,
   linkMessageSchema,
@@ -59,6 +60,7 @@ export {
   platformFrameSchema,
   RENEW_PATH,
   renewRequestSchema,
+  signedLicenceSchema,
 } from './link';
 export type {
   AgentFrame,
@@ -68,6 +70,7 @@ export type {
   CommandFrameBody,
   EnrollRequest,
   EnrollResponse,
+  LicenceBody,
   LinkMessage,
   PlatformFrame,
 } from './link';

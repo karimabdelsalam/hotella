@@ -6,6 +6,7 @@ import {
   BATCH_PATH,
   LINK_PATH,
   LINK_PROTOCOL_VERSION,
+  type LicenceBody,
   type LinkMessage,
   type PlatformFrame,
   platformFrameSchema,
@@ -59,6 +60,8 @@ export class AgentLinkClient {
     rejectedCommands: 0,
   };
   revoked = false;
+  /** The latest verified licence from the platform. */
+  licence: LicenceBody | null = null;
   lastClose: { code: number; reason: string } | null = null;
   /** Chaos switches (CI scenarios): swap the next two messages, or send the next one twice. */
   readonly chaos = { reorderNext: false, duplicateNext: false };
@@ -197,6 +200,15 @@ export class AgentLinkClient {
     const frame = parsed.data;
     switch (frame.type) {
       case 'welcome': {
+        // The licence is kept only when the pinned platform key signed it for this instance (Spec §62).
+        if (frame.licence) {
+          const { signature, ...body } = frame.licence;
+          if (
+            body.instance_id === this.options.identity.instanceId &&
+            verifyCanonical(body, signature, this.commandKey)
+          )
+            this.licence = body;
+        }
         this.welcomed = true;
         this.attempt = 0;
         this.stats.welcomes++;

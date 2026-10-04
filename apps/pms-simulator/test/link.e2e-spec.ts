@@ -103,6 +103,13 @@ describe.skipIf(needsInfra())(
         .get(`${base()}/integrations/${instanceId}`)
         .set('X-Test-Actor', gm())
         .expect(200);
+      // A licence came with the welcome, signed by the platform for this instance.
+      expect(client.licence).toMatchObject({
+        typ: 'hotella.licence.v1',
+        instance_id: instanceId,
+        connector_code: 'SIM_PMS',
+        grace_days: 14,
+      });
       // Enabled ∩ reported: the agent did not report GUEST_READ, so it is not effective.
       expect(instance.body.effectiveCapabilities).not.toContain('GUEST_READ');
       expect(instance.body.effectiveCapabilities).toContain('CHECKIN_EVENT');
