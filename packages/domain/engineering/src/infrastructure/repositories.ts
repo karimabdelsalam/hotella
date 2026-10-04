@@ -798,6 +798,34 @@ export class EngineeringRepositories {
       )
       .orderBy(sql`${roomRestrictions.startsAt} desc`);
   }
+  /** Open restrictions of the property (OOO/OOS/BLOCKED rooms right now). */
+  openRestrictions(scope: PropertyScope): Promise<RoomRestrictionRow[]> {
+    return this.x
+      .select()
+      .from(roomRestrictions)
+      .where(propertyWhere(roomRestrictions, scope, isNull(roomRestrictions.releasedAt)))
+      .orderBy(asc(roomRestrictions.startsAt));
+  }
+  /** Corrective work orders completed at a location since a moment (the same failure coming back). */
+  correctiveDoneSince(scope: PropertyScope, locationId: string, since: Date) {
+    return this.x
+      .select({
+        id: workOrders.id,
+        assetId: workOrders.assetId,
+        completedAt: workOrders.completedAt,
+      })
+      .from(workOrders)
+      .where(
+        propertyWhere(
+          workOrders,
+          scope,
+          eq(workOrders.locationId, locationId),
+          eq(workOrders.type, 'CORRECTIVE'),
+          eq(workOrders.status, 'DONE'),
+          sql`${workOrders.completedAt} >= ${since}`,
+        ),
+      );
+  }
   async openRestriction(
     scope: PropertyScope,
     roomId: string,

@@ -72,6 +72,8 @@ class FakeIdentityModule {}
 
 /** Checklist inspections as housekeeping sees them (the inspection context is separate): set per test. */
 export const CHECKLISTS = new Map<string, InspectionSummary>();
+/** The latest completed inspection per place (room location id), for arrival risk. */
+export const LATEST_INSPECTIONS = new Map<string, InspectionSummary>();
 @Global()
 @Module({
   providers: [
@@ -79,7 +81,8 @@ export const CHECKLISTS = new Map<string, InspectionSummary>();
       provide: INSPECTION_API,
       useValue: {
         getInspection: async (_tenantId: string, id: string) => CHECKLISTS.get(id) ?? null,
-        latestCompletedAt: async () => null,
+        latestCompletedAt: async (_tenantId: string, _propertyId: string, locationId: string) =>
+          LATEST_INSPECTIONS.get(locationId) ?? null,
       },
     },
   ],

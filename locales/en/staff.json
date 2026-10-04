@@ -207,6 +207,8 @@
   "staff.arrivals.reason.ROOM_RESTRICTED": "Room out of order",
   "staff.arrivals.reason.ROOM_STILL_OCCUPIED": "Previous guest still in the room",
   "staff.arrivals.reason.ROOM_DIRTY": "Room not cleaned",
+  "staff.arrivals.reason.INSPECTION_FAILED_TODAY": "Failed inspection today",
+  "staff.arrivals.reason.RECURRING_FAILURE": "Equipment repaired this week",
   "staff.arrivals.reason.ROOM_BEING_CLEANED": "Being cleaned",
   "staff.arrivals.reason.AWAITING_INSPECTION": "Waiting for inspection",
   "staff.arrivals.reason.OPEN_ENGINEERING_WORK": "Open maintenance work",

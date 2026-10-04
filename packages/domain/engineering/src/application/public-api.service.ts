@@ -42,6 +42,31 @@ export class EngineeringPublicApiService implements EngineeringPublicApi {
     });
   }
 
+  activeRestrictions(tenantId: string, propertyId: string) {
+    return this.tx.read(async () =>
+      (await this.repo.openRestrictions({ tenantId, propertyId })).map((r) => ({
+        roomId: r.roomId,
+        kind: r.kind,
+        since: r.startsAt.toISOString(),
+      })),
+    );
+  }
+
+  recentCorrectiveWork(tenantId: string, propertyId: string, locationId: string, days: number) {
+    return this.tx.read(async () => {
+      if (!isUuid(locationId)) return { count: 0, assetIds: [] };
+      const rows = await this.repo.correctiveDoneSince(
+        { tenantId, propertyId },
+        locationId,
+        new Date(Date.now() - days * 86_400_000),
+      );
+      return {
+        count: rows.length,
+        assetIds: [...new Set(rows.flatMap((r) => (r.assetId ? [r.assetId] : [])))],
+      };
+    });
+  }
+
   assetsAtLocation(
     tenantId: string,
     propertyId: string,

@@ -207,6 +207,8 @@
   "staff.arrivals.reason.ROOM_RESTRICTED": "الغرفة خارج الخدمة",
   "staff.arrivals.reason.ROOM_STILL_OCCUPIED": "الضيف السابق ما زال في الغرفة",
   "staff.arrivals.reason.ROOM_DIRTY": "الغرفة لم تُنظَّف",
+  "staff.arrivals.reason.INSPECTION_FAILED_TODAY": "رسبت في فحص اليوم",
+  "staff.arrivals.reason.RECURRING_FAILURE": "تم إصلاح أحد أجهزتها هذا الأسبوع",
   "staff.arrivals.reason.ROOM_BEING_CLEANED": "جارٍ التنظيف",
   "staff.arrivals.reason.AWAITING_INSPECTION": "بانتظار الفحص",
   "staff.arrivals.reason.OPEN_ENGINEERING_WORK": "أعمال صيانة مفتوحة",

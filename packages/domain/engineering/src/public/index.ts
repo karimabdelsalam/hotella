@@ -31,6 +31,27 @@ export interface EngineeringPublicApi {
     readonly id: string;
     readonly kind: 'OOO' | 'OOS' | 'BLOCKED_OPERATIONALLY';
   } | null>;
+  /** Open restrictions of the property: which rooms are OOO/OOS/blocked right now (the shift handover reads it). */
+  activeRestrictions(
+    tenantId: string,
+    propertyId: string,
+  ): Promise<
+    ReadonlyArray<{
+      readonly roomId: string;
+      readonly kind: 'OOO' | 'OOS' | 'BLOCKED_OPERATIONALLY';
+      readonly since: string;
+    }>
+  >;
+  /**
+   * Corrective work completed at a location in the last `days` days, per asset: a failure that keeps coming back
+   * (arrival risk reads it).
+   */
+  recentCorrectiveWork(
+    tenantId: string,
+    propertyId: string,
+    locationId: string,
+    days: number,
+  ): Promise<{ readonly count: number; readonly assetIds: readonly string[] }>;
 }
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */

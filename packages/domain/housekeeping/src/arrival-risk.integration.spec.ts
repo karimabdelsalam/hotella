@@ -9,6 +9,7 @@ import {
   createHotel,
   type HkHarness,
   type Hotel,
+  LATEST_INSPECTIONS,
   staff,
   startHousekeepingApp,
 } from './testing/harness';
@@ -160,6 +161,35 @@ describe.skipIf(needsInfra())(`Arrival risk v1 (${infraSkipReason()})`, () => {
       reasons: ['NO_ROOM_ASSIGNED'],
     });
     expect(ready).toMatchObject({ roomNumber: '201', ready: true, score: 0, reasons: [] });
+  });
+
+  it('a room that failed its inspection today is a risk even when housekeeping calls it ready', async () => {
+    LATEST_INSPECTIONS.set(hotel.rooms['201']!, {
+      id: newId(),
+      propertyId: hotel.propertyId,
+      number: 3,
+      locationId: hotel.rooms['201']!,
+      assetId: null,
+      status: 'COMPLETED',
+      result: 'FAIL',
+      score: 40,
+      completedAt: new Date().toISOString(),
+      source: 'STAFF',
+      sourceRef: null,
+    });
+    const ready = (await risk()).arrivals.find((a) => a.stayId === stays['ready'])!;
+    expect(ready).toMatchObject({
+      score: 25,
+      level: 'MEDIUM',
+      reasons: ['INSPECTION_FAILED_TODAY'],
+    });
+    // An older failure no longer counts.
+    LATEST_INSPECTIONS.set(hotel.rooms['201']!, {
+      ...LATEST_INSPECTIONS.get(hotel.rooms['201']!)!,
+      completedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    });
+    expect((await risk()).arrivals.find((a) => a.stayId === stays['ready'])!.reasons).toEqual([]);
+    LATEST_INSPECTIONS.clear();
   });
 
   it('shows tomorrow on request; needs hk.arrivals.read; another tenant’s property is not found', async () => {

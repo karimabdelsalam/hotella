@@ -9,6 +9,8 @@ const ready: ArrivalRiskInput = {
   restricted: false,
   openEngineeringWork: 0,
   urgentEngineeringWork: false,
+  inspectionFailedToday: false,
+  recentRepairs: 0,
   vip: false,
   minutesToEta: 30,
 };
@@ -59,6 +61,8 @@ describe('arrival risk', () => {
       restricted: true,
       openEngineeringWork: 2,
       urgentEngineeringWork: true,
+      inspectionFailedToday: false,
+      recentRepairs: 0,
       vip: true,
       minutesToEta: -15,
     });
@@ -80,5 +84,16 @@ describe('arrival risk', () => {
     expect(
       assessArrival({ ...ready, housekeeping: 'INSPECTING', ready: false, minutesToEta: 600 }),
     ).toEqual({ score: 5, level: 'LOW', reasons: ['AWAITING_INSPECTION'] });
+  });
+
+  it('a failed inspection today and a repair that keeps coming back are risks even for a ready room', () => {
+    expect(assessArrival({ ...ready, inspectionFailedToday: true, recentRepairs: 2 })).toEqual({
+      score: 40,
+      level: 'MEDIUM',
+      reasons: ['INSPECTION_FAILED_TODAY', 'RECURRING_FAILURE'],
+    });
+    expect(
+      assessArrival({ ...ready, roomAssigned: false, recentRepairs: 1 }).reasons,
+    ).not.toContain('RECURRING_FAILURE');
   });
 });

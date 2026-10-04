@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { type EventEnvelope } from '@hotella/contracts-events';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
+import { ENGINEERING_API, type EngineeringPublicApi } from './public';
 import { newId } from '@hotella/platform-database';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -191,6 +192,14 @@ describe.skipIf(needsInfra())(`Engineering work orders (${infraSkipReason()})`, 
         downtime_minutes: 90,
       },
     ]);
+    // The repair is history arrival risk reads: corrective work done at the room this week.
+    const eng = h.app.get<EngineeringPublicApi>(ENGINEERING_API);
+    expect(
+      await eng.recentCorrectiveWork(hotel.tenantId, hotel.propertyId, hotel.rooms['504']!, 7),
+    ).toEqual({ count: 1, assetIds: [unit504.id] });
+    expect(
+      await eng.recentCorrectiveWork(hotel.tenantId, hotel.propertyId, hotel.rooms['505']!, 7),
+    ).toEqual({ count: 0, assetIds: [] });
     // Closed work cannot be completed twice.
     await h
       .http()

@@ -2,6 +2,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { z } from 'zod';
 import { ENGINEERING_API, type EngineeringPublicApi } from '@hotella/domain-engineering/public';
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
+import { INSPECTION_API, type InspectionPublicApi } from '@hotella/domain-inspection/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
 import { ActionGate } from '@hotella/platform-auth';
@@ -13,6 +14,8 @@ import { HousekeepingRepositories } from '../infrastructure/repositories';
 
 const ENGINEERING = 'ENG';
 const URGENT = new Set(['HIGH', 'URGENT']);
+/** Corrective work completed this recently on the room's equipment counts as a failure that may come back. */
+const RECURRING_DAYS = 7;
 
 export const arrivalRiskQuerySchema = z.object({
   day: z.enum(['today', 'tomorrow']).default('today'),
@@ -33,6 +36,7 @@ export class ArrivalRiskService {
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
     @Optional() @Inject(ENGINEERING_API) private readonly engineering?: EngineeringPublicApi,
+    @Optional() @Inject(INSPECTION_API) private readonly inspections?: InspectionPublicApi,
   ) {}
 
   list(scope: PropertyScope, query: z.infer<typeof arrivalRiskQuerySchema>, now = new Date()) {
@@ -70,6 +74,24 @@ export class ArrivalRiskService {
                 ))) ||
               null;
             const frontOfficeRestriction = state?.frontOffice ?? null;
+            const inspection = roomId
+              ? await this.inspections?.latestCompletedAt(scope.tenantId, scope.propertyId, roomId)
+              : null;
+            const inspectionFailedToday =
+              inspection?.result === 'FAIL' &&
+              !!inspection.completedAt &&
+              localDay(new Date(inspection.completedAt), property.timezone) ===
+                localDay(now, property.timezone);
+            const repairs = roomId
+              ? ((
+                  await this.engineering?.recentCorrectiveWork(
+                    scope.tenantId,
+                    scope.propertyId,
+                    roomId,
+                    RECURRING_DAYS,
+                  )
+                )?.count ?? 0)
+              : 0;
             const primary = (await this.guests.stayParty(scope.tenantId, stay.id)).find(
               (m) => m.guestId === stay.primaryGuestId,
             );
@@ -81,6 +103,8 @@ export class ArrivalRiskService {
               restricted: Boolean(restriction) || Boolean(frontOfficeRestriction),
               openEngineeringWork: work.length,
               urgentEngineeringWork: work.some((w) => URGENT.has(w.priority)),
+              inspectionFailedToday,
+              recentRepairs: repairs,
               vip: stay.vip,
               minutesToEta: stay.eta
                 ? Math.round((new Date(stay.eta).getTime() - now.getTime()) / 60_000)

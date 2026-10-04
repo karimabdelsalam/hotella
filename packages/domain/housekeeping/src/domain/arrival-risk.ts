@@ -13,6 +13,8 @@ export type ArrivalRiskReason =
   | 'AWAITING_INSPECTION'
   | 'OPEN_ENGINEERING_WORK'
   | 'URGENT_ENGINEERING_WORK'
+  | 'INSPECTION_FAILED_TODAY'
+  | 'RECURRING_FAILURE'
   | 'ETA_SOON'
   | 'ETA_PASSED'
   | 'VIP_GUEST';
@@ -31,6 +33,10 @@ export interface ArrivalRiskInput {
   /** Open engineering work at the room, and whether any of it is HIGH/URGENT priority. */
   readonly openEngineeringWork: number;
   readonly urgentEngineeringWork: boolean;
+  /** The room's latest completed inspection failed, today (BUILD_PLAN 9.B). */
+  readonly inspectionFailedToday: boolean;
+  /** Corrective work completed on the room's equipment in the last 7 days: the failure may come back. */
+  readonly recentRepairs: number;
   readonly vip: boolean;
   /** Minutes until the ETA (negative once it has passed); null without an ETA. */
   readonly minutesToEta: number | null;
@@ -51,7 +57,9 @@ export const ARRIVAL_RISK_POINTS: Readonly<Record<ArrivalRiskReason, number>> = 
   ROOM_STILL_OCCUPIED: 25,
   ROOM_DIRTY: 25,
   OPEN_ENGINEERING_WORK: 25,
+  INSPECTION_FAILED_TODAY: 25,
   ETA_SOON: 20,
+  RECURRING_FAILURE: 15,
   URGENT_ENGINEERING_WORK: 10,
   ROOM_BEING_CLEANED: 10,
   VIP_GUEST: 10,
@@ -76,6 +84,8 @@ export function assessArrival(input: ArrivalRiskInput): ArrivalRisk {
       found.add('OPEN_ENGINEERING_WORK');
       if (input.urgentEngineeringWork) found.add('URGENT_ENGINEERING_WORK');
     }
+    if (input.inspectionFailedToday) found.add('INSPECTION_FAILED_TODAY');
+    if (input.recentRepairs > 0) found.add('RECURRING_FAILURE');
   }
   const notReady = !input.roomAssigned || !input.ready;
   if (notReady && input.minutesToEta !== null) {

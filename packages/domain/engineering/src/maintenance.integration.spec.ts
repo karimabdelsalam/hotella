@@ -358,6 +358,9 @@ describe.skipIf(needsInfra())(
         id: restricted.id,
         kind: 'OOO',
       });
+      expect(await api.activeRestrictions(hotel.tenantId, hotel.propertyId)).toEqual([
+        { roomId: hotel.rooms['505'], kind: 'OOO', since: expect.any(String) },
+      ]);
       await h
         .http()
         .post(`${base()}/room-restrictions/${restricted.id}/release`)
