@@ -1,4 +1,11 @@
-export { LicensingCoreModule, LicensingModule } from './licensing.module';
+export {
+  LicensingCoreModule,
+  LicensingModule,
+  LicensingWorkerModule,
+  USAGE_GAUGES_JOB,
+  USAGE_PURGE_JOB,
+} from './licensing.module';
+export { UsageService } from './application/usage.service';
 export { LicenseCatalogService } from './application/catalog.service';
 export { PlanService } from './application/plan.service';
 export { EntitlementEngine } from './application/entitlement-engine';

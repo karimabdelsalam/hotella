@@ -955,6 +955,9 @@ importers:
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../guest
+      '@hotella/domain-licensing':
+        specifier: workspace:*
+        version: link:../licensing
       '@hotella/domain-operations':
         specifier: workspace:*
         version: link:../operations
@@ -1893,6 +1896,9 @@ importers:
       '@hotella/platform-auth':
         specifier: workspace:*
         version: link:../../platform/auth
+      '@hotella/platform-config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@hotella/platform-database':
         specifier: workspace:*
         version: link:../../platform/database
@@ -1908,6 +1914,9 @@ importers:
       '@hotella/platform-observability':
         specifier: workspace:*
         version: link:../../platform/observability
+      '@hotella/platform-queue':
+        specifier: workspace:*
+        version: link:../../platform/queue
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -1921,9 +1930,6 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@hotella/platform-config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@hotella/platform-flags':
         specifier: workspace:*
         version: link:../../platform/flags

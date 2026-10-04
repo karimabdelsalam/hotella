@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { Global, type INestApplication, Module } from '@nestjs/common';
+import { ENTITLEMENT_API, USAGE_API, type UsageRecord } from '@hotella/domain-licensing/public';
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
 import { CatalogModule } from '@hotella/domain-catalog';
@@ -68,6 +69,45 @@ export const staff = (id: string, tenantId: string): string =>
 })
 class FakeIdentityModule {}
 
+/**
+ * The licensing context as these tests see it (Spec §58, §61): every capability entitled unless `entitled` names the
+ * ones that are; usage records kept in memory; `room` false = a HARD token limit used up.
+ */
+export const LICENSING = {
+  entitled: null as ReadonlySet<string> | null,
+  room: true,
+  usage: [] as UsageRecord[],
+};
+
+@Global()
+@Module({
+  providers: [
+    {
+      provide: ENTITLEMENT_API,
+      useValue: {
+        can: async (_t: string, _p: string | null, code: string) =>
+          LICENSING.entitled === null || LICENSING.entitled.has(code),
+        entitledUntil: async () => null,
+        effective: async () => [],
+        assertWithinLimit: async () => undefined,
+      },
+    },
+    {
+      provide: USAGE_API,
+      useValue: {
+        record: async (r: UsageRecord) => {
+          if (LICENSING.usage.some((u) => u.idempotencyKey === r.idempotencyKey)) return false;
+          LICENSING.usage.push(r);
+          return true;
+        },
+        withinLimit: async () => LICENSING.room,
+      },
+    },
+  ],
+  exports: [ENTITLEMENT_API, USAGE_API],
+})
+class FakeLicensingModule {}
+
 export interface AiHarness {
   readonly app: INestApplication;
   readonly db: Database;
@@ -118,6 +158,7 @@ export async function startAiApp(
       OperationsModule,
       CommunicationsModule,
       CatalogModule,
+      FakeLicensingModule,
       AiModule,
     ],
   })

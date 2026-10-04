@@ -120,3 +120,18 @@ export const createOverrideSchema = z.object({
 export type CreateOverrideInput = z.infer<typeof createOverrideSchema>;
 
 export const entitlementQuerySchema = z.object({ propertyId: z.uuid().optional() });
+
+export const usageQuerySchema = z
+  .object({
+    granularity: z.enum(['DAY', 'MONTH']).default('MONTH'),
+    from: z.iso.date().transform((s) => new Date(`${s}T00:00:00Z`)),
+    to: z.iso.date().transform((s) => new Date(`${s}T00:00:00Z`)),
+    metric: capabilityCode.optional(),
+    propertyId: z.uuid().optional(),
+  })
+  .refine((q) => q.to > q.from, { message: 'to must be after from', path: ['to'] })
+  .refine((q) => q.to.getTime() - q.from.getTime() <= 366 * 86_400_000 * 2, {
+    message: 'at most two years',
+    path: ['to'],
+  });
+export type UsageQuery = z.infer<typeof usageQuerySchema>;

@@ -9,6 +9,7 @@ import { createEnvelope, StayStatusChanged } from '@hotella/contracts-events';
 import { GuestModule } from '@hotella/domain-guest';
 import { IDENTITY_API } from '@hotella/domain-identity/public';
 import { IntegrationsModule } from '@hotella/domain-integrations';
+import { LicenseCatalogService, LicensingCoreModule } from '@hotella/domain-licensing';
 import { OperationsModule } from '@hotella/domain-operations';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { OrganizationModule } from '@hotella/domain-organization';
@@ -216,12 +217,15 @@ describe.skipIf(needsInfra())(`Messaging against PostgreSQL (${infraSkipReason()
         GuestModule,
         FakeIdentityModule,
         OperationsModule,
+        // Usage metering (Spec §61): a WhatsApp conversation is metered with the conversation.
+        LicensingCoreModule,
         CommunicationsModule,
       ],
     }).compile();
     app = ref.createNestApplication({ logger: false, rawBody: true });
     app.useGlobalPipes(new ZodValidationPipe());
     await app.init();
+    await app.get(LicenseCatalogService).sync();
     db = app.get(DATABASE);
     app.get(ChannelAdapterRegistry).register(sms);
 
@@ -378,6 +382,16 @@ describe.skipIf(needsInfra())(`Messaging against PostgreSQL (${infraSkipReason()
     expect(msgs.map((m) => [m.direction, m.body])).toEqual([['INBOUND', 'الجو حر أوي هنا']]);
     expect(await outbox('comms.message.received')).toHaveLength(1);
     expect(await outbox('comms.conversation.opened')).toHaveLength(1);
+    const metered = await db.execute(
+      sql`select metric_code, quantity::int as q, idempotency_key from license.usage_events where tenant_id = ${conversation!.tenantId} and metric_code = 'WHATSAPP_CONVERSATIONS'`,
+    );
+    expect(metered.rows).toEqual([
+      {
+        metric_code: 'WHATSAPP_CONVERSATIONS',
+        q: 1,
+        idempotency_key: `conversation:${conversation!.id}`,
+      },
+    ]);
   });
 
   it('an unverified phone gets its own conversation and the activation prompt — never the stay', async () => {

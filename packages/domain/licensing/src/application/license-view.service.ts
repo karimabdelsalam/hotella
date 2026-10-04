@@ -6,7 +6,10 @@ import { METRICS } from '../domain/catalog';
 import { effectiveEntitlements, effectiveLimit } from '../domain/entitlements';
 import { CatalogRepositories } from '../infrastructure/repositories';
 import { EntitlementEngine } from './entitlement-engine';
+import type { UsageQuery } from './schemas';
 import { SubscriptionService } from './subscription.service';
+import { UsageService } from './usage.service';
+import { periodStart } from '../domain/usage';
 
 /** Read models of a tenant's licence: the control plane's full view, the tenant's own and the apps' code list. */
 @Injectable()
@@ -15,6 +18,7 @@ export class LicenseViewService {
     private readonly engine: EntitlementEngine,
     private readonly catalog: CatalogRepositories,
     private readonly subscriptions: SubscriptionService,
+    private readonly usageService: UsageService,
     private readonly gate: ActionGate,
     private readonly actors: ActorStore,
     private readonly tx: TransactionRunner,
@@ -27,7 +31,24 @@ export class LicenseViewService {
     );
   }
 
-  /** The tenant's own licence (its managers): subscriptions, what they give and the limits. */
+  /** Usage by period (platform administrators); aggregates only, never the measured events. */
+  usage(scope: TenantScope, query: UsageQuery) {
+    return this.gate.execute({ action: 'license.usage.read', tenantId: null }, () =>
+      this.tx.read(async () => ({
+        propertyId: query.propertyId ?? null,
+        granularity: query.granularity,
+        rows: await this.usageService.report(scope, {
+          propertyId: query.propertyId ?? null,
+          granularity: query.granularity,
+          from: query.from,
+          to: query.to,
+          metric: query.metric,
+        }),
+      })),
+    );
+  }
+
+  /** The tenant's own licence (its managers): subscriptions, what they give, the limits and this month's usage. */
   tenantLicense(scope: TenantScope) {
     return this.gate.execute({ action: 'license.tenant.read', tenantId: scope.tenantId }, () =>
       this.tx.read(async () => {
@@ -40,7 +61,18 @@ export class LicenseViewService {
           startsAt: s.startsAt,
           endsAt: s.endsAt,
         }));
-        return { subscriptions, ...(await this.describe(scope, null)) };
+        const month = periodStart('MONTH', new Date());
+        const usage = await this.usageService.report(scope, {
+          propertyId: null,
+          granularity: 'MONTH',
+          from: month,
+          to: new Date(month.getTime() + 32 * 86_400_000),
+        });
+        return {
+          subscriptions,
+          ...(await this.describe(scope, null)),
+          usage: usage.filter((u) => u.periodStart.getTime() === month.getTime()),
+        };
       }),
     );
   }

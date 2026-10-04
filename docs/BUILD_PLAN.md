@@ -2380,7 +2380,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 | 11.0 | This section | delivered |
 | 11.1 | Licensing context: catalog (products, modules, features, metrics) seeded from Spec §59/§61, plans and immutable plan versions with items and limits, control-plane plan API, manifest ↔ catalog test | delivered (manifest ↔ catalog test moves to 11.2 with the stage) |
 | 11.2 | Subscriptions (scope, status machine, history), manual grants, `EntitlementEngine` with cache and invalidation, real `ENTITLEMENT_STAGE` in api/worker, HARD/SOFT limits, AI agent entitlements, agent licence from entitlements, `GET /me/entitlements` and staff/guest apps hiding unentitled modules, CI/pilot subscribe step | delivered (SOFT-limit alerts in 11.3; guest web: the API refuses, nothing to hide yet) |
-| 11.3 | Usage metering: `USAGE_API.record`, collectors with cursors, DAY/MONTH aggregates, usage report API, SOFT-limit alerts | planned |
+| 11.3 | Usage metering: `USAGE_API.record`, collectors with cursors, DAY/MONTH aggregates, usage report API, SOFT-limit alerts | delivered (alerts as `license.limit.reached.v1`; STORAGE_BYTES, VOICE_MINUTES and API_CALLS wait for their producers, see notes) |
 | 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | planned |
 | 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | planned |
 | 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`) | planned |
@@ -2431,6 +2431,29 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 - Guard added after 11.1's finding: `apps/api/test/dto-names.spec.ts` fails on duplicate DTO class names; the three
   older duplicates are renamed (`CreateComplaintCategoryDto`, `ExternalReferenceQueryDto`, `ApprovalInboxQueryDto`),
   restoring their schemas in the OpenAPI document.
+
+**Reality notes for 11.3 (delivered).**
+- `USAGE_API.record` (licensing public): validates the metric against the catalog, inserts the event once per
+  (tenant, idempotency key), upserts DAY and MONTH aggregates for the tenant and the property (counter: sum; gauge:
+  maximum; UTC periods) and checks the in-force limits — all in the caller's transaction, so a measurement commits or
+  rolls back with what it measures. A limit reached for the first time in its period (gauges: per day) writes a
+  `limit_notices` row (migration 0039, append-only) and publishes `license.limit.reached.v1` once; nothing is
+  stopped by a SOFT limit. `withinLimit` is false only for a HARD counter limit used up in its period.
+- Producers push (licensing depends on no other context, so no pull collector can read them): the AI gateway meters
+  `AI_INPUT_TOKENS` / `AI_OUTPUT_TOKENS` (embeddings included) and `AI_VISION` per successful model call keyed by the
+  call id, and refuses new calls with `ai.gateway.unavailable` / `LICENCE_LIMIT` when a HARD token limit is used up
+  (the Phase 6 budget remains the cost cap); communications meters `WHATSAPP_CONVERSATIONS` when a WhatsApp
+  conversation opens. Gauges are sampled daily by the worker (`license.usage.gauges`, hourly check, once per metric
+  and day through `usage_collector_cursors`) from providers the owning contexts register (`USAGE_GAUGES`):
+  organization → `ACTIVE_PROPERTIES`, identity → `ACTIVE_STAFF`. `license.usage.purge` drops events older than 400
+  days daily; aggregates stay.
+- Not yet produced: `STORAGE_BYTES` (object storage keeps no per-tenant accounting yet), `VOICE_MINUTES` (Phase 13)
+  and `API_CALLS` (counted for API clients from 11.5). Their limits can be defined; nothing is measured until then.
+- Reports: `GET /control/tenants/:tenantId/usage?granularity&from&to&metric&propertyId` (`license.usage.read`,
+  aggregates only, at most two years) and the current month in the tenant's own `GET /tenants/:tenantId/license`.
+- Tests: `usage.integration.spec.ts` (idempotency, aggregates, rollback with the caller, notices once per period,
+  HARD room, gauges once a day with maximum, reports and tenant isolation, retention), AI metering / HARD limit /
+  entitlement in `staff-assistant.integration.spec.ts`, WhatsApp metering in `messaging.integration.spec.ts`.
 
 **APIs (all mutations through `ActionGate`, audited).**
 | Route | Permission |

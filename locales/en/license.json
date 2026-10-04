@@ -43,5 +43,6 @@
   "license.permission.subscription_manage": "Subscribe tenants to plans and change or end subscriptions",
   "license.permission.grant_manage": "Give or revoke extra entitlements and limit overrides",
   "license.permission.entitlement_read": "See any tenant's effective entitlements and limits",
-  "license.permission.tenant_read": "See your organisation's licence: plans, entitlements and limits"
+  "license.permission.tenant_read": "See your organisation's licence: plans, entitlements and limits",
+  "license.permission.usage_read": "See any tenant's usage by period"
 }

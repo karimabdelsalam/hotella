@@ -110,6 +110,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'license.grant.manage',
       'license.entitlement.read',
       'license.tenant.read',
+      'license.usage.read',
     ],
   },
   { code: 'SUPPORT', audience: 'PLATFORM', permissions: ['support.access.request'] },

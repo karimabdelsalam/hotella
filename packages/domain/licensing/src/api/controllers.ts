@@ -14,6 +14,7 @@ import {
   createPlanSchema,
   createSubscriptionSchema,
   entitlementQuerySchema,
+  usageQuerySchema,
   revokeSchema,
   transitionSubscriptionSchema,
   updateDraftSchema,
@@ -111,6 +112,7 @@ class CreateEntitlementGrantDto extends createZodDto(createGrantSchema) {}
 class CreateLimitOverrideDto extends createZodDto(createOverrideSchema) {}
 class LicenseRevokeDto extends createZodDto(revokeSchema) {}
 class EntitlementQueryDto extends createZodDto(entitlementQuerySchema) {}
+class UsageReportQueryDto extends createZodDto(usageQuerySchema) {}
 
 /** A tenant's subscriptions, grants and limit overrides (control plane; platform administrators). */
 @Controller('control/tenants/:tenantId')
@@ -206,6 +208,12 @@ export class TenantLicenseController {
     @Body() body: LicenseRevokeDto,
   ) {
     return this.grants.revokeOverride({ tenantId }, id, body);
+  }
+
+  @Get('usage')
+  @RequirePermission('license.usage.read', { checkedBy: 'gate' })
+  usage(@Param('tenantId') tenantId: string, @Query() query: UsageReportQueryDto) {
+    return this.views.usage({ tenantId }, query);
   }
 
   @Get('entitlements')

@@ -6,6 +6,7 @@ import { IdentityKeys } from './infrastructure/keys';
 import { IdentityRepositories } from './infrastructure/repositories';
 import { IDENTITY_API } from './public';
 import { IdentityPublicApiService } from './public-api.service';
+import { IdentityUsageGauge } from './application/usage-gauge';
 
 /**
  * What platform-auth and platform-i18n need from identity, with no dependency back on them: key material,
@@ -43,6 +44,7 @@ export class IdentityCoreModule {}
     IdentityRepositories,
     IdentityPublicApiService,
     { provide: IDENTITY_API, useExisting: IdentityPublicApiService },
+    IdentityUsageGauge,
   ],
   exports: [IDENTITY_API],
 })

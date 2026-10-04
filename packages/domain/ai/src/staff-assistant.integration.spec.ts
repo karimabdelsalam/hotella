@@ -13,6 +13,7 @@ import {
   ADMIN,
   type AiHarness,
   createHotel,
+  LICENSING,
   type Hotel,
   staff,
   startAiApp,
@@ -261,6 +262,39 @@ describe.skipIf(needsInfra())(
       const failed = await ask('Anything?');
       expect(failed).toMatchObject({ outcome: 'FAILED', answer: null });
       expect((await execution(failed.executionId)).status).toBe('FAILED');
+    });
+
+    it('is metered, stops at a HARD token limit and needs its AI entitlement (Spec §59, §61)', async () => {
+      LICENSING.usage.length = 0;
+      fake.reply({
+        content: JSON.stringify({ answer: 'Reset the unit.' }),
+        usage: { input: 120, output: 30, cached: 0 },
+      });
+      const answered = await ask('How do I reset FCU-504?', false);
+      expect(answered.outcome).toBe('ANSWERED');
+      const metered = LICENSING.usage.filter((u) => u.tenantId === hotel.tenantId);
+      expect(metered.map((u) => [u.metric, u.quantity, u.source])).toEqual([
+        ['AI_INPUT_TOKENS', 120, 'ai'],
+        ['AI_OUTPUT_TOKENS', 30, 'ai'],
+      ]);
+      expect(metered.every((u) => /^ai-call:.+:(in|out)$/.test(u.idempotencyKey))).toBe(true);
+
+      LICENSING.room = false;
+      const refused = await ask('And now?', false);
+      LICENSING.room = true;
+      expect(refused).toMatchObject({ outcome: 'FAILED', answer: null });
+
+      LICENSING.entitled = new Set(['CORE', 'ENGINEERING']);
+      const before = fake.requests.length;
+      const disabled = await ask('Anything?', false);
+      LICENSING.entitled = null;
+      expect(disabled).toMatchObject({ outcome: 'DISABLED', answer: null });
+      expect(fake.requests).toHaveLength(before);
+      const steps = (await execution(disabled.executionId)).steps as Array<{
+        name: string;
+        outcome: string;
+      }>;
+      expect(steps.find((x) => x.name === 'entitlement')?.outcome).toBe('NOT_ENTITLED');
     });
 
     it('serves staff agents only', async () => {

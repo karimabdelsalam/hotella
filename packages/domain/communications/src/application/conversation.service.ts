@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { USAGE_API, type UsagePublicApi } from '@hotella/domain-licensing/public';
 import {
   ConversationOpened,
   DeliveryUpdated,
@@ -69,6 +70,7 @@ export class ConversationService implements CommunicationsPublicApi {
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
     @InjectLogger() private readonly logger: Logger,
+    @Optional() @Inject(USAGE_API) private readonly usage?: UsagePublicApi,
   ) {}
 
   // ---- inbound (webhooks) ----
@@ -778,6 +780,17 @@ export class ConversationService implements CommunicationsPublicApi {
         channel_type: input.replyChannelType,
       },
     });
+    // Spec §61 WHATSAPP_CONVERSATIONS: metered with the conversation, in its transaction.
+    if (input.replyChannelType === 'WHATSAPP')
+      await this.usage?.record({
+        tenantId: at.tenantId,
+        propertyId: at.propertyId,
+        metric: 'WHATSAPP_CONVERSATIONS',
+        quantity: 1,
+        occurredAt: now,
+        source: COMMS,
+        idempotencyKey: `conversation:${conversation.id}`,
+      });
     return conversation;
   }
 

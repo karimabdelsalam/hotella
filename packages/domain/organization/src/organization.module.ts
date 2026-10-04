@@ -23,6 +23,7 @@ import { OrganizationRepositories } from './infrastructure/repositories';
 import { ORGANIZATION_MANIFEST } from './manifest';
 import { ORGANIZATION_API, type OrganizationPublicApi } from './public';
 import { OrganizationPublicApiService } from './public-api.service';
+import { OrganizationUsageGauge } from './application/usage-gauge';
 
 /**
  * Lookups of other contexts in background processes (the worker): ORGANIZATION_API without HTTP routes. Branding
@@ -34,6 +35,7 @@ import { OrganizationPublicApiService } from './public-api.service';
     OrganizationRepositories,
     OrganizationPublicApiService,
     { provide: ORGANIZATION_API, useExisting: OrganizationPublicApiService },
+    OrganizationUsageGauge,
   ],
   exports: [ORGANIZATION_API],
 })

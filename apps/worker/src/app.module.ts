@@ -13,7 +13,7 @@ import { CatalogServicesModule, CatalogWorkerModule } from '@hotella/domain-cata
 import { CommunicationsWorkerModule } from '@hotella/domain-communications';
 import { OperationsWorkerModule } from '@hotella/domain-operations';
 import { OrganizationCoreModule } from '@hotella/domain-organization';
-import { LicensingCoreModule } from '@hotella/domain-licensing';
+import { LicensingCoreModule, LicensingWorkerModule } from '@hotella/domain-licensing';
 import { AuditCoreModule } from '@hotella/platform-audit';
 import { AuthModule } from '@hotella/platform-auth';
 import { ConfigModule } from '@hotella/platform-config';
@@ -60,8 +60,9 @@ const WORKER_MODULES = [
   CatalogWorkerModule,
   CatalogServicesModule,
   // AI tools act through the ActionGate as AI_AGENT (no HTTP guard: the worker's routes are health checks).
-  // Entitlements (Spec §58): the engine and the gate stage, so AI tools are gated like people (BUILD_PLAN 11.B).
-  LicensingCoreModule,
+  // Entitlements (Spec §58): the engine and the gate stage, so AI tools are gated like people (BUILD_PLAN 11.B);
+  // usage metering's daily gauge samples and retention (11.3).
+  LicensingWorkerModule,
   AuthModule.forRoot({
     httpGuard: false,
     stages: [

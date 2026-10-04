@@ -347,5 +347,6 @@
   "errors.license.grant.not_found": "This grant does not exist.",
   "errors.license.grant.already_revoked": "This grant was already revoked.",
   "errors.license.grant.period_invalid": "The end must come after the start.",
-  "errors.license.limit_override.not_found": "This limit override does not exist or was already revoked."
+  "errors.license.limit_override.not_found": "This limit override does not exist or was already revoked.",
+  "errors.license.metric.unknown": "This usage metric does not exist."
 }

@@ -29,6 +29,7 @@
     "@hotella/contracts-api": "workspace:*",
     "@hotella/contracts-events": "workspace:*",
     "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-licensing": "workspace:*",
     "@hotella/domain-operations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-audit": "workspace:*",

@@ -347,5 +347,6 @@
   "errors.license.grant.not_found": "هذا المنح غير موجود.",
   "errors.license.grant.already_revoked": "سُحب هذا المنح بالفعل.",
   "errors.license.grant.period_invalid": "يجب أن تأتي النهاية بعد البداية.",
-  "errors.license.limit_override.not_found": "تجاوز الحد هذا غير موجود أو سُحب بالفعل."
+  "errors.license.limit_override.not_found": "تجاوز الحد هذا غير موجود أو سُحب بالفعل.",
+  "errors.license.metric.unknown": "مقياس الاستخدام هذا غير موجود."
 }

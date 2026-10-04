@@ -470,7 +470,45 @@ export const usageAggregates = classify(
   ]),
 );
 
-/** Where each pull collector stopped (per tenant or platform-wide). */
+/**
+ * One notice per limit, scope and period when usage reaches it (Spec §61): `license.limit.reached.v1` is published
+ * only for the row this insert creates, so a limit is announced once per period however much usage follows.
+ */
+export const limitNotices = classify(
+  license.table(
+    'limit_notices',
+    {
+      tenantId: uuid('tenant_id').notNull(),
+      propertyKey: uuid('property_key').notNull(),
+      metricCode: varchar('metric_code', { length: 64 })
+        .notNull()
+        .references(() => metrics.code, { onDelete: 'restrict' }),
+      periodStart: tz('period_start').notNull(),
+      enforcement: enforcement('enforcement').notNull(),
+      limitValue: bigint('limit_value', { mode: 'number' }).notNull(),
+      used: bigint('used', { mode: 'number' }).notNull(),
+      createdAt: tz('created_at').notNull().defaultNow(),
+    },
+    (t) => [
+      primaryKey({
+        name: 'limit_notices_pk',
+        columns: [t.tenantId, t.propertyKey, t.metricCode, t.periodStart],
+      }),
+    ],
+  ),
+  internal([
+    'tenantId',
+    'propertyKey',
+    'metricCode',
+    'periodStart',
+    'enforcement',
+    'limitValue',
+    'used',
+    'createdAt',
+  ]),
+);
+
+/** Where each scheduled collector last ran (the gauge sweep: one sample per metric and day). */
 export const usageCollectorCursors = classify(
   license.table('usage_collector_cursors', {
     collector: varchar('collector', { length: 64 }).primaryKey(),

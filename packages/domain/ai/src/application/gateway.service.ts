@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
+import { USAGE_API, type UsagePublicApi } from '@hotella/domain-licensing/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { newId, TransactionRunner } from '@hotella/platform-database';
 import { FeatureFlagService } from '@hotella/platform-flags';
@@ -54,9 +55,11 @@ export class ModelGatewayService implements ModelGatewayApi {
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
     @InjectLogger() private readonly logger: Logger,
     @Optional() @Inject(SecretResolver) private readonly secrets?: SecretResolver,
+    @Optional() @Inject(USAGE_API) private readonly usage?: UsagePublicApi,
   ) {}
 
   async complete(input: GatewayCompletionInput): Promise<GatewayCompletion> {
+    await this.requireLicenceRoom(input.tenantId, input.propertyId ?? null);
     const candidates = await this.candidates(
       input.tenantId,
       input.propertyId ?? null,
@@ -119,6 +122,7 @@ export class ModelGatewayService implements ModelGatewayApi {
     propertyId?: string | null;
     texts: readonly ClassifiedText[];
   }): Promise<{ vectors: readonly (readonly number[])[]; model: string }> {
+    await this.requireLicenceRoom(input.tenantId, input.propertyId ?? null);
     const candidates = await this.candidates(input.tenantId, input.propertyId ?? null, 'EMBEDDING');
     for (const c of candidates) {
       const adapter = this.providers.get(c.provider.kind);
@@ -314,7 +318,50 @@ export class ModelGatewayService implements ModelGatewayApi {
         correlationId: this.ctx.correlationId ?? null,
       }),
     );
+    if (this.usage && outcome === 'OK') await this.meter(input, id, usage);
     return id;
+  }
+
+  /**
+   * Spec §61: tokens (and vision calls) are metered per model call, idempotently by the call's id. Metering never
+   * fails an answer the guest is waiting for: a failure is logged and the call stands.
+   */
+  private async meter(
+    input: Pick<GatewayCompletionInput, 'tenantId' | 'propertyId' | 'capability'>,
+    callId: string,
+    usage: { input: number; output: number },
+  ): Promise<void> {
+    const at = { tenantId: input.tenantId, propertyId: input.propertyId ?? null, source: 'ai' };
+    const records = [
+      { metric: 'AI_INPUT_TOKENS', quantity: usage.input, key: `ai-call:${callId}:in` },
+      { metric: 'AI_OUTPUT_TOKENS', quantity: usage.output, key: `ai-call:${callId}:out` },
+      ...(input.capability === 'VISION'
+        ? [{ metric: 'AI_VISION', quantity: 1, key: `ai-call:${callId}:vision` }]
+        : []),
+    ].filter((r) => r.quantity > 0);
+    try {
+      await this.tx.run(async () => {
+        for (const r of records)
+          await this.usage!.record({
+            ...at,
+            metric: r.metric,
+            quantity: r.quantity,
+            idempotencyKey: r.key,
+          });
+      });
+    } catch (err) {
+      this.logger.warn({ err, model_call_id: callId }, 'usage metering failed');
+    }
+  }
+
+  /** A HARD licence limit on tokens used up for the period stops new calls (Spec §61); SOFT ones never do. */
+  private async requireLicenceRoom(tenantId: string, propertyId: string | null): Promise<void> {
+    if (!this.usage) return;
+    for (const metric of ['AI_INPUT_TOKENS', 'AI_OUTPUT_TOKENS'])
+      if (!(await this.usage.withinLimit(tenantId, propertyId, metric)))
+        throw new AppError('ai.gateway.unavailable', HttpStatus.SERVICE_UNAVAILABLE, {
+          reason: 'LICENCE_LIMIT',
+        });
   }
 }
 
