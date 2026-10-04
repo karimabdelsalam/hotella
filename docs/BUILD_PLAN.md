@@ -2089,7 +2089,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.1 | .NET agent core: solution, host, config, identity and enrolment (CSR), OS key store, SQLite durable queue, mTLS WSS link with acks/resend/heartbeats/batches, signed-command verification; shared vectors; cross-language test against `agent-gateway`; CI job | delivered |
 | 10.2 | FIAS adapter (IFC8 TCP, link handshake, link-alive, database sync, records), simulator IFC8 face, `OPERA5_FIAS` connector, `RESYNC_IN_HOUSE` and gated `SET_ROOM_STATUS` | delivered |
 | 10.3 | OWS adapter (SOAP polling, reservations and profiles), simulator OWS SOAP face, `OPERA5_OWS` connector; optional `OPERA5_DBVIEW` reconciliation adapter | delivered (DBVIEW deferred, see notes) |
-| 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | planned |
+| 10.4 | Licence tokens (issue, verify offline, grace), health states, signed updater with rollback, packaging (self-contained publish, systemd unit, Windows service + MSI on a Windows runner) | delivered (MSI: owner decision, see notes) |
 | 10.5 | Phase 10 acceptance (`docs/acceptance/phase-10.md`); the pilot prerequisites stay owner items | planned |
 
 **Reality notes for 10.1 (delivered).**
@@ -2170,6 +2170,35 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
   possibility is an open owner prerequisite; reconciliation already works through FIAS database sync (10.2).
 - To verify at the pilot: the hotel's OWS licence and WSDL version, the OGHeader origin/destination entity codes and
   domain, and whether `ExpectedArrivalTime`/`MarketSegment` are populated in that version.
+
+**Reality notes for 10.4 (delivered).**
+- Licence: every `welcome` carries a licence (optional field, protocol 1 unchanged) — instance, tenant, property,
+  connector, the enabled capabilities, 30 days, 14 days offline grace — Ed25519-signed with the command key over its
+  canonical JSON; `typ: hotella.licence.v1` keeps it from passing as a command. The agent keeps it only when it
+  verifies for its instance (`LicenceStore`, re-verified on load; an older one never replaces a newer one). Past the
+  grace the link refuses commands (`CommandGate`; not recorded as executed, so they can run later) while PMS records
+  keep being buffered. Both agents verify it (`link.e2e-spec.ts`, `dotnet-agent.e2e-spec.ts`: 45 days offline → a
+  signed command is refused; a fresh licence lifts it). Phase 11 issues it from entitlements instead of the instance.
+- Health: `AgentHealth` classifies HEALTHY / DEGRADED / UNHEALTHY by rules with reasons (platform link down, then
+  unhealthy after 15 minutes; PMS side down; licence in grace / expired / missing; backlog ≥ 1000; certificate within
+  7 days / expired); `health.json` every minute; `hotella-agent status` shows licence and health.
+- Updates (`Hotella.Agent.Updater`): a manifest (`typ: hotella.agent-update.v1`, version, package URL, SHA-256, size,
+  channel) signed with Planova's update key, pinned at install (`Updates:PublicKeyFile`); the package is size- and
+  hash-checked, unpacked beside the running version under `versions/<v>/`, and `current` is switched atomically
+  (rename(2) on Linux). Exit code 10 asks the service manager to restart into it; the new version is on probation
+  (10 minutes or 3 starts): it confirms itself once its links are up, otherwise `current` goes back and the release
+  is blocked (exit 11). Operators: `hotella-agent update status|check|apply|rollback`. Automatic when `Updates:Auto`
+  (default) every `CheckHours`. The release step signs with `packaging/sign-manifest.mjs` (key from the release
+  pipeline's secret store). Limitation: a candidate that crashes before reading its update state cannot roll itself
+  back — the 3-start rule covers crashes after startup; a separate launcher is the follow-up if the pilot needs it.
+- Packaging: `packaging/publish.sh` (self-contained single file, linux-x64 and win-x64, zip + SHA-256);
+  `packaging/linux/install.sh` + hardened systemd unit (`StateDirectory` 0700, `ProtectSystem=strict`, restart on any
+  exit); `packaging/windows/install.ps1` (Windows service, restart-on-failure actions, ACL on the data directory).
+  CI publishes both and runs `packaging/smoke-update.sh`: a signed 0.10.1 → 0.10.2 update through check, apply,
+  probation and rollback with the real binaries, and a manifest signed by another key refused.
+- **Owner decision:** the MSI. From WiX v6 (April 2025) organisations with more than 10 000 USD yearly revenue must
+  pay the Open Source Maintenance Fee by sponsoring the project (10–60 USD a month by company size); WiX v5 has no fee
+  but is the older line. Spending money is the owner's call; until then Windows hotels install with `install.ps1`.
 
 ### Phase 11 — Licensing & Control Plane (M4b)
 `license` schema (products, modules, features, plans, plan_versions, subscriptions, entitlements (tenant-wide + property-specific), limits, usage_metrics, usage_events (idempotent), usage_aggregates). `EntitlementEngine.can(tenant, property, capability)` replaces the Phase 1 stub stage. Control-plane admin API/UI (tenant mgmt, subscriptions, entitlements, flags, connector & AI provider registries, support access, health). Offline license token issuance for the hotel agent. Developer platform v1 (Spec §75): API clients with scoped keys, signed outbound webhooks with retry/DLQ/replay (ADR-0012), OAuth clients later; no untrusted code plugins in the runtime.

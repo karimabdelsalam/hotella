@@ -16,7 +16,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 2.3 | Redis for cache, rate limit, coordination, ephemeral state, queues, entitlement cache | ADR-0004; BP §4 0.3.5, 0.3.9; ADR-0011 permission cache | P0 |
 | 2.4 | S3-compatible storage; no large binaries in PG | BP §4 0.2.8; ADR-0013 MinIO | P0 |
 | 2.5 | Vector abstraction; pgvector first; vector store never source of truth | ADR-0002 pgvector type; BP §10 P6 knowledge module, P8 | P6, P8 |
-| 2.6 | .NET on-prem agent: buffering, retries, signed identity, outbound-first, controlled updates, offline licensing grace | BP §10 P10; ADR-0013/0014/0017; platform side and a reference agent built in Sprint 2.3 (`apps/agent-gateway`, `apps/pms-simulator`); the .NET agent's link, identity, durable queue and signed commands in Sprint 10.1 (`apps/hotel-agent`, proven against the real gateway by `dotnet-agent.e2e-spec.ts`); updates and licence grace in 10.4 | P2 (link), P10 (10.1 ✔) |
+| 2.6 | .NET on-prem agent: buffering, retries, signed identity, outbound-first, controlled updates, offline licensing grace | BP §10 P10; ADR-0013/0014/0017; platform side and a reference agent built in Sprint 2.3 (`apps/agent-gateway`, `apps/pms-simulator`); the .NET agent's link, identity, durable queue and signed commands in Sprint 10.1 (`apps/hotel-agent`, proven against the real gateway by `dotnet-agent.e2e-spec.ts`); signed updates with probation and rollback (`Hotella.Agent.Updater`, `UpdaterTests`, CI `smoke-update.sh`) and licence grace in 10.4 | P2 (link), P10 (10.1, 10.4 ✔) |
 | 3 | Bounded contexts list; each owns data; no cross-domain table mutation | BP §3 layout; ADR-0001; CM "Repository shape" | P0 |
 | 4.1–4.3 | Tenant, organization, property (incl. enabled languages, timezone, currency) | BP §5.2 `org.tenants/organizations/properties` | P1 |
 | 4.4 | Generic location tree; room is a location specialization | BP §5.2 `org.locations` (ltree) + `org.rooms` | P1 |
@@ -77,7 +77,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 59 | Module / AI / connector entitlements; tenant-wide and property grants | BP §10 P11 | P11 |
 | 60 | Entitlement ≠ flag ≠ config ≠ permission ≠ connector capability ≠ AI policy; unified action gate order | BP §1.2, §5.4 `ActionGate`; CM 4, 14 | P1 |
 | 61 | Usage metrics; idempotent usage events; aggregates | BP §10 P11; ADR-0015 `OTP_SMS_SENT` | P11 |
-| 62 | Signed offline license tokens with grace; public-key validation on agent | BP §10 P10/P11; ADR-0017 §6 | P10, P11 |
+| 62 | Signed offline license tokens with grace; public-key validation on agent | BP §10 P10/P11; ADR-0017 §6; licence with every welcome (`link.service.ts`), `LicenceStore`/`CommandGate` in the agent, `LicenceAndHealthTests`, e2e in both agents (10.4) | P10 (10.4 ✔), P11 entitlements |
 | 63 | Control plane functions; data plane separation; admins no automatic guest data access | BP §10 P11; §5.2 support grants; ADR-0007 audited bypass role; CM 20 | P1, P11 |
 | 64 | Support access explicit/scoped/time-limited/read-only/audited/reason/revocable | BP §5.2 `iam.support_access_grants`, §5.9 Sprint 1.3 (`SupportAccessService`, `SupportAccessAuditInterceptor`, grant-based resolver path); CM 20 | P1 ✔ (1.3) |
 | 65 | Security scope; staff password/MFA now, OIDC/SAML later; guest passwordless | ADR-0011 (+ Sprint 1.2 implementation notes: argon2id, TOTP, lockout, rate limits) | P1 ✔ (1.2), P4 |
