@@ -1,6 +1,6 @@
 # Phase 11 acceptance — Licensing & Control Plane, Developer Platform v1 (M4b)
 
-**Date:** 2026-10-04 · **Branch:** `claude/hopeful-archimedes-jskowx` · **CI:** CI_EVIDENCE
+**Date:** 2026-10-04 · **Branch:** `claude/hopeful-archimedes-jskowx` · **CI:** run [37184852974](https://github.com/karimabdelsalam/hotella/actions/runs/37184852974) on `b5d246f` — "lint · typecheck · build · test" ✅ and "pilot deployment smoke" ✅ (including "Entitlements refuse and grant; API clients and signed webhooks work through the deployed stack (Phase 11)" and the backup/restore drill)
 
 Goal (Spec §58–§64, §74–§75; BUILD_PLAN §10 Phase 11; CLAUDE.md rule 14): a platform administrator defines a plan
 once (modules, AI and connector entitlements, limits), publishes it as an immutable version and subscribes a tenant —
