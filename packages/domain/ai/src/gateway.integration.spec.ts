@@ -408,11 +408,12 @@ describe.skipIf(needsInfra())(`Model Gateway against PostgreSQL (${infraSkipReas
     await setting('ai.external_providers.enabled', true, 'TENANT');
     await setting('ai.budget.monthly_limit_minor', 100_000_000, 'TENANT');
 
-    // The only routed provider may not receive SENSITIVE data: nothing leaves the platform.
+    // The only routed provider may not receive SENSITIVE data: nothing leaves the platform. (The hotel's own rule:
+    // a platform-wide one would outlive this run in a shared test database.)
     await http()
-      .put('/ai/routing-rules/platform')
-      .set('X-Test-Actor', admin)
-      .send({ capability: 'VISION', modelIds: [cloudVision] })
+      .put('/ai/routing-rules')
+      .set('X-Test-Actor', gm())
+      .send({ capability: 'VISION', modelIds: [cloudVision], propertyId })
       .expect(200);
     await expect(look('VISION')).rejects.toMatchObject({
       code: 'ai.gateway.unavailable',
@@ -422,9 +423,9 @@ describe.skipIf(needsInfra())(`Model Gateway against PostgreSQL (${infraSkipReas
 
     // With an on-prem model allowed SENSITIVE behind it, that one reads the photo.
     await http()
-      .put('/ai/routing-rules/platform')
-      .set('X-Test-Actor', admin)
-      .send({ capability: 'VISION', modelIds: [cloudVision, localVision] })
+      .put('/ai/routing-rules')
+      .set('X-Test-Actor', gm())
+      .send({ capability: 'VISION', modelIds: [cloudVision, localVision], propertyId })
       .expect(200);
     const out = await look('VISION');
     expect(out.model).toBe(`vlocal-v-${stamp}`);
