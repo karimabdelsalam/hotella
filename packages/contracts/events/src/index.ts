@@ -95,6 +95,7 @@ export {
   StayStatusChanged,
 } from './guest-events';
 export {
+  RequisitionSettled,
   ACCESS_KINDS,
   AccessFailed,
   AccessIssued,

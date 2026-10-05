@@ -392,6 +392,8 @@
   "errors.integration.query.invalid_params": "Недопустимые параметры {query}.",
   "errors.integration.commissioning.unknown_requirement": "Это требование ввода в эксплуатацию не входит в стандарт: {requirement}.",
   "errors.integration.access.unavailable": "Ни одна подключённая система замков или Wi-Fi не может сделать это на этом объекте.",
+  "errors.integration.erp.unavailable": "Ни одна подключённая ERP-система не может сделать это в этом отеле.",
+  "errors.integration.erp.item_taken": "Эта позиция ERP уже связана с другой запчастью.",
   "errors.license.offline_expired": "Эта установка находится без связи с управляющим контуром Planova дольше, чем допускает её лицензия. Восстановите подключение к интернету; операции отеля из PMS тем временем продолжаются.",
   "errors.license.installation.not_found": "Установка не найдена.",
   "errors.license.installation.revoked": "Эта установка отозвана.",

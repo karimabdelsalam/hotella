@@ -85,6 +85,7 @@ const ENG_DESK = [
   'eng.work_order.read',
   'eng.work_order.manage',
   'eng.parts.manage',
+  'eng.requisition.request',
   'eng.pm.manage',
   'eng.restriction.manage',
   'eng.telemetry.read',

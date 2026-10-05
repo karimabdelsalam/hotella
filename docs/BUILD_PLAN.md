@@ -3209,7 +3209,7 @@ eng (telemetry)
 | 13.2 | IoT/BMS telemetry: points, mappings, minute aggregates, deterministic rules, alarms → alerts/work orders/insights; simulator face; staff screen | done |
 | 13.3 | Stay-bound access: `ACCESS_API`, lock and Wi-Fi neutral connectors, auto-revoke on check-out and moves, staff UI; simulator | done |
 | 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | done |
-| 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | planned |
+| 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | done |
 | 13.6 | Phase 13 acceptance (`docs/acceptance/phase-13.md`) | planned |
 
 Order rationale: the SDK first (everything else plugs into it); telemetry and access next (deterministic, high
@@ -3384,6 +3384,27 @@ operator; tenant leak), `voice/gateway.spec.ts` (simulator).
   (always a person, never automatic), the approved requisition is sent when an ERP connector serves
   `REQUISITION_CREATE` (otherwise it stays APPROVED for a manual purchase); APIs `/eng/parts/:id/erp-item`,
   `/eng/parts/:id/stock`, `/eng/requisitions`; permission `eng.requisition.request`. Simulator: ERP face.
+
+**13.5 as built.** *POS:* contracts `POS_CHECK` (Planova POS Profile v1; the check id is the message id, so a resent
+check is a duplicate at ingest), record `POS_CHECK_CLOSED`, mapping type `OUTLET` (required; internal value one of
+`OUTLET_CATEGORIES`, refused otherwise with `integration.mapping.invalid_outlet`), canonical `hotel.pos.check_closed.v1`;
+connector `POS_STANDARD` (agent or signed webhook, read-only) with contract vectors. Guest: migration 0059
+(`guest.stay_charges`, once per source event, tenant FK + RLS), consumer `guest.pos-spend` (`StaySpendService`): the
+POS quotes the PMS's reservation id, so it is resolved against the property's PMS connectors and used only when they
+agree on one stay; otherwise the one stay whose room assignment covered `closed_at`; walk-ins, empty and shared rooms
+stay untied. `guest.stay_charge.recorded.v1` (internal ids and amounts only) feeds the twin (`POS_CHECK` node,
+`STAY -HAS_CHARGE->`). `GET /properties/:id/stays/:stayId/spend` (`stay.read`). Simulator: `SimulatedPos` and
+`hotella-sim pos`. Tests: `pos-standard-v1.json`, `spend.integration.spec.ts` (guest), twin projection unit.
+*ERP:* connector `ERP_STANDARD` (agent; query `ERP_STOCK`, command `REQUISITION_CREATE`), `ERP_API` = `ErpService`
+(part ↔ item code as external reference `eng.part`/`ERP_ITEM`, one code per part and one part per code; stock by part
+ids over link protocol 2; requisitions as commands with idempotency `requisition:<id>`, 24 h expiry; the link hands
+every result and expiry to it and it publishes `integration.requisition.settled.v1`). Engineering: migration 0060
+(`eng.requisitions`, tenant FK + RLS), `RequisitionService` (approval kind `ENG_REQUISITION`, MEDIUM, always a person;
+approved → SENT with the command id, or APPROVED with `NO_CONNECTOR`/`UNLINKED_ITEM` for a manual purchase; consumers
+`eng.requisitions` and `eng.requisition-approvals`), routes `/eng/requisitions` (GET `eng.work_order.read`, POST
+`eng.requisition.request`), `/eng/parts/:id/erp-item` and `/eng/parts/:id/stock` (`eng.parts.manage`); the engineering
+desk role may request. Simulator: `SimulatedErp` (stores ledger, blocked items). Tests: `erp.e2e-spec.ts` (an ERP agent
+over the real link), `requisitions.integration.spec.ts` (approval, command, settlement, rejection, tenant leak).
 
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,

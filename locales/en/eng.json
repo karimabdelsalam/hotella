@@ -5,11 +5,13 @@
   "eng.permission.work_order_read": "See engineering work, parts and warranty cases",
   "eng.permission.work_order_manage": "Open, record and complete engineering work",
   "eng.permission.parts_manage": "Manage spare parts stock",
+  "eng.permission.requisition_request": "Request parts (requisitions go to a person for approval)",
   "eng.work_kind.work_order": "Engineering work order",
   "eng.work_order.title": "{type, select, CORRECTIVE {Repair} PREVENTIVE {Preventive maintenance} PREDICTIVE {Predictive maintenance} INSPECTION {Engineering inspection} EMERGENCY {Emergency repair} PROJECT {Project} other {Engineering work}} · WO-{number}",
   "eng.permission.pm_manage": "Plan preventive maintenance",
   "eng.permission.restriction_manage": "Take rooms out of order and back in service",
   "eng.permission.telemetry_read": "Read building telemetry: points, readings and alarms",
   "eng.permission.telemetry_manage": "Set up telemetry points and alarm rules",
-  "eng.permission.telemetry_acknowledge": "Acknowledge telemetry alarms"
+  "eng.permission.telemetry_acknowledge": "Acknowledge telemetry alarms",
+  "eng.approval.requisition": "Part requisition"
 }

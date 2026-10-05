@@ -392,6 +392,8 @@
   "errors.integration.query.invalid_params": "The parameters of {query} are invalid.",
   "errors.integration.commissioning.unknown_requirement": "This commissioning requirement is not part of the standard: {requirement}.",
   "errors.integration.access.unavailable": "No connected lock or Wi-Fi system can do this at this property.",
+  "errors.integration.erp.unavailable": "No connected ERP can do this at this property.",
+  "errors.integration.erp.item_taken": "This ERP item is already linked to another part.",
   "errors.license.offline_expired": "This installation has been offline from the Planova control plane longer than its licence allows. Restore its internet connection; hotel operations from the PMS continue meanwhile.",
   "errors.license.installation.not_found": "Installation not found.",
   "errors.license.installation.revoked": "This installation has been revoked.",

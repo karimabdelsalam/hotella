@@ -352,3 +352,68 @@ export interface AccessPublicApi {
   ): Promise<AccessGrantSummary | null>;
   listForStay(tenantId: string, stayId: string): Promise<readonly AccessGrantSummary[]>;
 }
+
+/** ERP reads and requisitions (BUILD_PLAN 13.5): engineering names its parts; item codes stay here (rule 3). */
+export const ERP_API = Symbol.for('hotella.domain.integrations.erp');
+export type ErpCapability = 'STOCK_READ' | 'REQUISITION_CREATE';
+
+export interface ErpStockLevel {
+  readonly partId: string;
+  readonly onHand: number;
+  readonly unit: string;
+  readonly warehouse: string | null;
+}
+
+export type ErpStockOutcome =
+  | {
+      readonly outcome: 'OK';
+      readonly levels: readonly ErpStockLevel[];
+      /** Parts without an ERP item code. */
+      readonly unlinked: readonly string[];
+    }
+  | { readonly outcome: 'UNAVAILABLE'; readonly unlinked: readonly string[] }
+  | {
+      readonly outcome: 'FAILED';
+      readonly reason: string;
+      readonly unlinked: readonly string[];
+    };
+
+export interface ErpRequisitionInput {
+  readonly tenantId: string;
+  readonly propertyId: string;
+  /** The requester's own id: it travels as `requisition_ref` and comes back in `integration.requisition.settled`. */
+  readonly requisitionId: string;
+  readonly lines: readonly {
+    readonly partId: string;
+    readonly quantity: number;
+    readonly unit: string;
+  }[];
+  readonly neededBy: string | null;
+  readonly requestedBy: { readonly type: string; readonly id: string | null };
+}
+
+export type ErpRequisitionOutcome =
+  | { readonly status: 'SENT'; readonly commandId: string }
+  | { readonly status: 'UNAVAILABLE'; readonly reason: 'NO_CONNECTOR' | 'UNLINKED_ITEM' };
+
+export interface ErpPublicApi {
+  /** Does an active connector of the property serve this capability? */
+  available(tenantId: string, propertyId: string, capability: ErpCapability): Promise<boolean>;
+  /** Links (or re-links) a part to its ERP item code; joins the caller's transaction. */
+  linkItem(input: {
+    readonly tenantId: string;
+    readonly propertyId: string;
+    readonly partId: string;
+    readonly itemCode: string;
+  }): Promise<void>;
+  itemOf(tenantId: string, partId: string): Promise<string | null>;
+  /** Stock of the parts at the ERP; waits for the agent, so it runs outside a transaction. */
+  stock(input: {
+    readonly tenantId: string;
+    readonly propertyId: string;
+    readonly partIds: readonly string[];
+    readonly requestedBy: { readonly type: string; readonly id: string | null };
+  }): Promise<ErpStockOutcome>;
+  /** Sends an approved requisition as a command; joins the caller's transaction. */
+  requestRequisition(input: ErpRequisitionInput): Promise<ErpRequisitionOutcome>;
+}

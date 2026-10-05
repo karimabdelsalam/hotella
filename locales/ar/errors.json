@@ -392,6 +392,8 @@
   "errors.integration.query.invalid_params": "معاملات {query} غير صالحة.",
   "errors.integration.commissioning.unknown_requirement": "هذا البند ليس من متطلبات التشغيل القياسية: {requirement}.",
   "errors.integration.access.unavailable": "لا يوجد نظام أقفال أو واي فاي متصل يستطيع تنفيذ ذلك في هذا الفندق.",
+  "errors.integration.erp.unavailable": "لا يوجد نظام ERP متصل يمكنه تنفيذ ذلك في هذا الفندق.",
+  "errors.integration.erp.item_taken": "صنف ERP هذا مرتبط بالفعل بقطعة غيار أخرى.",
   "errors.license.offline_expired": "انقطع هذا التثبيت عن لوحة تحكم Planova مدة أطول مما يسمح به الترخيص. أعد اتصاله بالإنترنت؛ تستمر عمليات الفندق القادمة من نظام إدارة الفندق خلال ذلك.",
   "errors.license.installation.not_found": "التثبيت غير موجود.",
   "errors.license.installation.revoked": "تم إلغاء هذا التثبيت.",

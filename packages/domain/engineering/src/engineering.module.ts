@@ -1,5 +1,5 @@
 import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
-import { IntegrationTelemetryReceived } from '@hotella/contracts-events';
+import { ApprovalDecided, IntegrationTelemetryReceived } from '@hotella/contracts-events';
 import {
   AI_TOOL_REGISTRY,
   AI_TWIN_LABELS,
@@ -16,6 +16,7 @@ import {
   EngineeringReferenceController,
   MaintenanceController,
   ProceduresController,
+  RequisitionsController,
   TelemetryController,
   WorkOrdersController,
 } from './api/controllers';
@@ -27,6 +28,8 @@ import { CopilotService } from './application/copilot.service';
 import { EngineeringPublicApiService } from './application/public-api.service';
 import { ENG_WORK_ORDER_KIND, WorkOrderService } from './application/work-order.service';
 import { TelemetryService } from './application/telemetry.service';
+import { ENG_REQUISITION_APPROVAL, RequisitionService } from './application/requisition.service';
+import { RequisitionRepositories } from './infrastructure/requisition-repositories';
 import { EngineeringRepositories } from './infrastructure/repositories';
 import { TelemetryRepositories } from './infrastructure/telemetry-repositories';
 import { ENGINEERING_MANIFEST } from './manifest';
@@ -42,6 +45,9 @@ const TELEMETRY_SWEEP_EVERY_MS = 5 * 60 * 1000;
 /** Hourly job: opens the preventive work of every due plan. */
 export const PM_SWEEP_JOB = 'eng.pm.sweep';
 const PM_SWEEP_EVERY_MS = 60 * 60 * 1000;
+/** Inbox consumers of the worker: the ERP's answer to a requisition, and approvals that were not given. */
+export const REQUISITION_CONSUMER = 'eng.requisitions';
+export const REQUISITION_APPROVAL_CONSUMER = 'eng.requisition-approvals';
 
 /**
  * Engineering without HTTP routes (API and worker): repositories, the asset registry, work orders and
@@ -59,12 +65,15 @@ const PM_SWEEP_EVERY_MS = 60 * 60 * 1000;
     EngineeringAiTools,
     TelemetryRepositories,
     TelemetryService,
+    RequisitionRepositories,
+    RequisitionService,
     EngineeringPublicApiService,
     { provide: ENGINEERING_API, useExisting: EngineeringPublicApiService },
   ],
   exports: [
     EngineeringRepositories,
     TelemetryService,
+    RequisitionService,
     AssetService,
     WorkOrderService,
     MaintenanceService,
@@ -77,6 +86,7 @@ export class EngineeringCoreModule implements OnModuleInit {
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
     private readonly aiTools: EngineeringAiTools,
     private readonly api: EngineeringPublicApiService,
+    private readonly requisitions: RequisitionService,
     @Optional() @Inject(AI_TOOL_REGISTRY) private readonly tools?: AiToolRegistrar,
     @Optional() @Inject(AI_TWIN_LABELS) private readonly twinLabels?: TwinLabelRegistrar,
   ) {}
@@ -94,6 +104,12 @@ export class EngineeringCoreModule implements OnModuleInit {
         }
         return out;
       },
+    });
+    this.ops.registerApprovalKind({
+      code: ENG_REQUISITION_APPROVAL,
+      module: 'eng',
+      descriptionKey: 'eng.approval.requisition',
+      handler: (approval) => this.requisitions.approved(approval),
     });
     this.ops.registerWorkItemKind({
       code: ENG_WORK_ORDER_KIND,
@@ -114,6 +130,7 @@ export class EngineeringCoreModule implements OnModuleInit {
     ProceduresController,
     MaintenanceController,
     TelemetryController,
+    RequisitionsController,
   ],
 })
 export class EngineeringModule implements OnModuleInit {
@@ -133,6 +150,7 @@ export class EngineeringWorkerModule implements OnModuleInit {
     private readonly orders: WorkOrderService,
     private readonly maintenance: MaintenanceService,
     private readonly telemetry: TelemetryService,
+    private readonly requisitions: RequisitionService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
   async onModuleInit(): Promise<void> {
@@ -141,6 +159,20 @@ export class EngineeringWorkerModule implements OnModuleInit {
     this.consumers.on(IntegrationTelemetryReceived.name, TELEMETRY_CONSUMER, (envelope) =>
       this.telemetry.receive(envelope),
     );
+    for (const def of RequisitionService.consumes)
+      this.consumers.on(def.name, REQUISITION_CONSUMER, (envelope) =>
+        this.requisitions.apply(envelope),
+      );
+    this.consumers.on(ApprovalDecided.name, REQUISITION_APPROVAL_CONSUMER, async (envelope) => {
+      if (!envelope.tenant_id) return;
+      const e = ApprovalDecided.parse(envelope);
+      if (e.payload.kind !== ENG_REQUISITION_APPROVAL || e.payload.outcome === 'APPROVED') return;
+      await this.requisitions.settleApproval(
+        envelope.tenant_id,
+        e.payload.approval_id,
+        e.payload.outcome,
+      );
+    });
     this.consumers.onJob(PM_SWEEP_JOB, async () => {
       await this.maintenance.generateDue();
     });

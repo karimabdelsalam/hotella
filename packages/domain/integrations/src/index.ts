@@ -18,6 +18,14 @@ export { AgentGatewayServer, LINK_CLOSE } from './link/gateway-server';
 export { AgentLinkService } from './link/link.service';
 export { IngestService } from './application/ingest.service';
 export { AccessService } from './application/access.service';
+export { ErpService } from './application/erp.service';
+export {
+  ERP_STANDARD_MANIFEST,
+  erpStandardAdapter,
+  erpStockRowSchema,
+  requisitionPayloadSchema,
+} from './connectors/erp';
+export type { ErpStockRow, RequisitionPayload } from './connectors/erp';
 export type { IngestResult } from './application/ingest.service';
 export { CONNECTOR_ADAPTERS, ConnectorRegistry } from './connectors/registry';
 export { SIM_PMS_MANIFEST, simPmsAdapter } from './connectors/sim-pms';

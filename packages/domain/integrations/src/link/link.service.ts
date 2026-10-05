@@ -31,6 +31,7 @@ import { LinkRepositories } from '../infrastructure/link-repositories';
 import { QueryRepositories } from '../infrastructure/query-repositories';
 import type { AgentLinkRow, IntegrationInstanceRow } from '../infrastructure/schema';
 import { AccessService } from '../application/access.service';
+import { ErpService } from '../application/erp.service';
 import { AgentKeys } from './agent-keys';
 
 /** An authenticated agent: its instance and link row, resolved from the client certificate. */
@@ -75,6 +76,7 @@ export class AgentLinkService {
     private readonly capabilities: CapabilityRegistry,
     private readonly queries: QueryRepositories,
     private readonly access: AccessService,
+    private readonly erp: ErpService,
     @InjectLogger() private readonly logger: Logger,
     @Optional()
     @Inject(ENTITLEMENT_API)
@@ -251,6 +253,7 @@ export class AgentLinkService {
             expired.status,
           );
           await this.access.onCommandResult(scope, expired.id, 'EXPIRED', null);
+          await this.erp.onCommandResult(scope, expired.id, 'EXPIRED', null);
         }
         const pending = await this.links.deliverable(scope, instance.id);
         if (pending.length === 0) return [];
@@ -375,6 +378,7 @@ export class AgentLinkService {
           error: frame.error,
         });
         await this.access.onCommandResult(session.scope, command.id, frame.status, frame.error);
+        await this.erp.onCommandResult(session.scope, command.id, frame.status, frame.error);
         await this.auditCommand(session, command.id, 'integration.command.result', frame.status);
       },
       { tenantId: session.scope.tenantId },

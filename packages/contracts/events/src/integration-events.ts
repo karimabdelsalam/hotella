@@ -123,3 +123,20 @@ export const AccessFailed = defineEvent({
   description: 'The lock or Wi-Fi system refused or could not issue a key or session.',
   payload: accessPayload,
 });
+
+/**
+ * The ERP answered a requisition the platform sent (BUILD_PLAN 13.5): accepted, refused, or never reached before it
+ * expired. Engineering follows its requisition with it.
+ */
+export const RequisitionSettled = defineEvent({
+  type: 'integration.requisition.settled',
+  version: 1,
+  delivery: 'normal',
+  description: 'An ERP requisition command was acknowledged, failed or expired.',
+  payload: z.object({
+    requisition_id: z.uuid(),
+    command_id: z.uuid(),
+    status: z.enum(['ACKNOWLEDGED', 'FAILED', 'EXPIRED']),
+    error: z.string().max(200).nullable(),
+  }),
+});

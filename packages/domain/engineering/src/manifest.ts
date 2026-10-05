@@ -25,6 +25,11 @@ export const ENGINEERING_MANIFEST = defineManifest({
       risk: 'LOW',
     },
     { code: 'eng.parts.manage', descriptionKey: 'eng.permission.parts_manage', risk: 'LOW' },
+    {
+      code: 'eng.requisition.request',
+      descriptionKey: 'eng.permission.requisition_request',
+      risk: 'LOW',
+    },
     { code: 'eng.pm.manage', descriptionKey: 'eng.permission.pm_manage', risk: 'LOW' },
     {
       code: 'eng.restriction.manage',
@@ -67,7 +72,7 @@ export const ENGINEERING_MANIFEST = defineManifest({
     },
     { code: 'engineering.search_manuals', risk: 'READ', requiredPermission: 'eng.asset.read' },
   ],
-  integrationCapabilities: ['OOO_WRITE', 'TELEMETRY_READ'],
+  integrationCapabilities: ['OOO_WRITE', 'TELEMETRY_READ', 'STOCK_READ', 'REQUISITION_CREATE'],
   entitlements: ['ENGINEERING'],
   entitlement: 'ENGINEERING',
   localeNamespaces: ['eng'],

@@ -3,6 +3,7 @@ import type { ConnectorAdapter, ConnectorManifest } from '@hotella/contracts-con
 import { lockStandardAdapter, wifiStandardAdapter } from './access';
 import { bmsStandardAdapter } from './bms';
 import { posStandardAdapter } from './pos';
+import { erpStandardAdapter } from './erp';
 import { opera5DbAdapter, opera5FiasAdapter, opera5OwsAdapter } from './opera5';
 import { simPmsAdapter } from './sim-pms';
 
@@ -19,6 +20,7 @@ export const CONNECTOR_ADAPTERS: readonly ConnectorAdapter[] = [
   lockStandardAdapter,
   wifiStandardAdapter,
   posStandardAdapter,
+  erpStandardAdapter,
 ];
 
 export class ConnectorRegistry {

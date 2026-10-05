@@ -5,11 +5,13 @@
   "eng.permission.work_order_read": "Просмотр инженерных работ, запчастей и гарантийных случаев",
   "eng.permission.work_order_manage": "Открытие, учёт и завершение инженерных работ",
   "eng.permission.parts_manage": "Управление складом запчастей",
+  "eng.permission.requisition_request": "Запрашивать запчасти (заявки утверждает сотрудник)",
   "eng.work_kind.work_order": "Инженерный наряд-заказ",
   "eng.work_order.title": "{type, select, CORRECTIVE {Ремонт} PREVENTIVE {Плановое техобслуживание} PREDICTIVE {Прогнозное техобслуживание} INSPECTION {Инженерный осмотр} EMERGENCY {Аварийный ремонт} PROJECT {Проект} other {Инженерные работы}} · WO-{number}",
   "eng.permission.pm_manage": "Планирование профилактического обслуживания",
   "eng.permission.restriction_manage": "Вывод номеров из эксплуатации и возврат в эксплуатацию",
   "eng.permission.telemetry_read": "Просмотр телеметрии здания: точки, показания и тревоги",
   "eng.permission.telemetry_manage": "Настройка точек телеметрии и правил тревог",
-  "eng.permission.telemetry_acknowledge": "Подтверждение тревог телеметрии"
+  "eng.permission.telemetry_acknowledge": "Подтверждение тревог телеметрии",
+  "eng.approval.requisition": "Заявка на запчасти"
 }

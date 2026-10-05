@@ -476,6 +476,13 @@ export class EngineeringRepositories {
       .for('update');
     return row;
   }
+  async part(scope: PropertyScope, id: string): Promise<PartRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(parts)
+      .where(propertyWhere(parts, scope, eq(parts.id, id)));
+    return row;
+  }
   partsOf(scope: PropertyScope): Promise<PartRow[]> {
     return this.x
       .select()

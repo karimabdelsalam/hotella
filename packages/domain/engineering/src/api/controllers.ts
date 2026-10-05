@@ -39,6 +39,11 @@ import {
 } from '../application/maintenance.service';
 import { askCopilotSchema, CopilotService } from '../application/copilot.service';
 import {
+  createRequisitionSchema,
+  linkErpItemSchema,
+  RequisitionService,
+} from '../application/requisition.service';
+import {
   createPointSchema,
   createRuleSchema,
   minutesQuerySchema,
@@ -536,5 +541,54 @@ export class TelemetryController {
     @Body() body: TelemetryVersionDto,
   ) {
     return this.telemetry.acknowledge(this.scope(propertyId), alarmId, body.version);
+  }
+}
+
+class CreateRequisitionDto extends createZodDto(createRequisitionSchema) {}
+class LinkErpItemDto extends createZodDto(linkErpItemSchema) {}
+
+/** Part requisitions and the ERP behind parts (BUILD_PLAN 13.5). */
+@Controller('properties/:propertyId/eng')
+@PropertyScoped({ from: 'param' })
+export class RequisitionsController {
+  constructor(
+    private readonly requisitions: RequisitionService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope(propertyId: string) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return { tenantId, propertyId };
+  }
+
+  @Get('requisitions')
+  @RequirePermission('eng.work_order.read', { checkedBy: 'gate' })
+  list(@Param('propertyId') propertyId: string) {
+    return this.requisitions.list(this.scope(propertyId));
+  }
+
+  @Post('requisitions')
+  @RequirePermission('eng.requisition.request', { checkedBy: 'gate' })
+  create(@Param('propertyId') propertyId: string, @Body() body: CreateRequisitionDto) {
+    return this.requisitions.create(this.scope(propertyId), body);
+  }
+
+  @Post('parts/:partId/erp-item')
+  @HttpCode(200)
+  @RequirePermission('eng.parts.manage', { checkedBy: 'gate' })
+  linkErpItem(
+    @Param('propertyId') propertyId: string,
+    @Param('partId') partId: string,
+    @Body() body: LinkErpItemDto,
+  ) {
+    return this.requisitions.linkErpItem(this.scope(propertyId), partId, body);
+  }
+
+  @Get('parts/:partId/stock')
+  @RequirePermission('eng.parts.manage', { checkedBy: 'gate' })
+  stock(@Param('propertyId') propertyId: string, @Param('partId') partId: string) {
+    return this.requisitions.stock(this.scope(propertyId), partId);
   }
 }

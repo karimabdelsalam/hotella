@@ -913,3 +913,77 @@ export type TelemetryPointRow = typeof telemetryPoints.$inferSelect;
 export type TelemetryMinuteRow = typeof telemetryMinutes.$inferSelect;
 export type TelemetryRuleRow = typeof telemetryRules.$inferSelect;
 export type TelemetryAlarmRow = typeof telemetryAlarms.$inferSelect;
+
+// ---- requisitions (BUILD_PLAN 13.5) ----
+
+export const requisitionStatus = eng.enum('requisition_status', [
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'SENT',
+  'CONFIRMED',
+  'FAILED',
+  'REJECTED',
+]);
+
+/**
+ * A request to buy or draw a part from stores. A person always approves it (approval kind `ENG_REQUISITION`); an
+ * approved requisition goes to the ERP when a connector serves `REQUISITION_CREATE`, otherwise it stays APPROVED for a
+ * manual purchase. Each step keeps its own timestamp (rule 10).
+ */
+export const requisitions = classify(
+  eng.table(
+    'requisitions',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      partId: uuid('part_id')
+        .notNull()
+        .references(() => parts.id, { onDelete: 'restrict' }),
+      workOrderId: uuid('work_order_id').references(() => workOrders.id, { onDelete: 'restrict' }),
+      quantity: numeric('quantity', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+      unit: varchar('unit', { length: 16 }).notNull(),
+      neededBy: date('needed_by', { mode: 'string' }),
+      reason: varchar('reason', { length: 300 }),
+      status: requisitionStatus('status').notNull(),
+      approvalId: uuid('approval_id'),
+      commandId: uuid('command_id'),
+      requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
+      requestedById: uuid('requested_by_id'),
+      decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'date' }),
+      sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }),
+      settledAt: timestamp('settled_at', { withTimezone: true, mode: 'date' }),
+      failure: varchar('failure', { length: 200 }),
+      ...versioned(),
+    },
+    (t) => [
+      index('requisitions_property_idx').on(t.tenantId, t.propertyId, t.status),
+      uniqueIndex('requisitions_approval_uq').on(t.approvalId),
+      uniqueIndex('requisitions_command_uq').on(t.commandId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    partId: 'INTERNAL',
+    workOrderId: 'INTERNAL',
+    quantity: 'INTERNAL',
+    unit: 'INTERNAL',
+    neededBy: 'INTERNAL',
+    reason: 'INTERNAL',
+    status: 'INTERNAL',
+    approvalId: 'INTERNAL',
+    commandId: 'INTERNAL',
+    requestedByType: 'INTERNAL',
+    requestedById: 'INTERNAL',
+    decidedAt: 'INTERNAL',
+    sentAt: 'INTERNAL',
+    settledAt: 'INTERNAL',
+    failure: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+export type RequisitionRow = typeof requisitions.$inferSelect;

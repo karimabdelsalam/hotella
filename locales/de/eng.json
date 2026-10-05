@@ -5,11 +5,13 @@
   "eng.permission.work_order_read": "Technikarbeiten, Ersatzteile und Garantiefälle einsehen",
   "eng.permission.work_order_manage": "Technikarbeiten eröffnen, erfassen und abschließen",
   "eng.permission.parts_manage": "Ersatzteilbestand verwalten",
+  "eng.permission.requisition_request": "Ersatzteile anfordern (Anforderungen gibt eine Person frei)",
   "eng.work_kind.work_order": "Technischer Arbeitsauftrag",
   "eng.work_order.title": "{type, select, CORRECTIVE {Reparatur} PREVENTIVE {Vorbeugende Wartung} PREDICTIVE {Vorausschauende Wartung} INSPECTION {Technische Inspektion} EMERGENCY {Notreparatur} PROJECT {Projekt} other {Technikarbeit}} · WO-{number}",
   "eng.permission.pm_manage": "Vorbeugende Wartung planen",
   "eng.permission.restriction_manage": "Zimmer außer Betrieb nehmen und wieder in Betrieb setzen",
   "eng.permission.telemetry_read": "Gebäudetelemetrie lesen: Messpunkte, Werte und Alarme",
   "eng.permission.telemetry_manage": "Telemetrie-Messpunkte und Alarmregeln einrichten",
-  "eng.permission.telemetry_acknowledge": "Telemetriealarme quittieren"
+  "eng.permission.telemetry_acknowledge": "Telemetriealarme quittieren",
+  "eng.approval.requisition": "Ersatzteilanforderung"
 }

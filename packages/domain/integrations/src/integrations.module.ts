@@ -49,8 +49,15 @@ import { LinkRepositories } from './infrastructure/link-repositories';
 import { ReconciliationRepositories } from './infrastructure/reconciliation-repositories';
 import { IntegrationRepositories } from './infrastructure/repositories';
 import { INTEGRATIONS_MANIFEST } from './manifest';
-import { ACCESS_API, INTEGRATIONS_API, type IntegrationsPublicApi, PMS_API } from './public';
+import {
+  ACCESS_API,
+  ERP_API,
+  INTEGRATIONS_API,
+  type IntegrationsPublicApi,
+  PMS_API,
+} from './public';
 import { AccessService } from './application/access.service';
+import { ErpService } from './application/erp.service';
 import { AccessRepositories } from './infrastructure/access-repositories';
 import { IntegrationsPublicApiService } from './public-api.service';
 
@@ -79,12 +86,16 @@ import { IntegrationsPublicApiService } from './public-api.service';
     AccessRepositories,
     AccessService,
     { provide: ACCESS_API, useExisting: AccessService },
+    ErpService,
+    { provide: ERP_API, useExisting: ErpService },
   ],
   exports: [
     INTEGRATIONS_API,
     PMS_API,
     ACCESS_API,
     AccessService,
+    ERP_API,
+    ErpService,
     CapabilityRepositories,
     CapabilityRegistry,
     QueryRepositories,

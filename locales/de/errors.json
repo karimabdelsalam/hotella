@@ -392,6 +392,8 @@
   "errors.integration.query.invalid_params": "Die Parameter von {query} sind ungültig.",
   "errors.integration.commissioning.unknown_requirement": "Diese Inbetriebnahme-Anforderung ist nicht Teil des Standards: {requirement}.",
   "errors.integration.access.unavailable": "Kein verbundenes Schloss- oder WLAN-System kann das in diesem Haus.",
+  "errors.integration.erp.unavailable": "Kein verbundenes ERP kann das in diesem Haus tun.",
+  "errors.integration.erp.item_taken": "Dieser ERP-Artikel ist bereits mit einem anderen Ersatzteil verknüpft.",
   "errors.license.offline_expired": "Diese Installation war länger von der Planova-Steuerungsebene getrennt, als ihre Lizenz erlaubt. Stellen Sie ihre Internetverbindung wieder her; der Hotelbetrieb aus dem PMS läuft in der Zwischenzeit weiter.",
   "errors.license.installation.not_found": "Installation nicht gefunden.",
   "errors.license.installation.revoked": "Diese Installation wurde widerrufen.",

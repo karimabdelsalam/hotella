@@ -1,0 +1,18 @@
+{
+  "connector": "ERP_STANDARD",
+  "version": 1,
+  "cases": [
+    {
+      "name": "the ERP sends nothing unasked: any inbound message is refused",
+      "message": {
+        "message_type": "STOCK_CHANGED",
+        "source_message_id": "erp-1",
+        "payload": {}
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "unsupported message type STOCK_CHANGED"
+      }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import {
   AccessFailed,
   AccessIssued,
+  RequisitionSettled,
   AccessRevoked,
   HOTEL_EVENTS,
   PosCheckClosed,
@@ -81,6 +82,7 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
     IntegrationCapabilityChanged.name,
     IntegrationTelemetryReceived.name,
     AccessIssued.name,
+    RequisitionSettled.name,
     AccessRevoked.name,
     AccessFailed.name,
     ReconciliationSnapshotCompleted.name,

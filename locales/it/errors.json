@@ -392,6 +392,8 @@
   "errors.integration.query.invalid_params": "I parametri di {query} non sono validi.",
   "errors.integration.commissioning.unknown_requirement": "Questo requisito di collaudo non fa parte dello standard: {requirement}.",
   "errors.integration.access.unavailable": "Nessun sistema di serrature o Wi-Fi collegato può farlo in questa struttura.",
+  "errors.integration.erp.unavailable": "Nessun ERP collegato può farlo in questa struttura.",
+  "errors.integration.erp.item_taken": "Questo articolo ERP è già collegato a un altro ricambio.",
   "errors.license.offline_expired": "Questa installazione è rimasta scollegata dal piano di controllo Planova più a lungo di quanto consentito dalla licenza. Ripristini la connessione a internet; nel frattempo le operazioni alberghiere dal PMS proseguono.",
   "errors.license.installation.not_found": "Installazione non trovata.",
   "errors.license.installation.revoked": "Questa installazione è stata revocata.",
