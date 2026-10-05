@@ -326,7 +326,8 @@ cmd_demo() {
   demo="$(realpath "${2:?demo content (JSON)}")"
   token="${3:?platform admin access token}"
   mkdir -p "$dir"; chmod 0700 "$dir"
-  HOTELLA_TOKEN="$token" docker run --rm --network host -e HOTELLA_TOKEN \
+  # Runs as this host user, so it can write the accounts file into the 0700 state directory.
+  HOTELLA_TOKEN="$token" docker run --rm --network host -e HOTELLA_TOKEN --user "$(id -u):$(id -g)" \
     -v "$HERE/demo-content.mjs:/provision/demo-content.mjs:ro" -v "$profile:/provision/profile.json:ro" \
     -v "$demo:/provision/demo.json:ro" -v "$dir:/demo" \
     --entrypoint node "hotella/api:${HOTELLA_VERSION:-local}" /provision/demo-content.mjs \

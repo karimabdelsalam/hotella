@@ -328,6 +328,8 @@ async function main(argv) {
     writeFileSync(accountsFile, `${JSON.stringify(accounts, null, 2)}\n`, { mode: 0o600 });
     chmodSync(accountsFile, 0o600);
   };
+  // Fails before anything is created when the passwords could not be kept (they are shown nowhere else).
+  save();
   let result;
   try {
     result = await applyDemo(profile, demo, {
