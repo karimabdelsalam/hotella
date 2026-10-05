@@ -191,8 +191,12 @@ describe.skipIf(skip)(`.NET hotel agent ↔ agent gateway (${skip ? reason : 'do
   });
 
   it('uploads HTTPS batches for large resyncs, in order and idempotently', async () => {
+    // The licence test's accepted resync may still be on its way: let the link deliver it before going offline,
+    // and count from whatever is queued when the link is down.
+    await agent.drained();
     await agent.stop();
     await until(async () => !(await agent.state()).connected);
+    const queued = (await agent.state()).queue_depth;
     pms.reserve({
       id: `B-${stamp}`,
       guest: { first: 'Batch' },
@@ -205,12 +209,12 @@ describe.skipIf(skip)(`.NET hotel agent ↔ agent gateway (${skip ? reason : 'do
       arrival: '2026-11-03',
       departure: '2026-11-04',
     });
-    await until(async () => (await agent.state()).queue_depth === 2);
+    await until(async () => (await agent.state()).queue_depth === queued + 2);
     const before = (await h.messages()).length;
     const res = await agent.batch();
     expect(res.resend_from).toBeNull();
     expect((await agent.state()).queue_depth).toBe(0);
-    expect((await h.messages()).length).toBe(before + 2);
+    expect((await h.messages()).length).toBe(before + queued + 2);
   });
 
   it('stops at once when its certificate is revoked', async () => {
