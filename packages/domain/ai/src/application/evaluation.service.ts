@@ -10,6 +10,7 @@ import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { QueueRegistry } from '@hotella/platform-queue';
 import { SettingsReader } from '@hotella/platform-settings';
+import { currentTrial } from '../domain/release';
 import {
   caseInputSchema,
   expectationsSchema,
@@ -21,6 +22,7 @@ import { AI_EVALUATION_MIN_PASS_RATE } from '../domain/settings';
 import { EvaluationRepositories, type Viewer } from '../infrastructure/evaluation-repositories';
 import { AiRepositories } from '../infrastructure/repositories';
 import type {
+  AgentReleaseRow,
   EvaluationCaseRow,
   EvaluationRunRow,
   EvaluationSetRow,
@@ -68,6 +70,19 @@ export const startEvaluationSchema = z.object({
   setIds: z.array(z.uuid()).min(1).max(20).optional(),
 });
 export const publishSchema = z.object({ reason: z.string().trim().min(1).max(500).optional() });
+export const releaseSchema = z
+  .object({
+    versionId: z.uuid(),
+    stage: z.enum(['SHADOW', 'CANARY', 'ACTIVE']),
+    /** CANARY only: the share of conversations (1–99) the candidate answers. */
+    canaryPercent: z.number().int().min(1).max(99).optional(),
+    reason: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine((r) => (r.stage === 'CANARY') === (r.canaryPercent !== undefined), {
+    message: 'a canary needs its share, and only a canary has one',
+    path: ['canaryPercent'],
+  });
+export const rollbackSchema = z.object({ reason: z.string().trim().min(1).max(500) });
 
 /**
  * Agent evaluation and release (Spec §40, BUILD_PLAN 12.1). Evaluation sets hold synthetic cases; a run takes one set
@@ -349,8 +364,10 @@ export class EvaluationService {
    */
   async execute(runId: string): Promise<EvaluationRunRow['status'] | null> {
     const run = await this.tx.read(() => this.repo.run({ tenantId: null }, runId));
-    if (!run || run.status !== 'RUNNING') return run?.status ?? null;
-    const cases = await this.tx.read(() => this.repo.cases(run.setId));
+    if (!run || run.status !== 'RUNNING' || run.mode !== 'REGRESSION' || !run.setId)
+      return run?.status ?? null;
+    const setId = run.setId;
+    const cases = await this.tx.read(() => this.repo.cases(setId));
     const minPassRate = await this.settings.value(AI_EVALUATION_MIN_PASS_RATE, {});
     const graded: Array<{ critical: boolean; outcome: 'PASS' | 'FAIL' | 'ERROR' }> = [];
     let cost = 0;
@@ -394,7 +411,7 @@ export class EvaluationService {
         aggregate: { type: 'ai_evaluation_run', id: run.id },
         payload: {
           run_id: run.id,
-          set_id: run.setId,
+          set_id: setId,
           agent_code: run.agentCode,
           agent_version_id: run.agentVersionId,
           status,
@@ -516,78 +533,205 @@ export class EvaluationService {
 
   // ---- releases ----
 
-  /**
-   * Releases a candidate version as the one that runs (BUILD_PLAN 12.B): for every active platform set of the agent the
-   * latest regression run of this exact version passed. The previous version is superseded, never edited; the release
-   * is recorded (append-only), audited and announced.
-   */
+  /** Releases a candidate straight to ACTIVE (kept as the 12.1 endpoint). */
   publish(agentCode: string, versionId: string, input: z.infer<typeof publishSchema>) {
+    return this.release(agentCode, { versionId, stage: 'ACTIVE', reason: input.reason });
+  }
+
+  /**
+   * Releases a candidate version (BUILD_PLAN 12.B/12.2): for every active platform set of the agent the latest
+   * regression run of this exact version passed. ACTIVE makes it the version that runs (the previous one is superseded,
+   * never edited); SHADOW runs it beside the active version on live conversations without answering or acting; CANARY
+   * answers a fixed share of conversations with it. Every release is recorded (append-only), audited and announced.
+   */
+  release(agentCode: string, input: z.infer<typeof releaseSchema>) {
     const actor = this.actors.require();
     return this.act('ai.agent.release', null, async () => {
       const agent = await this.repo.agentByCode(agentCode);
-      const version = isUuid(versionId) ? await this.repo.versionById(versionId) : undefined;
+      const version = isUuid(input.versionId)
+        ? await this.repo.versionById(input.versionId)
+        : undefined;
       if (!agent || !version || version.agentId !== agent.id)
         throw AppError.notFound('ai.agent.version_not_found');
       if (version.status !== 'DRAFT') throw AppError.conflict('ai.agent.not_a_candidate');
-      const sets = await this.repo.activePlatformSets(agentCode);
-      if (sets.length === 0) throw AppError.conflict('ai.evaluation.no_sets');
-      const runs = await this.repo.runsOfVersion(version.id);
-      const used: string[] = [];
-      for (const set of sets) {
-        const latest = runs.find((r) => r.setId === set.id && r.status !== 'RUNNING');
-        if (latest?.status !== 'PASSED')
-          throw new AppError('ai.evaluation.not_passed', HttpStatus.CONFLICT, { set: set.code });
-        used.push(latest.id);
-      }
+      if (
+        input.stage !== 'ACTIVE' &&
+        agentKind(agentCode, this.catalog.definition(agentCode)) !== 'CONVERSATION'
+      )
+        throw AppError.conflict('ai.agent.trial_not_supported');
+      const used = await this.passedRuns(agentCode, version.id);
       const previous = (await this.repo.versionsOf(agent.id)).find((v) => v.status === 'PUBLISHED');
-      const promoted = await this.repo.promote(agent.id, version.id);
-      if (!promoted) throw AppError.conflict('ai.agent.not_a_candidate');
+      if (input.stage === 'ACTIVE') {
+        const promoted = await this.repo.promote(agent.id, version.id);
+        if (!promoted) throw AppError.conflict('ai.agent.not_a_candidate');
+        await this.closeShadowRuns(version.id);
+      }
       const release = await this.repo.insertRelease({
         id: newId(),
         tenantId: null,
         agentCode,
         agentVersionId: version.id,
-        stage: 'ACTIVE',
+        stage: input.stage,
+        canaryPercent: input.stage === 'CANARY' ? (input.canaryPercent ?? null) : null,
         previousVersionId: previous?.id ?? null,
         runIds: used,
         actorType: actor.type,
         actorId: isUuid(actor.id) ? actor.id : null,
         reason: input.reason ?? null,
       });
-      await this.audit.record({
-        action: 'ai.agent.release',
-        entityType: 'ai_agent_version',
-        entityId: version.id,
-        tenantId: null,
-        reason: input.reason,
+      await this.announce(release, version.versionNo, input.reason, {
         before: { versionId: previous?.id ?? null, versionNo: previous?.versionNo ?? null },
-        after: { versionId: version.id, versionNo: version.versionNo, stage: 'ACTIVE', runs: used },
-      });
-      await this.events.publish(AiAgentReleased, {
-        tenantId: null,
-        propertyId: null,
-        source: 'ai',
-        aggregate: { type: 'ai_agent_release', id: release.id },
-        payload: {
-          release_id: release.id,
-          agent_code: agentCode,
-          agent_version_id: version.id,
-          version_no: version.versionNo,
-          stage: 'ACTIVE',
-          previous_version_id: previous?.id ?? null,
-          canary_percent: null,
+        after: {
+          versionId: version.id,
+          versionNo: version.versionNo,
+          stage: input.stage,
+          canaryPercent: release.canaryPercent,
+          runs: used,
         },
       });
-      this.catalog.invalidate(agentCode);
       return {
         releaseId: release.id,
         agentCode,
         versionId: version.id,
         versionNo: version.versionNo,
-        stage: 'ACTIVE' as const,
+        stage: input.stage,
+        canaryPercent: release.canaryPercent,
         previousVersionId: previous?.id ?? null,
       };
     });
+  }
+
+  /**
+   * Rollback (BUILD_PLAN 12.2): a shadow or canary trial in progress ends; otherwise the last ACTIVE release is undone
+   * and the version it replaced runs again. Either way a ROLLED_BACK release is recorded, audited and announced.
+   */
+  rollback(agentCode: string, input: z.infer<typeof rollbackSchema>) {
+    const actor = this.actors.require();
+    return this.act('ai.agent.release', null, async () => {
+      const agent = await this.repo.agentByCode(agentCode);
+      if (!agent) throw AppError.notFound('ai.agent.not_found');
+      const history = await this.repo.releases(agentCode);
+      const versions = await this.repo.versionsOf(agent.id);
+      const current = versions.find((v) => v.status === 'PUBLISHED');
+      const trial = currentTrial(history);
+      let rolledBack: string;
+      let reinstated: string | null = null;
+      if (trial) {
+        rolledBack = trial.versionId;
+        await this.closeShadowRuns(trial.versionId);
+      } else {
+        const lastActive = history.find((r) => r.stage === 'ACTIVE');
+        if (!lastActive?.previousVersionId || lastActive.agentVersionId !== current?.id)
+          throw AppError.conflict('ai.agent.nothing_to_roll_back');
+        if (!(await this.repo.reinstate(agent.id, lastActive.previousVersionId)))
+          throw AppError.conflict('ai.agent.nothing_to_roll_back');
+        rolledBack = lastActive.agentVersionId;
+        reinstated = lastActive.previousVersionId;
+      }
+      const version = versions.find((v) => v.id === rolledBack)!;
+      const release = await this.repo.insertRelease({
+        id: newId(),
+        tenantId: null,
+        agentCode,
+        agentVersionId: rolledBack,
+        stage: 'ROLLED_BACK',
+        previousVersionId: reinstated,
+        actorType: actor.type,
+        actorId: isUuid(actor.id) ? actor.id : null,
+        reason: input.reason,
+      });
+      await this.announce(release, version.versionNo, input.reason, {
+        before: { versionId: current?.id ?? null, trial: trial?.stage ?? null },
+        after: { versionId: reinstated ?? current?.id ?? null, rolledBack },
+      });
+      return {
+        releaseId: release.id,
+        agentCode,
+        rolledBackVersionId: rolledBack,
+        activeVersionId: reinstated ?? current?.id ?? null,
+      };
+    });
+  }
+
+  /** The passed run of each active platform set on this exact version (the release gate). */
+  private async passedRuns(agentCode: string, versionId: string): Promise<string[]> {
+    const sets = await this.repo.activePlatformSets(agentCode);
+    if (sets.length === 0) throw AppError.conflict('ai.evaluation.no_sets');
+    const runs = await this.repo.runsOfVersion(versionId);
+    const used: string[] = [];
+    for (const set of sets) {
+      const latest = runs.find(
+        (r) => r.setId === set.id && r.mode === 'REGRESSION' && r.status !== 'RUNNING',
+      );
+      if (latest?.status !== 'PASSED')
+        throw new AppError('ai.evaluation.not_passed', HttpStatus.CONFLICT, { set: set.code });
+      used.push(latest.id);
+    }
+    return used;
+  }
+
+  /** A trial ended: its open shadow runs close with what they found. */
+  private async closeShadowRuns(versionId: string): Promise<void> {
+    for (const run of await this.repo.openShadowRunsOf(versionId)) {
+      const totals = run.totals as { failed?: number; errored?: number };
+      await this.repo.finishRun(run.id, {
+        status: (totals.failed ?? 0) + (totals.errored ?? 0) > 0 ? 'FAILED' : 'PASSED',
+        totals: run.totals,
+        costMinor: run.costMinor,
+      });
+    }
+  }
+
+  private async announce(
+    release: AgentReleaseRow,
+    versionNo: number,
+    reason: string | undefined,
+    change: { before: Record<string, unknown>; after: Record<string, unknown> },
+  ): Promise<void> {
+    await this.audit.record({
+      action: release.stage === 'ROLLED_BACK' ? 'ai.agent.rollback' : 'ai.agent.release',
+      entityType: 'ai_agent_version',
+      entityId: release.agentVersionId,
+      tenantId: null,
+      reason,
+      ...change,
+    });
+    await this.events.publish(AiAgentReleased, {
+      tenantId: null,
+      propertyId: null,
+      source: 'ai',
+      aggregate: { type: 'ai_agent_release', id: release.id },
+      payload: {
+        release_id: release.id,
+        agent_code: release.agentCode,
+        agent_version_id: release.agentVersionId,
+        version_no: versionNo,
+        stage: release.stage,
+        previous_version_id: release.previousVersionId,
+        canary_percent: release.canaryPercent,
+      },
+    });
+    this.catalog.invalidate(release.agentCode);
+  }
+
+  /** The runs of a version (regression and shadow) the caller may see, newest first. */
+  runsOf(agentCode: string, versionId: string) {
+    const viewer = this.viewer();
+    return this.act(
+      'ai.evaluation.read',
+      viewer.tenantId,
+      async () => {
+        if (!isUuid(versionId)) throw AppError.notFound('ai.agent.version_not_found');
+        return (await this.repo.runsOfVersion(versionId))
+          .filter(
+            (r) =>
+              r.agentCode === agentCode &&
+              (viewer.tenantId === null || r.tenantId === viewer.tenantId),
+          )
+          .map(runView);
+      },
+      true,
+    );
   }
 
   releases(agentCode: string) {

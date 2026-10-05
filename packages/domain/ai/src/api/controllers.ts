@@ -28,6 +28,8 @@ import {
   createSetSchema,
   EvaluationService,
   publishSchema,
+  releaseSchema,
+  rollbackSchema,
   startEvaluationSchema,
   updateSetSchema,
 } from '../application/evaluation.service';
@@ -48,6 +50,8 @@ class UpdateEvaluationSetDto extends createZodDto(updateSetSchema) {}
 class CreateEvaluationCaseDto extends createZodDto(createCaseSchema) {}
 class StartEvaluationDto extends createZodDto(startEvaluationSchema) {}
 class PublishAgentVersionDto extends createZodDto(publishSchema) {}
+class ReleaseAgentDto extends createZodDto(releaseSchema) {}
+class RollbackAgentDto extends createZodDto(rollbackSchema) {}
 
 /** AI providers, models and routing (ADR-0018). */
 @Controller('ai')
@@ -243,5 +247,26 @@ export class AiEvaluationController {
   @RequirePermission('ai.evaluation.read', { checkedBy: 'gate' })
   releases(@Param('code') code: string) {
     return this.evaluation.releases(code);
+  }
+
+  /** SHADOW (beside the active version, never acting), CANARY (a share of conversations) or ACTIVE (BUILD_PLAN 12.2). */
+  @Post('agents/:code/releases')
+  @RequirePermission('ai.agent.release', { checkedBy: 'gate' })
+  release(@Param('code') code: string, @Body() body: ReleaseAgentDto) {
+    return this.evaluation.release(code, body);
+  }
+
+  /** Ends a shadow or canary trial; otherwise puts the version the last release replaced back. */
+  @Post('agents/:code/rollback')
+  @HttpCode(200)
+  @RequirePermission('ai.agent.release', { checkedBy: 'gate' })
+  rollback(@Param('code') code: string, @Body() body: RollbackAgentDto) {
+    return this.evaluation.rollback(code, body);
+  }
+
+  @Get('agents/:code/versions/:versionId/runs')
+  @RequirePermission('ai.evaluation.read', { checkedBy: 'gate' })
+  runs(@Param('code') code: string, @Param('versionId') versionId: string) {
+    return this.evaluation.runsOf(code, versionId);
   }
 }

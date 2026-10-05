@@ -40,6 +40,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import { AiModule } from '../ai.module';
 import { AGENT_DEFINITIONS } from '../application/agent-catalog';
+import { CONCIERGE_AGENT } from '../application/concierge.runtime';
 import type { BuiltInAgent } from '../domain/agents';
 
 /** Test-only composition of the AI context with the contexts its tools act through (no worker processes). */
@@ -122,7 +123,11 @@ export async function startAiApp(
   url: string,
   role: string,
   grants: Record<string, readonly string[]>,
-  options: { readonly definitions?: readonly BuiltInAgent[] } = {},
+  options: {
+    readonly definitions?: readonly BuiltInAgent[];
+    /** The agent the concierge runtime runs (default GUEST_CONCIERGE). */
+    readonly conciergeAgent?: string;
+  } = {},
 ): Promise<AiHarness> {
   await runMigrations(url);
   const env = {
@@ -169,6 +174,8 @@ export async function startAiApp(
     .useValue({ isEnabled: async (key: string) => flags.get(key) ?? false });
   if (options.definitions)
     builder.overrideProvider(AGENT_DEFINITIONS).useValue(options.definitions);
+  if (options.conciergeAgent)
+    builder.overrideProvider(CONCIERGE_AGENT).useValue(options.conciergeAgent);
   const ref = await builder.compile();
   const app = ref.createNestApplication({ logger: false, rawBody: true });
   app.useGlobalPipes(new ZodValidationPipe());

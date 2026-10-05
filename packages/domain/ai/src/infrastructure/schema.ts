@@ -613,9 +613,8 @@ export const evaluationRuns = classify(
       /** The tenant whose routing, budget and property the model calls ran under. */
       tenantId: uuid('tenant_id').notNull(),
       propertyId: uuid('property_id').notNull(),
-      setId: uuid('set_id')
-        .notNull()
-        .references(() => evaluationSets.id, { onDelete: 'restrict' }),
+      /** Null for a SHADOW run (live conversations, no set). */
+      setId: uuid('set_id').references(() => evaluationSets.id, { onDelete: 'restrict' }),
       agentCode: varchar('agent_code', { length: 64 }).notNull(),
       agentVersionId: uuid('agent_version_id')
         .notNull()
@@ -665,6 +664,8 @@ export const evaluationResults = classify(
       outcome: evaluationOutcome('outcome').notNull(),
       checks: jsonb('checks').notNull().default([]),
       executionId: uuid('execution_id'),
+      /** SHADOW: the live execution the shadow was compared with. */
+      comparedExecutionId: uuid('compared_execution_id'),
     },
     (t) => [index('evaluation_results_run_idx').on(t.runId)],
   ),
@@ -678,6 +679,7 @@ export const evaluationResults = classify(
     outcome: 'INTERNAL',
     checks: 'INTERNAL',
     executionId: 'INTERNAL',
+    comparedExecutionId: 'INTERNAL',
   },
 );
 

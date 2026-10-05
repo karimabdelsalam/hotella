@@ -410,5 +410,7 @@
   "errors.ai.evaluation.no_sets": "Для этого ассистента нет активного набора оценки.",
   "errors.ai.evaluation.set_empty": "В наборе оценки {set} нет активных сценариев.",
   "errors.ai.evaluation.run_not_found": "Прогон оценки не найден.",
-  "errors.ai.evaluation.not_passed": "Последняя оценка этой версии на наборе {set} не пройдена."
+  "errors.ai.evaluation.not_passed": "Последняя оценка этой версии на наборе {set} не пройдена.",
+  "errors.ai.agent.trial_not_supported": "В теневом или канареечном режиме можно опробовать только ассистента для переписки с гостями; выпустите эту версию напрямую.",
+  "errors.ai.agent.nothing_to_roll_back": "Нет пробного запуска для завершения и нет предыдущей версии для возврата."
 }

@@ -13,10 +13,15 @@ import type { ToolRegistry } from './registry';
 export class DryRunExecutor implements LoopExecutor {
   readonly calls: Array<{ tool: string; args: Record<string, unknown>; outcome: DryOutcome }> = [];
 
+  /**
+   * @param live For a SHADOW run (12.2): READ tools run for real through this executor (reading changes nothing),
+   *   and an action the policy would allow comes back OK without being performed.
+   */
   constructor(
     private readonly real: Pick<ToolExecutor, 'step'>,
     private readonly registry: ToolRegistry,
     private readonly fixtures: ToolFixtures,
+    private readonly live?: Pick<ToolExecutor, 'invoke'>,
   ) {}
 
   step(...args: Parameters<ToolExecutor['step']>): ReturnType<ToolExecutor['step']> {
@@ -51,7 +56,14 @@ export class DryRunExecutor implements LoopExecutor {
           autonomy: handle.autonomy,
           autoActionsKilled: false,
         });
-        const fixture = this.fixtures[def.code];
+        if (this.live && decision === 'AUTO' && def.risk === 'READ') {
+          const read = await this.live.invoke(handle, call);
+          this.calls.push({ tool: call.tool, args, outcome: read.status });
+          return read;
+        }
+        const fixture =
+          this.fixtures[def.code] ??
+          (this.live ? { status: 'OK' as const, result: { performed: false } } : undefined);
         outcome =
           decision === 'REFUSE'
             ? { status: 'REFUSED', reason }

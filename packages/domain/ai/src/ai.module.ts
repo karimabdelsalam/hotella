@@ -12,7 +12,7 @@ import {
 } from './api/controllers';
 import { AiAdminService } from './application/admin.service';
 import { AGENT_DEFINITIONS, AgentCatalog } from './application/agent-catalog';
-import { ConciergeRuntime } from './application/concierge.runtime';
+import { CONCIERGE_AGENT, ConciergeRuntime } from './application/concierge.runtime';
 import { StaffAssistantRuntime } from './application/staff-assistant.runtime';
 import { ContextEngine } from './application/context-engine';
 import { AI_EVALUATION_JOB, EvaluationService } from './application/evaluation.service';
@@ -25,7 +25,7 @@ import { ProposalSettler } from './application/tools/proposal-settler';
 import { ToolRegistry } from './application/tools/registry';
 import { AiPolicyStage, ScopedAgentAuthorizer } from './application/tools/scope';
 import { ToolsV1 } from './application/tools/v1';
-import { BUILT_IN_AGENTS } from './domain/agents';
+import { BUILT_IN_AGENTS, GUEST_CONCIERGE } from './domain/agents';
 import { AI_SETTINGS } from './domain/settings';
 import { EvaluationRepositories } from './infrastructure/evaluation-repositories';
 import { AiRepositories } from './infrastructure/repositories';
@@ -49,6 +49,7 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     ModelGatewayService,
     ProposalSettler,
     { provide: AGENT_DEFINITIONS, useValue: BUILT_IN_AGENTS },
+    { provide: CONCIERGE_AGENT, useValue: GUEST_CONCIERGE.code },
     AgentCatalog,
     FeedbackRecorder,
     { provide: MODEL_GATEWAY, useExisting: ModelGatewayService },
@@ -62,6 +63,7 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     AgentCatalog,
     FeedbackRecorder,
     MODEL_GATEWAY,
+    CONCIERGE_AGENT,
   ],
 })
 export class AiCoreModule {}

@@ -410,5 +410,7 @@
   "errors.ai.evaluation.no_sets": "Non esiste un set di valutazione attivo per questo assistente.",
   "errors.ai.evaluation.set_empty": "Il set di valutazione {set} non ha casi attivi.",
   "errors.ai.evaluation.run_not_found": "Esecuzione della valutazione non trovata.",
-  "errors.ai.evaluation.not_passed": "L’ultima valutazione di questa versione sul set {set} non è stata superata."
+  "errors.ai.evaluation.not_passed": "L’ultima valutazione di questa versione sul set {set} non è stata superata.",
+  "errors.ai.agent.trial_not_supported": "Solo un assistente per le conversazioni con gli ospiti può essere provato in shadow o canary; rilascia questa versione direttamente.",
+  "errors.ai.agent.nothing_to_roll_back": "Non c’è alcuna prova da terminare né una versione precedente a cui tornare."
 }

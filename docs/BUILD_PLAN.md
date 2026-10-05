@@ -2949,7 +2949,7 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 | Sprint | Scope | Status |
 |---|---|---|
 | 12.1 | Evaluation sets/cases, dry-run tool executor, deterministic graders, regression runs, publish gate | done |
-| 12.2 | Agent releases: shadow (compare, never act) and canary (deterministic share), promote/rollback, kill switch | planned |
+| 12.2 | Agent releases: shadow (compare, never act) and canary (deterministic share), promote/rollback, kill switch | done |
 | 12.3 | Operational twin read model: consumers, neighbourhood queries, read-time names | planned |
 | 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | planned |
 | 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | planned |
@@ -2986,6 +2986,36 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
   the critical case's `NOT_CALLED` blocks the release; a passing run releases v2, v1 superseded, published version
   switches; dry runs create no request and no approval and record a PROPOSED cancel; events; release rows refuse
   edits; reruns of the suite on the same database stay green).
+- *As built (12.2):* migration `0050_ai_releases`: `evaluation_runs.set_id` nullable (a SHADOW run has no set),
+  `evaluation_results.compared_execution_id` (the active execution a shadow result is compared with), and the rule-9
+  trigger on `agent_versions` now also lets a SUPERSEDED version become PUBLISHED again **with identical content**
+  (rollback; any content change is still refused). `domain/release.ts` (unit-tested): `canaryBucket` (FNV-1a of the
+  conversation id mod 100; raising the share only adds conversations), `currentTrial` (the latest release row decides:
+  SHADOW/CANARY start or change a trial, ACTIVE/ROLLED_BACK end it), `compareRuns` (codes `BOTH_ANSWERED`,
+  `SAME_TOOLS`, `SAME_HANDOFF`; runtime tools such as the final reply are left out). `AgentCatalog.select(code,
+  conversationId)` answers the version that replies (the canary version when the conversation falls in its share) and
+  the shadow version to run beside it; the trial is cached 30 s like the published version and dropped on release.
+  Concierge runtime: runs the agent named by the `CONCIERGE_AGENT` provider (default `GUEST_CONCIERGE`; tests run
+  their own agent through the same runtime); **after** the guest was answered, a shadow version runs on exactly the
+  context and history the active one saw, as its own execution with trigger `SHADOW`: READ tools the policy allows run
+  for real (reading changes nothing), any other action comes back as the policy would decide (`performed: false`,
+  PROPOSED for approvals) without being performed, no reply, draft or hand-off is made; the comparison is stored as a
+  result of the version's open SHADOW run in that tenant (one per tenant, totals recounted). A disabled agent or guest
+  AI (kill switch) or a missing entitlement runs neither; shadow model calls go through the Model Gateway, so they
+  count against, and are refused by, the AI budget; a failing shadow never affects the guest. API (`ai`, platform
+  `ai.agent.release`): `POST /agents/:code/releases` (`{versionId, stage SHADOW|CANARY|ACTIVE, canaryPercent 1–99
+  (CANARY only), reason?}` → 201; same gate as publish; trials only for CONVERSATION agents, else
+  `ai.agent.trial_not_supported`; ACTIVE promotes the candidate and closes its shadow runs PASSED/FAILED by what they
+  found; `publish` is now ACTIVE through the same path), `POST /agents/:code/rollback` (`{reason}`: ends a trial in
+  progress, else undoes the last ACTIVE release and runs the version it replaced again; `ai.agent.nothing_to_roll_back`
+  otherwise; audit `ai.agent.rollback`, release row ROLLED_BACK, event `ai.agent.released.v1`),
+  `GET /agents/:code/versions/:id/runs` (regression and shadow runs the caller's tenant may see). Tests: integration
+  `release.integration.spec.ts` (a staff assistant cannot be tried; a hotel cannot release; invalid shares refused;
+  SHADOW: v1 answers and creates the one request, v2 runs as a SHADOW execution whose list-services read ran for real
+  and whose create came back dry, the stored result names `TOOLS_DIFFER` against the active execution; rolling back
+  the trial closes the shadow run FAILED; CANARY answers by the conversation's bucket and the side stays stable;
+  ACTIVE switches the reply to v2; rollback reinstates v1 with unchanged content, v2 superseded and not releasable
+  again, nothing more to roll back; release history and audit rows), green on reruns.
 
 #### 12.E Tests and acceptance
 - Unit: graders, canary bucketing, every detector's thresholds and confidence, insight fingerprinting, twin traversal,

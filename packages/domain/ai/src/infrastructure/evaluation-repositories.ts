@@ -197,6 +197,76 @@ export class EvaluationRepositories {
       .returning();
     return row;
   }
+  /** Rollback: the current version is superseded and an earlier one runs again (content unchanged, rule 9). */
+  async reinstate(agentId: string, versionId: string): Promise<AgentVersionRow | undefined> {
+    await this.x
+      .update(agentVersions)
+      .set({ status: 'SUPERSEDED', updatedAt: new Date() })
+      .where(and(eq(agentVersions.agentId, agentId), eq(agentVersions.status, 'PUBLISHED')));
+    const [row] = await this.x
+      .update(agentVersions)
+      .set({ status: 'PUBLISHED', updatedAt: new Date() })
+      .where(
+        and(
+          eq(agentVersions.agentId, agentId),
+          eq(agentVersions.id, versionId),
+          eq(agentVersions.status, 'SUPERSEDED'),
+        ),
+      )
+      .returning();
+    return row;
+  }
+  /** The open SHADOW run of a version in a tenant (one per tenant, results added as conversations come). */
+  async openShadowRun(
+    agentVersionId: string,
+    tenantId: string,
+  ): Promise<EvaluationRunRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(evaluationRuns)
+      .where(
+        and(
+          eq(evaluationRuns.agentVersionId, agentVersionId),
+          eq(evaluationRuns.tenantId, tenantId),
+          eq(evaluationRuns.mode, 'SHADOW'),
+          eq(evaluationRuns.status, 'RUNNING'),
+        ),
+      );
+    return row;
+  }
+  /** Shadow totals are recounted from the results (cheap: one run, its own rows). */
+  async refreshShadowTotals(runId: string): Promise<void> {
+    const rows = await this.x
+      .select({ outcome: evaluationResults.outcome })
+      .from(evaluationResults)
+      .where(eq(evaluationResults.runId, runId));
+    const count = (o: string) => rows.filter((r) => r.outcome === o).length;
+    await this.x
+      .update(evaluationRuns)
+      .set({
+        totals: {
+          cases: rows.length,
+          passed: count('PASS'),
+          failed: count('FAIL'),
+          errored: count('ERROR'),
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(evaluationRuns.id, runId));
+  }
+  /** The open SHADOW runs of a version, in every tenant (a trial ends for all of them). */
+  openShadowRunsOf(agentVersionId: string): Promise<EvaluationRunRow[]> {
+    return this.x
+      .select()
+      .from(evaluationRuns)
+      .where(
+        and(
+          eq(evaluationRuns.agentVersionId, agentVersionId),
+          eq(evaluationRuns.mode, 'SHADOW'),
+          eq(evaluationRuns.status, 'RUNNING'),
+        ),
+      );
+  }
   async insertRelease(values: typeof agentReleases.$inferInsert): Promise<AgentReleaseRow> {
     const [row] = await this.x.insert(agentReleases).values(values).returning();
     return row!;
