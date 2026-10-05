@@ -6,11 +6,11 @@
 export type NotificationPriority = 'NORMAL' | 'HIGH' | 'CRITICAL';
 export type NotificationChannel = 'IN_APP' | 'EMAIL' | 'PUSH' | 'WHATSAPP' | 'SMS';
 
-/** Staff channels available in this phase; PUSH arrives with the staff app, WHATSAPP/SMS with Phase 4 adapters. */
+/** Staff channels: the in-app inbox always, a push to the Hotella app (ADR-0023), e-mail from HIGH up. */
 export const DEFAULT_CHANNELS: Record<NotificationPriority, readonly NotificationChannel[]> = {
-  NORMAL: ['IN_APP'],
-  HIGH: ['IN_APP', 'EMAIL'],
-  CRITICAL: ['IN_APP', 'EMAIL'],
+  NORMAL: ['IN_APP', 'PUSH'],
+  HIGH: ['IN_APP', 'PUSH', 'EMAIL'],
+  CRITICAL: ['IN_APP', 'PUSH', 'EMAIL'],
 };
 
 export interface ChannelPreference {

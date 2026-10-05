@@ -3088,6 +3088,31 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
   person, Arabic RTL and API calls in Arabic, it/ru/de LTR). Golden screenshots are left out: font rendering differs
   between machines, so direction is asserted on the widget tree instead.
 
+- *As built (14.5):* `iam.staff_devices` (migration `0047_staff_devices`: tenant, user, session, platform
+  ANDROID|IOS, push token CONFIDENTIAL, app version, locale, last seen, revoked; RLS `tenant_isolation`; one live row
+  per tenant and token). `POST /me/devices` registers this session's phone (again on every app start; the same token
+  moves to whoever is signed in on the phone, `REASSIGNED`), `DELETE /me/devices/:id` removes it — self-service bound
+  to the session like sign-out and MFA enrolment (no permission beyond a signed-in hotel staff member; platform staff
+  get 403 `iam.device.staff_only`), audited without the token. A revoked session (sign-out, disabled user, refresh
+  reuse) revokes its phones. `IDENTITY_API.staffDevices` / `revokeStaffDevice` for the sender. Operations: channel
+  `PUSH` in every priority's defaults (switchable per category like e-mail; critical policy overrides), deliveries
+  `PENDING` when the channel is configured, else `SKIPPED channel_not_configured`; the sender pushes to each live
+  phone with a generic title per category (`ops.push.<category>.title`, else `ops.push.default.title`) in the phone's
+  or the person's language, and data `intent_id`, `category`, `property_id`, `source_type/id` only; a phone FCM
+  reports gone (404/UNREGISTERED) is revoked (`PUSH_TOKEN_GONE`), other failures retry like e-mail. `FcmPushChannel`:
+  FCM HTTP v1 with an OAuth token minted from the service-account JSON (RS256 JWT bearer; Node crypto and fetch, no
+  SDK), `PUSH_FCM_PROJECT_ID` + `PUSH_FCM_CREDENTIALS_REF` (OpenBao `kv/hotella/app#fcm_service_account`); iOS goes
+  through FCM with the APNs key uploaded to Firebase (no separate APNs adapter). Operations: `pilot.sh push-setup
+  <project> <key.json>` (also `hotella push-setup`), runbook `docs/runbooks/push-notifications.md`. App:
+  `firebase_core` + `firebase_messaging`, Firebase options from `--dart-define` (no config files committed), the
+  phone registers after sign-in and on token rotation, sign-out removes it and deletes the token before the session
+  ends; builds without Firebase settings run without pushes. Tests: FCM channel unit test against a local fake (JWT
+  signature, one token for several sends, gone vs retryable), operations integration (push reaches the phones in the
+  person's language with references only, a gone phone is revoked, no phone → skipped), identity integration
+  (register, re-register, platform staff refused, sign-out and disabling revoke, delete, audit without token), app
+  widget test (registration body, removal before logout, token forgotten). Notification taps open the right screen in
+  14.6.
+
 #### 14.D Sprints
 | Sprint | Scope | Status |
 |---|---|---|
@@ -3095,7 +3120,7 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
 | 14.2 | Restaurant context: model, migration, allowance and capacity rules, staff and guest APIs, events, checkout consumer, manifest, tests | done |
 | 14.3 | Restaurant UI: staff board, phone booking, configuration screens; guest booking; concierge tools; e2e; acceptance | done |
 | 14.4 | Staff app skeleton: Flutter project, generated client, ARB from the catalog, hotel code → branding → sign-in, CI job | done |
-| 14.5 | Push notifications: devices, PUSH adapter (FCM/APNs) with OpenBao credentials, notification routing to devices | planned |
+| 14.5 | Push notifications: devices, PUSH adapter (FCM/APNs) with OpenBao credentials, notification routing to devices | done |
 | 14.6 | Staff app screens: tasks, requests, alerts, restaurant bookings; offline read cache; acceptance on devices | planned |
 
 #### 14.E Acceptance

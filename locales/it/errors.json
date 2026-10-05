@@ -396,5 +396,7 @@
   "errors.restaurant.reservation.too_early": "Le prenotazioni si aprono {days, plural, one {# giorno} many {# giorni} other {# giorni}} prima.",
   "errors.restaurant.reservation.allowance_used": "Il Suo soggiorno include {allowed, plural, one {una prenotazione} many {# prenotazioni} other {# prenotazioni}} in questo ristorante, già utilizzate.",
   "errors.restaurant.reservation.sitting_full": "Questo turno è al completo. Scelga un altro orario o giorno.",
-  "errors.restaurant.reservation.transition_not_allowed": "Una prenotazione {from} non può diventare {to}."
+  "errors.restaurant.reservation.transition_not_allowed": "Una prenotazione {from} non può diventare {to}.",
+  "errors.iam.device.not_found": "Dispositivo non trovato.",
+  "errors.iam.device.staff_only": "Solo un membro dello staff dell’hotel che ha effettuato l’accesso può registrare un dispositivo."
 }

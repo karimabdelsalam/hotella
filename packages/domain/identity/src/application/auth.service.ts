@@ -228,6 +228,8 @@ export class AuthService {
   /** Revokes one session and announces it (realtime connections close on the event). Call inside a transaction. */
   async revoke(sessionId: string, userId: string, reason: RevokeReason, now: Date): Promise<void> {
     if (!(await this.repo.revokeSession(sessionId, reason, now))) return;
+    // The session's phones stop receiving pushes with it (ADR-0023).
+    await this.repo.revokeDevices({ sessionId }, reason, now);
     const session = await this.repo.sessionById(sessionId);
     await this.events.publish(SessionRevoked, {
       tenantId: session?.tenantId ?? null,

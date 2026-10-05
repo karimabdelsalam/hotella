@@ -396,5 +396,7 @@
   "errors.restaurant.reservation.too_early": "Bookings open {days, plural, one {# day} other {# days}} ahead.",
   "errors.restaurant.reservation.allowance_used": "Your stay includes {allowed, plural, one {one booking} other {# bookings}} at this restaurant, already used.",
   "errors.restaurant.reservation.sitting_full": "This sitting is full. Please choose another time or day.",
-  "errors.restaurant.reservation.transition_not_allowed": "A {from} reservation cannot become {to}."
+  "errors.restaurant.reservation.transition_not_allowed": "A {from} reservation cannot become {to}.",
+  "errors.iam.device.not_found": "Device not found.",
+  "errors.iam.device.staff_only": "Only a signed-in hotel staff member can register a device."
 }

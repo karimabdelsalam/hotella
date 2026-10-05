@@ -20,6 +20,10 @@ x-app-env: &app-env
   COMMS_OTP_HMAC_KEY_REF: vault://kv/hotella/app#otp_hmac_key
   # Outbound webhook secrets derive from this key (Spec §75); rotating it changes every endpoint's secret.
   WEBHOOK_SIGNING_KEY_REF: vault://kv/hotella/app#webhook_signing_key
+  # Pushes to the Hotella staff app (ADR-0023, docs/runbooks/push-notifications.md): off until the Firebase project
+  # is set; the service-account JSON is in OpenBao.
+  PUSH_FCM_PROJECT_ID: ${HOTELLA_FCM_PROJECT_ID:-}
+  PUSH_FCM_CREDENTIALS_REF: vault://kv/hotella/app#fcm_service_account
   SECRETS_VAULT_ADDR: https://openbao:8200
   SECRETS_VAULT_AUTH: approle
   SECRETS_VAULT_ROLE_ID_FILE: /run/approle/role_id

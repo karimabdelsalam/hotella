@@ -12,6 +12,13 @@ export {
 export { AlertService } from './application/alert.service';
 export { ApprovalService } from './application/approval.service';
 export { EMAIL_CHANNEL } from './application/email.channel';
+export {
+  FCM_ENDPOINTS,
+  FcmPushChannel,
+  PUSH_CHANNEL,
+  type PushChannel,
+  PushTokenGoneError,
+} from './application/push.channel';
 export type { EmailChannel, EmailMessage } from './application/email.channel';
 export { NotificationRules } from './application/notification-rules';
 export { NotificationService } from './application/notification.service';

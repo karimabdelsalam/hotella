@@ -164,11 +164,14 @@ else
   API_URL="https://api.$DOMAIN"; STAFF_URL="https://staff.$DOMAIN"; GUEST_URL="https://guest.$DOMAIN"
   WS_URL="wss://api.$DOMAIN/api/v1/realtime"; AGENT_HOST="agent.$DOMAIN"; AGENT_BIND="0.0.0.0"
 fi
-# Compose reads this file next to compose.pilot.yml; the URLs are public, nothing secret is in it.
+# Compose reads this file next to compose.pilot.yml; the URLs are public, nothing secret is in it. A Firebase project
+# set earlier with `hotella push-setup` is kept.
+fcm="$(grep -s '^HOTELLA_FCM_PROJECT_ID=' "$DIR/infra/docker/.env" || true)"
 cat >"$DIR/infra/docker/.env" <<EOF
 HOTELLA_PUBLIC_BASE_URL=$GUEST_URL
 HOTELLA_PUBLIC_WS_URL=$WS_URL
 HOTELLA_AGENT_BIND=$AGENT_BIND
+${fcm}
 EOF
 export HOTELLA_AGENT_HOSTNAME="$AGENT_HOST"
 
@@ -297,4 +300,5 @@ Next (docs/runbooks/deploy.md):
   3. Sign in to the staff web, create the hotel (tenant, property) and its staff; connect the hotel agent.
 
 Everyday commands:  sudo hotella status · sudo hotella backup full · sudo hotella unseal · sudo hotella start
+Pushes to the Hotella app: sudo hotella push-setup <firebase-project-id> <service-account.json>
 EOF

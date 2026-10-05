@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api/hotella_api.g.dart';
 import 'api/transport.dart';
+import 'push.dart';
 
 /// The hotel a code resolved to: its brand as the app shows it (rule 15), never staff or guest data.
 @immutable
@@ -126,7 +128,13 @@ enum SignInResult { signedIn, mfaRequired }
 
 /// The app's state: the hotel, the session and the person. Screens read it and call its actions; the API decides.
 class AppState extends ChangeNotifier implements TokenSource {
-  AppState({required this.transport, required this.store, required String locale}) : _locale = locale {
+  AppState({
+    required this.transport,
+    required this.store,
+    required String locale,
+    this.push = const NoPush(),
+    this.appVersion,
+  }) : _locale = locale {
     transport
       ..tokens = this
       ..locale = locale;
@@ -136,6 +144,12 @@ class AppState extends ChangeNotifier implements TokenSource {
   final ApiTransport transport;
   final SessionStore store;
   late final HotellaApi api;
+
+  /// Where this phone's push address comes from (Firebase in store builds).
+  final PushRegistrar push;
+  final String? appVersion;
+  String? _deviceId;
+  StreamSubscription<PushAddress>? _pushChanges;
 
   String _locale;
   Hotel? hotel;
@@ -151,6 +165,9 @@ class AppState extends ChangeNotifier implements TokenSource {
   @override
   String? get accessToken => _access;
   bool get signedIn => me != null;
+
+  /// This phone's registration for pushes in the current session, once registered.
+  String? get deviceId => _deviceId;
   bool get mfaPending => _challenge != null;
 
   /// Restores what the last launch left (hotel, tokens, language).
@@ -163,6 +180,7 @@ class AppState extends ChangeNotifier implements TokenSource {
     if (_refresh != null && await renew()) {
       try {
         await _loadMe();
+        unawaited(_registerPhone());
       } on ApiException {
         await _clearSession();
       }
@@ -213,12 +231,27 @@ class AppState extends ChangeNotifier implements TokenSource {
   }
 
   Future<void> signOut() async {
+    // Not awaited: cancelling may wait for the platform channel, and nothing here depends on it.
+    unawaited(_pushChanges?.cancel());
+    _pushChanges = null;
     if (_access != null) {
+      try {
+        // The phone stops receiving this person's hotel work before the session ends (sign-out revokes it too).
+        if (_deviceId != null) await api.revokeDevice(_deviceId!);
+      } on ApiException {
+        // Revoked with the session below.
+      }
       try {
         await api.logout();
       } on ApiException {
         // The session ends on this device either way.
       }
+    }
+    _deviceId = null;
+    try {
+      await push.forget();
+    } on Object {
+      // A new address is issued at the next sign-in either way.
     }
     await _clearSession();
     notifyListeners();
@@ -247,6 +280,26 @@ class AppState extends ChangeNotifier implements TokenSource {
     await _keep(tokens);
     await _loadMe();
     notifyListeners();
+    unawaited(_registerPhone());
+  }
+
+  /// Registers this phone for pushes (best effort: the app works without them) and follows address changes.
+  Future<void> _registerPhone() async {
+    try {
+      final address = await push.address();
+      if (address != null) await _sendAddress(address);
+      _pushChanges ??= push.changes.listen((a) => unawaited(_sendAddress(a).catchError((Object _) {})));
+    } on Object {
+      // No permission, no network or no Firebase: pushes stay off until the next start.
+    }
+  }
+
+  Future<void> _sendAddress(PushAddress address) async {
+    if (!signedIn) return;
+    final json = await api.registerDevice(
+      RegisterDeviceDto(platform: address.platform, pushToken: address.token, appVersion: appVersion, locale: _locale),
+    ) as Map<String, Object?>;
+    _deviceId = json['id'] as String?;
   }
 
   Future<void> _keep(Map<String, Object?> tokens) async {

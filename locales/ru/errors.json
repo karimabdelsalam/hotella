@@ -396,5 +396,7 @@
   "errors.restaurant.reservation.too_early": "Бронирование открывается за {days, plural, one {# день} few {# дня} many {# дней} other {# дня}}.",
   "errors.restaurant.reservation.allowance_used": "Ваше проживание включает {allowed, plural, one {# бронирование} few {# бронирования} many {# бронирований} other {# бронирования}} в этом ресторане — они уже использованы.",
   "errors.restaurant.reservation.sitting_full": "На это время мест нет. Выберите другое время или день.",
-  "errors.restaurant.reservation.transition_not_allowed": "Бронирование в статусе {from} нельзя перевести в {to}."
+  "errors.restaurant.reservation.transition_not_allowed": "Бронирование в статусе {from} нельзя перевести в {to}.",
+  "errors.iam.device.not_found": "Устройство не найдено.",
+  "errors.iam.device.staff_only": "Зарегистрировать устройство может только вошедший сотрудник отеля."
 }

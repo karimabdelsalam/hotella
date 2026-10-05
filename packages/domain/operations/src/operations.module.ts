@@ -16,6 +16,7 @@ import { ActorStore } from '@hotella/platform-auth';
 import { AlertAdminService, AlertService } from './application/alert.service';
 import { ApprovalAdminService, ApprovalService } from './application/approval.service';
 import { EMAIL_CHANNEL, SmtpEmailChannel } from './application/email.channel';
+import { FcmPushChannel, PUSH_CHANNEL } from './application/push.channel';
 import { NotificationRules } from './application/notification-rules';
 import { NotificationInboxService, NotificationService } from './application/notification.service';
 import { OperationsQueryService } from './application/queries';
@@ -70,6 +71,7 @@ const NOTIFICATION_DELIVERY_EVERY_MS = 10_000;
     ApprovalService,
     WorkflowEngine,
     { provide: EMAIL_CHANNEL, useClass: SmtpEmailChannel },
+    { provide: PUSH_CHANNEL, useClass: FcmPushChannel },
     NotificationService,
     NotificationRules,
     OperationsPublicApiService,

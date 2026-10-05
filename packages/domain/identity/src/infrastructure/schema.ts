@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   foreignKey,
@@ -467,7 +468,60 @@ export type PersonRow = typeof persons.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
 export type RoleRow = typeof roles.$inferSelect;
 export type MembershipRow = typeof memberships.$inferSelect;
+export const devicePlatform = iam.enum('device_platform', ['ANDROID', 'IOS']);
+
+/**
+ * A phone running the Hotella staff app for a signed-in session (ADR-0023): where staff notifications are pushed.
+ * The push token is CONFIDENTIAL (it addresses one device); ending the session — sign-out, disabling the user — revokes
+ * the device, and a token the push provider no longer knows is revoked when a send reports it.
+ */
+export const staffDevices = classify(
+  iam.table(
+    'staff_devices',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+      sessionId: uuid('session_id')
+        .notNull()
+        .references(() => sessions.id, { onDelete: 'cascade' }),
+      platform: devicePlatform('platform').notNull(),
+      pushToken: text('push_token').notNull(),
+      appVersion: varchar('app_version', { length: 32 }),
+      locale: varchar('locale', { length: 10 }),
+      lastSeenAt: tz('last_seen_at').notNull(),
+      revokedAt: tz('revoked_at'),
+      revokeReason: varchar('revoke_reason', { length: 32 }),
+    },
+    (t) => [
+      index('staff_devices_user_idx').on(t.userId),
+      index('staff_devices_session_idx').on(t.sessionId),
+      uniqueIndex('staff_devices_token_live_uq')
+        .on(t.tenantId, t.pushToken)
+        .where(sql`${t.revokedAt} IS NULL`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    userId: 'INTERNAL',
+    sessionId: 'INTERNAL',
+    platform: 'INTERNAL',
+    pushToken: 'CONFIDENTIAL',
+    appVersion: 'INTERNAL',
+    locale: 'INTERNAL',
+    lastSeenAt: 'INTERNAL',
+    revokedAt: 'INTERNAL',
+    revokeReason: 'INTERNAL',
+  },
+);
+
 export type SessionRow = typeof sessions.$inferSelect;
+export type StaffDeviceRow = typeof staffDevices.$inferSelect;
 export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
 export type PermissionRow = typeof permissions.$inferSelect;
 export type SupportAccessGrantRow = typeof supportAccessGrants.$inferSelect;

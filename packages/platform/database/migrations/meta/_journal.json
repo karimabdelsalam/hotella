@@ -330,6 +330,13 @@
       "when": 1791196873239,
       "tag": "0046_restaurant",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1791206072317,
+      "tag": "0047_staff_devices",
+      "breakpoints": true
     }
   ]
 }

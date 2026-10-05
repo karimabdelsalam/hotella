@@ -155,6 +155,18 @@ export const envSchema = z.object({
   NOTIFY_SMTP_USER: z.string().min(1).optional(),
   NOTIFY_SMTP_PASSWORD_REF: secretRef('vault://kv/hotella/app#smtp_password').optional(),
   NOTIFY_EMAIL_FROM: z.string().min(3).default('no-reply@localhost'),
+  /**
+   * Push channel of staff notifications to the Hotella app (ADR-0023): Firebase Cloud Messaging HTTP v1, which also
+   * reaches iOS through the APNs key uploaded to the Firebase project. The service-account JSON is a SecretRef; both
+   * unset = the channel is off (push deliveries are recorded as skipped).
+   */
+  PUSH_FCM_PROJECT_ID: z
+    .string()
+    .regex(/^[a-z][a-z0-9-]{4,29}$/)
+    // Compose passes an unset variable as an empty string: the same as unset.
+    .or(z.literal('').transform(() => undefined))
+    .optional(),
+  PUSH_FCM_CREDENTIALS_REF: secretRef('vault://kv/hotella/app#fcm_service_account').optional(),
   /** Guest OTP (ADR-0011): codes are derived with HMAC-SHA256 under this key; a SecretRef, never a value. */
   COMMS_OTP_HMAC_KEY_REF: secretRef('vault://kv/hotella/app#otp_hmac_key').default(
     'env://COMMS_OTP_HMAC_KEY',
@@ -239,6 +251,7 @@ export interface AppConfig {
       readonly passwordRef: string | null;
     } | null;
     readonly emailFrom: string;
+    readonly push: { readonly projectId: string; readonly credentialsRef: string } | null;
   };
   readonly retention: {
     readonly outboxDays: number;
@@ -421,6 +434,10 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
           }
         : null,
       emailFrom: e.NOTIFY_EMAIL_FROM,
+      push:
+        e.PUSH_FCM_PROJECT_ID && e.PUSH_FCM_CREDENTIALS_REF
+          ? { projectId: e.PUSH_FCM_PROJECT_ID, credentialsRef: e.PUSH_FCM_CREDENTIALS_REF }
+          : null,
     },
     retention: {
       outboxDays: e.EVENTS_OUTBOX_RETENTION_DAYS,

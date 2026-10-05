@@ -396,5 +396,7 @@
   "errors.restaurant.reservation.too_early": "Reservierungen öffnen {days, plural, one {# Tag} other {# Tage}} im Voraus.",
   "errors.restaurant.reservation.allowance_used": "Ihr Aufenthalt umfasst {allowed, plural, one {eine Reservierung} other {# Reservierungen}} in diesem Restaurant, bereits genutzt.",
   "errors.restaurant.reservation.sitting_full": "Diese Sitzung ist ausgebucht. Bitte wählen Sie eine andere Zeit oder einen anderen Tag.",
-  "errors.restaurant.reservation.transition_not_allowed": "Eine Reservierung im Status {from} kann nicht zu {to} werden."
+  "errors.restaurant.reservation.transition_not_allowed": "Eine Reservierung im Status {from} kann nicht zu {to} werden.",
+  "errors.iam.device.not_found": "Gerät nicht gefunden.",
+  "errors.iam.device.staff_only": "Nur angemeldete Hotelmitarbeitende können ein Gerät registrieren."
 }

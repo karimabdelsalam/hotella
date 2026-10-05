@@ -47,6 +47,7 @@ import { SettingsModule } from '@hotella/platform-settings';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { AlertService } from './application/alert.service';
 import { EMAIL_CHANNEL } from './application/email.channel';
+import { PUSH_CHANNEL, PushTokenGoneError } from './application/push.channel';
 import { NotificationRules } from './application/notification-rules';
 import { NotificationService } from './application/notification.service';
 import { ApprovalService } from './application/approval.service';
@@ -113,6 +114,19 @@ const grants: Record<string, string[]> = {
 const roles: Record<string, string[]> = { DUTY_MANAGER: [ids.sup], GENERAL_MANAGER: [ids.gm] };
 /** E-mail channel stand-in: records what would have been sent; can be told to fail. */
 const mailbox: Array<{ to: string; subject: string; text: string }> = [];
+/** The push provider as the worker sees it: one phone it knows, one it forgot. */
+const pushes: Array<{ token: string; title: string; body: string; data: Record<string, string> }> =
+  [];
+const revokedDevices: string[] = [];
+const fakePush = {
+  configured: true,
+  async send(m: { token: string; title: string; body: string; data: Record<string, string> }) {
+    if (m.token === 'tok-gone') throw new PushTokenGoneError('UNREGISTERED');
+    pushes.push(m);
+    return { providerRef: `projects/x/messages/${pushes.length}` };
+  },
+};
+
 const fakeEmail = {
   configured: true,
   failNext: 0,
@@ -148,6 +162,16 @@ const fakeEmail = {
           email: `${userId}@hotel.example`,
           locale: userId === ids.sup ? 'ar' : 'en',
         }),
+        staffDevices: async (_t: string, userId: string) =>
+          userId === ids.sup
+            ? [
+                { id: 'dev-ok', platform: 'ANDROID' as const, pushToken: 'tok-ok', locale: null },
+                { id: 'dev-gone', platform: 'IOS' as const, pushToken: 'tok-gone', locale: 'en' },
+              ].filter((d) => !revokedDevices.includes(d.id))
+            : [],
+        revokeStaffDevice: async (_t: string, deviceId: string) => {
+          revokedDevices.push(deviceId);
+        },
       } satisfies IdentityPublicApi,
     },
   ],
@@ -252,6 +276,8 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
     })
       .overrideProvider(EMAIL_CHANNEL)
       .useValue(fakeEmail)
+      .overrideProvider(PUSH_CHANNEL)
+      .useValue(fakePush)
       .compile();
     app = ref.createNestApplication({ logger: false });
     app.useGlobalPipes(new ZodValidationPipe());
@@ -1391,6 +1417,14 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
             attempts: 0,
             last_error: null,
           },
+          ...[ids.gm, ids.sup].map((user_id) => ({
+            user_id,
+            channel: 'PUSH',
+            status: 'PENDING',
+            category: 'ESCALATION',
+            attempts: 0,
+            last_error: null,
+          })),
         ].sort((a, b) => a.user_id.localeCompare(b.user_id) || a.channel.localeCompare(b.channel)),
       );
       expect(await deliveriesFor(item.tasks[0]!.id)).toEqual([
@@ -1398,6 +1432,14 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
           user_id: ids.w1,
           channel: 'IN_APP',
           status: 'SENT',
+          category: 'TASK',
+          attempts: 0,
+          last_error: null,
+        },
+        {
+          user_id: ids.w1,
+          channel: 'PUSH',
+          status: 'PENDING',
           category: 'TASK',
           attempts: 0,
           last_error: null,
@@ -1472,13 +1514,18 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
       await runConsumers(since);
       const rows = await deliveriesFor(item.id);
       // The duty manager's HIGH escalation respects the opt-out; the general manager's CRITICAL one does not.
-      expect(rows.filter((d) => d.user_id === ids.sup).map((d) => d.channel)).toEqual(['IN_APP']);
+      expect(
+        rows
+          .filter((d) => d.user_id === ids.sup)
+          .map((d) => d.channel)
+          .sort(),
+      ).toEqual(['IN_APP', 'PUSH']);
       expect(
         rows
           .filter((d) => d.user_id === ids.gm)
           .map((d) => d.channel)
           .sort(),
-      ).toEqual(['EMAIL', 'IN_APP']);
+      ).toEqual(['EMAIL', 'IN_APP', 'PUSH']);
 
       fakeEmail.failNext = 1;
       const now = new Date();
@@ -1491,6 +1538,39 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
       await app.get(NotificationService).deliverDue(new Date(now.getTime() + 61_000));
       email = (await deliveriesFor(item.id)).find((d) => d.channel === 'EMAIL')!;
       expect(email).toMatchObject({ status: 'SENT', attempts: 2 });
+    });
+
+    it("a push reaches the person's phones in their language with references only; a phone the provider forgot is revoked", async () => {
+      await ladder('NOTIFY_P');
+      await app.get(NotificationService).deliverDue();
+      pushes.length = 0;
+      const since = new Date(Date.now() - 1_000);
+      const item = await escalate('NOTIFY_P');
+      await runConsumers(since);
+      await app.get(NotificationService).deliverDue();
+      const rows = await deliveriesFor(item.id);
+      expect(rows.find((d) => d.user_id === ids.sup && d.channel === 'PUSH')).toMatchObject({
+        status: 'SENT',
+        attempts: 1,
+      });
+      // The general manager has no phone registered: nothing to push to.
+      expect(rows.find((d) => d.user_id === ids.gm && d.channel === 'PUSH')).toMatchObject({
+        status: 'SKIPPED',
+        last_error: 'no_device',
+      });
+      expect(revokedDevices).toEqual(['dev-gone']);
+      expect(pushes).toHaveLength(1);
+      const [push] = pushes;
+      // The duty manager reads Arabic (no locale on the phone: the person's language).
+      expect(push).toMatchObject({
+        token: 'tok-ok',
+        title: 'تصعيد',
+        body: 'افتح التطبيق لعرض التفاصيل.',
+      });
+      expect(Object.keys(push!.data).sort()).toEqual(
+        ['category', 'intent_id', 'property_id', 'source_id', 'source_type'].sort(),
+      );
+      expect(push!.data.source_id).toBe(item.id);
     });
   });
 });

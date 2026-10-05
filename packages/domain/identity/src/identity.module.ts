@@ -24,6 +24,7 @@ import { AuthService } from './application/auth.service';
 import { IdentityBootstrapService } from './application/bootstrap.service';
 import { IdentityCatalogService } from './application/catalog.service';
 import { ProfileService } from './application/profile.service';
+import { DeviceService } from './application/device.service';
 import { MembershipPermissionResolver } from './auth/permission-resolver';
 import { IdentityLocalePreferences, JwtAuthenticationStrategy } from './auth/strategy';
 import { IDENTITY_MANIFEST } from './manifest';
@@ -45,6 +46,7 @@ import { IdentityPublicApiService } from './public-api.service';
     IdentityAdminService,
     ApiClientService,
     ProfileService,
+    DeviceService,
     IdentityCatalogService,
     IdentityBootstrapService,
     IdentityPublicApiService,

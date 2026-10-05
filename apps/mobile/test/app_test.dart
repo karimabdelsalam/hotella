@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotella/api/transport.dart';
 import 'package:hotella/app.dart';
+import 'package:hotella/push.dart';
 import 'package:hotella/session.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -63,6 +64,10 @@ class FakeApi {
         ]);
       case '/auth/logout':
         return http.Response('', 204);
+      case '/me/devices':
+        return json({'id': 'dev-1', 'platform': 'ANDROID'});
+      case '/me/devices/dev-1':
+        return http.Response('', 204);
     }
     return json({'code': 'platform.not_found', 'detail': 'Not found.'}, 404);
   });
@@ -77,13 +82,30 @@ class FakeApi {
   };
 }
 
-Future<(AppState, FakeApi, MemorySessionStore)> start(WidgetTester tester, {String locale = 'en'}) async {
+/// A phone that agreed to notifications; records when the app forgets its address.
+class FakePush implements PushRegistrar {
+  bool forgotten = false;
+  @override
+  Future<PushAddress?> address() async => (platform: 'ANDROID', token: 'fcm-token-0123456789-abcdefghij');
+  @override
+  Stream<PushAddress> get changes => const Stream.empty();
+  @override
+  Future<void> forget() async => forgotten = true;
+}
+
+Future<(AppState, FakeApi, MemorySessionStore)> start(
+  WidgetTester tester, {
+  String locale = 'en',
+  PushRegistrar push = const NoPush(),
+}) async {
   final api = FakeApi();
   final store = MemorySessionStore();
   final state = AppState(
     transport: ApiTransport(baseUrl: base, client: api.client),
     store: store,
     locale: locale,
+    push: push,
+    appVersion: '1.0.0',
   );
   await tester.pumpWidget(HotellaApp(state: state, baseUrl: base));
   await state.restore();
@@ -133,6 +155,35 @@ void main() {
     expect(api.calls, contains('POST /auth/logout en'));
     expect(store.values.containsKey('refresh'), isFalse);
     expect(find.text('Sign in to Nile Palace'), findsOneWidget);
+  });
+
+  testWidgets('after sign-in the phone registers for pushes; sign-out removes it before the session ends', (
+    tester,
+  ) async {
+    final push = FakePush();
+    final (state, api, _) = await start(tester, push: push);
+    await tester.enterText(find.byKey(const Key('hotel-code')), 'NILE');
+    await tester.tap(find.byKey(const Key('continue')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('email')), 'mona@nile.test');
+    await tester.enterText(find.byKey(const Key('password')), 'right');
+    await tester.tap(find.byKey(const Key('sign-in')));
+    await tester.pumpAndSettle();
+    expect(api.bodies['/me/devices'], {
+      'platform': 'ANDROID',
+      'pushToken': 'fcm-token-0123456789-abcdefghij',
+      'appVersion': '1.0.0',
+      'locale': 'en',
+    });
+    expect(state.deviceId, 'dev-1');
+
+    await tester.tap(find.byKey(const Key('sign-out')));
+    await tester.pumpAndSettle();
+    final revoke = api.calls.indexOf('DELETE /me/devices/dev-1 en');
+    expect(revoke, greaterThan(-1));
+    expect(revoke, lessThan(api.calls.indexOf('POST /auth/logout en')));
+    expect(push.forgotten, isTrue);
+    expect(state.deviceId, isNull);
   });
 
   testWidgets('a person with MFA enters the code after the password', (tester) async {

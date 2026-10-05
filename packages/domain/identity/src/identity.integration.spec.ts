@@ -31,6 +31,7 @@ import { IdentityBootstrapService } from './application/bootstrap.service';
 import { IdentityCatalogService } from './application/catalog.service';
 import { MembershipPermissionResolver } from './auth/permission-resolver';
 import { IdentityRepositories } from './infrastructure/repositories';
+import { IDENTITY_API, type IdentityPublicApi } from './public';
 import { totp } from './domain/totp';
 import { IdentityCoreModule } from './identity-core.module';
 import { IdentityModule, identityAuthOptions, identityLocalePreferences } from './identity.module';
@@ -773,6 +774,11 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
       .expect(200);
     const session = await login(`fd-${stamp}@nile.example`, 'front desk smiles daily');
     await api().get('/me').set(bearer(session.access)).expect(200);
+    const phone = await api()
+      .post('/me/devices')
+      .set(bearer(session.access))
+      .send({ platform: 'IOS', pushToken: `apns-via-fcm-${stamp}-front-desk-phone` })
+      .expect(200);
     await api()
       .patch(`/tenants/${tenantId}/users/${v.body.user.id}/status`)
       .set(bearer(adminToken))
@@ -780,6 +786,93 @@ describe.skipIf(needsInfra())(`Identity & Access against PostgreSQL (${infraSkip
       .expect(200);
     await api().get('/me').set(bearer(session.access)).expect(401);
     await api().post('/auth/refresh').send({ refreshToken: session.refresh }).expect(401);
+    const c = new Client({ connectionString: appUrl });
+    await c.connect();
+    try {
+      const { rows } = await c.query('select revoke_reason from iam.staff_devices where id = $1', [
+        phone.body.id,
+      ]);
+      expect(rows).toEqual([{ revoke_reason: 'USER_DISABLED' }]);
+    } finally {
+      await c.end();
+    }
+  });
+
+  it('the Hotella app registers phones per session; the token moves with the phone; sign-out ends them', async () => {
+    const identity = app.get<IdentityPublicApi>(IDENTITY_API);
+    const password = 'concierge desk morning';
+    const invited = await api()
+      .post(`/tenants/${tenantId}/users`)
+      .set(bearer(adminToken))
+      .send({
+        email: `cc-${stamp}@nile.example`,
+        givenName: 'Carla',
+        memberships: [{ propertyId: propA, roleCodes: ['FRONT_DESK'] }],
+      })
+      .expect(201);
+    await api()
+      .post('/auth/invitations/accept')
+      .send({ token: invited.body.invitation.token, password })
+      .expect(200);
+    const s1 = await login(`cc-${stamp}@nile.example`, password);
+    const me = (await api().get('/me').set(bearer(s1.access)).expect(200)).body.user.id as string;
+    const token = `fcm-${stamp}-registration-token-of-the-gm-phone`;
+    const first = await api()
+      .post('/me/devices')
+      .set(bearer(s1.access))
+      .send({ platform: 'ANDROID', pushToken: token, appVersion: '1.0.0', locale: 'ar' })
+      .expect(200);
+    // The app registers again on every start: the same phone stays one device.
+    const again = await api()
+      .post('/me/devices')
+      .set(bearer(s1.access))
+      .send({ platform: 'ANDROID', pushToken: token })
+      .expect(200);
+    expect(again.body.id).toBe(first.body.id);
+    expect(await identity.staffDevices(tenantId, me)).toEqual([
+      { id: first.body.id, platform: 'ANDROID', pushToken: token, locale: 'ar' },
+    ]);
+    // Platform staff have no hotel: no phone to push hotel work to.
+    const admin = await api()
+      .post('/me/devices')
+      .set(bearer(adminToken))
+      .send({ platform: 'IOS', pushToken: token })
+      .expect(403);
+    expect(admin.body.code).toBe('iam.device.staff_only');
+
+    await api().post('/auth/logout').set(bearer(s1.access)).expect(204);
+    expect(await identity.staffDevices(tenantId, me)).toEqual([]);
+
+    const s2 = await login(`cc-${stamp}@nile.example`, password);
+    const second = await api()
+      .post('/me/devices')
+      .set(bearer(s2.access))
+      .send({ platform: 'IOS', pushToken: `${token}-new` })
+      .expect(200);
+    expect(second.body.id).not.toBe(first.body.id);
+    // A token the provider forgot is revoked by the push sender.
+    await identity.revokeStaffDevice(tenantId, second.body.id, 'PUSH_TOKEN_GONE');
+    expect(await identity.staffDevices(tenantId, me)).toEqual([]);
+    const third = await api()
+      .post('/me/devices')
+      .set(bearer(s2.access))
+      .send({ platform: 'IOS', pushToken: `${token}-third` })
+      .expect(200);
+    await api().delete(`/me/devices/${third.body.id}`).set(bearer(s2.access)).expect(204);
+    await api().delete(`/me/devices/${third.body.id}`).set(bearer(s2.access)).expect(404);
+
+    // The audit trail records the registrations, never a token.
+    const c = new Client({ connectionString: appUrl });
+    await c.connect();
+    try {
+      const { rows } = await c.query(
+        "select action, before, after from audit.audit_log where entity_type = 'staff_device'",
+      );
+      expect(rows.length).toBeGreaterThanOrEqual(3);
+      expect(JSON.stringify(rows)).not.toContain(token);
+    } finally {
+      await c.end();
+    }
   });
 
   it('login is rate limited per IP', async () => {

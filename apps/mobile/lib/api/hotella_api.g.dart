@@ -39,6 +39,22 @@ class RefreshDto {
       };
 }
 
+/// Request body `RegisterDeviceDto`.
+class RegisterDeviceDto {
+  const RegisterDeviceDto({required this.platform, required this.pushToken, this.appVersion, this.locale});
+  final String platform;
+  final String pushToken;
+  final String? appVersion;
+  final String? locale;
+
+  Map<String, Object?> toJson() => {
+        'platform': platform,
+        'pushToken': pushToken,
+        if (appVersion != null) 'appVersion': appVersion,
+        if (locale != null) 'locale': locale,
+      };
+}
+
 /// The platform API operations the app uses (`/api/v1`).
 class HotellaApi {
   HotellaApi(this.transport);
@@ -67,6 +83,14 @@ class HotellaApi {
   /// `POST /api/v1/auth/refresh` (AuthController_refresh).
   Future<Object?> refresh(RefreshDto body) =>
       transport.send('POST', '/auth/refresh', body: body.toJson());
+
+  /// `POST /api/v1/me/devices` (MeController_registerDevice).
+  Future<Object?> registerDevice(RegisterDeviceDto body) =>
+      transport.send('POST', '/me/devices', body: body.toJson());
+
+  /// `DELETE /api/v1/me/devices/{deviceId}` (MeController_revokeDevice).
+  Future<Object?> revokeDevice(String deviceId) =>
+      transport.send('DELETE', '/me/devices/${Uri.encodeComponent(deviceId)}');
 
   /// `POST /api/v1/auth/mfa/verify` (AuthController_verifyMfa).
   Future<Object?> verifyMfa(MfaVerifyDto body) =>

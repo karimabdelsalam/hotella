@@ -84,12 +84,14 @@ describe('work item kinds', () => {
 describe('notification channels', () => {
   it('follow priority, honour preferences, and let critical policy override them', () => {
     const off = [{ category: 'ESCALATION', channel: 'EMAIL' as const, enabled: false }];
-    expect(channelsFor('NORMAL', false, 'TASK', [])).toEqual(['IN_APP']);
-    expect(channelsFor('HIGH', false, 'ESCALATION', [])).toEqual(['IN_APP', 'EMAIL']);
-    expect(channelsFor('HIGH', false, 'ESCALATION', off)).toEqual(['IN_APP']);
-    expect(channelsFor('HIGH', false, 'APPROVAL', off)).toEqual(['IN_APP', 'EMAIL']);
-    expect(channelsFor('CRITICAL', true, 'ESCALATION', off)).toEqual(['IN_APP', 'EMAIL']);
-    expect(channelsFor('CRITICAL', false, 'ESCALATION', off)).toEqual(['IN_APP']);
+    expect(channelsFor('NORMAL', false, 'TASK', [])).toEqual(['IN_APP', 'PUSH']);
+    expect(channelsFor('HIGH', false, 'ESCALATION', [])).toEqual(['IN_APP', 'PUSH', 'EMAIL']);
+    expect(channelsFor('HIGH', false, 'ESCALATION', off)).toEqual(['IN_APP', 'PUSH']);
+    expect(channelsFor('HIGH', false, 'APPROVAL', off)).toEqual(['IN_APP', 'PUSH', 'EMAIL']);
+    expect(channelsFor('CRITICAL', true, 'ESCALATION', off)).toEqual(['IN_APP', 'PUSH', 'EMAIL']);
+    expect(channelsFor('CRITICAL', false, 'ESCALATION', off)).toEqual(['IN_APP', 'PUSH']);
+    const noPush = [{ category: 'TASK', channel: 'PUSH' as const, enabled: false }];
+    expect(channelsFor('NORMAL', false, 'TASK', noPush)).toEqual(['IN_APP']);
     expect([1, 2, 3, 4].map(retryDelayMs)).toEqual([60_000, 120_000, 240_000, 480_000]);
   });
 });

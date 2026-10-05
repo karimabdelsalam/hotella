@@ -24,6 +24,8 @@ import {
   type SessionRow,
   type SupportAccessGrantRow,
   type UserRow,
+  staffDevices,
+  type StaffDeviceRow,
 } from './schema';
 
 export interface GrantRow {
@@ -585,6 +587,70 @@ export class IdentityRepositories {
       .returning({ id: sessions.id });
     return rows.length === 1;
   }
+  // ---- staff devices (push, ADR-0023) ----
+  async insertDevice(values: typeof staffDevices.$inferInsert): Promise<StaffDeviceRow> {
+    const [row] = await this.x.insert(staffDevices).values(values).returning();
+    return row!;
+  }
+  /** Live devices holding this token in the tenant (a token moves with the phone, not with the person). */
+  liveDevicesWithToken(tenantId: string, pushToken: string): Promise<StaffDeviceRow[]> {
+    return this.x
+      .select()
+      .from(staffDevices)
+      .where(
+        and(
+          eq(staffDevices.tenantId, tenantId),
+          eq(staffDevices.pushToken, pushToken),
+          isNull(staffDevices.revokedAt),
+        ),
+      );
+  }
+  async touchDevice(
+    id: string,
+    values: Partial<Pick<StaffDeviceRow, 'sessionId' | 'appVersion' | 'locale' | 'platform'>>,
+    now: Date,
+  ): Promise<StaffDeviceRow> {
+    const [row] = await this.x
+      .update(staffDevices)
+      .set({ ...values, lastSeenAt: now, updatedAt: now })
+      .where(eq(staffDevices.id, id))
+      .returning();
+    return row!;
+  }
+  /** Revokes live devices matching the condition; returns how many. */
+  async revokeDevices(
+    where: { id?: string; sessionId?: string; userId?: string; tenantId?: string },
+    reason: string,
+    now: Date,
+  ): Promise<number> {
+    const conditions = [
+      isNull(staffDevices.revokedAt),
+      ...(where.id ? [eq(staffDevices.id, where.id)] : []),
+      ...(where.sessionId ? [eq(staffDevices.sessionId, where.sessionId)] : []),
+      ...(where.userId ? [eq(staffDevices.userId, where.userId)] : []),
+      ...(where.tenantId ? [eq(staffDevices.tenantId, where.tenantId)] : []),
+    ];
+    const rows = await this.x
+      .update(staffDevices)
+      .set({ revokedAt: now, revokeReason: reason, updatedAt: now })
+      .where(and(...conditions))
+      .returning({ id: staffDevices.id });
+    return rows.length;
+  }
+  liveDevicesOfUser(tenantId: string, userId: string): Promise<StaffDeviceRow[]> {
+    return this.x
+      .select()
+      .from(staffDevices)
+      .where(
+        and(
+          eq(staffDevices.tenantId, tenantId),
+          eq(staffDevices.userId, userId),
+          isNull(staffDevices.revokedAt),
+        ),
+      )
+      .orderBy(asc(staffDevices.createdAt));
+  }
+
   liveSessionIds(userId: string): Promise<string[]> {
     return this.x
       .select({ id: sessions.id })

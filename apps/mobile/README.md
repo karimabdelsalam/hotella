@@ -8,6 +8,8 @@ Guests never use it.
 - API client: `apps/api/test/__snapshots__/openapi.json` → `node tool/gen_client.mjs` → `lib/api/hotella_api.g.dart`.
   Both generated files are checked in CI (`--check`); never edit them by hand.
 - Platform URL per build: `flutter run --dart-define=HOTELLA_API=https://api.example`.
+- Pushes: `--dart-define=FIREBASE_PROJECT_ID=… FIREBASE_SENDER_ID=… FIREBASE_API_KEY=… FIREBASE_APP_ID=…` (Android and
+  iOS have different app ids); see `docs/runbooks/push-notifications.md`. Without them the app runs without pushes.
 - Checks: `flutter analyze`, `flutter test` (widget tests against a fake API, en/ar RTL and it/ru/de).
 
 See `docs/DEVELOPER_GUIDE.md` for the toolchain version.

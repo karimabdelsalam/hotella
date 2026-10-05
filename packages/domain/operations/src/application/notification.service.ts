@@ -30,6 +30,7 @@ import {
 type NewDelivery = typeof notificationDeliveries.$inferInsert;
 import { OPS_SOURCE } from './constants';
 import { EMAIL_CHANNEL, type EmailChannel } from './email.channel';
+import { PUSH_CHANNEL, type PushChannel, PushTokenGoneError } from './push.channel';
 
 export interface NotifyInput {
   readonly tenantId: string;
@@ -63,6 +64,7 @@ export class NotificationService {
     private readonly events: EventPublisher,
     private readonly i18n: I18nService,
     @Inject(EMAIL_CHANNEL) private readonly email: EmailChannel,
+    @Inject(PUSH_CHANNEL) private readonly push: PushChannel,
     @Inject(IDENTITY_API) private readonly identity: IdentityPublicApi,
     @InjectLogger() private readonly logger: Logger,
   ) {}
@@ -122,7 +124,7 @@ export class NotificationService {
     });
   }
 
-  /** Sends due external deliveries (e-mail) with retries; returns how many were attempted. */
+  /** Sends due external deliveries (e-mail, push) with retries; returns how many were attempted. */
   async deliverDue(now = new Date(), batch = 50): Promise<number> {
     let total = 0;
     for (;;) {
@@ -138,6 +140,7 @@ export class NotificationService {
   }
 
   private async send(d: NotificationDeliveryRow, now: Date): Promise<void> {
+    if (d.channel === 'PUSH') return this.sendPush(d, now);
     const scope = { tenantId: d.tenantId };
     const [intent] = await this.repo.intents(scope, [d.intentId]);
     const contact = await this.identity.getStaffContact(d.tenantId, d.userId);
@@ -196,7 +199,92 @@ export class NotificationService {
       return this.email.configured
         ? { ...base, status: 'PENDING', nextAttemptAt: now }
         : { ...base, status: 'SKIPPED', lastError: 'channel_not_configured' };
+    if (channel === 'PUSH')
+      return this.push.configured
+        ? { ...base, status: 'PENDING', nextAttemptAt: now }
+        : { ...base, status: 'SKIPPED', lastError: 'channel_not_configured' };
     return { ...base, status: 'SKIPPED', lastError: 'channel_not_available' };
+  }
+
+  /**
+   * A push to every live phone of the person (ADR-0023). The push goes through Google and Apple, so it carries only a
+   * generic title for the category and references (intent, source); the app fetches the details over the API. A
+   * phone the provider no longer knows is revoked; other failures retry like e-mail.
+   */
+  private async sendPush(d: NotificationDeliveryRow, now: Date): Promise<void> {
+    const scope = { tenantId: d.tenantId };
+    const [intent] = await this.repo.intents(scope, [d.intentId]);
+    const devices = intent ? await this.identity.staffDevices(d.tenantId, d.userId) : [];
+    if (!intent || devices.length === 0) {
+      await this.repo.updateDelivery(scope, d.id, { status: 'SKIPPED', lastError: 'no_device' });
+      return;
+    }
+    const contact = await this.identity.getStaffContact(d.tenantId, d.userId);
+    const category = intent.category.toLowerCase();
+    const data: Record<string, string> = {
+      intent_id: intent.id,
+      category: intent.category,
+      property_id: intent.propertyId,
+      ...(intent.sourceType && intent.sourceId
+        ? { source_type: intent.sourceType, source_id: intent.sourceId }
+        : {}),
+    };
+    let sent: string | null | undefined;
+    let failure: string | undefined;
+    for (const device of devices) {
+      const locale = device.locale ?? contact?.locale ?? undefined;
+      const title = this.i18n.has(`ops.push.${category}.title`, locale)
+        ? this.render(`ops.push.${category}.title`, {}, locale)
+        : this.render('ops.push.default.title', {}, locale);
+      try {
+        const { providerRef } = await this.push.send({
+          token: device.pushToken,
+          platform: device.platform,
+          title,
+          body: this.render('ops.push.default.body', {}, locale),
+          data,
+        });
+        sent ??= providerRef;
+      } catch (err) {
+        if (err instanceof PushTokenGoneError) {
+          await this.identity.revokeStaffDevice(d.tenantId, device.id, 'PUSH_TOKEN_GONE');
+          continue;
+        }
+        failure = errorCode(err);
+      }
+    }
+    if (sent !== undefined) {
+      await this.repo.updateDelivery(scope, d.id, {
+        status: 'SENT',
+        sentAt: now,
+        providerRef: sent,
+        attempts: d.attempts + 1,
+        nextAttemptAt: null,
+      });
+      return;
+    }
+    if (!failure) {
+      // Every phone was gone: nothing left to try.
+      await this.repo.updateDelivery(scope, d.id, {
+        status: 'SKIPPED',
+        attempts: d.attempts + 1,
+        lastError: 'no_device',
+        nextAttemptAt: null,
+      });
+      return;
+    }
+    const attempts = d.attempts + 1;
+    const final = attempts >= MAX_DELIVERY_ATTEMPTS;
+    await this.repo.updateDelivery(scope, d.id, {
+      status: final ? 'FAILED' : 'PENDING',
+      attempts,
+      lastError: failure,
+      nextAttemptAt: final ? null : new Date(now.getTime() + retryDelayMs(attempts)),
+    });
+    this.logger.warn(
+      { delivery_id: d.id, attempts, final, error: failure },
+      'notification push not delivered',
+    );
   }
 
   private async recipients(intent: NotificationIntentRow): Promise<string[]> {

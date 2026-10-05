@@ -20,6 +20,8 @@ const OPERATIONS = {
   AuthController_refresh: 'refresh',
   AuthController_logout: 'logout',
   MeController_me: 'me',
+  MeController_registerDevice: 'registerDevice',
+  MeController_revokeDevice: 'revokeDevice',
   PropertiesController_list: 'listProperties',
 };
 

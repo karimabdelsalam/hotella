@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IdentityRepositories } from './infrastructure/repositories';
-import type { IdentityPublicApi, StaffContact, StaffMemberSummary } from './public';
+import type { IdentityPublicApi, StaffContact, StaffDevice, StaffMemberSummary } from './public';
 
 @Injectable()
 export class IdentityPublicApiService implements IdentityPublicApi {
@@ -45,5 +45,20 @@ export class IdentityPublicApiService implements IdentityPublicApi {
       email: user.email,
       locale: person?.localePref ?? null,
     };
+  }
+
+  async staffDevices(tenantId: string, userId: string): Promise<readonly StaffDevice[]> {
+    const user = await this.repo.userInTenant({ tenantId }, userId);
+    if (!user || user.status !== 'ACTIVE') return [];
+    return (await this.repo.liveDevicesOfUser(tenantId, userId)).map((d) => ({
+      id: d.id,
+      platform: d.platform,
+      pushToken: d.pushToken,
+      locale: d.locale,
+    }));
+  }
+
+  async revokeStaffDevice(tenantId: string, deviceId: string, reason: string): Promise<void> {
+    await this.repo.revokeDevices({ id: deviceId, tenantId }, reason, new Date());
   }
 }

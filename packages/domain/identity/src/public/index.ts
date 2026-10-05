@@ -15,6 +15,14 @@ export interface StaffContact {
   readonly locale: string | null;
 }
 
+/** A phone where a staff member's notifications are pushed (ADR-0023). The token is CONFIDENTIAL: deliver, never log. */
+export interface StaffDevice {
+  readonly id: string;
+  readonly platform: 'ANDROID' | 'IOS';
+  readonly pushToken: string;
+  readonly locale: string | null;
+}
+
 export interface IdentityPublicApi {
   /** Staff member as other contexts may show it (assignment pickers, audit views). Null when not in the tenant. */
   getStaffMember(tenantId: string, userId: string): Promise<StaffMemberSummary | null>;
@@ -28,6 +36,10 @@ export interface IdentityPublicApi {
   usersWithRole(tenantId: string, propertyId: string, roleCode: string): Promise<readonly string[]>;
   /** Contact of an active staff member of the tenant; null otherwise. */
   getStaffContact(tenantId: string, userId: string): Promise<StaffContact | null>;
+  /** Live devices of an active staff member (none when the person is not active in the tenant). */
+  staffDevices(tenantId: string, userId: string): Promise<readonly StaffDevice[]>;
+  /** The push provider no longer knows this device: stop using it. */
+  revokeStaffDevice(tenantId: string, deviceId: string, reason: string): Promise<void>;
 }
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */
 export const IDENTITY_API = Symbol.for('hotella.domain.identity.api');

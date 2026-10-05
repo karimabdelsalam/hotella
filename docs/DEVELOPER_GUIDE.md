@@ -54,7 +54,9 @@ flutter pub get && flutter analyze && flutter test   # widget tests against a fa
 flutter run --dart-define=HOTELLA_API=http://10.0.2.2:3000   # Android emulator → the API on your machine
 ```
 
-Staff open it with their hotel code (the tenant code they sign in with; `GET /api/v1/public/hotels/:code` returns only
+Pushes need Firebase settings at build time (`--dart-define=FIREBASE_PROJECT_ID=… FIREBASE_SENDER_ID=…
+FIREBASE_API_KEY=… FIREBASE_APP_ID=…`) and, on the platform, `PUSH_FCM_PROJECT_ID` + `PUSH_FCM_CREDENTIALS_REF`
+(`docs/runbooks/push-notifications.md`); without them the app and the platform run with pushes off. Staff open it with their hotel code (the tenant code they sign in with; `GET /api/v1/public/hotels/:code` returns only
 the brand), then their own account. Regenerate the client after `pnpm --filter @hotella/api exec vitest run -u
 test/app.e2e-spec.ts` changes the OpenAPI snapshot; CI fails when either generated file is stale.
 

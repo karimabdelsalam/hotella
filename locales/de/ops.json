@@ -18,5 +18,10 @@
   "ops.notification.sla_escalation.body": "Eskalationsstufe {level}: {trigger, select, RESPONSE_BREACH {Niemand hat die Arbeit bisher übernommen.} RESOLUTION_WARNING {Die Frist für die Arbeit läuft bald ab.} other {Die Frist für die Arbeit wurde überschritten.}}",
   "ops.notification.approval_requested.subject": "Genehmigung erforderlich",
   "ops.notification.approval_requested.body": "Eine Anfrage ({kind}) mit {risk, select, CRITICAL {kritischem} HIGH {hohem} MEDIUM {mittlerem} other {geringem}} Risiko wartet auf Ihre Entscheidung.",
-  "ops.work.title_redacted": "Anfrage (Details entfernt)"
+  "ops.work.title_redacted": "Anfrage (Details entfernt)",
+  "ops.push.default.title": "Neu in Hotella",
+  "ops.push.default.body": "Öffnen Sie die App, um es zu sehen.",
+  "ops.push.task.title": "Neue Aufgabe für Sie",
+  "ops.push.escalation.title": "Eskalation",
+  "ops.push.approval.title": "Freigabe erforderlich"
 }

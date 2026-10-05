@@ -11,6 +11,8 @@
 #   pilot.sh admin <email> <name> create a platform administrator (password: $HOTELLA_ADMIN_PASSWORD or prompt)
 #   pilot.sh backup [full|diff]   pgBackRest backup (creates the stanza on first use) + archive check
 #   pilot.sh restore-drill        restore the latest backup into a throwaway instance and verify it
+#   pilot.sh push-setup <project-id> <service-account.json>
+#                                 turn on pushes to the Hotella staff app (Firebase); the key goes to OpenBao
 #   pilot.sh status               containers, readiness, backups
 #   pilot.sh down                 stop everything (volumes are kept)
 set -euo pipefail
@@ -275,6 +277,35 @@ cmd_restore_drill() {
   docker volume rm -f "${PROJECT}_drilldata" >/dev/null 2>&1 || true
 }
 
+# Pushes to the Hotella staff app (ADR-0023, docs/runbooks/push-notifications.md): the Firebase service-account key
+# goes to OpenBao (never to disk next to the code), the project id to the compose environment; api and worker restart.
+cmd_push_setup() {
+  local project="${1:?Firebase project id}" key="${2:?service-account JSON file}"
+  [[ "$project" =~ ^[a-z][a-z0-9-]{4,29}$ ]] || die "not a Firebase project id: $project"
+  [ -s "$key" ] || die "no such file: $key"
+  python3 - "$key" "$project" <<'PY' || die "the file is not this project's service-account key"
+import json, sys
+k = json.load(open(sys.argv[1]))
+assert k.get("type") == "service_account" and k.get("client_email") and k.get("private_key")
+assert k.get("project_id") == sys.argv[2]
+PY
+  if [ -z "${BAO_TOKEN:-}" ]; then
+    [ -s "$SECRETS/openbao-init.json" ] || die "set BAO_TOKEN (an OpenBao token allowed to write kv/hotella/app)"
+    BAO_TOKEN="$(json_get "v['root_token']" <"$SECRETS/openbao-init.json")"
+  fi
+  export BAO_TOKEN
+  python3 -c 'import json,sys; print(json.dumps({"fcm_service_account": open(sys.argv[1]).read()}))' "$key" |
+    bao kv patch kv/hotella/app - >/dev/null
+  local env="$DOCKER_DIR/.env"
+  touch "$env"
+  grep -v '^HOTELLA_FCM_PROJECT_ID=' "$env" >"$env.tmp" || true
+  echo "HOTELLA_FCM_PROJECT_ID=$project" >>"$env.tmp"
+  mv "$env.tmp" "$env"
+  compose up -d api worker
+  wait_ready
+  log "pushes to the Hotella app are on (project $project); delete $key from this host"
+}
+
 cmd_status() {
   compose ps
   curl -s -m 3 "http://127.0.0.1:${HOTELLA_API_PORT:-3000}/api/v1/ready" || true; echo
@@ -294,7 +325,8 @@ case "${1:-}" in
   admin) shift; cmd_admin "$@" ;;
   backup) shift; cmd_backup "$@" ;;
   restore-drill) cmd_restore_drill ;;
+  push-setup) shift; cmd_push_setup "$@" ;;
   status) cmd_status ;;
   down) cmd_down ;;
-  *) sed -n '2,15p' "$0"; exit 1 ;;
+  *) sed -n '2,17p' "$0"; exit 1 ;;
 esac

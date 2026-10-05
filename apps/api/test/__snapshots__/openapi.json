@@ -1688,6 +1688,70 @@
         ]
       }
     },
+    "/api/v1/me/devices": {
+      "post": {
+        "operationId": "MeController_registerDevice",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/api/v1/me/devices/{deviceId}": {
+      "delete": {
+        "operationId": "MeController_revokeDevice",
+        "parameters": [
+          {
+            "name": "deviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
     "/api/v1/permissions": {
       "get": {
         "operationId": "PermissionsController_catalog",
@@ -16631,6 +16695,35 @@
         },
         "required": [
           "code"
+        ]
+      },
+      "RegisterDeviceDto": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ANDROID",
+              "IOS"
+            ]
+          },
+          "pushToken": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 4096
+          },
+          "appVersion": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "locale": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+          }
+        },
+        "required": [
+          "platform",
+          "pushToken"
         ]
       },
       "SupportAccessRequestDto": {

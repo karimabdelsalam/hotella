@@ -40,6 +40,7 @@ import {
 } from '../application/dto';
 import { SupportAccessService } from '../application/support-access.service';
 import { ProfileService } from '../application/profile.service';
+import { DeviceService, registerDeviceSchema } from '../application/device.service';
 import {
   ApiClientService,
   createApiClientSchema,
@@ -61,6 +62,7 @@ class SupportAccessRequestDto extends createZodDto(supportAccessRequestSchema) {
 class SupportAccessRevokeDto extends createZodDto(supportAccessRevokeSchema) {}
 class CreateApiClientDto extends createZodDto(createApiClientSchema) {}
 class RevokeApiClientDto extends createZodDto(revokeApiClientSchema) {}
+class RegisterDeviceDto extends createZodDto(registerDeviceSchema) {}
 
 function clientMeta(req: Request): ClientMeta {
   const ua = req.headers['user-agent'];
@@ -132,11 +134,29 @@ export class AuthController {
 export class MeController {
   constructor(
     private readonly profile: ProfileService,
+    private readonly devices: DeviceService,
     private readonly actors: ActorStore,
   ) {}
   @Get()
   me() {
     return this.profile.me(this.actors.require());
+  }
+
+  /**
+   * The Hotella app registers the phone of this session for push (ADR-0023). Self-service and bound to the session,
+   * like sign-out and MFA enrolment: no permission beyond being a signed-in staff member; audited.
+   */
+  @Post('devices')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit({ limit: 20, windowSeconds: 60, keyBy: 'ip', name: 'iam-device' })
+  registerDevice(@Body() body: RegisterDeviceDto) {
+    return this.devices.register(this.actors.require(), body);
+  }
+
+  @Delete('devices/:deviceId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async revokeDevice(@Param('deviceId') deviceId: string): Promise<void> {
+    await this.devices.unregister(this.actors.require(), deviceId);
   }
 }
 
