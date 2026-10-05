@@ -1,0 +1,8 @@
+{
+  "restaurant.permission.restaurant_read": "عرض المطاعم ومواعيدها والأماكن المتاحة",
+  "restaurant.permission.restaurant_manage": "إعداد المطاعم والمواعيد وعدد الأماكن وأيام الإغلاق",
+  "restaurant.permission.reservation_read": "عرض حجوزات المطاعم والنزلاء والملاحظات",
+  "restaurant.permission.reservation_manage": "الحجز للنزلاء وتسجيل الحضور وعدم الحضور والإلغاء",
+  "restaurant.permission.reservation_override": "الحجز بما يتجاوز حصة الإقامة أو موعدًا مكتملًا مع ذكر السبب",
+  "restaurant.setting.reservation_allowance": "عدد الحجوزات لكل مطعم في كل مجموعة ليالٍ من الإقامة"
+}

@@ -182,6 +182,7 @@ describe('system role catalog', () => {
       'CHIEF_ENGINEER',
       'FRONT_DESK',
       'GUEST_RELATIONS',
+      'RESTAURANT_HOST',
     ]);
     for (const role of SYSTEM_ROLES) {
       for (const p of role.permissions) expect(p, role.code).toMatch(PERMISSION_RE);

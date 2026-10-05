@@ -46,5 +46,6 @@
   "license.permission.tenant_read": "Просмотр лицензии Вашей организации: тарифные планы, права и лимиты",
   "license.permission.usage_read": "Просмотр использования любого арендатора по периодам",
   "license.permission.attribution_manage": "Скрытие или показ «Powered by Planova» (только при наличии права white label)",
-  "license.permission.installation_manage": "Регистрация и отзыв установок на площадках отелей, чтение ключа лицензионного пакета"
+  "license.permission.installation_manage": "Регистрация и отзыв установок на площадках отелей, чтение ключа лицензионного пакета",
+  "license.capability.restaurant": "Рестораны à la carte"
 }

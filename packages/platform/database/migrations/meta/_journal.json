@@ -323,6 +323,13 @@
       "when": 1791195705290,
       "tag": "0045_license_installations",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1791196873239,
+      "tag": "0046_restaurant",
+      "breakpoints": true
     }
   ]
 }

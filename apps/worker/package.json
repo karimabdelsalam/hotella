@@ -29,6 +29,7 @@
     "@hotella/domain-licensing": "workspace:*",
     "@hotella/domain-logbook": "workspace:*",
     "@hotella/domain-lostfound": "workspace:*",
+    "@hotella/domain-restaurant": "workspace:*",
     "@hotella/domain-operations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/domain-relations": "workspace:*",

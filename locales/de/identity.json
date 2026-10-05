@@ -25,6 +25,8 @@
   "iam.role.front_desk.description": "Empfängt Gäste und bearbeitet ihre Anliegen an der Rezeption.",
   "iam.role.guest_relations.name": "Guest Relations",
   "iam.role.guest_relations.description": "Kümmert sich um das Gästeerlebnis, Feedback und besondere Wünsche.",
+  "iam.role.restaurant_host.name": "Restaurant-Gastgeber",
+  "iam.role.restaurant_host.description": "Führt das Reservierungsbuch des Restaurants, nimmt telefonische Reservierungen an und platziert die Gäste.",
   "iam.setting.password_min_length": "Mindestlänge des Passworts für Mitarbeiterkonten (mindestens 12).",
   "iam.permission.api_client_manage": "API-Schlüssel für angebundene Systeme erstellen und widerrufen"
 }

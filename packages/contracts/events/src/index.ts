@@ -64,6 +64,11 @@ export {
 } from './lostfound-events';
 export { HandoverAcknowledged } from './logbook-events';
 export {
+  RestaurantReservationCancelled,
+  RestaurantReservationCreated,
+  RestaurantReservationStatusChanged,
+} from './restaurant-events';
+export {
   ConversationOpened,
   DeliveryUpdated,
   HandoffRequested,

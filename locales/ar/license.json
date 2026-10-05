@@ -46,5 +46,6 @@
   "license.permission.tenant_read": "عرض ترخيص مؤسستك: الباقات والاستحقاقات والحدود",
   "license.permission.usage_read": "عرض استخدام أي جهة حسب الفترة",
   "license.permission.attribution_manage": "إخفاء «بدعم من Planova» أو إظهاره (فقط مع استحقاق العلامة البيضاء)",
-  "license.permission.installation_manage": "تسجيل تثبيتات المواقع الفندقية وإلغاؤها وقراءة مفتاح حزمة الترخيص"
+  "license.permission.installation_manage": "تسجيل تثبيتات المواقع الفندقية وإلغاؤها وقراءة مفتاح حزمة الترخيص",
+  "license.capability.restaurant": "مطاعم الأ لا كارت"
 }

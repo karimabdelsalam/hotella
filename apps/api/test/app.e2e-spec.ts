@@ -16,6 +16,7 @@ import { HousekeepingModule } from '@hotella/domain-housekeeping';
 import { InspectionModule } from '@hotella/domain-inspection';
 import { RelationsModule } from '@hotella/domain-relations';
 import { LostFoundModule } from '@hotella/domain-lostfound';
+import { RestaurantModule } from '@hotella/domain-restaurant';
 import { LogbookModule } from '@hotella/domain-logbook';
 import { LicensingModule } from '@hotella/domain-licensing';
 import { KnowledgeModule } from '@hotella/domain-knowledge';
@@ -95,6 +96,7 @@ describe('api skeleton (e2e)', () => {
         InspectionModule,
         RelationsModule,
         LostFoundModule,
+        RestaurantModule,
         LogbookModule,
         LicensingModule,
         HealthModule,
@@ -202,6 +204,7 @@ describe('api skeleton (e2e)', () => {
       'org',
       'platform',
       'relations',
+      'restaurant',
     ]);
     expect(byCode.get('relations')?.events).toContain('relations.complaint.opened.v1');
     expect(byCode.get('integration')?.events).toContain('hotel.guest.checked_in.v1');

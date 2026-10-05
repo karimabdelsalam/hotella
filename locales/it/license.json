@@ -46,5 +46,6 @@
   "license.permission.tenant_read": "Vedere la licenza della propria organizzazione: piani, diritti e limiti",
   "license.permission.usage_read": "Vedere l'utilizzo di qualsiasi tenant per periodo",
   "license.permission.attribution_manage": "Nascondere o mostrare “Powered by Planova” (solo con il diritto white label)",
-  "license.permission.installation_manage": "Registrare e revocare le installazioni presso gli hotel e leggere la chiave del pacchetto di licenza"
+  "license.permission.installation_manage": "Registrare e revocare le installazioni presso gli hotel e leggere la chiave del pacchetto di licenza",
+  "license.capability.restaurant": "Ristoranti à la carte"
 }

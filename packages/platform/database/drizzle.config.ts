@@ -34,6 +34,7 @@ export default defineConfig({
     'integration',
     'license',
     'audit',
+    'restaurant',
   ],
   migrations: { schema: 'migrations', table: 'journal' },
   strict: true,

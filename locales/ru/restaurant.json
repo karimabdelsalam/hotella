@@ -1,0 +1,8 @@
+{
+  "restaurant.permission.restaurant_read": "Просмотр ресторанов, времени посадки и свободных мест",
+  "restaurant.permission.restaurant_manage": "Настройка ресторанов, времени посадки, мест и закрытий",
+  "restaurant.permission.reservation_read": "Просмотр бронирований, гостей и примечаний",
+  "restaurant.permission.reservation_manage": "Бронирование для гостей, посадка, отметка неявки и отмена",
+  "restaurant.permission.reservation_override": "Бронирование сверх лимита проживания или при отсутствии мест — с указанием причины",
+  "restaurant.setting.reservation_allowance": "Число бронирований в ресторане на блок ночей проживания"
+}

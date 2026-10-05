@@ -25,6 +25,8 @@
   "iam.role.front_desk.description": "Встречает гостей и обрабатывает их запросы на ресепшн.",
   "iam.role.guest_relations.name": "Служба по работе с гостями",
   "iam.role.guest_relations.description": "Отвечает за впечатления гостей, отзывы и особые пожелания.",
+  "iam.role.restaurant_host.name": "Хостес ресторана",
+  "iam.role.restaurant_host.description": "Ведёт журнал бронирований ресторана, принимает бронирования по телефону и рассаживает гостей.",
   "iam.setting.password_min_length": "Минимальная длина пароля для учётных записей сотрудников (не менее 12).",
   "iam.permission.api_client_manage": "Создание и отзыв API-ключей для подключённых систем"
 }

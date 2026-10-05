@@ -12,6 +12,7 @@ import { KNOWLEDGE_MANIFEST } from '@hotella/domain-knowledge/public';
 import { LICENSING_MANIFEST } from '@hotella/domain-licensing/public';
 import { LOGBOOK_MANIFEST } from '@hotella/domain-logbook/public';
 import { LOSTFOUND_MANIFEST } from '@hotella/domain-lostfound/public';
+import { RESTAURANT_MANIFEST } from '@hotella/domain-restaurant/public';
 import { OPERATIONS_MANIFEST } from '@hotella/domain-operations/public';
 import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
 import { RELATIONS_MANIFEST } from '@hotella/domain-relations/public';
@@ -44,6 +45,7 @@ export class WorkerManifestsModule implements OnModuleInit {
       INSPECTION_MANIFEST,
       RELATIONS_MANIFEST,
       LOSTFOUND_MANIFEST,
+      RESTAURANT_MANIFEST,
       LOGBOOK_MANIFEST,
       LICENSING_MANIFEST,
     ])

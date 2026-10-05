@@ -15,6 +15,7 @@ import { LOGBOOK_MANIFEST } from '@hotella/domain-logbook/public';
 import { CAPABILITIES, LICENSING_MANIFEST } from '@hotella/domain-licensing/public';
 import { CONNECTOR_ADAPTERS } from '@hotella/domain-integrations';
 import { LOSTFOUND_MANIFEST } from '@hotella/domain-lostfound/public';
+import { RESTAURANT_MANIFEST } from '@hotella/domain-restaurant/public';
 import { RELATIONS_MANIFEST } from '@hotella/domain-relations/public';
 import { ORGANIZATION_MANIFEST } from '@hotella/domain-organization/public';
 import { PLATFORM_MANIFEST } from '@hotella/platform-manifest';
@@ -40,6 +41,7 @@ const MANIFESTS = [
   INSPECTION_MANIFEST,
   RELATIONS_MANIFEST,
   LOSTFOUND_MANIFEST,
+  RESTAURANT_MANIFEST,
   LOGBOOK_MANIFEST,
   LICENSING_MANIFEST,
 ];

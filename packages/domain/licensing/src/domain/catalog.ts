@@ -32,6 +32,7 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
   { code: 'GUEST_RELATIONS', kind: 'MODULE' },
   { code: 'LOST_FOUND', kind: 'MODULE' },
   { code: 'LOGBOOK', kind: 'MODULE' },
+  { code: 'RESTAURANT', kind: 'MODULE' },
   { code: 'AI_PRO', kind: 'MODULE' },
   { code: 'AI_INTELLIGENCE', kind: 'MODULE' },
   { code: 'VOICE_AI', kind: 'MODULE' },

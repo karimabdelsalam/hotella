@@ -10,6 +10,7 @@ import { EngineeringModule } from '@hotella/domain-engineering';
 import { InspectionModule } from '@hotella/domain-inspection';
 import { RelationsModule } from '@hotella/domain-relations';
 import { LostFoundModule } from '@hotella/domain-lostfound';
+import { RestaurantModule } from '@hotella/domain-restaurant';
 import { LogbookModule } from '@hotella/domain-logbook';
 import { LicensingCoreModule, LicensingModule } from '@hotella/domain-licensing';
 import { HousekeepingModule } from '@hotella/domain-housekeeping';
@@ -78,6 +79,7 @@ import { MetaModule } from './meta/meta.module';
     InspectionModule,
     RelationsModule,
     LostFoundModule,
+    RestaurantModule,
     LogbookModule,
     LicensingModule,
     HealthModule,

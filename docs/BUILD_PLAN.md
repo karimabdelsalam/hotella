@@ -2992,9 +2992,9 @@ Phase 13.
   CONFIRMED|SEATED|COMPLETED|CANCELLED|NO_SHOW, `channel` GUEST_APP|STAFF|AI, `notes` (SENSITIVE: allergies),
   `override_reason`, `cancel_reason`, version) and `reservation_transitions` (append-only: from, to, actor type/id,
   reason, at; trigger `platform.reject_history_mutation()`).
-- Allowance (pure function, `domain/allowance.ts`): `nights = departure − arrival (≥ 1)`;
-  `allowed = ceil(nights / blockNights) × perBlock` (settings `restaurant.allowance.block_nights` = 7,
-  `restaurant.allowance.per_block` = 1); used = reservations of the stay at that restaurant not CANCELLED.
+- Allowance (pure function, `domain/rules.ts`): `nights = departure − arrival (≥ 1)`;
+  `allowed = ceil(nights / blockNights) × perBlock` (setting `restaurant.reservation.allowance` = `{ blockNights: 7,
+  perBlock: 1 }`); used = reservations of the stay at that restaurant not CANCELLED.
 - Stay facts come from `GUEST_API` (public): status, dates, adults/children, room; the context never reads guest
   tables. Checkout/cancellation of a stay (canonical `hotel.*` → guest events) cancels its future reservations
   (consumer `@Idempotent`).
@@ -3011,13 +3011,33 @@ Phase 13.
 `.cutoff_passed`, `.party_size`, `.closed`.
 *Events:* `restaurant.reservation.created.v1`, `restaurant.reservation.cancelled.v1`,
 `restaurant.reservation.status_changed.v1`. *Permissions:* `restaurant.restaurant.read|manage`,
-`restaurant.reservation.read|manage|override`. *Entitlement:* `restaurant.alacarte`. *Manifest:* complete (rule 22).
+`restaurant.reservation.read|manage|override`. *Entitlement:* module `RESTAURANT` (catalog convention). *Manifest:* complete (rule 22).
 *AI tools (14.3):* `restaurant.availability` (LOW), `restaurant.book` (MEDIUM, own stay only).
 *Tests:* allowance unit table (1, 7, 8, 14, 15, 21 nights; config 7/1 and 5/2), capacity race (two concurrent
 bookings for the last seats → exactly one), override with reason audited, checkout cancels future bookings, outside
 stay / cutoff / closure / party size refusals, tenant-leak test, manifest test, e2e scenario (guest books, staff
 books by phone, allowance refuses a second booking at the same restaurant for a 6-night stay but allows one for a
 9-night stay, checkout cancels), Playwright staff board and guest booking in en/ar (+ it/ru/de smoke).
+
+- *As built (14.2):* `packages/domain/restaurant` (schema `restaurant`, migration `0046_restaurant`: restaurants,
+  translations, sittings, closures, sitting_loads, reservations, append-only reservation_transitions; RLS
+  `tenant_isolation`, tenant/property FKs). Rules in `domain/rules.ts`: `stayNights`, `stayAllowance`, `withinStay`
+  (arrival ≤ date < departure), `sittingsOn` (weekday, validity, active, closures), `guestWindow` (cut-off and days
+  ahead, guest channel only), transitions. Seats are held by CONFIRMED/SEATED/COMPLETED; the allowance counts
+  CONFIRMED/SEATED/COMPLETED/NO_SHOW (a no-show used its booking, a cancellation did not). A transaction-scoped
+  advisory lock per stay + restaurant serialises the allowance check; the capacity counter is the atomic upsert
+  above (`sitting_full` when it returns no row). Staff booking goes through ActionGate
+  (`restaurant.reservation.manage`), and `override: { reason }` passes a second gate on
+  `restaurant.reservation.override` (HIGH) and is audited as `restaurant.reservation.create_override`. Guest routes
+  check scope `DINING` and the `RESTAURANT` entitlement; guests see names in their language (`Accept-Language`,
+  fallback property default → `en`). Worker consumer `restaurant.stay-ended` (stay checked out, cancelled or no-show)
+  cancels the stay's CONFIRMED reservations (`STAY_ENDED`) and releases their seats. System roles: GM (all), duty manager (desk +
+  override), front desk and guest relations (desk), and a new `RESTAURANT_HOST` (board, phone bookings, logbook).
+  Additional errors beyond the list: `.too_early`, `.transition_not_allowed`, `restaurant.sitting_duplicate`,
+  `restaurant.stay_required`. Tests: rules unit table (nights 1/7/8/14/15/21, policy 7/1 and 5/2, sittings,
+  windows, transitions), integration (6-night stay refused a second booking, 9-night stay books twice and a third
+  needs the override permission with an audited reason, two concurrent bookings for the last seats → one wins,
+  board + seat/complete history, PMS checkout cancels and frees seats, tenant leak), manifest and role catalog.
 
 #### 14.C The Hotella staff app (ADR-0023)
 - `apps/mobile` (Flutter): hotel code / QR → branding → sign-in (IAM, MFA) → home with My tasks, Requests inbox,
@@ -3031,7 +3051,7 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
 | Sprint | Scope | Status |
 |---|---|---|
 | 14.1 | Five locales: config, catalog check with CLDR plurals, it/ru/de catalogs, web apps, translation tables, PMS language mapping | done |
-| 14.2 | Restaurant context: model, migration, allowance and capacity rules, staff and guest APIs, events, checkout consumer, manifest, tests | planned |
+| 14.2 | Restaurant context: model, migration, allowance and capacity rules, staff and guest APIs, events, checkout consumer, manifest, tests | done |
 | 14.3 | Restaurant UI: staff board, phone booking, configuration screens; guest booking; concierge tools; e2e; acceptance | planned |
 | 14.4 | Staff app skeleton: Flutter project, generated client, ARB from the catalog, hotel code → branding → sign-in, CI job | planned |
 | 14.5 | Push notifications: devices, PUSH adapter (FCM/APNs) with OpenBao credentials, notification routing to devices | planned |

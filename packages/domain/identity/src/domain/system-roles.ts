@@ -56,6 +56,17 @@ const LOSTFOUND_DESK = [
   'lostfound.manage',
   'lostfound.release',
 ] as const;
+/** À la carte reservations (Spec Appendix B): see the board, book by phone, seat, complete, mark no-shows, cancel. */
+const RESTAURANT_DESK = [
+  'restaurant.restaurant.read',
+  'restaurant.reservation.read',
+  'restaurant.reservation.manage',
+] as const;
+/** Restaurants, schedules and closures, and bookings beyond a stay's allowance (with a reason). */
+const RESTAURANT_ADMIN = [
+  'restaurant.restaurant.manage',
+  'restaurant.reservation.override',
+] as const;
 const HK_DESK = [
   'hk.board.read',
   'hk.room.manage',
@@ -173,6 +184,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'complaint.category.manage',
       ...LOSTFOUND_DESK,
       ...LOGBOOK_SUPERVISOR,
+      ...RESTAURANT_DESK,
+      ...RESTAURANT_ADMIN,
     ],
   },
   {
@@ -194,6 +207,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...COMPLAINT_DESK,
       ...LOSTFOUND_DESK,
       ...LOGBOOK_SUPERVISOR,
+      ...RESTAURANT_DESK,
+      'restaurant.reservation.override',
     ],
   },
   {
@@ -259,6 +274,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'complaint.manage',
       ...LOSTFOUND_DESK,
       ...LOGBOOK_SUPERVISOR,
+      ...RESTAURANT_DESK,
     ],
   },
   {
@@ -271,6 +287,19 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...COMPLAINT_DESK,
       'approval.read',
       ...LOSTFOUND_DESK,
+      'logbook.read',
+      'logbook.write',
+      ...RESTAURANT_DESK,
+    ],
+  },
+  {
+    // The restaurant host or maître d': the reservation board of every restaurant, and phone bookings.
+    code: 'RESTAURANT_HOST',
+    audience: 'TENANT',
+    permissions: [
+      ...PROPERTY_READ,
+      ...MY_NOTIFICATIONS,
+      ...RESTAURANT_DESK,
       'logbook.read',
       'logbook.write',
     ],

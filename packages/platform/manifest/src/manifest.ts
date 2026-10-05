@@ -19,6 +19,7 @@ export const SCHEMA_NAMES = [
   'integration',
   'license',
   'audit',
+  'restaurant',
 ] as const;
 export type SchemaName = (typeof SCHEMA_NAMES)[number];
 

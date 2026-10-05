@@ -1,0 +1,8 @@
+{
+  "restaurant.permission.restaurant_read": "Vedere i ristoranti, i turni e la disponibilità",
+  "restaurant.permission.restaurant_manage": "Configurare ristoranti, turni, posti e chiusure",
+  "restaurant.permission.reservation_read": "Vedere prenotazioni, ospiti e note",
+  "restaurant.permission.reservation_manage": "Prenotare per gli ospiti, far accomodare, segnare mancate presentazioni e annullare",
+  "restaurant.permission.reservation_override": "Prenotare oltre il limite del soggiorno o un turno completo, con motivazione",
+  "restaurant.setting.reservation_allowance": "Prenotazioni per ristorante per blocco di notti del soggiorno"
+}

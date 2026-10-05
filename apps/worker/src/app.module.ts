@@ -11,6 +11,7 @@ import { EngineeringWorkerModule } from '@hotella/domain-engineering';
 import { InspectionWorkerModule } from '@hotella/domain-inspection';
 import { RelationsWorkerModule } from '@hotella/domain-relations';
 import { LostFoundWorkerModule } from '@hotella/domain-lostfound';
+import { RestaurantWorkerModule } from '@hotella/domain-restaurant';
 import { HousekeepingWorkerModule } from '@hotella/domain-housekeeping';
 import { KnowledgeWorkerModule } from '@hotella/domain-knowledge';
 import { CatalogServicesModule, CatalogWorkerModule } from '@hotella/domain-catalog';
@@ -87,6 +88,8 @@ const WORKER_MODULES = [
   RelationsWorkerModule,
   // AI-derived attributes of lost and found items on `background-ai`, then matching again.
   LostFoundWorkerModule,
+  // À la carte reservations: a stay's checkout or cancellation cancels its future bookings.
+  RestaurantWorkerModule,
   // Outbound webhooks of the developer platform (Spec §75): fan-out of offered events and the signed delivery sweep.
   IntegrationsWorkerModule,
   WorkerRuntimeModule,
