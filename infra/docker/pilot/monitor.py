@@ -212,6 +212,14 @@ def parse_env(text: str) -> dict:
     return out
 
 
+def public_names(config: dict) -> list[str]:
+    """The public sites whose certificates are watched: as installed (HOTELLA_TLS_HOSTS), else the four-name layout."""
+    if config.get("HOTELLA_TLS_HOSTS", "").strip():
+        return config["HOTELLA_TLS_HOSTS"].split()
+    domain = config.get("HOTELLA_DOMAIN")
+    return [f"{n}.{domain}" for n in ("api", "staff", "guest")] if domain else []
+
+
 def domain_from_public_url(url: str) -> str | None:
     """`https://guest.example.com` → `example.com` (the installer names the sites api., staff., guest.)."""
     if not url.startswith("https://guest."):
@@ -325,8 +333,7 @@ def collect(config: dict) -> dict:
 
     def certificates():
         certs = facts.setdefault("certificates", {})
-        domain = config.get("HOTELLA_DOMAIN")
-        names = [f"{n}.{domain}" for n in ("api", "staff", "guest")] if domain else []
+        names = public_names(config)
         for host in names:
             try:
                 certs[host] = {"days_left": tls_days_left(host, 443)}
@@ -404,6 +411,8 @@ def load_config() -> dict:
         domain = domain_from_public_url(compose_env.get("HOTELLA_PUBLIC_BASE_URL", ""))
         if domain:
             config["HOTELLA_DOMAIN"] = domain
+        if compose_env.get("HOTELLA_TLS_HOSTS"):  # the public names the installer configured
+            config["HOTELLA_TLS_HOSTS"] = compose_env["HOTELLA_TLS_HOSTS"]
         for k in ("HOTELLA_API_PORT", "HOTELLA_AGENT_PORT"):  # host ports chosen at installation
             if compose_env.get(k):
                 config[k] = compose_env[k]

@@ -10,6 +10,8 @@
 #   git clone https://github.com/karimabdelsalam/hotella.git && cd hotella       (private: a read-only token)
 #   sudo bash infra/install/sea-beach-edge.sh --domain seabeachedge.example.com --email you@planova.com.eg
 #   sudo bash infra/install/sea-beach-edge.sh --local --email you@planova.com.eg   (a VM or laptop, no domain)
+#   sudo bash infra/install/sea-beach-edge.sh --host crm.example.com --guest-host guest.example.com --email …
+#                                     (one name for the company panel + API + agents, one for guests)
 #   sudo bash infra/install/sea-beach-edge.sh --shared --domain … --email …       (a server with other systems:
 #                                     your reverse proxy, your firewall — docs/runbooks/deploy.md "Sharing a server")
 #
@@ -19,6 +21,6 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOTEL_DIR="$(cd "$HERE/../../docs/pilot/sea-beach-edge" && pwd)"
 case "${1:-}" in
-  -h | --help | "") sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h | --help | "") sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 esac
 exec bash "$HERE/install-ubuntu.sh" --hotel "$HOTEL_DIR/profile.json" --demo "$HOTEL_DIR/demo.json" "$@"

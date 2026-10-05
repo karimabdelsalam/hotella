@@ -152,6 +152,11 @@ class ParsingTest(unittest.TestCase):
         self.assertEqual(m.domain_from_public_url("https://guest.seabeachedge.example/x"), "seabeachedge.example")
         self.assertIsNone(m.domain_from_public_url("http://localhost:3200"))
 
+    def test_public_names(self):
+        self.assertEqual(m.public_names({"HOTELLA_TLS_HOSTS": "crm.sbrer.example guest.sbrer.example "}), ["crm.sbrer.example", "guest.sbrer.example"])
+        self.assertEqual(m.public_names({"HOTELLA_DOMAIN": "x.example"}), ["api.x.example", "staff.x.example", "guest.x.example"])
+        self.assertEqual(m.public_names({}), [])
+
 
 class DeliveryTest(unittest.TestCase):
     def test_failures_name_the_destination_never_the_secret(self):

@@ -25,6 +25,27 @@ For the first pilot hotel with its demo data, `sudo bash infra/install/sea-beach
 <e-mail>` runs the same installer and then creates Sea Beach Edge and its demo content (`docs/pilot/sea-beach-edge/`
 §4). Any hotel: `install-ubuntu.sh --hotel <profile.json> [--demo <demo.json>]`.
 
+## One name for the company panel (`--host`)
+
+Hotella is one SaaS installation for every hotel.
+- **Planova's control panel** (tenants, licences, plans) is the staff web's `/control`, for platform administrators.
+- **Each hotel's staff** sign in to the same site with their hotel code.
+- **Guests** use the guest site.
+
+By default the installer publishes four names under `--domain`: `staff.`, `api.`, `guest.`, `agent.`. With
+`--host crm.example.com --guest-host guest.example.com` it uses one name for the panel instead:
+
+| Name | Serves |
+|---|---|
+| `crm.example.com` | the staff web and control panel |
+| `crm.example.com/api/…` | the API: realtime, webhooks, developer API |
+| `crm.example.com:8443` | the hotel agents (mutual TLS, never proxied) |
+| `guest.example.com` | the guests' site (QR codes and activation links) |
+
+Only two DNS records are needed. The guests' site keeps its own name because it is a separate app. The agent gateway's
+certificate takes the name given at the first installation (`HOTELLA_AGENT_HOSTNAME`); changing it later is a
+certificate rotation (secret-rotation runbook).
+
 ## Sharing a server with other systems
 
 Hotella runs as its own Docker Compose project (`hotella-pilot`). Its containers, volumes and internal network are

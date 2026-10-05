@@ -21,6 +21,9 @@
 #
 # Options:
 #   --domain D        base domain; the names api., staff., guest. and agent. are created under it
+#   --host H          instead of four names: one name for the company panel (staff web + control plane), with the API
+#                     under H/api and the hotel agents on H:8443 — e.g. crm.example.com
+#   --guest-host G    the guests' site (default guest.<domain>, or guest.<host> with --host)
 #   --email E         first platform administrator and the Let's Encrypt contact
 #   --admin-name N    the administrator's given name (default: Admin)
 #   --local           no domain, no reverse proxy, no firewall changes: everything on localhost
@@ -40,6 +43,8 @@
 set -euo pipefail
 
 DOMAIN=""
+PANEL_HOST=""
+GUEST_HOST=""
 EMAIL=""
 ADMIN_NAME="Admin"
 LOCAL=false
@@ -58,11 +63,13 @@ AGENT_PORT=8443
 say() { printf '\033[1;36m[hotella]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[hotella] warning:\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31m[hotella] error:\033[0m %s\n' "$*" >&2; exit 1; }
-usage() { sed -n '2,39p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,42p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --domain) DOMAIN="${2:?}"; shift 2 ;;
+    --host) PANEL_HOST="${2:?}"; shift 2 ;;
+    --guest-host) GUEST_HOST="${2:?}"; shift 2 ;;
     --email) EMAIL="${2:?}"; shift 2 ;;
     --admin-name) ADMIN_NAME="${2:?}"; shift 2 ;;
     --local) LOCAL=true; shift ;;
@@ -93,8 +100,9 @@ done
 [ -n "$EMAIL" ] || die "--email is required (the first platform administrator)"
 [[ "$EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] || die "--email does not look like an e-mail address"
 if ! $LOCAL; then
-  [ -n "$DOMAIN" ] || die "--domain is required (or --local to try it without one)"
-  [[ "$DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$ ]] || die "--domain is not a domain name"
+  [ -n "$DOMAIN$PANEL_HOST" ] || die "--domain (or --host) is required, or --local to try it without one"
+  is_name() { [[ "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$ ]]; }
+  for n in $DOMAIN $PANEL_HOST $GUEST_HOST; do is_name "$n" || die "not a domain name: $n"; done
 fi
 # shellcheck disable=SC1091
 . /etc/os-release
@@ -218,8 +226,14 @@ if $LOCAL; then
   API_URL="http://localhost:$API_PORT"; STAFF_URL="http://localhost:$STAFF_PORT"; GUEST_URL="http://localhost:$GUEST_PORT"
   WS_URL="ws://localhost:$API_PORT/api/v1/realtime"; AGENT_HOST="localhost"; AGENT_BIND="127.0.0.1"
 else
-  API_URL="https://api.$DOMAIN"; STAFF_URL="https://staff.$DOMAIN"; GUEST_URL="https://guest.$DOMAIN"
-  WS_URL="wss://api.$DOMAIN/api/v1/realtime"; AGENT_HOST="agent.$DOMAIN"; AGENT_BIND="0.0.0.0"
+  # Four names under --domain, or one panel name (--host) that also carries the API under /api and the agents' port.
+  if [ -n "$PANEL_HOST" ]; then
+    STAFF_HOST="$PANEL_HOST"; API_HOST="$PANEL_HOST"; AGENT_HOST="$PANEL_HOST"; GUEST_HOST="${GUEST_HOST:-guest.$PANEL_HOST}"
+  else
+    STAFF_HOST="staff.$DOMAIN"; API_HOST="api.$DOMAIN"; AGENT_HOST="agent.$DOMAIN"; GUEST_HOST="${GUEST_HOST:-guest.$DOMAIN}"
+  fi
+  API_URL="https://$API_HOST"; STAFF_URL="https://$STAFF_HOST"; GUEST_URL="https://$GUEST_HOST"
+  WS_URL="wss://$API_HOST/api/v1/realtime"; AGENT_BIND="0.0.0.0"
 fi
 # Compose reads this file next to compose.pilot.yml; the URLs are public, nothing secret is in it. A Firebase project
 # set earlier with `hotella push-setup` is kept.
@@ -233,6 +247,7 @@ HOTELLA_STAFF_WEB_PORT=$STAFF_PORT
 HOTELLA_GUEST_WEB_PORT=$GUEST_PORT
 HOTELLA_AGENT_PORT=$AGENT_PORT
 HOTELLA_BUILD_CONCURRENCY=$($SMALL && echo 2 || echo 4)
+HOTELLA_TLS_HOSTS="$($LOCAL || printf '%s\n' "$STAFF_HOST" "$API_HOST" "$GUEST_HOST" | sort -u | tr '\n' ' ')"
 ${fcm}
 EOF
 export HOTELLA_AGENT_HOSTNAME="$AGENT_HOST"
@@ -251,57 +266,60 @@ say "starting the API, worker, agent gateway, staff web and guest web"
 "$PILOT" start
 
 # ---------------------------------------------------------------- 5. HTTPS and firewall
+# The sites behind a reverse proxy: the panel (staff web; the API under /api when it shares the panel's name), the API
+# on its own name otherwise, and the guests' site. The agent gateway terminates its own mutual TLS and is never proxied.
+caddy_sites() { # $1: a line to put in every site (e.g. "import hotella"), or empty
+  if [ "$API_HOST" = "$STAFF_HOST" ]; then
+    printf '%s {\n\t%s\n\thandle /api/* {\n\t\treverse_proxy 127.0.0.1:%s\n\t}\n\thandle {\n\t\treverse_proxy 127.0.0.1:%s\n\t}\n}\n\n' \
+      "$STAFF_HOST" "$1" "$API_PORT" "$STAFF_PORT"
+  else
+    printf '%s {\n\t%s\n\treverse_proxy 127.0.0.1:%s\n}\n\n%s {\n\t%s\n\treverse_proxy 127.0.0.1:%s\n}\n\n' \
+      "$API_HOST" "$1" "$API_PORT" "$STAFF_HOST" "$1" "$STAFF_PORT"
+  fi
+  printf '%s {\n\t%s\n\treverse_proxy 127.0.0.1:%s\n}\n' "$GUEST_HOST" "$1" "$GUEST_PORT"
+}
+nginx_sites() {
+  local api_loc="proxy_pass http://127.0.0.1:$API_PORT; proxy_http_version 1.1;
+    proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$hotella_connection;
+    proxy_set_header Host \$host; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https; client_max_body_size 25m;"
+  local web="proxy_set_header Host \$host; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;"
+  echo "map \$http_upgrade \$hotella_connection { default upgrade; '' close; }"
+  if [ "$API_HOST" = "$STAFF_HOST" ]; then
+    printf 'server {\n  listen 80; server_name %s;\n  location /api/ { %s }\n  location / { proxy_pass http://127.0.0.1:%s; %s }\n}\n' \
+      "$STAFF_HOST" "$api_loc" "$STAFF_PORT" "$web"
+  else
+    printf 'server {\n  listen 80; server_name %s;\n  location / { %s }\n}\n' "$API_HOST" "$api_loc"
+    printf 'server {\n  listen 80; server_name %s;\n  location / { proxy_pass http://127.0.0.1:%s; %s }\n}\n' \
+      "$STAFF_HOST" "$STAFF_PORT" "$web"
+  fi
+  printf 'server {\n  listen 80; server_name %s;\n  location / { proxy_pass http://127.0.0.1:%s; %s }\n}\n' \
+    "$GUEST_HOST" "$GUEST_PORT" "$web"
+}
 if ! $LOCAL; then
   ip="$(curl -fsS -m 5 https://api.ipify.org 2>/dev/null || true)"
-  for name in api staff guest agent; do
-    resolved="$(getent ahostsv4 "$name.$DOMAIN" | awk 'NR==1 {print $1}')"
+  for name in $(printf '%s\n' "$STAFF_HOST" "$API_HOST" "$GUEST_HOST" "$AGENT_HOST" | sort -u); do
+    resolved="$(getent ahostsv4 "$name" | awk 'NR==1 {print $1}')"
     if [ -z "$resolved" ]; then
-      warn "$name.$DOMAIN does not resolve yet — create an A record to ${ip:-this server}; HTTPS starts once it does"
+      warn "$name does not resolve yet — create an A record to ${ip:-this server}; HTTPS starts once it does"
     elif [ -n "$ip" ] && [ "$resolved" != "$ip" ]; then
-      warn "$name.$DOMAIN points at $resolved, but this server is $ip"
+      warn "$name points at $resolved, but this server is $ip"
     fi
   done
 fi
 if $SHARED; then
   # Another reverse proxy already owns 80/443 on this server: write examples for it, touch nothing of it.
-  cat >"$DIR/infra/docker/reverse-proxy.nginx.conf" <<EOF
-# Hotella behind an existing nginx (written by install-ubuntu.sh --shared). Copy to /etc/nginx/conf.d/hotella.conf,
-# nginx -t && systemctl reload nginx, then add HTTPS: certbot --nginx -d api.$DOMAIN -d staff.$DOMAIN -d guest.$DOMAIN
-# The hotel agents' gateway (agent.$DOMAIN:$AGENT_PORT) terminates its own mutual TLS: it is NOT proxied here.
-map \$http_upgrade \$hotella_connection { default upgrade; '' close; }
-server {
-  listen 80; server_name api.$DOMAIN;
-  location / {
-    proxy_pass http://127.0.0.1:$API_PORT;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$hotella_connection;
-    proxy_set_header Host \$host; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto https; client_max_body_size 25m;
-  }
-}
-server {
-  listen 80; server_name staff.$DOMAIN;
-  location / { proxy_pass http://127.0.0.1:$STAFF_PORT; proxy_set_header Host \$host;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto https; }
-}
-server {
-  listen 80; server_name guest.$DOMAIN;
-  location / { proxy_pass http://127.0.0.1:$GUEST_PORT; proxy_set_header Host \$host;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto https; }
-}
-EOF
-  cat >"$DIR/infra/docker/reverse-proxy.Caddyfile" <<EOF
-# Hotella behind an existing Caddy (written by install-ubuntu.sh --shared): add these sites to your Caddyfile.
-api.$DOMAIN {
-	reverse_proxy 127.0.0.1:$API_PORT
-}
-staff.$DOMAIN {
-	reverse_proxy 127.0.0.1:$STAFF_PORT
-}
-guest.$DOMAIN {
-	reverse_proxy 127.0.0.1:$GUEST_PORT
-}
-EOF
+  {
+    echo "# Hotella behind an existing nginx (written by install-ubuntu.sh --shared). Copy to /etc/nginx/conf.d/hotella.conf,"
+    echo "# nginx -t && systemctl reload nginx, then add HTTPS with certbot --nginx for: $(printf '%s\n' "$STAFF_HOST" "$API_HOST" "$GUEST_HOST" | sort -u | tr '\n' ' ')"
+    echo "# The hotel agents' gateway ($AGENT_HOST:$AGENT_PORT) terminates its own mutual TLS: it is NOT proxied here."
+    nginx_sites
+  } >"$DIR/infra/docker/reverse-proxy.nginx.conf"
+  {
+    echo "# Hotella behind an existing Caddy (written by install-ubuntu.sh --shared): add these sites to your Caddyfile."
+    caddy_sites ""
+  } >"$DIR/infra/docker/reverse-proxy.Caddyfile"
   # Only the hotel agents' port is opened, and only when the server already runs ufw (other rules stay as they are).
   if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q '^Status: active'; then
     ufw allow "$AGENT_PORT/tcp" >/dev/null
@@ -311,7 +329,7 @@ fi
 if ! $LOCAL && ! $SHARED; then
   say "publishing the sites through Caddy"
   cat >/etc/caddy/Caddyfile <<EOF
-# Hotella (written by infra/install/install-ubuntu.sh). The agent gateway (agent.$DOMAIN:8443) terminates its own
+# Hotella (written by infra/install/install-ubuntu.sh). The agent gateway ($AGENT_HOST:$AGENT_PORT) terminates its own
 # mutual TLS and is not proxied here.
 {
 	email $EMAIL
@@ -327,20 +345,7 @@ if ! $LOCAL && ! $SHARED; then
 	}
 }
 
-api.$DOMAIN {
-	import hotella
-	reverse_proxy 127.0.0.1:$API_PORT
-}
-
-staff.$DOMAIN {
-	import hotella
-	reverse_proxy 127.0.0.1:$STAFF_PORT
-}
-
-guest.$DOMAIN {
-	import hotella
-	reverse_proxy 127.0.0.1:$GUEST_PORT
-}
+$(caddy_sites "import hotella")
 EOF
   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
   systemctl enable caddy >/dev/null
@@ -446,7 +451,7 @@ EOF
 fi
 if $SHARED; then
   cat <<EOF
-  Shared server  your reverse proxy must serve api., staff. and guest.$DOMAIN — examples written for you:
+  Shared server  your reverse proxy must serve $(printf '%s\n' "$STAFF_HOST" "$API_HOST" "$GUEST_HOST" | sort -u | tr '\n' ' ')— examples:
                  $DIR/infra/docker/reverse-proxy.nginx.conf   ·   $DIR/infra/docker/reverse-proxy.Caddyfile
                  open TCP $AGENT_PORT to the internet for the hotel agents (mutual TLS, never through the proxy)
 EOF
