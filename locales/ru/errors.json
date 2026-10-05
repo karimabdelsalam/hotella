@@ -399,5 +399,16 @@
   "errors.restaurant.reservation.sitting_full": "На это время мест нет. Выберите другое время или день.",
   "errors.restaurant.reservation.transition_not_allowed": "Бронирование в статусе {from} нельзя перевести в {to}.",
   "errors.iam.device.not_found": "Устройство не найдено.",
-  "errors.iam.device.staff_only": "Зарегистрировать устройство может только вошедший сотрудник отеля."
+  "errors.iam.device.staff_only": "Зарегистрировать устройство может только вошедший сотрудник отеля.",
+  "errors.ai.agent.version_not_found": "Такой версии ИИ-ассистента не существует.",
+  "errors.ai.agent.not_a_candidate": "Выпустить можно только версию-кандидата, ожидающую выпуска.",
+  "errors.ai.evaluation.set_not_found": "Набор оценки не найден.",
+  "errors.ai.evaluation.set_code_taken": "Набор оценки с таким кодом уже существует.",
+  "errors.ai.evaluation.case_not_found": "Сценарий оценки не найден.",
+  "errors.ai.evaluation.case_code_taken": "В наборе уже есть сценарий с таким кодом.",
+  "errors.ai.evaluation.version_conflict": "Набор оценки был изменён. Обновите страницу и попробуйте снова.",
+  "errors.ai.evaluation.no_sets": "Для этого ассистента нет активного набора оценки.",
+  "errors.ai.evaluation.set_empty": "В наборе оценки {set} нет активных сценариев.",
+  "errors.ai.evaluation.run_not_found": "Прогон оценки не найден.",
+  "errors.ai.evaluation.not_passed": "Последняя оценка этой версии на наборе {set} не пройдена."
 }

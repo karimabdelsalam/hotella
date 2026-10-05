@@ -399,5 +399,16 @@
   "errors.restaurant.reservation.sitting_full": "Questo turno è al completo. Scelga un altro orario o giorno.",
   "errors.restaurant.reservation.transition_not_allowed": "Una prenotazione {from} non può diventare {to}.",
   "errors.iam.device.not_found": "Dispositivo non trovato.",
-  "errors.iam.device.staff_only": "Solo un membro dello staff dell’hotel che ha effettuato l’accesso può registrare un dispositivo."
+  "errors.iam.device.staff_only": "Solo un membro dello staff dell’hotel che ha effettuato l’accesso può registrare un dispositivo.",
+  "errors.ai.agent.version_not_found": "Questa versione dell’assistente IA non esiste.",
+  "errors.ai.agent.not_a_candidate": "Si può rilasciare solo una versione candidata in attesa di rilascio.",
+  "errors.ai.evaluation.set_not_found": "Set di valutazione non trovato.",
+  "errors.ai.evaluation.set_code_taken": "Esiste già un set di valutazione con questo codice.",
+  "errors.ai.evaluation.case_not_found": "Caso di valutazione non trovato.",
+  "errors.ai.evaluation.case_code_taken": "Nel set esiste già un caso con questo codice.",
+  "errors.ai.evaluation.version_conflict": "Il set di valutazione è stato modificato nel frattempo. Ricarica e riprova.",
+  "errors.ai.evaluation.no_sets": "Non esiste un set di valutazione attivo per questo assistente.",
+  "errors.ai.evaluation.set_empty": "Il set di valutazione {set} non ha casi attivi.",
+  "errors.ai.evaluation.run_not_found": "Esecuzione della valutazione non trovata.",
+  "errors.ai.evaluation.not_passed": "L’ultima valutazione di questa versione sul set {set} non è stata superata."
 }

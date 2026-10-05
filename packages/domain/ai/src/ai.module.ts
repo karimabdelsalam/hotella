@@ -5,12 +5,17 @@ import { AI_AGENT_AUTHORIZER, AI_POLICY_STAGE } from '@hotella/platform-auth';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { SettingsRegistry } from '@hotella/platform-settings';
-import { AiAdminController, AiExecutionsController } from './api/controllers';
+import {
+  AiAdminController,
+  AiEvaluationController,
+  AiExecutionsController,
+} from './api/controllers';
 import { AiAdminService } from './application/admin.service';
-import { AgentCatalog } from './application/agent-catalog';
+import { AGENT_DEFINITIONS, AgentCatalog } from './application/agent-catalog';
 import { ConciergeRuntime } from './application/concierge.runtime';
 import { StaffAssistantRuntime } from './application/staff-assistant.runtime';
 import { ContextEngine } from './application/context-engine';
+import { AI_EVALUATION_JOB, EvaluationService } from './application/evaluation.service';
 import { ExecutionAuditService } from './application/execution-audit.service';
 import { FeedbackRecorder } from './application/feedback-recorder';
 import { ModelGatewayService } from './application/gateway.service';
@@ -20,7 +25,9 @@ import { ProposalSettler } from './application/tools/proposal-settler';
 import { ToolRegistry } from './application/tools/registry';
 import { AiPolicyStage, ScopedAgentAuthorizer } from './application/tools/scope';
 import { ToolsV1 } from './application/tools/v1';
+import { BUILT_IN_AGENTS } from './domain/agents';
 import { AI_SETTINGS } from './domain/settings';
+import { EvaluationRepositories } from './infrastructure/evaluation-repositories';
 import { AiRepositories } from './infrastructure/repositories';
 import { AI_MANIFEST } from './manifest';
 import { AI_TOOL_REGISTRY, MODEL_GATEWAY, STAFF_ASSISTANT_API } from './public';
@@ -37,15 +44,18 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
 @Module({
   providers: [
     AiRepositories,
+    EvaluationRepositories,
     ModelProviderRegistry,
     ModelGatewayService,
     ProposalSettler,
+    { provide: AGENT_DEFINITIONS, useValue: BUILT_IN_AGENTS },
     AgentCatalog,
     FeedbackRecorder,
     { provide: MODEL_GATEWAY, useExisting: ModelGatewayService },
   ],
   exports: [
     AiRepositories,
+    EvaluationRepositories,
     ModelProviderRegistry,
     ModelGatewayService,
     ProposalSettler,
@@ -73,8 +83,10 @@ export class AiCoreModule {}
     ConciergeRuntime,
     StaffAssistantRuntime,
     { provide: STAFF_ASSISTANT_API, useExisting: StaffAssistantRuntime },
+    EvaluationService,
   ],
   exports: [
+    EvaluationService,
     ToolRegistry,
     AI_TOOL_REGISTRY,
     ToolExecutor,
@@ -104,7 +116,7 @@ export class AiToolsModule implements OnModuleInit {
 /** Administration API, tools, settings and manifest, for the API process. */
 @Module({
   imports: [AiCoreModule, AiToolsModule],
-  controllers: [AiAdminController, AiExecutionsController],
+  controllers: [AiAdminController, AiExecutionsController, AiEvaluationController],
   providers: [AiAdminService, ExecutionAuditService],
 })
 export class AiModule implements OnModuleInit {
@@ -142,6 +154,7 @@ export class AiWorkerModule implements OnModuleInit {
     private readonly settler: ProposalSettler,
     private readonly runtime: ConciergeRuntime,
     private readonly feedback: FeedbackRecorder,
+    private readonly evaluation: EvaluationService,
   ) {}
   onModuleInit(): void {
     this.consumers.on(ApprovalDecided.name, AI_PROPOSAL_SETTLE_CONSUMER, async (envelope) => {
@@ -173,6 +186,10 @@ export class AiWorkerModule implements OnModuleInit {
     );
     this.consumers.on(ReplyDraftUsed.name, AI_FEEDBACK_CONSUMER, async (envelope) => {
       await this.feedback.onDraftUsed(envelope);
+    });
+    // Regression runs of agent versions (BUILD_PLAN 12.1): the model calls are slow, so they run here, not in the API.
+    this.consumers.onJob<{ runId: string }>(AI_EVALUATION_JOB, async (data) => {
+      await this.evaluation.execute(data.runId);
     });
   }
 }

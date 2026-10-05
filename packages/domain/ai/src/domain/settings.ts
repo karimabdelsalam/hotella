@@ -28,10 +28,23 @@ export const AI_BUDGET_MONTHLY_LIMIT_MINOR = defineSetting({
   descriptionKey: 'ai.setting.budget_monthly_limit_minor',
 });
 
+/**
+ * The share of an evaluation set's cases a candidate agent version must pass to be released (every critical case must
+ * pass regardless, BUILD_PLAN 12.B). Platform-wide: agent versions are the platform's.
+ */
+export const AI_EVALUATION_MIN_PASS_RATE = defineSetting({
+  key: 'ai.evaluation.min_pass_rate',
+  scopes: ['PLATFORM'],
+  schema: z.number().min(0.5).max(1),
+  default: 0.9,
+  descriptionKey: 'ai.setting.evaluation_min_pass_rate',
+});
+
 export const AI_SETTINGS = [
   AI_EXTERNAL_PROVIDERS_ALLOWED,
   AI_EXTERNAL_PROVIDERS_ENABLED,
   AI_BUDGET_MONTHLY_LIMIT_MINOR,
+  AI_EVALUATION_MIN_PASS_RATE,
 ];
 
 /** Kill switches (Spec §42) are feature flags: a flag set to on stops that path. */

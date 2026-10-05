@@ -6,5 +6,9 @@
   "ai.setting.external_providers_enabled": "Consentire provider IA esterni all'installazione per questo gruppo alberghiero",
   "ai.setting.budget_monthly_limit_minor": "Limite mensile per i provider IA esterni all'installazione (unità minime di valuta)",
   "ai.approval.ai_action": "Un'azione proposta dall'assistente IA",
-  "ai.permission.execution_read": "Vedere cosa ha fatto l'assistente IA e perché"
+  "ai.permission.execution_read": "Vedere cosa ha fatto l'assistente IA e perché",
+  "ai.permission.evaluation_read": "Vedere set di valutazione, esecuzioni e rilasci dell’IA",
+  "ai.permission.evaluation_manage": "Scrivere casi di valutazione dell’IA ed eseguire valutazioni",
+  "ai.permission.agent_release": "Rilasciare una nuova versione dell’assistente IA dopo che la valutazione è stata superata",
+  "ai.setting.evaluation_min_pass_rate": "Quota di casi di valutazione che una nuova versione dell’assistente deve superare prima del rilascio"
 }

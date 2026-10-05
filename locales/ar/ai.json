@@ -6,5 +6,9 @@
   "ai.setting.external_providers_enabled": "السماح بمزوّدي الذكاء الاصطناعي خارج المنظومة لهذه المجموعة الفندقية",
   "ai.setting.budget_monthly_limit_minor": "الحد الشهري لمزوّدي الذكاء الاصطناعي خارج المنظومة (بأصغر وحدة للعملة)",
   "ai.approval.ai_action": "إجراء اقترحه مساعد الذكاء الاصطناعي",
-  "ai.permission.execution_read": "عرض ما قام به مساعد الذكاء الاصطناعي ولماذا"
+  "ai.permission.execution_read": "عرض ما قام به مساعد الذكاء الاصطناعي ولماذا",
+  "ai.permission.evaluation_read": "عرض مجموعات تقييم الذكاء الاصطناعي ونتائجها وإصداراتها",
+  "ai.permission.evaluation_manage": "كتابة حالات تقييم الذكاء الاصطناعي وتشغيل التقييمات",
+  "ai.permission.agent_release": "إطلاق إصدار جديد من مساعد الذكاء الاصطناعي بعد نجاح تقييمه",
+  "ai.setting.evaluation_min_pass_rate": "نسبة حالات التقييم التي يجب أن ينجح فيها الإصدار الجديد من المساعد قبل إطلاقه"
 }

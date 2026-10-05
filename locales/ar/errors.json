@@ -399,5 +399,16 @@
   "errors.restaurant.reservation.sitting_full": "هذا الموعد مكتمل. يُرجى اختيار وقت أو يوم آخر.",
   "errors.restaurant.reservation.transition_not_allowed": "لا يمكن تحويل حجز بحالة {from} إلى {to}.",
   "errors.iam.device.not_found": "لم يتم العثور على الجهاز.",
-  "errors.iam.device.staff_only": "يمكن لموظف الفندق المسجّل دخوله فقط تسجيل جهاز."
+  "errors.iam.device.staff_only": "يمكن لموظف الفندق المسجّل دخوله فقط تسجيل جهاز.",
+  "errors.ai.agent.version_not_found": "هذا الإصدار من مساعد الذكاء الاصطناعي غير موجود.",
+  "errors.ai.agent.not_a_candidate": "لا يمكن إطلاق إلا إصدار مرشح بانتظار الإطلاق.",
+  "errors.ai.evaluation.set_not_found": "لم يتم العثور على مجموعة التقييم.",
+  "errors.ai.evaluation.set_code_taken": "توجد بالفعل مجموعة تقييم بهذا الرمز.",
+  "errors.ai.evaluation.case_not_found": "لم يتم العثور على حالة التقييم.",
+  "errors.ai.evaluation.case_code_taken": "توجد بالفعل حالة بهذا الرمز في المجموعة.",
+  "errors.ai.evaluation.version_conflict": "تم تعديل مجموعة التقييم في هذه الأثناء. أعد التحميل وحاول مرة أخرى.",
+  "errors.ai.evaluation.no_sets": "لا توجد مجموعة تقييم نشطة لهذا المساعد.",
+  "errors.ai.evaluation.set_empty": "مجموعة التقييم {set} لا تحتوي على حالات نشطة.",
+  "errors.ai.evaluation.run_not_found": "لم يتم العثور على عملية التقييم.",
+  "errors.ai.evaluation.not_passed": "لم ينجح آخر تقييم لهذا الإصدار على المجموعة {set}."
 }

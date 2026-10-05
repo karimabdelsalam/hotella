@@ -1,6 +1,5 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
-import { z } from 'zod';
 import {
   COMMUNICATIONS_API,
   type CommunicationsPublicApi,
@@ -11,7 +10,6 @@ import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import {
   AGENT_ENTITLEMENTS,
   GUEST_CONCIERGE,
-  HANDOFF_REASONS,
   type HandoffReason,
   type ReplyLocale,
   replyLocale,
@@ -23,16 +21,9 @@ import { runAgentLoop } from './agent-loop';
 import { ContextEngine } from './context-engine';
 import { type ExecutionHandle, ToolExecutor } from './tools/executor';
 import { ToolRegistry } from './tools/registry';
+import { conversationContract } from './agent-contracts';
 
 export type ConciergeOutcome = 'SKIPPED' | 'REPLIED' | 'DRAFTED' | 'HANDED_OFF' | 'FAILED';
-
-const LANGUAGE: Record<ReplyLocale, string> = {
-  ar: 'Reply in Arabic, in the same dialect and tone the guest used (Egyptian Arabic is fine).',
-  en: 'Reply in English.',
-  it: 'Reply in Italian, politely (Lei).',
-  ru: 'Reply in Russian, politely (Вы).',
-  de: 'Reply in German, politely (Sie).',
-};
 
 /**
  * The Guest Concierge v1 runtime (Spec §23–§24, BUILD_PLAN 6.B): triggered by a guest message in a verified stay
@@ -206,19 +197,8 @@ export class ConciergeRuntime {
       outcome: 'OK',
       summary: { providers: built.summary, history: built.history.length, locale },
     });
-    const outputSchema = z.object({
-      reply: z.string().max(agent.output.maxReplyChars),
-      handoff: z.enum(HANDOFF_REASONS).nullable(),
-    });
-    const system: ClassifiedText[] = [
-      ...agent.layers.map((l) => ({ text: l.text, dataClass: 'PUBLIC' as const })),
-      { text: LANGUAGE[locale], dataClass: 'PUBLIC' },
-      {
-        text: `Answer with JSON {"reply": string, "handoff": null | one of ${agent.output.handoffReasons.join(', ')}}. Use "handoff" when a person must take over; "reply" may then tell the guest that a colleague will help.`,
-        dataClass: 'PUBLIC',
-      },
-      ...built.parts,
-    ];
+    const contract = conversationContract(agent, locale);
+    const system: ClassifiedText[] = [...contract.system, ...built.parts];
     return runAgentLoop(
       { gateway: this.gateway, executor: this.executor, registry: this.registry },
       {
@@ -226,12 +206,9 @@ export class ConciergeRuntime {
         agent,
         system,
         history: built.history,
-        output: { name: 'concierge_reply', schema: outputSchema },
-        parse: (content) => parseOutput(content, outputSchema),
-        describe: (answer) => ({
-          outcome: answer.handoff ? 'HANDOFF' : 'ANSWER',
-          summary: { handoff: answer.handoff, reply_chars: answer.reply.length },
-        }),
+        output: contract.output,
+        parse: contract.parse,
+        describe: contract.describe,
       },
     );
   }
@@ -262,24 +239,5 @@ export class ConciergeRuntime {
       outcome === 'HANDED_OFF' ? 'HANDED_OFF' : outcome === 'FAILED' ? 'FAILED' : 'COMPLETED',
     );
     return outcome;
-  }
-}
-
-/** The structured answer; a model that answers in plain text is taken at its word (no hand-off). */
-function parseOutput<T extends { reply: string; handoff: HandoffReason | null }>(
-  content: string | null,
-  schema: z.ZodType<T>,
-): T | null {
-  const text = (content ?? '').trim();
-  if (!text) return null;
-  const json = text
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/```$/, '')
-    .trim();
-  try {
-    const parsed = schema.safeParse(JSON.parse(json));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return json.startsWith('{') ? null : ({ reply: text.slice(0, 1000), handoff: null } as T);
   }
 }

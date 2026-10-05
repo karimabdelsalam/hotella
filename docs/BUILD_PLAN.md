@@ -2948,13 +2948,44 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 #### 12.D Sprints
 | Sprint | Scope | Status |
 |---|---|---|
-| 12.1 | Evaluation sets/cases, dry-run tool executor, deterministic graders, regression runs, publish gate | planned |
+| 12.1 | Evaluation sets/cases, dry-run tool executor, deterministic graders, regression runs, publish gate | done |
 | 12.2 | Agent releases: shadow (compare, never act) and canary (deterministic share), promote/rollback, kill switch | planned |
 | 12.3 | Operational twin read model: consumers, neighbourhood queries, read-time names | planned |
 | 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | planned |
 | 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | planned |
 | 12.6 | Quality and cost metrics job; staff-web Intelligence screens (insights, pulse, quality) in English and Arabic | planned |
 | 12.7 | Phase 12 acceptance (`docs/acceptance/phase-12.md`) | planned |
+
+- *As built (12.1):* migration `0049_ai_evaluation`: `ai.evaluation_sets` (platform when `tenant_id` is null, else the
+  hotel's own; RLS shows platform rows to every tenant), `evaluation_cases` (input, tool fixtures, expectations, data
+  class at most CONFIDENTIAL — cases are synthetic), `evaluation_runs` (one set × one agent version, under a tenant's
+  property for routing and budget), `evaluation_results` (checks as codes, the execution), `agent_releases`
+  (append-only by trigger; stages SHADOW/CANARY/ACTIVE/ROLLED_BACK, 12.1 writes ACTIVE). `domain/evaluation.ts`:
+  case input (locale, turns ending with the person, synthetic context parts), fixtures, expectations (tools called
+  with `equals`/`contains`/`present` argument matchers and an OK/PROPOSED/REFUSED/ERROR outcome, tools not called,
+  hand-off NONE/ANY/reason, reply must / must not contain), `grade()` and `runPasses()` (every critical case and
+  `ai.evaluation.min_pass_rate`, default 0.9; errors count as failures), unit-tested. `agent-contracts.ts`: the
+  instructions and answer schema of CONVERSATION (`{reply, handoff}`) and ASSIST (`{answer}`) agents, now used by the
+  concierge, the staff assistants and the evaluator alike. `DryRunExecutor`: same allow-list, argument schema and
+  policy decision as the real executor; READ and allowed actions answer from fixtures, approvals come back PROPOSED
+  without a proposal, CRITICAL is refused; nothing is written, every call is a step (`dry_run: true`) of an execution
+  with trigger `EVALUATION`. `AgentCatalog`: definitions are a provider (`AGENT_DEFINITIONS`); an agent's first version
+  is published at once, a later deployed version is kept as a **candidate** (DRAFT) while the published one keeps
+  running; the cached published version is re-read every 30 s so a release reaches every process. API (`ai`):
+  `GET|POST /evaluation-sets`, `GET|PATCH /evaluation-sets/:id`, `POST /evaluation-sets/:id/cases`,
+  `DELETE /evaluation-sets/:id/cases/:caseId` (retire), `GET /agents/:code/versions` (PUBLISHED / CANDIDATE /
+  SUPERSEDED), `POST /agents/:code/versions/:id/evaluations` (`{propertyId, setIds?}` → one RUNNING run per set, job
+  `ai.evaluation.run` on `background-ai` in the worker), `GET /evaluation-runs/:id` (totals, per-case checks),
+  `POST /agents/:code/versions/:id/publish` (platform `ai.agent.release`: refused with `ai.evaluation.no_sets` or
+  `ai.evaluation.not_passed {set}` unless the latest run of this exact version PASSED on every active platform set;
+  supersedes the previous version, writes the ACTIVE release with the run ids, audit `ai.agent.release`),
+  `GET /agents/:code/releases`. Events `ai.evaluation.completed.v1`, `ai.agent.released.v1`. Permissions
+  `ai.evaluation.read`, `ai.evaluation.manage`, `ai.agent.release` (platform administrators; no tenant role gets them
+  by default). Tests: grader unit tests; integration (first version active, second a candidate; no sets → refused;
+  platform cases and the hotel's own set, another hotel sees neither the hotel's set nor its runs; a failing run with
+  the critical case's `NOT_CALLED` blocks the release; a passing run releases v2, v1 superseded, published version
+  switches; dry runs create no request and no approval and record a PROPOSED cancel; events; release rows refuse
+  edits; reruns of the suite on the same database stay green).
 
 #### 12.E Tests and acceptance
 - Unit: graders, canary bucketing, every detector's thresholds and confidence, insight fingerprinting, twin traversal,

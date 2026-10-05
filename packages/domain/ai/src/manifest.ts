@@ -1,3 +1,4 @@
+import { AiAgentReleased, AiEvaluationCompleted } from '@hotella/contracts-events';
 import { defineManifest } from '@hotella/platform-manifest';
 
 export const AI_MANIFEST = defineManifest({
@@ -10,8 +11,15 @@ export const AI_MANIFEST = defineManifest({
     { code: 'ai.routing.manage', descriptionKey: 'ai.permission.routing_manage', risk: 'MEDIUM' },
     { code: 'ai.usage.read', descriptionKey: 'ai.permission.usage_read', risk: 'READ' },
     { code: 'ai.execution.read', descriptionKey: 'ai.permission.execution_read', risk: 'READ' },
+    { code: 'ai.evaluation.read', descriptionKey: 'ai.permission.evaluation_read', risk: 'READ' },
+    {
+      code: 'ai.evaluation.manage',
+      descriptionKey: 'ai.permission.evaluation_manage',
+      risk: 'MEDIUM',
+    },
+    { code: 'ai.agent.release', descriptionKey: 'ai.permission.agent_release', risk: 'HIGH' },
   ],
-  events: [],
+  events: [AiEvaluationCompleted.name, AiAgentReleased.name],
   // Tools v1 (BUILD_PLAN 6.2): the risk decides autonomy; the permission is all an agent holds for the tool.
   aiTools: [
     { code: 'guest.get_current_stay', risk: 'READ', requiredPermission: 'stay.read' },

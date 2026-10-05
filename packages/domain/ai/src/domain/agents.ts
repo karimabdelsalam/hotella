@@ -34,6 +34,8 @@ export interface PromptLayer {
 
 export interface BuiltInAgent {
   readonly code: string;
+  /** CONVERSATION answers a guest (`{ reply, handoff }`), ASSIST a staff member (`{ answer }`); default by code. */
+  readonly kind?: 'CONVERSATION' | 'ASSIST';
   readonly versionNo: number;
   readonly capability: Capability;
   readonly prompt: { readonly versionNo: number; readonly layers: readonly PromptLayer[] };

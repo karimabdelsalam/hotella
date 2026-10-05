@@ -1,16 +1,9 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ENTITLEMENT_API, type EntitlementPublicApi } from '@hotella/domain-licensing/public';
-import { z } from 'zod';
 import { FeatureFlagService } from '@hotella/platform-flags';
 import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
-import {
-  AGENT_ENTITLEMENTS,
-  ENGINEERING_COPILOT,
-  type ReplyLocale,
-  replyLocale,
-  SHIFT_HANDOVER,
-} from '../domain/agents';
+import { AGENT_ENTITLEMENTS, replyLocale } from '../domain/agents';
 import { killSwitch } from '../domain/settings';
 import {
   type ClassifiedText,
@@ -21,21 +14,11 @@ import {
   type StaffAssistantInput,
 } from '../public';
 import { AgentCatalog } from './agent-catalog';
-import { parseJsonAnswer, runAgentLoop } from './agent-loop';
+import { runAgentLoop } from './agent-loop';
 import { ContextEngine } from './context-engine';
 import { ToolExecutor, type ToolOutcome } from './tools/executor';
 import { ToolRegistry } from './tools/registry';
-
-/** The staff agents this runtime serves. */
-const STAFF_AGENTS = new Set([ENGINEERING_COPILOT.code, SHIFT_HANDOVER.code]);
-
-const LANGUAGE: Record<ReplyLocale, string> = {
-  ar: 'Answer in Arabic (Egyptian Arabic is fine); keep technical terms, codes and model numbers as written.',
-  en: 'Answer in English.',
-  it: 'Answer in Italian; keep technical terms, codes and model numbers as written.',
-  ru: 'Answer in Russian; keep technical terms, codes and model numbers as written.',
-  de: 'Answer in German; keep technical terms, codes and model numbers as written.',
-};
+import { assistContract, STAFF_AGENT_CODES } from './agent-contracts';
 
 type Source = StaffAssistantAnswer['sources'][number];
 
@@ -81,7 +64,7 @@ export class StaffAssistantRuntime implements StaffAssistantApi {
   }
 
   async ask(input: StaffAssistantInput): Promise<StaffAssistantAnswer> {
-    if (!STAFF_AGENTS.has(input.agentCode)) throw AppError.notFound('ai.agent.not_found');
+    if (!STAFF_AGENT_CODES.has(input.agentCode)) throw AppError.notFound('ai.agent.not_found');
     const agent = await this.agents.published(input.agentCode);
     // ASSIST: a staff assistant that could act would need the proposal flow; refuse such a definition outright.
     if (agent.tools.some((t) => this.registry.get(t) && this.registry.get(t)!.risk !== 'READ'))
@@ -143,11 +126,9 @@ export class StaffAssistantRuntime implements StaffAssistantApi {
         outcome: 'OK',
         summary: { providers: built.summary, focus: input.focus?.length ?? 0, locale },
       });
-      const schema = z.object({ answer: z.string().min(1).max(agent.output.maxReplyChars) });
+      const contract = assistContract(agent, locale);
       const system: ClassifiedText[] = [
-        ...agent.layers.map((l) => ({ text: l.text, dataClass: 'PUBLIC' as const })),
-        { text: LANGUAGE[locale], dataClass: 'PUBLIC' },
-        { text: 'Answer with JSON {"answer": string}.', dataClass: 'PUBLIC' },
+        ...contract.system,
         ...built.parts,
         ...(input.focus ?? []).map((f) => ({
           text: `<context name="focus">\n${f.text}\n</context>`,
@@ -162,14 +143,9 @@ export class StaffAssistantRuntime implements StaffAssistantApi {
           system,
           // The question may quote a guest.
           history: [{ role: 'user', content: input.question, dataClass: 'CONFIDENTIAL' }],
-          output: { name: 'staff_answer', schema },
-          // A model that answers in plain text is taken at its word.
-          parse: (content) =>
-            parseJsonAnswer(content, schema) ??
-            (content && !content.trim().startsWith('{')
-              ? { answer: content.trim().slice(0, agent.output.maxReplyChars) }
-              : null),
-          describe: (a) => ({ outcome: 'ANSWER', summary: { answer_chars: a.answer.length } }),
+          output: contract.output,
+          parse: contract.parse,
+          describe: contract.describe,
           onTool: (_tool, outcome) => sources.push(...sourcesOf(outcome)),
         },
       );

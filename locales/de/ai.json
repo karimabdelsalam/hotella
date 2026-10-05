@@ -6,5 +6,9 @@
   "ai.setting.external_providers_enabled": "KI-Anbieter außerhalb der Installation für diese Hotelgruppe zulassen",
   "ai.setting.budget_monthly_limit_minor": "Monatliches Limit für KI-Anbieter außerhalb der Installation (in kleinster Währungseinheit)",
   "ai.approval.ai_action": "Eine vom KI-Assistenten vorgeschlagene Aktion",
-  "ai.permission.execution_read": "Einsehen, was der KI-Assistent getan hat und warum"
+  "ai.permission.execution_read": "Einsehen, was der KI-Assistent getan hat und warum",
+  "ai.permission.evaluation_read": "KI-Evaluierungssets, -läufe und -freigaben ansehen",
+  "ai.permission.evaluation_manage": "KI-Evaluierungsfälle schreiben und Evaluierungen starten",
+  "ai.permission.agent_release": "Eine neue Version des KI-Assistenten nach bestandener Evaluierung freigeben",
+  "ai.setting.evaluation_min_pass_rate": "Anteil der Evaluierungsfälle, den eine neue Assistentenversion vor der Freigabe bestehen muss"
 }

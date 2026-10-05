@@ -140,3 +140,4 @@ export {
   PlanVersionPublished,
   SubscriptionChanged,
 } from './license-events';
+export { AiAgentReleased, AiEvaluationCompleted } from './ai-events';

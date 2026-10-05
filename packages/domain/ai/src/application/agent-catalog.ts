@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { newId, TransactionRunner } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import {
@@ -9,7 +9,9 @@ import {
   type PromptLayer,
 } from '../domain/agents';
 import type { AutonomyPolicy } from '../domain/policy';
+import { EvaluationRepositories } from '../infrastructure/evaluation-repositories';
 import { AiRepositories } from '../infrastructure/repositories';
+import type { AgentVersionRow } from '../infrastructure/schema';
 import type { Capability } from '../public';
 
 /** The published version of an agent, as stored (what an execution runs). */
@@ -33,28 +35,59 @@ export interface PublishedAgent {
   readonly maxSteps: number;
 }
 
+/** The agent definitions a deployment carries (tests add their own). */
+export const AGENT_DEFINITIONS = Symbol.for('hotella.domain.ai.agent-definitions');
+
+/** How long a process trusts its copy of the published version (a release elsewhere is seen within this). */
+const CACHE_MS = 30_000;
+
 /**
- * Agents and prompts (Spec §29–§30). Built-in definitions are published on first use: a version number not yet in the
- * database becomes the new published version and supersedes the previous one; published rows never change (trigger).
+ * Agents and prompts (Spec §29–§30). Built-in definitions arrive with a deployment: an agent's first version is
+ * published at once; a later version is kept as a **candidate** (DRAFT) and the published one keeps running until the
+ * candidate passes its regression evaluation and is released (BUILD_PLAN 12.1). Published rows never change (trigger).
  * What runs is always read back from the database, so an execution names exactly the version it used.
  */
 @Injectable()
 export class AgentCatalog {
-  private readonly cache = new Map<string, PublishedAgent>();
+  private readonly cache = new Map<string, { agent: PublishedAgent; until: number }>();
 
   constructor(
     private readonly repo: AiRepositories,
+    private readonly versions: EvaluationRepositories,
     private readonly tx: TransactionRunner,
+    @Optional()
+    @Inject(AGENT_DEFINITIONS)
+    private readonly definitions: readonly BuiltInAgent[] = BUILT_IN_AGENTS,
   ) {}
 
   async published(code: string): Promise<PublishedAgent> {
     const cached = this.cache.get(code);
-    if (cached) return cached;
-    const builtIn = BUILT_IN_AGENTS.find((a) => a.code === code);
+    if (cached && cached.until > Date.now()) return cached.agent;
+    const builtIn = this.definitions.find((a) => a.code === code);
     if (!builtIn) throw AppError.notFound('ai.agent.not_found');
     const agent = await this.tx.run(() => this.ensure(builtIn));
-    this.cache.set(code, agent);
+    this.cache.set(code, { agent, until: Date.now() + CACHE_MS });
     return agent;
+  }
+
+  /** Any version of an agent (a candidate under evaluation, a superseded one), as it would run. */
+  async atVersion(code: string, versionId: string): Promise<PublishedAgent> {
+    await this.published(code);
+    const version = await this.tx.read(() => this.versions.versionById(versionId));
+    const agent = await this.tx.read(() => this.versions.agentByCode(code));
+    if (!version || !agent || version.agentId !== agent.id)
+      throw AppError.notFound('ai.agent.version_not_found');
+    return this.tx.read(() => this.view(code, version));
+  }
+
+  /** Forgets the cached published versions (after a release in this process; they are re-read on next use). */
+  invalidate(_code?: string): void {
+    this.cache.clear();
+  }
+
+  /** The agent's definition as deployed (its kind decides how it is evaluated). */
+  definition(code: string): BuiltInAgent | undefined {
+    return this.definitions.find((a) => a.code === code);
   }
 
   list() {
@@ -73,7 +106,7 @@ export class AgentCatalog {
           layers: def.prompt.layers,
         });
       const prompt = await this.repo.promptVersion(promptId, def.prompt.versionNo);
-      await this.repo.publishAgentVersion({
+      const values = {
         id: newId(),
         agentId,
         versionNo: def.versionNo,
@@ -84,13 +117,20 @@ export class AgentCatalog {
         autonomyPolicy: def.autonomy,
         outputContract: { ...def.output, runtimeTools: def.runtimeTools },
         maxSteps: def.maxSteps,
-      });
+      };
+      if (await this.repo.publishedAgentVersion(agentId))
+        await this.versions.insertCandidate(values);
+      else await this.repo.publishAgentVersion(values);
     }
     const version = await this.repo.publishedAgentVersion(agentId);
     if (!version) throw AppError.notFound('ai.agent.not_found');
+    return this.view(def.code, version);
+  }
+
+  private async view(code: string, version: AgentVersionRow): Promise<PublishedAgent> {
     const prompt = await this.repo.promptVersionById(version.promptVersionId);
     return {
-      code: def.code,
+      code,
       versionId: version.id,
       versionNo: version.versionNo,
       capability: version.capability as Capability,

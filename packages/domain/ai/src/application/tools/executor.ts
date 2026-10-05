@@ -36,7 +36,7 @@ export interface ExecutionHandle {
 export interface StartExecutionInput extends Omit<ExecutionHandle, 'id'> {
   readonly agentVersionId?: string | null;
   /** What started it: a guest message, a staff request, a schedule, an event. */
-  readonly trigger: 'MESSAGE' | 'STAFF' | 'SCHEDULE' | 'EVENT';
+  readonly trigger: 'MESSAGE' | 'STAFF' | 'SCHEDULE' | 'EVENT' | 'EVALUATION';
   /** Who the agent acts for (the guest, a staff member) — not the AI itself. */
   readonly on: { readonly type: RequestActor['type']; readonly id: string | null };
 }

@@ -399,5 +399,16 @@
   "errors.restaurant.reservation.sitting_full": "This sitting is full. Please choose another time or day.",
   "errors.restaurant.reservation.transition_not_allowed": "A {from} reservation cannot become {to}.",
   "errors.iam.device.not_found": "Device not found.",
-  "errors.iam.device.staff_only": "Only a signed-in hotel staff member can register a device."
+  "errors.iam.device.staff_only": "Only a signed-in hotel staff member can register a device.",
+  "errors.ai.agent.version_not_found": "This version of the AI assistant does not exist.",
+  "errors.ai.agent.not_a_candidate": "Only a candidate version waiting for release can be released.",
+  "errors.ai.evaluation.set_not_found": "The evaluation set was not found.",
+  "errors.ai.evaluation.set_code_taken": "An evaluation set with this code already exists.",
+  "errors.ai.evaluation.case_not_found": "The evaluation case was not found.",
+  "errors.ai.evaluation.case_code_taken": "A case with this code already exists in the set.",
+  "errors.ai.evaluation.version_conflict": "The evaluation set was changed meanwhile. Reload and try again.",
+  "errors.ai.evaluation.no_sets": "There is no active evaluation set for this assistant.",
+  "errors.ai.evaluation.set_empty": "The evaluation set {set} has no active cases.",
+  "errors.ai.evaluation.run_not_found": "The evaluation run was not found.",
+  "errors.ai.evaluation.not_passed": "The latest evaluation of this version on set {set} did not pass."
 }

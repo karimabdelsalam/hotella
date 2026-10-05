@@ -8980,6 +8980,409 @@
         ]
       }
     },
+    "/api/v1/ai/evaluation-sets": {
+      "get": {
+        "operationId": "AiEvaluationController_sets",
+        "parameters": [
+          {
+            "name": "agentCode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      },
+      "post": {
+        "operationId": "AiEvaluationController_createSet",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEvaluationSetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
+    "/api/v1/ai/evaluation-sets/{id}": {
+      "get": {
+        "operationId": "AiEvaluationController_set",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      },
+      "patch": {
+        "operationId": "AiEvaluationController_updateSet",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEvaluationSetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
+    "/api/v1/ai/evaluation-sets/{id}/cases": {
+      "post": {
+        "operationId": "AiEvaluationController_addCase",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEvaluationCaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
+    "/api/v1/ai/evaluation-sets/{id}/cases/{caseId}": {
+      "delete": {
+        "operationId": "AiEvaluationController_retireCase",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "caseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
+    "/api/v1/ai/agents/{code}/versions": {
+      "get": {
+        "operationId": "AiEvaluationController_versions",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
+    "/api/v1/ai/agents/{code}/versions/{versionId}/evaluations": {
+      "post": {
+        "operationId": "AiEvaluationController_evaluate",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartEvaluationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
+    "/api/v1/ai/evaluation-runs/{id}": {
+      "get": {
+        "operationId": "AiEvaluationController_run",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
+    "/api/v1/ai/agents/{code}/versions/{versionId}/publish": {
+      "post": {
+        "operationId": "AiEvaluationController_publish",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishAgentVersionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
+    "/api/v1/ai/agents/{code}/releases": {
+      "get": {
+        "operationId": "AiEvaluationController_releases",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiEvaluation"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/knowledge/documents": {
       "get": {
         "operationId": "KnowledgeController_list",
@@ -19962,6 +20365,363 @@
           "capability",
           "modelIds"
         ]
+      },
+      "CreateEvaluationSetDto": {
+        "type": "object",
+        "properties": {
+          "agentCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "agentCode",
+          "code",
+          "name"
+        ]
+      },
+      "UpdateEvaluationSetDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "RETIRED"
+            ]
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "CreateEvaluationCaseDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "critical": {
+            "default": false,
+            "type": "boolean"
+          },
+          "input": {
+            "type": "object",
+            "properties": {
+              "locale": {
+                "type": "string",
+                "enum": [
+                  "ar",
+                  "en",
+                  "it",
+                  "ru",
+                  "de"
+                ]
+              },
+              "turns": {
+                "minItems": 1,
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "enum": [
+                        "person",
+                        "agent"
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "text"
+                  ]
+                }
+              },
+              "context": {
+                "default": [],
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.]{1,40}$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "dataClass": {
+                      "type": "string",
+                      "enum": [
+                        "PUBLIC",
+                        "INTERNAL",
+                        "CONFIDENTIAL"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "text",
+                    "dataClass"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "locale",
+              "turns"
+            ]
+          },
+          "toolFixtures": {
+            "default": {},
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OK"
+                      ]
+                    },
+                    "result": {}
+                  },
+                  "required": [
+                    "status",
+                    "result"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ERROR"
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "maxLength": 80
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "code"
+                  ]
+                }
+              ]
+            }
+          },
+          "expectations": {
+            "type": "object",
+            "properties": {
+              "toolsCalled": {
+                "default": [],
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "type": "string",
+                      "maxLength": 80
+                    },
+                    "args": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "equals": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "equals"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "contains": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              }
+                            },
+                            "required": [
+                              "contains"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "present": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "present"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "OK",
+                        "PROPOSED",
+                        "REFUSED",
+                        "ERROR"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "tool"
+                  ]
+                }
+              },
+              "toolsNotCalled": {
+                "default": [],
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 80
+                }
+              },
+              "handoff": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "GUEST_REQUESTED_HUMAN",
+                      "LOW_CONFIDENCE",
+                      "COMPLAINT",
+                      "SENSITIVE_REQUEST",
+                      "PAYMENT_ISSUE",
+                      "POLICY_REQUIRED",
+                      "AI_FAILURE"
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "NONE",
+                      "ANY"
+                    ]
+                  }
+                ]
+              },
+              "replyContains": {
+                "default": [],
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "replyNotContains": {
+                "default": [],
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            }
+          },
+          "dataClass": {
+            "default": "INTERNAL",
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "INTERNAL",
+              "CONFIDENTIAL"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "input",
+          "expectations"
+        ]
+      },
+      "StartEvaluationDto": {
+        "type": "object",
+        "properties": {
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "setIds": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": [
+          "propertyId"
+        ]
+      },
+      "PublishAgentVersionDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
       },
       "CreateDocumentDto": {
         "type": "object",

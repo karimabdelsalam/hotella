@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -518,3 +519,211 @@ export type PromptVersionRow = typeof promptVersions.$inferSelect;
 export type AgentRow = typeof agents.$inferSelect;
 export type AgentVersionRow = typeof agentVersions.$inferSelect;
 export type FeedbackRow = typeof feedback.$inferSelect;
+
+// ---- evaluation and releases (Spec §40, BUILD_PLAN 12.1) ----
+
+export const evaluationSetStatus = ai.enum('evaluation_set_status', ['ACTIVE', 'RETIRED']);
+export const evaluationRunStatus = ai.enum('evaluation_run_status', [
+  'RUNNING',
+  'PASSED',
+  'FAILED',
+  'ERROR',
+]);
+export const evaluationOutcome = ai.enum('evaluation_outcome', ['PASS', 'FAIL', 'ERROR']);
+export const releaseStage = ai.enum('release_stage', ['SHADOW', 'CANARY', 'ACTIVE', 'ROLLED_BACK']);
+
+/** A set of evaluation cases for one agent; `tenant_id` null is a platform set that applies to every tenant. */
+export const evaluationSets = classify(
+  ai.table(
+    'evaluation_sets',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id'),
+      agentCode: varchar('agent_code', { length: 64 }).notNull(),
+      code: varchar('code', { length: 64 }).notNull(),
+      name: varchar('name', { length: 160 }).notNull(),
+      status: evaluationSetStatus('status').notNull().default('ACTIVE'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('evaluation_sets_platform_uq')
+        .on(t.agentCode, t.code)
+        .where(sql`${t.tenantId} is null`),
+      uniqueIndex('evaluation_sets_tenant_uq')
+        .on(t.tenantId, t.agentCode, t.code)
+        .where(sql`${t.tenantId} is not null`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    agentCode: 'INTERNAL',
+    code: 'INTERNAL',
+    name: 'INTERNAL',
+    status: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** One case: synthetic input, what each tool answers in a dry run, and what must (not) happen. */
+export const evaluationCases = classify(
+  ai.table(
+    'evaluation_cases',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id'),
+      setId: uuid('set_id')
+        .notNull()
+        .references(() => evaluationSets.id, { onDelete: 'restrict' }),
+      code: varchar('code', { length: 64 }).notNull(),
+      critical: boolean('critical').notNull().default(false),
+      input: jsonb('input').notNull(),
+      toolFixtures: jsonb('tool_fixtures').notNull().default({}),
+      expectations: jsonb('expectations').notNull(),
+      dataClass: dataClass('data_class').notNull().default('INTERNAL'),
+      status: evaluationSetStatus('status').notNull().default('ACTIVE'),
+    },
+    (t) => [uniqueIndex('evaluation_cases_code_uq').on(t.setId, t.code)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    setId: 'INTERNAL',
+    code: 'INTERNAL',
+    critical: 'INTERNAL',
+    // Synthetic conversations, at most CONFIDENTIAL (the case says which).
+    input: 'CONFIDENTIAL',
+    toolFixtures: 'CONFIDENTIAL',
+    expectations: 'INTERNAL',
+    dataClass: 'INTERNAL',
+    status: 'INTERNAL',
+  },
+);
+
+/** A run of one set on one agent version (REGRESSION now; SHADOW comparisons from 12.2). */
+export const evaluationRuns = classify(
+  ai.table(
+    'evaluation_runs',
+    {
+      ...baseColumns(),
+      /** The tenant whose routing, budget and property the model calls ran under. */
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      setId: uuid('set_id')
+        .notNull()
+        .references(() => evaluationSets.id, { onDelete: 'restrict' }),
+      agentCode: varchar('agent_code', { length: 64 }).notNull(),
+      agentVersionId: uuid('agent_version_id')
+        .notNull()
+        .references(() => agentVersions.id, { onDelete: 'restrict' }),
+      mode: varchar('mode', { length: 16 }).notNull().default('REGRESSION'),
+      status: evaluationRunStatus('status').notNull().default('RUNNING'),
+      totals: jsonb('totals').notNull().default({}),
+      costMinor: integer('cost_minor').notNull().default(0),
+      requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
+      requestedById: uuid('requested_by_id'),
+      startedAt: tz('started_at').notNull().defaultNow(),
+      finishedAt: tz('finished_at'),
+    },
+    (t) => [index('evaluation_runs_version_idx').on(t.agentVersionId, t.setId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    setId: 'INTERNAL',
+    agentCode: 'INTERNAL',
+    agentVersionId: 'INTERNAL',
+    mode: 'INTERNAL',
+    status: 'INTERNAL',
+    totals: 'INTERNAL',
+    costMinor: 'INTERNAL',
+    requestedByType: 'INTERNAL',
+    requestedById: 'INTERNAL',
+    startedAt: 'INTERNAL',
+    finishedAt: 'INTERNAL',
+  },
+);
+
+/** One case's result in a run: the checks (codes) and the execution it ran as. */
+export const evaluationResults = classify(
+  ai.table(
+    'evaluation_results',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      runId: uuid('run_id')
+        .notNull()
+        .references(() => evaluationRuns.id, { onDelete: 'restrict' }),
+      caseId: uuid('case_id').references(() => evaluationCases.id, { onDelete: 'restrict' }),
+      outcome: evaluationOutcome('outcome').notNull(),
+      checks: jsonb('checks').notNull().default([]),
+      executionId: uuid('execution_id'),
+    },
+    (t) => [index('evaluation_results_run_idx').on(t.runId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    runId: 'INTERNAL',
+    caseId: 'INTERNAL',
+    outcome: 'INTERNAL',
+    checks: 'INTERNAL',
+    executionId: 'INTERNAL',
+  },
+);
+
+/** Which agent version runs, and how (append-only history, rule 10); `tenant_id` null for platform releases. */
+export const agentReleases = classify(
+  ai.table(
+    'agent_releases',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id'),
+      agentCode: varchar('agent_code', { length: 64 }).notNull(),
+      agentVersionId: uuid('agent_version_id')
+        .notNull()
+        .references(() => agentVersions.id, { onDelete: 'restrict' }),
+      stage: releaseStage('stage').notNull(),
+      canaryPercent: integer('canary_percent'),
+      previousVersionId: uuid('previous_version_id'),
+      runIds: uuid('run_ids')
+        .array()
+        .notNull()
+        .default(sql`'{}'::uuid[]`),
+      actorType: varchar('actor_type', { length: 16 }).notNull(),
+      actorId: uuid('actor_id'),
+      reason: varchar('reason', { length: 500 }),
+    },
+    (t) => [index('agent_releases_agent_idx').on(t.agentCode, t.createdAt)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    agentCode: 'INTERNAL',
+    agentVersionId: 'INTERNAL',
+    stage: 'INTERNAL',
+    canaryPercent: 'INTERNAL',
+    previousVersionId: 'INTERNAL',
+    runIds: 'INTERNAL',
+    actorType: 'INTERNAL',
+    actorId: 'INTERNAL',
+    reason: 'CONFIDENTIAL',
+  },
+);
+
+export type EvaluationSetRow = typeof evaluationSets.$inferSelect;
+export type EvaluationCaseRow = typeof evaluationCases.$inferSelect;
+export type EvaluationRunRow = typeof evaluationRuns.$inferSelect;
+export type EvaluationResultRow = typeof evaluationResults.$inferSelect;
+export type AgentReleaseRow = typeof agentReleases.$inferSelect;

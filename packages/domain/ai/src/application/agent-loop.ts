@@ -3,6 +3,9 @@ import { AppError } from '@hotella/platform-i18n';
 import type { ClassifiedText, GatewayCompletion, GatewayMessage, ModelGatewayApi } from '../public';
 import type { PublishedAgent } from './agent-catalog';
 import type { ExecutionHandle, ToolExecutor, ToolOutcome } from './tools/executor';
+
+/** What the loop needs from an executor: the real one acts, the evaluation's dry-run one only answers (12.1). */
+export type LoopExecutor = Pick<ToolExecutor, 'invoke' | 'step'>;
 import type { ToolRegistry } from './tools/registry';
 
 /** Tool results are capped before they go back to the model. */
@@ -10,7 +13,7 @@ const MAX_TOOL_RESULT_CHARS = 6000;
 
 export interface AgentLoopDeps {
   readonly gateway: ModelGatewayApi;
-  readonly executor: ToolExecutor;
+  readonly executor: LoopExecutor;
   readonly registry: ToolRegistry;
 }
 

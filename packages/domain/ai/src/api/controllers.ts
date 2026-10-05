@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform-auth';
 import { AppError } from '@hotella/platform-i18n';
@@ -13,6 +24,14 @@ import {
   usageQuerySchema,
 } from '../application/admin.service';
 import {
+  createCaseSchema,
+  createSetSchema,
+  EvaluationService,
+  publishSchema,
+  startEvaluationSchema,
+  updateSetSchema,
+} from '../application/evaluation.service';
+import {
   ExecutionAuditService,
   executionsQuerySchema,
 } from '../application/execution-audit.service';
@@ -24,6 +43,11 @@ class UpdateModelDto extends createZodDto(updateModelSchema) {}
 class RoutingDto extends createZodDto(routingSchema) {}
 class UsageQueryDto extends createZodDto(usageQuerySchema) {}
 class ExecutionsQueryDto extends createZodDto(executionsQuerySchema) {}
+class CreateEvaluationSetDto extends createZodDto(createSetSchema) {}
+class UpdateEvaluationSetDto extends createZodDto(updateSetSchema) {}
+class CreateEvaluationCaseDto extends createZodDto(createCaseSchema) {}
+class StartEvaluationDto extends createZodDto(startEvaluationSchema) {}
+class PublishAgentVersionDto extends createZodDto(publishSchema) {}
 
 /** AI providers, models and routing (ADR-0018). */
 @Controller('ai')
@@ -133,5 +157,91 @@ export class AiExecutionsController {
   @RequirePermission('ai.execution.read')
   agents(@Param('propertyId') propertyId: string) {
     return this.audit.agentsList(this.scope(propertyId));
+  }
+}
+
+/**
+ * Agent evaluation and release (Spec §40, BUILD_PLAN 12.1): evaluation sets and cases, regression runs of a version,
+ * and the release of a candidate version once its runs passed. Platform callers manage platform sets and releases;
+ * a tenant manages its own sets and runs them on its properties.
+ */
+@Controller('ai')
+export class AiEvaluationController {
+  constructor(private readonly evaluation: EvaluationService) {}
+
+  @Get('evaluation-sets')
+  @RequirePermission('ai.evaluation.read', { checkedBy: 'gate' })
+  sets(@Query('agentCode') agentCode?: string) {
+    return this.evaluation.listSets(agentCode);
+  }
+
+  @Post('evaluation-sets')
+  @RequirePermission('ai.evaluation.manage', { checkedBy: 'gate' })
+  createSet(@Body() body: CreateEvaluationSetDto) {
+    return this.evaluation.createSet(body);
+  }
+
+  @Get('evaluation-sets/:id')
+  @RequirePermission('ai.evaluation.read', { checkedBy: 'gate' })
+  set(@Param('id') id: string) {
+    return this.evaluation.getSet(id);
+  }
+
+  @Patch('evaluation-sets/:id')
+  @RequirePermission('ai.evaluation.manage', { checkedBy: 'gate' })
+  updateSet(@Param('id') id: string, @Body() body: UpdateEvaluationSetDto) {
+    return this.evaluation.updateSet(id, body);
+  }
+
+  @Post('evaluation-sets/:id/cases')
+  @RequirePermission('ai.evaluation.manage', { checkedBy: 'gate' })
+  addCase(@Param('id') id: string, @Body() body: CreateEvaluationCaseDto) {
+    return this.evaluation.addCase(id, body);
+  }
+
+  @Delete('evaluation-sets/:id/cases/:caseId')
+  @HttpCode(204)
+  @RequirePermission('ai.evaluation.manage', { checkedBy: 'gate' })
+  async retireCase(@Param('id') id: string, @Param('caseId') caseId: string) {
+    await this.evaluation.retireCase(id, caseId);
+  }
+
+  @Get('agents/:code/versions')
+  @RequirePermission('ai.evaluation.read', { checkedBy: 'gate' })
+  versions(@Param('code') code: string) {
+    return this.evaluation.versions(code);
+  }
+
+  @Post('agents/:code/versions/:versionId/evaluations')
+  @RequirePermission('ai.evaluation.manage', { checkedBy: 'gate' })
+  evaluate(
+    @Param('code') code: string,
+    @Param('versionId') versionId: string,
+    @Body() body: StartEvaluationDto,
+  ) {
+    return this.evaluation.start(code, versionId, body);
+  }
+
+  @Get('evaluation-runs/:id')
+  @RequirePermission('ai.evaluation.read', { checkedBy: 'gate' })
+  run(@Param('id') id: string) {
+    return this.evaluation.getRun(id);
+  }
+
+  @Post('agents/:code/versions/:versionId/publish')
+  @HttpCode(200)
+  @RequirePermission('ai.agent.release', { checkedBy: 'gate' })
+  publish(
+    @Param('code') code: string,
+    @Param('versionId') versionId: string,
+    @Body() body: PublishAgentVersionDto,
+  ) {
+    return this.evaluation.publish(code, versionId, body);
+  }
+
+  @Get('agents/:code/releases')
+  @RequirePermission('ai.evaluation.read', { checkedBy: 'gate' })
+  releases(@Param('code') code: string) {
+    return this.evaluation.releases(code);
   }
 }

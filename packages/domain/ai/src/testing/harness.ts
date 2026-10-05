@@ -39,6 +39,8 @@ import { SettingsModule } from '@hotella/platform-settings';
 import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import { AiModule } from '../ai.module';
+import { AGENT_DEFINITIONS } from '../application/agent-catalog';
+import type { BuiltInAgent } from '../domain/agents';
 
 /** Test-only composition of the AI context with the contexts its tools act through (no worker processes). */
 
@@ -120,6 +122,7 @@ export async function startAiApp(
   url: string,
   role: string,
   grants: Record<string, readonly string[]>,
+  options: { readonly definitions?: readonly BuiltInAgent[] } = {},
 ): Promise<AiHarness> {
   await runMigrations(url);
   const env = {
@@ -130,7 +133,7 @@ export async function startAiApp(
     PUBLIC_BASE_URL: 'https://guest.example.test',
   };
   const flags = new Map<string, boolean>();
-  const ref = await Test.createTestingModule({
+  const builder = Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({ env }),
       ObservabilityModule.forRoot(),
@@ -163,8 +166,10 @@ export async function startAiApp(
     ],
   })
     .overrideProvider(FeatureFlagService)
-    .useValue({ isEnabled: async (key: string) => flags.get(key) ?? false })
-    .compile();
+    .useValue({ isEnabled: async (key: string) => flags.get(key) ?? false });
+  if (options.definitions)
+    builder.overrideProvider(AGENT_DEFINITIONS).useValue(options.definitions);
+  const ref = await builder.compile();
   const app = ref.createNestApplication({ logger: false, rawBody: true });
   app.useGlobalPipes(new ZodValidationPipe());
   await app.init();

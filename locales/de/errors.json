@@ -399,5 +399,16 @@
   "errors.restaurant.reservation.sitting_full": "Diese Sitzung ist ausgebucht. Bitte wählen Sie eine andere Zeit oder einen anderen Tag.",
   "errors.restaurant.reservation.transition_not_allowed": "Eine Reservierung im Status {from} kann nicht zu {to} werden.",
   "errors.iam.device.not_found": "Gerät nicht gefunden.",
-  "errors.iam.device.staff_only": "Nur angemeldete Hotelmitarbeitende können ein Gerät registrieren."
+  "errors.iam.device.staff_only": "Nur angemeldete Hotelmitarbeitende können ein Gerät registrieren.",
+  "errors.ai.agent.version_not_found": "Diese Version des KI-Assistenten gibt es nicht.",
+  "errors.ai.agent.not_a_candidate": "Freigegeben werden kann nur eine Kandidatenversion, die auf Freigabe wartet.",
+  "errors.ai.evaluation.set_not_found": "Das Evaluierungsset wurde nicht gefunden.",
+  "errors.ai.evaluation.set_code_taken": "Ein Evaluierungsset mit diesem Code gibt es bereits.",
+  "errors.ai.evaluation.case_not_found": "Der Evaluierungsfall wurde nicht gefunden.",
+  "errors.ai.evaluation.case_code_taken": "Im Set gibt es bereits einen Fall mit diesem Code.",
+  "errors.ai.evaluation.version_conflict": "Das Evaluierungsset wurde inzwischen geändert. Bitte neu laden und erneut versuchen.",
+  "errors.ai.evaluation.no_sets": "Für diesen Assistenten gibt es kein aktives Evaluierungsset.",
+  "errors.ai.evaluation.set_empty": "Das Evaluierungsset {set} hat keine aktiven Fälle.",
+  "errors.ai.evaluation.run_not_found": "Der Evaluierungslauf wurde nicht gefunden.",
+  "errors.ai.evaluation.not_passed": "Die letzte Evaluierung dieser Version auf dem Set {set} wurde nicht bestanden."
 }

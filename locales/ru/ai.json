@@ -6,5 +6,9 @@
   "ai.setting.external_providers_enabled": "Разрешить ИИ-провайдеров вне установки для этой группы отелей",
   "ai.setting.budget_monthly_limit_minor": "Месячный лимит для ИИ-провайдеров вне установки (в минимальных денежных единицах)",
   "ai.approval.ai_action": "Действие, предложенное ИИ-ассистентом",
-  "ai.permission.execution_read": "Просмотр того, что сделал ИИ-ассистент и почему"
+  "ai.permission.execution_read": "Просмотр того, что сделал ИИ-ассистент и почему",
+  "ai.permission.evaluation_read": "Просматривать наборы оценки ИИ, прогоны и выпуски",
+  "ai.permission.evaluation_manage": "Составлять сценарии оценки ИИ и запускать оценку",
+  "ai.permission.agent_release": "Выпускать новую версию ИИ-ассистента после успешной оценки",
+  "ai.setting.evaluation_min_pass_rate": "Доля сценариев оценки, которую новая версия ассистента должна пройти перед выпуском"
 }
