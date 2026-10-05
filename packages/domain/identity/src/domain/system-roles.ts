@@ -83,6 +83,8 @@ const ENG_DESK = [
   'eng.parts.manage',
   'eng.pm.manage',
   'eng.restriction.manage',
+  'eng.telemetry.read',
+  'eng.telemetry.acknowledge',
   ...INSPECTOR,
 ] as const;
 
@@ -184,6 +186,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'hk.config.manage',
       ...ENG_DESK,
       'eng.config.manage',
+      'eng.telemetry.manage',
       'inspection.template.manage',
       ...COMPLAINT_DESK,
       'complaint.category.manage',
@@ -249,6 +252,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'eng.asset.read',
       'eng.work_order.read',
       'eng.work_order.manage',
+      'eng.telemetry.read',
+      'eng.telemetry.acknowledge',
       ...INSPECTOR,
       'lostfound.register',
       'logbook.read',
@@ -265,6 +270,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       ...ALERT_DESK,
       ...ENG_DESK,
       'eng.config.manage',
+      'eng.telemetry.manage',
       'inspection.template.manage',
       ...LOGBOOK_SUPERVISOR,
     ],

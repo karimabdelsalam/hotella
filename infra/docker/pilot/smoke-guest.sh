@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 4–9 and 12 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
+# Phase 4–9, 12 and 13 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
 # a general manager signs in, issues an activation link, the guest asks for a code (the OTP key is read from OpenBao;
 # the SMS channel here cannot deliver), front desk confirms the guest in person, the guest gets a session and sees
 # their stay (through the guest web app's BFF); the printable room QR sheet renders; the realtime gateway accepts a
@@ -279,6 +279,47 @@ call "$P/ai/quality/recompute" "${auth[@]}" -d "{\"day\":\"$(date -u +%F)\"}" | 
 call "$P/ai/quality?from=$(date -u +%F)&to=$(date -u +%F)" "${auth[@]}" |
   jq -e '[.[] | select(.metric == "executions")] | length >= 1' >/dev/null
 echo "intelligence: OK"
+# Building telemetry (Phase 13): a BMS gateway posts signed sample batches to its inbound endpoint (Connector SDK v2);
+# the worker keeps minute aggregates, a threshold rule raises an alarm with an alert and predictive work, and the
+# alarm clears once the value is back below the clear level (hysteresis).
+admin_auth=(-H "authorization: Bearer $admin" "${json[@]}")
+bms=$(call "$API/properties/$property/integrations" "${admin_auth[@]}" \
+  -d '{"connectorCode":"BMS_STANDARD","name":"Pilot BMS","capabilities":["TELEMETRY_READ"]}' | jq -r .id)
+call -X PATCH "$API/properties/$property/integrations/$bms" "${admin_auth[@]}" -d '{"version":1,"status":"ACTIVE"}' >/dev/null
+inbound=$(call "$API/properties/$property/integrations/$bms/inbound-endpoints" "${admin_auth[@]}" -d '{}')
+endpoint=$(jq -r .endpoint.id <<<"$inbound")
+secret=$(jq -r .secret <<<"$inbound")
+point=$(call "$P/eng/telemetry/points" "${auth[@]}" -d "{\"instanceId\":\"$bms\",\"externalCode\":\"CH-1.SUPPLY_T\",\"locationId\":\"$(psql "select id from org.locations where property_id = '$property' and parent_id is null")\",\"quantity\":\"TEMPERATURE\",\"unit\":\"°C\"}" | jq -r .id)
+call "$P/eng/telemetry/rules" "${auth[@]}" \
+  -d "{\"pointId\":\"$point\",\"kind\":\"THRESHOLD\",\"params\":{\"above\":8,\"clear_at\":7},\"severity\":\"CRITICAL\",\"action\":\"WORK_ORDER\"}" >/dev/null
+post_samples() {
+  local body t sig
+  body="{\"messages\":[{\"message_type\":\"TELEMETRY_BATCH\",\"source_message_id\":\"pilot-bms-$2\",\"payload\":{\"samples\":[{\"point\":\"CH-1.SUPPLY_T\",\"value\":$1,\"at\":\"$3\"}]}}]}"
+  t=$(date -u +%s)
+  sig=$(printf '%s.%s' "$t" "$body" | openssl dgst -sha256 -hmac "$secret" -hex | sed 's/^.* //')
+  call "$API/integrations/inbound/$endpoint" "${json[@]}" -H "x-hotella-signature: t=$t,v1=$sig" -d "$body" |
+    jq -e '.results[0].status == "PROCESSED"' >/dev/null
+}
+# A forged batch is refused before anything is stored.
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$API/integrations/inbound/$endpoint" "${json[@]}" \
+  -H "x-hotella-signature: t=$(date -u +%s),v1=$(printf '0%.0s' $(seq 1 64))" -d '{"messages":[]}')" = 401 ]
+post_samples 9.5 1 "$(date -u -d '-2 minutes' +%FT%TZ)"
+for _ in $(seq 1 30); do
+  alarm=$(call "$P/eng/telemetry/alarms?live=true" "${auth[@]}" | jq -c "[.[] | select(.pointId == \"$point\")][0] // empty")
+  [ -n "$alarm" ] && break
+  sleep 1
+done
+echo "telemetry alarm: $(jq -c '{status, value, workOrder: (.workOrderId != null)}' <<<"$alarm")"
+jq -e '.status == "OPEN" and .value == 9.5 and .workOrderId != null' <<<"$alarm" >/dev/null
+[ "$(psql "select type || '/' || source from eng.work_orders where id = '$(jq -r .workOrderId <<<"$alarm")'")" = PREDICTIVE/TELEMETRY ]
+[ "$(psql "select count(*) from ops.alerts where dedupe_key = 'telemetry:$(jq -r .id <<<"$alarm")'")" = 1 ]
+post_samples 6.5 2 "$(date -u -d '-1 minutes' +%FT%TZ)"
+for _ in $(seq 1 30); do
+  [ "$(call "$P/eng/telemetry/alarms" "${auth[@]}" | jq -r "[.[] | select(.id == $(jq .id <<<"$alarm"))][0].status")" = CLEARED ] && break
+  sleep 1
+done
+[ "$(call "$P/eng/telemetry/alarms" "${auth[@]}" | jq -r "[.[] | select(.id == $(jq .id <<<"$alarm"))][0].status")" = CLEARED ]
+echo "telemetry: OK"
 # The link was single use.
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$API/guest/activation/start" "${json[@]}" -d "{\"token\":\"$token\"}")" = 410 ]
 
@@ -302,7 +343,7 @@ grep -qi '^set-cookie: hotella_rt=.*httponly' "$DIR/.bff-headers"; rm -f "$DIR/.
 jq -e 'has("refreshToken") | not' <<<"$bff" >/dev/null
 curl -fsS "$WEB/hotella/properties/$property/conversations" -H "authorization: Bearer $(jq -r .accessToken <<<"$bff")" | jq -e 'type == "array"' >/dev/null
 for page in en/engineering ar/engineering en/arrivals ar/arrivals ar/branding en/inspections ar/relations \
-  en/lostfound ar/logbook en/intelligence ar/intelligence; do
+  en/lostfound ar/logbook en/intelligence ar/intelligence en/telemetry ar/telemetry; do
   [ "$(curl -s -o /dev/null -w '%{http_code}' "$WEB/$page")" = 200 ]
 done
 echo "staff web: OK"

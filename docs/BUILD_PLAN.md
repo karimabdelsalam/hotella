@@ -3206,7 +3206,7 @@ eng (telemetry)
 | Sprint | Scope | Status |
 |---|---|---|
 | 13.1 | Connector SDK v2: .NET `IConnectorAdapter` + registry, ~~link protocol 3~~ (ADR-0024 amendment), signed webhook ingress, health hook, contract-test kit | done |
-| 13.2 | IoT/BMS telemetry: points, mappings, minute aggregates, deterministic rules, alarms → alerts/work orders/room signals/insights; simulator face; staff screen | planned |
+| 13.2 | IoT/BMS telemetry: points, mappings, minute aggregates, deterministic rules, alarms → alerts/work orders/insights; simulator face; staff screen | done |
 | 13.3 | Stay-bound access: `ACCESS_API`, lock and Wi-Fi neutral connectors, auto-revoke on check-out and moves, staff UI; simulator | planned |
 | 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | planned |
 | 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | planned |
@@ -3258,6 +3258,25 @@ tampered/foreign signatures, rotation, revocation, tenant isolation), webhook un
 - *API:* `/properties/:id/eng/telemetry/points` (GET, POST, PATCH status), `/rules` (GET, POST, POST `:id/retire`),
   `/alarms` (GET, POST `:id/acknowledge`), `/points/:id/minutes?from&to`; permissions `eng.telemetry.read|manage`.
   Simulator: a BMS face posting signed `TELEMETRY_BATCH` webhooks (13.1 ingress). Staff web: Engineering → Telemetry.
+
+**13.2 as built.** Contracts: capability `TELEMETRY_READ`, mapping type `POINT`, record `TELEMETRY_SAMPLES`,
+`telemetryBatchPayloadSchema`; events `integration.telemetry_batch.received.v1`, `eng.telemetry_alarm.raised.v1`,
+`eng.telemetry_alarm.cleared.v1` (and work-order source `TELEMETRY`). Integration: `BMS_STANDARD` (+ vectors
+`test-vectors/bms-standard-v1.json`), `reportUnknownCode`/`resolveUnknownCode` on `INTEGRATIONS_API`, the mapping
+screen refuses `POINT`. Engineering: migration 0056 (`telemetry_points`, partitioned `telemetry_minutes`,
+`telemetry_rules`, `telemetry_alarms`, tenant FKs + RLS on the parent and every partition,
+`eng.maintain_telemetry_partitions(13, 2, 400)` SECURITY DEFINER), `domain/telemetry.ts` (parameters, evaluation,
+aggregation — unit-tested), `TelemetryService` (points, immutable rules with retire, alarms with acknowledge, intake,
+sweep), `TelemetryController`, consumer `eng.telemetry` and job `eng.telemetry.sweep` (every 5 min), manifest
+permissions `eng.telemetry.read|manage|acknowledge` (engineer: read + acknowledge; chief engineer and GM: + manage).
+Reactions: an ops alert `TELEMETRY_ALARM` per alarm (deduplicated by alarm), `PREDICTIVE`/`TELEMETRY` work for
+`WORK_ORDER` rules, insight signal `TELEMETRY_ALARM`. The room-comfort signal to housekeeping is not built: housekeeping's
+room signals are guest signals; an arrival-risk reason from open alarms at a room is a later improvement. Staff web:
+Telemetry section (live alarms with severity bar, reading, peak, acknowledge; sensors with latest values), Playwright
+en/ar. Simulator: `src/bms/building.ts` (plant-room scenario, signed batches) and `hotella-sim bms`. Pilot smoke: a
+signed batch → alarm, alert and predictive work → clears; a forged batch is refused. Tests:
+`telemetry.integration.spec.ts` (unknown point → exception → settled; aggregates; threshold with hysteresis, alert,
+work order, events; missing data by the sweep; ignored point and future samples dropped; tenant isolation).
 
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,

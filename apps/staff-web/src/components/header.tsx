@@ -13,6 +13,7 @@ const SECTIONS = [
   ['inbox', 'inbox.read', 'GUEST_EXPERIENCE'],
   ['housekeeping', 'hk.board.read', 'HOUSEKEEPING'],
   ['engineering', 'eng.work_order.read', 'ENGINEERING'],
+  ['telemetry', 'eng.telemetry.read', 'ENGINEERING'],
   ['inspections', 'inspection.read', 'INSPECTIONS'],
   ['relations', 'complaint.read', 'GUEST_RELATIONS'],
   ['lostfound', 'lostfound.register', 'LOST_FOUND'],

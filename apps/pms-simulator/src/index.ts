@@ -17,3 +17,11 @@ export { OwsSoapFace } from './pms/ows-soap';
 export type { Face, SimGuest, SimReservation } from './pms/hotel';
 export { loadScenario, runScenario, scenarioSchema } from './scenario';
 export type { Scenario, ScenarioLink } from './scenario';
+export {
+  CHILLER_SCENARIO,
+  inboundBody,
+  inboundSignature,
+  postInbound,
+  samplesBetween,
+} from './bms/building';
+export type { SimPoint } from './bms/building';

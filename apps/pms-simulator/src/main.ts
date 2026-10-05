@@ -7,6 +7,7 @@ import { answerQuery } from './pms/queries';
 import { AgentLinkClient } from './agent/link-client';
 import { DurableQueue } from './agent/queue';
 import { type Face, SimulatedPms } from './pms/hotel';
+import { CHILLER_SCENARIO, inboundBody, postInbound, samplesBetween } from './bms/building';
 import { loadScenario, runScenario } from './scenario';
 
 const AGENT_VERSION = 'hotella-sim/1';
@@ -33,6 +34,7 @@ const out = (line: string) => process.stdout.write(`${line}\n`);
 /**
  * hotella-sim enroll --gateway <url> --ca <ca.pem> --token <token> --state <dir>
  * hotella-sim run    --gateway <url> --state <dir> --scenario <file.yml> [--faces FIAS,OWS] [--keep-running]
+ * hotella-sim bms    --api <url> --endpoint <id> --secret-file <file> [--minutes 20]
  */
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
@@ -46,9 +48,27 @@ async function main(): Promise<void> {
       scenario: { type: 'string' },
       faces: { type: 'string' },
       'keep-running': { type: 'boolean', default: false },
+      api: { type: 'string' },
+      endpoint: { type: 'string' },
+      'secret-file': { type: 'string' },
+      minutes: { type: 'string', default: '20' },
     },
   });
   const state = values.state!;
+  if (command === 'bms') {
+    // The plant room's last N minutes, ending now, through the signed webhook ingress (BUILD_PLAN 13.2).
+    if (!values.api || !values.endpoint || !values['secret-file'])
+      throw new Error('bms needs --api, --endpoint and --secret-file');
+    const minutes = Math.max(1, Math.min(240, Number(values.minutes)));
+    const start = new Date(Math.floor(Date.now() / 60_000) * 60_000 - minutes * 60_000);
+    const secret = readFileSync(values['secret-file'], 'utf8').trim();
+    const body = inboundBody(
+      samplesBetween(CHILLER_SCENARIO, start, 0, minutes),
+      `sim-bms-${start.getTime()}`,
+    );
+    out(JSON.stringify(await postInbound(values.api, values.endpoint, secret, body)));
+    return;
+  }
   if (command === 'enroll') {
     if (!values.gateway || !values.ca || !values.token)
       throw new Error('enroll needs --gateway, --ca and --token');

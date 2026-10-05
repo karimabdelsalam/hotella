@@ -655,3 +655,54 @@ export interface ManagerAnswer {
   readonly outcome: 'ANSWERED' | 'DISABLED' | 'FAILED';
   readonly answer: string | null;
 }
+
+// ---- building telemetry (see engineering's telemetry service, BUILD_PLAN 13.2) ----
+
+export type TelemetryQuantity =
+  | 'TEMPERATURE'
+  | 'HUMIDITY'
+  | 'POWER'
+  | 'ENERGY'
+  | 'WATER_FLOW'
+  | 'PRESSURE'
+  | 'CO2'
+  | 'OCCUPANCY'
+  | 'DOOR'
+  | 'LEAK'
+  | 'ALARM'
+  | 'OTHER';
+
+export interface TelemetryPoint {
+  readonly id: string;
+  readonly externalCode: string;
+  readonly name: string | null;
+  readonly assetId: string | null;
+  readonly locationId: string | null;
+  readonly quantity: TelemetryQuantity;
+  readonly unit: string;
+  readonly status: 'ACTIVE' | 'IGNORED';
+  readonly lastValue: number | null;
+  readonly lastAt: string | null;
+  readonly version: number;
+}
+
+export interface TelemetryRule {
+  readonly id: string;
+  readonly pointId: string;
+  readonly kind: 'THRESHOLD' | 'RATE' | 'STUCK' | 'MISSING';
+  readonly severity: 'WARNING' | 'CRITICAL';
+  readonly action: 'ALERT' | 'WORK_ORDER';
+  readonly status: 'ACTIVE' | 'RETIRED';
+}
+
+export interface TelemetryAlarm {
+  readonly id: string;
+  readonly pointId: string;
+  readonly ruleId: string;
+  readonly status: 'OPEN' | 'ACKNOWLEDGED' | 'CLEARED';
+  readonly raisedAt: string;
+  readonly value: number | null;
+  readonly peak: number | null;
+  readonly workOrderId: string | null;
+  readonly version: number;
+}
