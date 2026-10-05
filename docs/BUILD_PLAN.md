@@ -3278,6 +3278,28 @@ signed batch → alarm, alert and predictive work → clears; a forged batch is 
 `telemetry.integration.spec.ts` (unknown point → exception → settled; aggregates; threshold with hysteresis, alert,
 work order, events; missing data by the sweep; ignored point and future samples dropped; tenant isolation).
 
+**13.3 design (refined before coding).**
+- *Ownership:* grants live in the integration context (`integration.access_grants` + append-only
+  `integration.access_grant_events`, rule 10); the staff API sits with the stay in the guest context
+  (`/properties/:id/stays/:stayId/access`), which checks the stay is `IN_HOUSE` and calls `ACCESS_API` — integrations
+  cannot depend on guest (guest already depends on integrations), and it does not need to: automatic revocation
+  consumes `guest.stay.status_changed.v1` (anything but `IN_HOUSE` revokes every live grant of the stay) and
+  `guest.stay.room_changed.v1` (a move revokes keys of the old room; Wi-Fi follows the stay, not the room).
+- *Neutral profiles:* `LOCK_STANDARD` (commands `KEY_ENCODE {grant_id, room_number, kind KEY|MOBILE_KEY,
+  valid_until}`, `KEY_REVOKE {grant_id}`; capabilities `KEY_ENCODE`, `KEY_REVOKE`, `MOBILE_KEY_ISSUE`) and
+  `WIFI_STANDARD` (`WIFI_SESSION_CREATE {grant_id, room_number, valid_until}`, `WIFI_SESSION_REVOKE {grant_id}`).
+  The command result decides the grant (`ACKNOWLEDGED` → `ISSUED`, `FAILED` → `FAILED`); the vendor's key or
+  credential never reaches the platform (the guest gets it from the lock or Wi-Fi system — mobile key app, room
+  card, captive portal); only the vendor's reference is kept, as an external reference.
+- *Routing:* the active instance of the property whose effective capabilities serve the operation; none → `409
+  integration.access.unavailable` (the capability stage already refuses early). Revocation is idempotent and
+  retried by the command delivery; a revoke for a grant that never issued closes it without a command.
+- *Permissions and AI:* `access.read`, `access.key.issue`, `access.wifi.issue` (front desk, duty manager, GM);
+  key issuance is HIGH risk for AI — no AI tool in 13.3. Entitlement `CONNECTOR_LOCK` (new), `CONNECTOR_WIFI`.
+  Events `integration.access.issued|revoked|failed.v1` (ids only).
+- *Staff web:* the arrivals/in-house stay panel gains "Room key" and "Wi-Fi" with their state; simulator lock and
+  Wi-Fi faces answer the commands (configurable failure).
+
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,
   access state machine, voice profile parsing, connector registry and contract vectors.
