@@ -416,5 +416,8 @@
   "errors.ai.twin.not_found": "Questo elemento non è presente nel gemello operativo.",
   "errors.ai.insight.not_found": "Questo insight non è stato trovato.",
   "errors.ai.insight.not_movable": "Questo insight non può più essere modificato in questo modo.",
-  "errors.ai.insight.version_conflict": "L’insight è stato modificato nel frattempo. Ricarica e riprova."
+  "errors.ai.insight.version_conflict": "L’insight è stato modificato nel frattempo. Ricarica e riprova.",
+  "errors.ai.tool.no_person": "Questo assistente può essere usato solo per conto di un membro dello staff.",
+  "errors.ai.consult.not_allowed": "Questo assistente non può consultare un altro assistente.",
+  "errors.ai.consult.too_deep": "Un assistente consultato non può consultarne un altro."
 }

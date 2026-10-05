@@ -11,6 +11,7 @@ import {
   LostFoundItemDisposed,
   LostFoundItemRegistered,
   LostFoundItemReleased,
+  RoomRestrictionChanged,
   ServiceRequestCreated,
   ServiceRequestStatusChanged,
   StayCreated,
@@ -289,6 +290,17 @@ const PROJECTIONS: Record<string, (envelope: EventEnvelope) => TwinOp[]> = {
             { op: 'link', from: item, relation: 'FOR_STAY', to: ref('STAY', p.stay_id) },
           ] as const)
         : []),
+    ];
+  },
+  [RoomRestrictionChanged.name]: (envelope) => {
+    const p = RoomRestrictionChanged.parse(envelope).payload;
+    // Out of order / service / blocked, as a code on the room (the pulse counts restricted rooms).
+    return [
+      {
+        op: 'node',
+        ref: ref('LOCATION', p.room_id),
+        attributes: { restriction: p.active ? p.kind : null },
+      },
     ];
   },
   [LostFoundItemReleased.name]: (envelope) => {

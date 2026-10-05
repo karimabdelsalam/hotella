@@ -153,6 +153,8 @@ export interface StaffAssistantInput {
   readonly userId: string;
   /** What the person is looking at (e.g. the asset), labelled with its data class. */
   readonly focus?: readonly ClassifiedText[];
+  /** Set when another agent consults this one (BUILD_PLAN 12.5); a consulted run cannot consult further. */
+  readonly parentExecutionId?: string;
 }
 
 export interface StaffAssistantAnswer {

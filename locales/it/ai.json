@@ -35,5 +35,7 @@
   "ai.insight.action.inspect_room": "Ispeziona la camera prima del prossimo arrivo.",
   "ai.insight.action.review_category": "Verifica cosa continua a causare reclami per {category}.",
   "ai.insight.action.review_inspection_flow": "Rivedi come le camere pulite di questo tipo arrivano all’ispezione.",
-  "ai.insight.action.prepare_arrivals": "Esamina gli arrivi a rischio di domani con housekeeping e manutenzione."
+  "ai.insight.action.prepare_arrivals": "Esamina gli arrivi a rischio di domani con housekeeping e manutenzione.",
+  "ai.permission.manager_use": "Fare domande all’assistente del direttore sull’hotel",
+  "ai.permission.intelligence_cross_property": "Confrontare gli hotel del gruppo"
 }

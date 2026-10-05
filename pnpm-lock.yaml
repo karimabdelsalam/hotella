@@ -770,6 +770,9 @@ importers:
       '@hotella/platform-settings':
         specifier: workspace:*
         version: link:../../platform/settings
+      '@hotella/platform-time':
+        specifier: workspace:*
+        version: link:../../platform/time
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)

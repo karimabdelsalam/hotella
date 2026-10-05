@@ -35,5 +35,7 @@
   "ai.insight.action.inspect_room": "Inspect the room before the next arrival.",
   "ai.insight.action.review_category": "Look into what keeps causing {category} complaints.",
   "ai.insight.action.review_inspection_flow": "Review how cleaned rooms of this type reach inspection.",
-  "ai.insight.action.prepare_arrivals": "Go through tomorrow's risky arrivals with housekeeping and engineering."
+  "ai.insight.action.prepare_arrivals": "Go through tomorrow's risky arrivals with housekeeping and engineering.",
+  "ai.permission.manager_use": "Ask the Manager assistant about the hotel",
+  "ai.permission.intelligence_cross_property": "Compare the hotels of the group"
 }

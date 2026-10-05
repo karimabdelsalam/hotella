@@ -416,5 +416,8 @@
   "errors.ai.twin.not_found": "Этого объекта нет в операционном двойнике.",
   "errors.ai.insight.not_found": "Этот вывод не найден.",
   "errors.ai.insight.not_movable": "Этот вывод больше нельзя изменить таким образом.",
-  "errors.ai.insight.version_conflict": "Вывод был изменён. Обновите страницу и попробуйте снова."
+  "errors.ai.insight.version_conflict": "Вывод был изменён. Обновите страницу и попробуйте снова.",
+  "errors.ai.tool.no_person": "Этот ассистент работает только от имени сотрудника.",
+  "errors.ai.consult.not_allowed": "Этому ассистенту нельзя обращаться к другому ассистенту.",
+  "errors.ai.consult.too_deep": "Ассистент, к которому обратились, не может сам обращаться к другому."
 }

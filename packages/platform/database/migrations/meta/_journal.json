@@ -372,6 +372,13 @@
       "when": 1791222585284,
       "tag": "0052_ai_insights",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1791223737080,
+      "tag": "0053_ai_consult",
+      "breakpoints": true
     }
   ]
 }

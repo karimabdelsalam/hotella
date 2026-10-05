@@ -39,6 +39,8 @@ export interface StartExecutionInput extends Omit<ExecutionHandle, 'id'> {
   readonly trigger: 'MESSAGE' | 'STAFF' | 'SCHEDULE' | 'EVENT' | 'EVALUATION' | 'SHADOW';
   /** Who the agent acts for (the guest, a staff member) — not the AI itself. */
   readonly on: { readonly type: RequestActor['type']; readonly id: string | null };
+  /** The execution that consulted this one (BUILD_PLAN 12.5). */
+  readonly parentExecutionId?: string | null;
 }
 
 /** What a tool call came to; the model reads it as the tool result. */
@@ -93,10 +95,11 @@ export class ToolExecutor {
         actorType: input.on.type,
         actorId: input.on.id,
         conversationId: input.conversationId,
+        parentExecutionId: input.parentExecutionId ?? null,
         correlationId: this.ctx.correlationId,
       }),
     );
-    const { agentVersionId: _v, trigger: _t, on: _o, ...handle } = input;
+    const { agentVersionId: _v, trigger: _t, on: _o, parentExecutionId: _p, ...handle } = input;
     return { id, ...handle };
   }
 

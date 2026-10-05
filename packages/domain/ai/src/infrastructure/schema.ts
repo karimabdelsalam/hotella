@@ -242,6 +242,8 @@ export const executions = classify(
       actorType: varchar('actor_type', { length: 16 }).notNull(),
       actorId: uuid('actor_id'),
       conversationId: uuid('conversation_id'),
+      /** The execution that consulted this one (controlled collaboration, BUILD_PLAN 12.5): depth 1 only. */
+      parentExecutionId: uuid('parent_execution_id'),
       status: executionStatus('status').notNull().default('RUNNING'),
       tokensIn: integer('tokens_in').notNull().default(0),
       tokensOut: integer('tokens_out').notNull().default(0),
@@ -262,6 +264,7 @@ export const executions = classify(
     actorType: 'INTERNAL',
     actorId: 'INTERNAL',
     conversationId: 'INTERNAL',
+    parentExecutionId: 'INTERNAL',
     status: 'INTERNAL',
     tokensIn: 'INTERNAL',
     tokensOut: 'INTERNAL',

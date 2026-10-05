@@ -416,5 +416,8 @@
   "errors.ai.twin.not_found": "هذا العنصر غير موجود في التوأم التشغيلي.",
   "errors.ai.insight.not_found": "لم يتم العثور على هذه الرؤية.",
   "errors.ai.insight.not_movable": "لم يعد من الممكن تغيير هذه الرؤية بهذه الطريقة.",
-  "errors.ai.insight.version_conflict": "تم تغيير الرؤية في الأثناء. أعد التحميل وحاول مرة أخرى."
+  "errors.ai.insight.version_conflict": "تم تغيير الرؤية في الأثناء. أعد التحميل وحاول مرة أخرى.",
+  "errors.ai.tool.no_person": "لا يمكن استخدام هذا المساعد إلا نيابةً عن أحد الموظفين.",
+  "errors.ai.consult.not_allowed": "لا يُسمح لهذا المساعد باستشارة مساعد آخر.",
+  "errors.ai.consult.too_deep": "لا يمكن للمساعد الذي تمت استشارته أن يستشير مساعدًا آخر."
 }

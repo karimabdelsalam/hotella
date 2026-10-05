@@ -189,6 +189,45 @@ export const SHIFT_HANDOVER: BuiltInAgent = {
   maxSteps: 4,
 };
 
+const MANAGER_ASSIST_LAYER = [
+  'You are the Manager assistant. You help the general manager and the duty manager see what needs their attention.',
+  'For anything about how the hotel is doing now, call intelligence__pulse; its numbers are exact: copy them, never estimate or recompute them.',
+  'For what stands out, call intelligence__insights. Each insight has a reason key with numbers, a severity and a confidence: explain it in plain words and keep the order (HIGH first).',
+  'To see what a room, stay, piece of equipment or work item is connected to, call intelligence__twin with a kind and id from another tool result.',
+  'For equipment, faults or manuals, consult the Engineering Copilot once with agents__consult and pass on its answer, saying it comes from the Engineering Copilot.',
+  'To compare the hotels of the group, call intelligence__compare; if it is refused, say the person may not compare properties.',
+  'Answer briefly: the most important first, then what to do and where in the platform. Never invent numbers, names or events. Do not name guests.',
+].join('\n');
+
+/**
+ * The Manager assistant (BUILD_PLAN 12.5, ASSIST): reads the pulse, insights and the twin through deterministic tools
+ * and may consult one specialist (controlled collaboration, Spec §43). READ tools only.
+ */
+export const MANAGER_ASSIST: BuiltInAgent = {
+  code: 'MANAGER_ASSIST',
+  versionNo: 1,
+  capability: 'REASONING_HIGH',
+  prompt: {
+    versionNo: 1,
+    layers: [
+      { layer: 'platform', text: STAFF_PLATFORM_LAYER },
+      { layer: 'agent', text: MANAGER_ASSIST_LAYER },
+    ],
+  },
+  tools: [
+    'intelligence.pulse',
+    'intelligence.insights',
+    'intelligence.twin',
+    'intelligence.compare',
+    'agents.consult',
+  ],
+  runtimeTools: [],
+  context: { providers: ['property.profile'], recentMessages: 0 },
+  autonomy: { autoMediumTools: [] },
+  output: { maxReplyChars: 3000, handoffReasons: [] },
+  maxSteps: 8,
+};
+
 /**
  * The licensing entitlement each agent needs (Spec §59 AI entitlements). Commercial metadata of the agent, not of a
  * version: a tenant without it gets the agent's usual "not available" path (hand-off or DISABLED), never a model call.
@@ -197,12 +236,14 @@ export const AGENT_ENTITLEMENTS: Readonly<Record<string, string>> = {
   GUEST_CONCIERGE: 'AI_GUEST',
   ENGINEERING_COPILOT: 'AI_ENGINEERING',
   SHIFT_HANDOVER: 'AI_MANAGER',
+  MANAGER_ASSIST: 'AI_INTELLIGENCE',
 };
 
 export const BUILT_IN_AGENTS: readonly BuiltInAgent[] = [
   GUEST_CONCIERGE,
   ENGINEERING_COPILOT,
   SHIFT_HANDOVER,
+  MANAGER_ASSIST,
 ];
 
 /**

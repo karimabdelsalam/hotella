@@ -82,6 +82,7 @@ export class StaffAssistantRuntime implements StaffAssistantApi {
       conversationId: null,
       trigger: 'STAFF',
       on: { type: 'USER', id: input.userId },
+      parentExecutionId: input.parentExecutionId ?? null,
     });
     const sources: Source[] = [];
     const result = (outcome: StaffAssistantAnswer['outcome'], answer: string | null = null) => ({

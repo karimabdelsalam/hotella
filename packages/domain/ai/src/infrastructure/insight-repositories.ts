@@ -15,6 +15,12 @@ import {
 
 const LIVE: InsightStatus[] = ['OPEN', 'ACKNOWLEDGED'];
 
+/** A code key as an SQL literal (so the same expression can be grouped by); keys are code constants, checked here. */
+function codeKey(key: string) {
+  if (!/^[a-z_]{1,40}$/.test(key)) throw new Error(`invalid code key ${key}`);
+  return sql.raw(`'${key}'`);
+}
+
 /** Signals, insights and their history (BUILD_PLAN 12.4). */
 @Injectable()
 export class InsightRepositories {
@@ -165,5 +171,71 @@ export class InsightRepositories {
   /** Acting on or dismissing an insight is a recommendation signal (Spec §40); once per insight and kind. */
   async recordFeedback(values: typeof feedback.$inferInsert): Promise<void> {
     await this.x.insert(feedback).values(values).onConflictDoNothing();
+  }
+
+  // ---- pulse (BUILD_PLAN 12.5): counts over the AI context's own projection ----
+  /** Open work items by department (from the twin). */
+  async openWorkByDepartment(scope: PropertyScope): Promise<Record<string, number>> {
+    const department = sql<string>`coalesce(${twinNodes.attributes}->>'department', 'NONE')`;
+    const rows = await this.x
+      .select({ department, n: sql<number>`count(*)::int` })
+      .from(twinNodes)
+      .where(
+        and(
+          eq(twinNodes.tenantId, scope.tenantId),
+          eq(twinNodes.propertyId, scope.propertyId),
+          eq(twinNodes.kind, 'WORK_ITEM'),
+          inArray(twinNodes.state, ['OPEN', 'IN_PROGRESS']),
+        ),
+      )
+      .groupBy(department);
+    return Object.fromEntries(rows.map((r) => [r.department, r.n]));
+  }
+  /** Things of a kind in a state, by one of their codes (e.g. open complaints by severity). */
+  async countBy(
+    scope: PropertyScope,
+    kind: 'COMPLAINT' | 'LOCATION',
+    where: { readonly state?: string; readonly attributeSet?: string },
+    by: string,
+  ): Promise<Record<string, number>> {
+    const code = sql<string>`coalesce(${twinNodes.attributes}->>${codeKey(by)}, 'NONE')`;
+    const rows = await this.x
+      .select({ code, n: sql<number>`count(*)::int` })
+      .from(twinNodes)
+      .where(
+        and(
+          eq(twinNodes.tenantId, scope.tenantId),
+          eq(twinNodes.propertyId, scope.propertyId),
+          eq(twinNodes.kind, kind),
+          where.state ? eq(twinNodes.state, where.state) : undefined,
+          where.attributeSet
+            ? sql`${twinNodes.attributes}->>${codeKey(where.attributeSet)} is not null`
+            : undefined,
+        ),
+      )
+      .groupBy(code);
+    return Object.fromEntries(rows.map((r) => [r.code, r.n]));
+  }
+  /** Signals of a kind since a moment, by one of their codes. */
+  async signalsBy(
+    scope: PropertyScope,
+    signal: string,
+    since: Date,
+    by: string,
+  ): Promise<Record<string, number>> {
+    const code = sql<string>`coalesce(${signals.codes}->>${codeKey(by)}, 'NONE')`;
+    const rows = await this.x
+      .select({ code, n: sql<number>`count(*)::int` })
+      .from(signals)
+      .where(
+        and(
+          eq(signals.tenantId, scope.tenantId),
+          eq(signals.propertyId, scope.propertyId),
+          eq(signals.signal, signal),
+          gte(signals.occurredAt, since),
+        ),
+      )
+      .groupBy(code);
+    return Object.fromEntries(rows.map((r) => [r.code, r.n]));
   }
 }

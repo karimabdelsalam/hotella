@@ -46,6 +46,7 @@
     "@hotella/platform-queue": "workspace:*",
     "@hotella/platform-secrets": "workspace:*",
     "@hotella/platform-settings": "workspace:*",
+    "@hotella/platform-time": "workspace:*",
     "@nestjs/common": "11.2.7",
     "drizzle-orm": "0.45.3",
     "nestjs-zod": "5.5.0",

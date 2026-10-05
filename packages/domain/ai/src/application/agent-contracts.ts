@@ -4,6 +4,7 @@ import {
   ENGINEERING_COPILOT,
   HANDOFF_REASONS,
   type HandoffReason,
+  MANAGER_ASSIST,
   type ReplyLocale,
   SHIFT_HANDOVER,
 } from '../domain/agents';
@@ -22,6 +23,7 @@ export type AgentKind = 'CONVERSATION' | 'ASSIST';
 export const STAFF_AGENT_CODES: ReadonlySet<string> = new Set([
   ENGINEERING_COPILOT.code,
   SHIFT_HANDOVER.code,
+  MANAGER_ASSIST.code,
 ]);
 
 export function agentKind(code: string, def?: BuiltInAgent): AgentKind {

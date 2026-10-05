@@ -9837,6 +9837,78 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/ai/manager": {
+      "post": {
+        "operationId": "AiManagerController_ask",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskManagerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiManager"
+        ]
+      }
+    },
+    "/api/v1/tenants/{tenantId}/intelligence/compare": {
+      "get": {
+        "operationId": "AiManagerController_compare",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AiManager"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/knowledge/documents": {
       "get": {
         "operationId": "KnowledgeController_list",
@@ -21257,6 +21329,19 @@
         "required": [
           "version",
           "reason"
+        ]
+      },
+      "AskManagerDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "question"
         ]
       },
       "CreateDocumentDto": {

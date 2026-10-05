@@ -416,5 +416,8 @@
   "errors.ai.twin.not_found": "This item is not in the operational twin.",
   "errors.ai.insight.not_found": "This insight was not found.",
   "errors.ai.insight.not_movable": "This insight can no longer be changed this way.",
-  "errors.ai.insight.version_conflict": "The insight was changed meanwhile. Reload and try again."
+  "errors.ai.insight.version_conflict": "The insight was changed meanwhile. Reload and try again.",
+  "errors.ai.tool.no_person": "This assistant can only be used on behalf of a staff member.",
+  "errors.ai.consult.not_allowed": "This assistant may not consult another assistant.",
+  "errors.ai.consult.too_deep": "A consulted assistant cannot consult another one."
 }

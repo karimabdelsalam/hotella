@@ -416,5 +416,8 @@
   "errors.ai.twin.not_found": "Dieses Element ist nicht im operativen Zwilling enthalten.",
   "errors.ai.insight.not_found": "Diese Erkenntnis wurde nicht gefunden.",
   "errors.ai.insight.not_movable": "Diese Erkenntnis kann so nicht mehr geändert werden.",
-  "errors.ai.insight.version_conflict": "Die Erkenntnis wurde inzwischen geändert. Neu laden und erneut versuchen."
+  "errors.ai.insight.version_conflict": "Die Erkenntnis wurde inzwischen geändert. Neu laden und erneut versuchen.",
+  "errors.ai.tool.no_person": "Dieser Assistent kann nur im Auftrag eines Mitarbeiters genutzt werden.",
+  "errors.ai.consult.not_allowed": "Dieser Assistent darf keinen anderen Assistenten befragen.",
+  "errors.ai.consult.too_deep": "Ein befragter Assistent kann keinen weiteren befragen."
 }

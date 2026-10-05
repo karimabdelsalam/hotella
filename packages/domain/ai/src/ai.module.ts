@@ -12,6 +12,7 @@ import {
   AiEvaluationController,
   AiExecutionsController,
   AiInsightsController,
+  AiManagerController,
   AiTwinController,
 } from './api/controllers';
 import { AiAdminService } from './application/admin.service';
@@ -27,6 +28,8 @@ import {
   InsightEngine,
   InsightService,
 } from './application/insights.service';
+import { ManagerService } from './application/manager.service';
+import { PulseService } from './application/pulse.service';
 import { SIGNAL_EVENTS, SignalRecorder } from './application/signal-recorder';
 import { ModelGatewayService } from './application/gateway.service';
 import { ModelProviderRegistry } from './application/provider-registry';
@@ -36,6 +39,7 @@ import { ToolRegistry } from './application/tools/registry';
 import { AiPolicyStage, ScopedAgentAuthorizer } from './application/tools/scope';
 import { TWIN_EVENTS } from './application/twin-projection';
 import { TwinLabelRegistry, TwinProjector, TwinService } from './application/twin.service';
+import { IntelligenceTools } from './application/tools/intelligence';
 import { ToolsV1 } from './application/tools/v1';
 import { BUILT_IN_AGENTS, GUEST_CONCIERGE } from './domain/agents';
 import { AI_SETTINGS } from './domain/settings';
@@ -79,6 +83,7 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     InsightDetectorRegistry,
     { provide: AI_INSIGHT_DETECTORS, useExisting: InsightDetectorRegistry },
     InsightEngine,
+    PulseService,
     ModelProviderRegistry,
     ModelGatewayService,
     ProposalSettler,
@@ -107,6 +112,7 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     InsightDetectorRegistry,
     AI_INSIGHT_DETECTORS,
     InsightEngine,
+    PulseService,
   ],
 })
 export class AiCoreModule {}
@@ -123,6 +129,7 @@ export class AiCoreModule {}
     ToolRegistry,
     { provide: AI_TOOL_REGISTRY, useExisting: ToolRegistry },
     ToolsV1,
+    IntelligenceTools,
     ToolExecutor,
     ContextEngine,
     ConciergeRuntime,
@@ -138,17 +145,21 @@ export class AiCoreModule {}
     ContextEngine,
     ConciergeRuntime,
     STAFF_ASSISTANT_API,
+    StaffAssistantRuntime,
+    IntelligenceTools,
   ],
 })
 export class AiToolsModule implements OnModuleInit {
   constructor(
     private readonly registry: ToolRegistry,
     private readonly v1: ToolsV1,
+    private readonly intelligence: IntelligenceTools,
     private readonly executor: ToolExecutor,
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
   ) {}
   onModuleInit(): void {
     this.v1.registerInto(this.registry);
+    this.intelligence.registerInto(this.registry);
     this.ops.registerApprovalKind({
       code: AI_ACTION_APPROVAL,
       module: 'ai',
@@ -167,8 +178,9 @@ export class AiToolsModule implements OnModuleInit {
     AiEvaluationController,
     AiTwinController,
     AiInsightsController,
+    AiManagerController,
   ],
-  providers: [AiAdminService, ExecutionAuditService, TwinService, InsightService],
+  providers: [AiAdminService, ExecutionAuditService, TwinService, InsightService, ManagerService],
 })
 export class AiModule implements OnModuleInit {
   /**

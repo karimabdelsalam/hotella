@@ -2952,7 +2952,7 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 | 12.2 | Agent releases: shadow (compare, never act) and canary (deterministic share), promote/rollback, kill switch | done |
 | 12.3 | Operational twin read model: consumers, neighbourhood queries, read-time names | done |
 | 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | done |
-| 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | planned |
+| 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | done |
 | 12.6 | Quality and cost metrics job; staff-web Intelligence screens (insights, pulse, quality) in English and Arabic | planned |
 | 12.7 | Phase 12 acceptance (`docs/acceptance/phase-12.md`) | planned |
 
@@ -3075,6 +3075,26 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
   cannot move; feedback once per kind; same evidence does not reopen, a new repair raises a new insight; contributed
   detector raised and expired two days later, a failing detector ignored; events; append-only history; another hotel
   sees nothing); housekeeping's detector raises nothing for a MEDIUM day and one HIGH insight with ids only.
+- *As built (12.5):* migration `0053_ai_consult` adds `ai.executions.parent_execution_id` (the consulting execution).
+  The twin also follows `eng.room_restriction.changed` (`restriction` code on the room). `PulseService` (deterministic,
+  rule 11): open work by department, service-target breaches in the last 24 h by department, open complaints by
+  severity, restricted rooms by kind, tomorrow's expected arrivals (guest API, the property's local day) and live
+  insights by severity — from the AI context's own twin, signals and insights. Agent `MANAGER_ASSIST` v1 (ASSIST,
+  entitlement `AI_INTELLIGENCE`, READ tools only, 8 steps) with tools `intelligence.pulse`, `intelligence.insights`
+  (`ai.insight.read`), `intelligence.twin` (`ai.twin.read`, ≤ 2 hops, names only from labelers that need no extra
+  permission), `intelligence.compare` (`ai.intelligence.cross_property`, and the person behind the execution must hold
+  it at tenant level) and `agents.consult` (controlled collaboration, Spec §43): only the Manager assistant may call
+  it, only `ENGINEERING_COPILOT`, only when the person may read assets and work orders, and never from a consulted
+  execution (depth 1); the specialist runs as its own execution for the same person with `parent_execution_id`, and the
+  manager's execution records a `DECISION consult` step naming the child execution. API: `POST
+  /properties/:id/ai/manager` (`{question}`; `ai.manager.use` + `AI_INTELLIGENCE`) → the staff-assistant answer;
+  `GET /tenants/:id/intelligence/compare` (`ai.intelligence.cross_property`, own tenant only) → each draft or active
+  property with its pulse. Permissions `ai.manager.use` (general manager, duty manager) and
+  `ai.intelligence.cross_property` (a tenant-level grant, in no default role). Tests: integration
+  `manager.integration.spec.ts` (the pulse counts the seeded day exactly; "what needs my attention today" calls pulse,
+  insights and one consult, the child execution is the copilot's, for the same person, linked to the parent, and the
+  model saw the exact numbers; consult refused from another agent and from a consulted execution; the comparison
+  refused as a tool and as a report without the grant, allowed with it, never across tenants; a clerk cannot ask).
 
 #### 12.E Tests and acceptance
 - Unit: graders, canary bucketing, every detector's thresholds and confidence, insight fingerprinting, twin traversal,

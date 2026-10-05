@@ -43,6 +43,7 @@ import {
   insightListSchema,
   InsightService,
 } from '../application/insights.service';
+import { askManagerSchema, ManagerService } from '../application/manager.service';
 import { TwinService, twinQuerySchema } from '../application/twin.service';
 
 class CreateProviderDto extends createZodDto(createProviderSchema) {}
@@ -63,6 +64,7 @@ class TwinQueryDto extends createZodDto(twinQuerySchema) {}
 class InsightListDto extends createZodDto(insightListSchema) {}
 class InsightActDto extends createZodDto(insightActSchema) {}
 class InsightDismissDto extends createZodDto(insightDismissSchema) {}
+class AskManagerDto extends createZodDto(askManagerSchema) {}
 
 /** AI providers, models and routing (ADR-0018). */
 @Controller('ai')
@@ -372,5 +374,34 @@ export class AiInsightsController {
     @Body() body: InsightDismissDto,
   ) {
     return this.insights.dismiss(this.scope(propertyId), id, body);
+  }
+}
+
+/** The Manager assistant (BUILD_PLAN 12.5) and the cross-property comparison of a group. */
+@Controller()
+export class AiManagerController {
+  constructor(
+    private readonly manager: ManagerService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Post('properties/:propertyId/ai/manager')
+  @HttpCode(200)
+  @PropertyScoped({ from: 'param' })
+  @RequirePermission('ai.manager.use', { checkedBy: 'gate' })
+  ask(@Param('propertyId') propertyId: string, @Body() body: AskManagerDto) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return this.manager.ask({ tenantId, propertyId }, body);
+  }
+
+  @Get('tenants/:tenantId/intelligence/compare')
+  @RequirePermission('ai.intelligence.cross_property', { checkedBy: 'gate' })
+  compare(@Param('tenantId') tenantId: string) {
+    // Only the caller's own group (platform administrators have no standing access, §64).
+    if (this.actors.require().tenantId !== tenantId)
+      throw AppError.notFound('org.tenant.not_found');
+    return this.manager.compare(tenantId);
   }
 }
