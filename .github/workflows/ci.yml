@@ -148,6 +148,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          # The generators use plain Node; there is no pnpm in this job to cache for.
+          package-manager-cache: false
       - name: Generated client and strings are up to date
         run: |
           node tool/gen_client.mjs --check
