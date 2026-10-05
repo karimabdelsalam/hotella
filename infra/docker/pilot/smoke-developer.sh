@@ -85,7 +85,9 @@ call "$API/properties/$property/lostfound/items" "${group_auth[@]}" \
 # Outbox → relay → queue → inbox consumer → delivery row → the 30-second sweep signs and sends it.
 for _ in $(seq 1 45); do
   attempt=$(call "$API/tenants/$tenant/webhooks/$endpoint/deliveries" "${group_auth[@]}" | jq -c '.[0] // empty')
-  if [ -n "$attempt" ] && jq -e '.attempts >= 1' <<<"$attempt" >/dev/null; then break; fi
+  # The worker counts the attempt when it claims the delivery and records the error after the HTTP call fails: wait
+  # for both, or a read in between sees attempts=1 without the error.
+  if [ -n "$attempt" ] && jq -e '.attempts >= 1 and .lastError != null' <<<"$attempt" >/dev/null; then break; fi
   sleep 2
 done
 echo "webhook: $(jq -c '{eventType, status, attempts, lastError}' <<<"${attempt:-{\}}")"
