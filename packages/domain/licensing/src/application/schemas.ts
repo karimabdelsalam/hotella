@@ -148,3 +148,18 @@ export const setFlagSchema = z.object({
   reason,
 });
 export type SetFlagInput = z.infer<typeof setFlagSchema>;
+
+// ---- offline-resilient entitlements (ADR-0021) ----
+export const createInstallationSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  /** The installation's Ed25519 public key, SPKI DER in base64. */
+  publicKey: z.string().trim().min(40).max(200),
+});
+export type CreateInstallationInput = z.infer<typeof createInstallationSchema>;
+
+export const bundleRequestSchema = z.object({
+  installationId: z.string().max(64),
+  at: z.string().max(40),
+  signature: z.string().max(200),
+});
+export type BundleRequestInput = z.infer<typeof bundleRequestSchema>;

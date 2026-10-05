@@ -36,6 +36,9 @@ export class EntitlementStage implements GateStage {
     if (!entitlementApplies(request, actor)) return;
     // A tenant can always read its own licence, also when it has lapsed.
     if (this.manifests.ownerOfPermission(request.action)?.code === 'license') return;
+    // A hotel-site installation cut off from the control plane past its grace (ADR-0021).
+    if (await this.engine.offlineExpired(request.tenantId!))
+      throw new AppError('license.offline_expired', HttpStatus.FORBIDDEN);
     const code = requiredEntitlement(request, this.manifests);
     const property = request.propertyId ?? null;
     for (const needed of actor.apiClient ? [API_ACCESS, code] : [code])

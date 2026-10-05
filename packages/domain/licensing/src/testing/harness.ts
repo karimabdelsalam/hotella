@@ -120,6 +120,8 @@ export async function startLicensingApp(
   url: string,
   role: string,
   grants: Record<string, readonly string[]> = {},
+  /** Extra settings, e.g. a hotel-site installation (`LICENSING_MODE=site`, ADR-0021). */
+  extraEnv: Record<string, string> = {},
 ): Promise<LicensingHarness> {
   await runMigrations(url);
   const env = {
@@ -128,6 +130,7 @@ export async function startLicensingApp(
     DATABASE_URL: await applicationRoleUrl(url, role),
     VALKEY_URL: 'redis://127.0.0.1:1',
     PUBLIC_BASE_URL: 'https://guest.example.test',
+    ...extraEnv,
   };
   const ref = await Test.createTestingModule({
     imports: [

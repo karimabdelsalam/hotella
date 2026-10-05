@@ -529,3 +529,70 @@ export type SubscriptionRow = typeof subscriptions.$inferSelect;
 export type SubscriptionHistoryRow = typeof subscriptionHistory.$inferSelect;
 export type EntitlementGrantRow = typeof entitlementGrants.$inferSelect;
 export type LimitOverrideRow = typeof limitOverrides.$inferSelect;
+
+// ---- offline-resilient entitlements (ADR-0021, Sprint 11.7) ----
+export const installationStatus = license.enum('installation_status', ['ACTIVE', 'REVOKED']);
+
+/**
+ * Central: a hotel-site installation of the platform that may fetch its tenant's signed entitlement bundle. It
+ * authenticates with its own Ed25519 key (public key here, SPKI DER base64); revoked, it gets no further bundles.
+ */
+export const installations = classify(
+  license.table(
+    'installations',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      name: varchar('name', { length: 120 }).notNull(),
+      publicKey: text('public_key').notNull(),
+      status: installationStatus('status').notNull().default('ACTIVE'),
+      lastSeenAt: tz('last_seen_at'),
+      lastIssuedAt: tz('last_issued_at'),
+      createdById: uuid('created_by_id'),
+      revokedAt: tz('revoked_at'),
+      revokeReason: text('revoke_reason'),
+      ...versioned(),
+    },
+    (t) => [index('installations_tenant_idx').on(t.tenantId)],
+  ),
+  internal([
+    'id',
+    'createdAt',
+    'updatedAt',
+    'tenantId',
+    'name',
+    'publicKey',
+    'status',
+    'lastSeenAt',
+    'lastIssuedAt',
+    'createdById',
+    'revokedAt',
+    'revokeReason',
+    'version',
+  ]),
+);
+
+/** Site: the newest bundle accepted from the control plane, kept across restarts (one row per installation). */
+export const siteBundles = classify(
+  license.table('site_bundles', {
+    installationId: uuid('installation_id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    token: text('token').notNull(),
+    issuedAt: tz('issued_at').notNull(),
+    validUntil: tz('valid_until').notNull(),
+    graceUntil: tz('grace_until').notNull(),
+    acceptedAt: tz('accepted_at').notNull(),
+  }),
+  internal([
+    'installationId',
+    'tenantId',
+    'token',
+    'issuedAt',
+    'validUntil',
+    'graceUntil',
+    'acceptedAt',
+  ]),
+);
+
+export type InstallationRow = typeof installations.$inferSelect;
+export type SiteBundleRow = typeof siteBundles.$inferSelect;

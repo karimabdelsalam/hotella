@@ -369,5 +369,11 @@
   "errors.integration.routing.read_only_write_target": "{operation} changes the PMS and can never go through the read-only database connector.",
   "errors.integration.query.unknown": "The connector does not define the read {query}.",
   "errors.integration.query.invalid_params": "The parameters of {query} are invalid.",
-  "errors.integration.commissioning.unknown_requirement": "This commissioning requirement is not part of the standard: {requirement}."
+  "errors.integration.commissioning.unknown_requirement": "This commissioning requirement is not part of the standard: {requirement}.",
+  "errors.license.offline_expired": "This installation has been offline from the Planova control plane longer than its licence allows. Restore its internet connection; hotel operations from the PMS continue meanwhile.",
+  "errors.license.installation.not_found": "Installation not found.",
+  "errors.license.installation.revoked": "This installation has been revoked.",
+  "errors.license.installation.key_invalid": "The installation key must be an Ed25519 public key (SPKI DER in base64).",
+  "errors.license.bundle.request_invalid": "The licence request could not be authenticated.",
+  "errors.license.bundle.unavailable": "Licence bundles cannot be issued: the signing key is not configured."
 }

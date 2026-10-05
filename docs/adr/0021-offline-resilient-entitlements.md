@@ -40,6 +40,15 @@ licensing be designed for real hotel operations. Three situations matter:
 - **Clock:** a site refuses a bundle issued in its future beyond a small skew, and remembers the latest `issued_at`
   it accepted, so rolling the clock back cannot resurrect an older, broader bundle.
 
+## Amendment — as built (Sprint 11.7, 2026-10-05)
+- The bundle carries the tenant's licensing facts (subscriptions with items and limits, grants, overrides, features)
+  rather than pre-computed codes, so the site applies exactly the central rules, including per-property scope and
+  subscription grace.
+- It is signed with a **dedicated** Ed25519 key (`kv/hotella/license#bundle_signing_key`), not the agent licence key:
+  the licensing context owns its key, and the two can be rotated independently.
+- Issues are recorded as audit rows and `installations.last_issued_at`; the site stores only the newest accepted
+  bundle and re-verifies it on every read.
+
 ## Consequences
 - BUILD_PLAN Sprint 11.7 implements the last-known-good cache, the bundle contract, issuance and renewal, site-mode
   verification and the refusal past grace. Central installations change only by the cache.

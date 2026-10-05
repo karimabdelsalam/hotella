@@ -13413,6 +13413,181 @@
         ]
       }
     },
+    "/api/v1/control/tenants/{tenantId}/installations": {
+      "get": {
+        "operationId": "InstallationController_list",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Installation"
+        ]
+      },
+      "post": {
+        "operationId": "InstallationController_register",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInstallationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Installation"
+        ]
+      }
+    },
+    "/api/v1/control/tenants/{tenantId}/installations/{installationId}/revoke": {
+      "post": {
+        "operationId": "InstallationController_revoke",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "installationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LicenseRevokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Installation"
+        ]
+      }
+    },
+    "/api/v1/control/license/bundle-key": {
+      "get": {
+        "operationId": "BundleKeyController_key",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "BundleKey"
+        ]
+      }
+    },
+    "/api/v1/license/bundle": {
+      "post": {
+        "operationId": "SiteBundleController_bundle",
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundleRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SiteBundle"
+        ]
+      }
+    },
     "/api/v1/control/license/catalog": {
       "get": {
         "operationId": "LicenseCatalogController_list",
@@ -21542,6 +21717,60 @@
           "reason"
         ]
       },
+      "CreateInstallationDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "publicKey": {
+            "type": "string",
+            "minLength": 40,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "name",
+          "publicKey"
+        ]
+      },
+      "LicenseRevokeDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "BundleRequestDto": {
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "at": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "signature": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "installationId",
+          "at",
+          "signature"
+        ]
+      },
       "CreateLicensePlanDto": {
         "type": "object",
         "properties": {
@@ -21917,19 +22146,6 @@
         },
         "required": [
           "capabilityCode",
-          "reason"
-        ]
-      },
-      "LicenseRevokeDto": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 500
-          }
-        },
-        "required": [
           "reason"
         ]
       },

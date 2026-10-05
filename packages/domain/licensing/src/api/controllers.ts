@@ -1,14 +1,17 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
-import { PropertyScoped, RequirePermission, TenantScoped } from '@hotella/platform-auth';
+import { PropertyScoped, Public, RequirePermission, TenantScoped } from '@hotella/platform-auth';
 import { LicenseCatalogService } from '../application/catalog.service';
 import { ControlPlaneService } from '../application/control.service';
 import { GrantService } from '../application/grant.service';
+import { InstallationService } from '../application/installation.service';
 import { LicenseViewService } from '../application/license-view.service';
 import { SubscriptionService } from '../application/subscription.service';
 import { PlanService } from '../application/plan.service';
 import {
   attributionSchema,
+  bundleRequestSchema,
+  createInstallationSchema,
   changeSubscriptionSchema,
   createDraftSchema,
   createGrantSchema,
@@ -289,5 +292,63 @@ export class ControlPlaneController {
   @RequirePermission('platform.feature_flag.manage', { checkedBy: 'gate' })
   setFlag(@Body() body: SetFeatureFlagDto) {
     return this.control.setFlag(body);
+  }
+}
+
+class CreateInstallationDto extends createZodDto(createInstallationSchema) {}
+class BundleRequestDto extends createZodDto(bundleRequestSchema) {}
+
+/** Hotel-site installations of a tenant (ADR-0021; control plane, platform administrators). */
+@Controller('control/tenants/:tenantId/installations')
+@TenantScoped({ from: 'param' })
+export class InstallationController {
+  constructor(private readonly installations: InstallationService) {}
+
+  @Get()
+  @RequirePermission('license.installation.manage', { checkedBy: 'gate' })
+  list(@Param('tenantId') tenantId: string) {
+    return this.installations.list({ tenantId });
+  }
+
+  @Post()
+  @RequirePermission('license.installation.manage', { checkedBy: 'gate' })
+  register(@Param('tenantId') tenantId: string, @Body() body: CreateInstallationDto) {
+    return this.installations.register({ tenantId }, body);
+  }
+
+  @Post(':installationId/revoke')
+  @HttpCode(200)
+  @RequirePermission('license.installation.manage', { checkedBy: 'gate' })
+  revoke(
+    @Param('tenantId') tenantId: string,
+    @Param('installationId') id: string,
+    @Body() body: LicenseRevokeDto,
+  ) {
+    return this.installations.revoke({ tenantId }, id, body);
+  }
+}
+
+/** The key sites pin to verify their bundles (control plane). */
+@Controller('control/license/bundle-key')
+export class BundleKeyController {
+  constructor(private readonly installations: InstallationService) {}
+
+  @Get()
+  @RequirePermission('license.installation.manage', { checkedBy: 'gate' })
+  key() {
+    return this.installations.bundleKey();
+  }
+}
+
+/** A site installation fetches its signed entitlement bundle; its own Ed25519 signature authenticates it. */
+@Public()
+@Controller('license/bundle')
+export class SiteBundleController {
+  constructor(private readonly installations: InstallationService) {}
+
+  @Post()
+  @HttpCode(200)
+  bundle(@Body() body: BundleRequestDto) {
+    return this.installations.issue(body);
   }
 }

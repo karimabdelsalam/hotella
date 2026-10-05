@@ -5,7 +5,10 @@ import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { ENTITLEMENT_STAGE } from '@hotella/platform-auth';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import {
+  BundleKeyController,
   ControlPlaneController,
+  InstallationController,
+  SiteBundleController,
   LicenseCatalogController,
   MyEntitlementsController,
   TenantLicenseController,
@@ -14,6 +17,9 @@ import {
 import { LicenseCatalogService } from './application/catalog.service';
 import { EntitlementEngine } from './application/entitlement-engine';
 import { EntitlementStage } from './application/entitlement-stage';
+import { BundleKeys, InstallationService } from './application/installation.service';
+import { SiteBundleStore } from './application/site-bundle.store';
+import { InstallationRepositories } from './infrastructure/installation-repositories';
 import { GrantService } from './application/grant.service';
 import { LicenseViewService } from './application/license-view.service';
 import { PlanService } from './application/plan.service';
@@ -37,6 +43,8 @@ import { ENTITLEMENT_API, USAGE_API, USAGE_GAUGES } from './public';
   providers: [
     CatalogRepositories,
     TenantLicenseRepositories,
+    InstallationRepositories,
+    SiteBundleStore,
     LicenseCatalogService,
     PlanService,
     EntitlementEngine,
@@ -52,6 +60,8 @@ import { ENTITLEMENT_API, USAGE_API, USAGE_GAUGES } from './public';
   exports: [
     CatalogRepositories,
     TenantLicenseRepositories,
+    InstallationRepositories,
+    SiteBundleStore,
     LicenseCatalogService,
     PlanService,
     EntitlementEngine,
@@ -79,9 +89,12 @@ export class LicensingCoreModule {
 /** Control-plane and tenant routes and the manifest, for the API process. */
 @Module({
   imports: [LicensingCoreModule],
-  providers: [ControlPlaneService],
+  providers: [ControlPlaneService, BundleKeys, InstallationService],
   controllers: [
     ControlPlaneController,
+    InstallationController,
+    BundleKeyController,
+    SiteBundleController,
     LicenseCatalogController,
     TenantLicenseController,
     TenantOwnLicenseController,
@@ -98,6 +111,7 @@ export class LicensingModule implements OnModuleInit {
 export const USAGE_GAUGES_JOB = 'license.usage.gauges';
 export const USAGE_PURGE_JOB = 'license.usage.purge';
 export const WHITE_LABEL_JOB = 'license.white_label.sweep';
+export const BUNDLE_RENEW_JOB = 'license.bundle.renew';
 
 /**
  * Worker side: the daily gauge samples (checked hourly, once per day), the retention of usage events and the daily
@@ -111,6 +125,7 @@ export class LicensingWorkerModule implements OnModuleInit {
     private readonly queues: QueueRegistry,
     private readonly usage: UsageService,
     private readonly whiteLabel: WhiteLabelSweep,
+    private readonly site: SiteBundleStore,
     @InjectLogger() private readonly logger: Logger,
   ) {}
   async onModuleInit(): Promise<void> {
@@ -125,7 +140,23 @@ export class LicensingWorkerModule implements OnModuleInit {
       const n = await this.usage.purgeEvents();
       if (n > 0) this.logger.info({ purged: n }, 'usage events past retention purged');
     });
+    this.consumers.onJob(BUNDLE_RENEW_JOB, async () => {
+      await this.site.renew();
+    });
     if (!this.config.worker.schedulerEnabled) return;
+    if (this.config.licensing.mode === 'site') {
+      // A hotel-site installation renews its signed entitlement bundle now and every few hours (ADR-0021).
+      void this.site.renew();
+      await this.queues.queue('normal').upsertJobScheduler(
+        BUNDLE_RENEW_JOB,
+        { every: this.config.licensing.renewHours * 3_600_000 },
+        {
+          name: BUNDLE_RENEW_JOB,
+          data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
+          opts: { removeOnComplete: 10, removeOnFail: 50 },
+        },
+      );
+    }
     for (const [job, every] of [
       [USAGE_GAUGES_JOB, 3_600_000],
       [USAGE_PURGE_JOB, 86_400_000],

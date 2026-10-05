@@ -24,7 +24,8 @@ retrieved, rotated, revoked and audited. Operational commands are in `docs/runbo
 | WhatsApp / SMS provider tokens | `kv/hotella/comms/<channel>` via `comms` channel `credentialRef` | worker | per provider; on staff change |
 | SMTP password | `kv/hotella/app#smtp_password` | worker | 180 days |
 | Agent gateway TLS key, agent CA key, command/licence signing key | `kv/hotella/agent` (CA key offline) | agent-gateway (`hotella-agent`) | TLS 397 days; signing keys only on compromise (re-enrolment) |
-| Control-plane bundle signing key (ADR-0021) | `kv/hotella/agent#licence_key` (same Ed25519 licence key) | api | only on compromise (sites re-pin) |
+| Entitlement bundle signing key (ADR-0021) | `kv/hotella/license#bundle_signing_key` (`LICENSING_BUNDLE_SIGNING_KEY_REF`, Ed25519) | api | only on compromise (every site re-pins `LICENSING_BUNDLE_PUBLIC_KEY`) |
+| Site installation key (ADR-0021, on-site platforms only) | the site's own OpenBao, `kv/hotella/license#installation_key` (`LICENSING_INSTALLATION_KEY_REF`, Ed25519) | the site's api/worker | on compromise: register a new key, revoke the old installation |
 | OWS credentials, OPERA DB password | **agent protected store at the hotel** | the agent service only | with the hotel's IT policy (`secret set` replaces) |
 | OpenBao unseal shares, root token | three custodians (offline); root token never kept | people | rekey yearly; root generated per need and revoked |
 

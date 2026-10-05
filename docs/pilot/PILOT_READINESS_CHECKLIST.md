@@ -127,8 +127,10 @@ yet a measured load test; the pilot's monitoring (§13) confirms or adjusts them
 - [ ] Tenant created; plan version published; subscription active for the property (or a trial); entitlements shown
       in the control plane match the contract.
 - [ ] Agent licences VALID (issued only for entitled connectors).
-- [ ] Offline behaviour understood and tested: agent licence grace; the platform's last-known-good entitlements; for an
-      on-site installation, the signed entitlement bundle and its grace (ADR-0021).
+- [ ] Offline behaviour understood and tested: agent licence grace; the platform's last-known-good entitlements
+      (72 h, `LICENSING_STALE_GRACE_HOURS`); for an on-site installation, the installation registered in the control
+      plane, its key in the site's OpenBao, the platform key pinned, a first bundle renewed and its grace (7 + 30 days)
+      agreed in the contract (ADR-0021).
 
 ## 15. Offline behaviour (test it, do not assume it)
 - [ ] Hotel internet down 30 minutes: OPERA unaffected; agent queues; on return everything arrives once, in order.

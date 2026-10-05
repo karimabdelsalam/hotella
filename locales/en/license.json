@@ -45,5 +45,6 @@
   "license.permission.entitlement_read": "See any tenant's effective entitlements and limits",
   "license.permission.tenant_read": "See your organisation's licence: plans, entitlements and limits",
   "license.permission.usage_read": "See any tenant's usage by period",
-  "license.permission.attribution_manage": "Hide or show “Powered by Planova” (only with the white-label entitlement)"
+  "license.permission.attribution_manage": "Hide or show “Powered by Planova” (only with the white-label entitlement)",
+  "license.permission.installation_manage": "Register and revoke hotel-site installations and read the licence bundle key"
 }

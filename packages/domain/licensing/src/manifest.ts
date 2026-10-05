@@ -36,6 +36,11 @@ export const LICENSING_MANIFEST = defineManifest({
     { code: 'license.tenant.read', descriptionKey: 'license.permission.tenant_read', risk: 'READ' },
     { code: 'license.usage.read', descriptionKey: 'license.permission.usage_read', risk: 'READ' },
     {
+      code: 'license.installation.manage',
+      descriptionKey: 'license.permission.installation_manage',
+      risk: 'HIGH',
+    },
+    {
       code: 'license.attribution.manage',
       descriptionKey: 'license.permission.attribution_manage',
       risk: 'HIGH',

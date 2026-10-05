@@ -2624,7 +2624,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 | 11.4 | Control plane: tenant overview, plans/subscriptions/grants/usage screens, feature flags admin, connector registry, AI provider registry screens, attribution policy route, support-access overview, system health (no guest data); Playwright en/ar | delivered (screens: tenants and plans; flags, connectors, AI providers, support access and health stay API/Grafana, see notes) |
 | 11.5 | Developer platform v1: scoped API clients, signed outbound webhooks with retry/DLQ/replay | delivered (management by API; screens follow with the tenant settings area, see notes) |
 | 11.6 | Phase 11 acceptance (`docs/acceptance/phase-11.md`), deployed smoke `smoke-developer.sh` | delivered |
-| 11.7 | Offline-resilient entitlements (ADR-0021): last-known-good facts with grace; signed entitlement bundle for hotel-site installations (installation identity, issue/renew, verify offline, grace, revocation, audit) | planned |
+| 11.7 | Offline-resilient entitlements (ADR-0021): last-known-good facts with grace; signed entitlement bundle for hotel-site installations (installation identity, issue/renew, verify offline, grace, revocation, audit) | done |
 
 **Reality notes for 11.1 (delivered).**
 - New context `packages/domain/licensing` (manifest code `license`, schema `license`, migration 0038 with the whole
@@ -2733,6 +2733,22 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
 - *Tests:* unit (bundle verification, grace states, clock rollback refusal, last-known-good); integration (issue,
   renew, revoke, audit, tenant isolation); e2e (a site-mode app keeps working with the control plane down, warns
   after `valid_until`, refuses people past `grace_until`, never stops SYSTEM work).
+- *As built:* the bundle carries the tenant's licensing facts themselves (subscriptions with their items and limits,
+  grants, overrides, features — `TenantFacts`), so a site evaluates them with the same pure rules as the centre
+  (`domain/bundle.ts`: `issueBundle`, `verifyBundle`, `bundleState`; token `base64url(payload).base64url(sig)`). It
+  is signed with a dedicated Ed25519 key, `LICENSING_BUNDLE_SIGNING_KEY_REF` (`kv/hotella/license#bundle_signing_key`;
+  ephemeral in development, required in production only to issue), rather than the agent licence key, which belongs
+  to the integration context. Instead of an issue-history table, each issue is an audit row
+  (`license.bundle.issue`, actor INTEGRATION = the installation) and `installations.last_issued_at`; the site keeps
+  the newest accepted bundle in `license.site_bundles` and re-verifies it whenever it reads it. Routes:
+  `GET|POST /control/tenants/:t/installations`, `POST …/:id/revoke`, `GET /control/license/bundle-key` (the key a
+  site pins, `LICENSING_BUNDLE_PUBLIC_KEY`, SPKI DER base64), and the public `POST /license/bundle` authenticated by
+  the installation's signature over `hotella.entitlements.v1.request.<id>.<at>` (±5 minutes). Site settings:
+  `LICENSING_MODE=site`, `LICENSING_CONTROL_PLANE_URL` (the central API base), `LICENSING_INSTALLATION_ID`,
+  `LICENSING_INSTALLATION_KEY_REF`; the worker renews at start and every `LICENSING_RENEW_HOURS`. The site's tenant
+  keeps the central tenant id. Tests: `domain/bundle.spec.ts`, `offline.integration.spec.ts` (fault fallback and its
+  limit, registration/issue/audit, refusals, a site app through VALID → GRACE → EXPIRED with SYSTEM still served).
+  A control-plane screen for installations follows with the next control-plane work; the API is complete.
 
 **Reality notes for 11.5 (delivered).**
 - API clients (identity, `iam.api_clients`, migration `0040`): `GET|POST /tenants/:tenantId/api-clients`,

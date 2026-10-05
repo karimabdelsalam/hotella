@@ -125,6 +125,21 @@ export const envSchema = z.object({
   AGENT_CERT_VALIDITY_DAYS: z.coerce.number().int().min(1).max(397).default(90),
   AGENT_ENROLLMENT_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   AGENT_HEARTBEAT_SECONDS: z.coerce.number().int().min(5).max(300).default(30),
+  // Offline-resilient entitlements (ADR-0021, Sprint 11.7).
+  LICENSING_STALE_GRACE_HOURS: z.coerce.number().int().min(0).max(720).default(72),
+  LICENSING_MODE: z.enum(['central', 'site']).default('central'),
+  LICENSING_BUNDLE_SIGNING_KEY_REF: secretRef(
+    'vault://kv/hotella/license#bundle_signing_key',
+  ).optional(),
+  LICENSING_BUNDLE_VALID_DAYS: z.coerce.number().int().min(1).max(30).default(7),
+  LICENSING_BUNDLE_GRACE_DAYS: z.coerce.number().int().min(0).max(90).default(30),
+  LICENSING_BUNDLE_PUBLIC_KEY: z.string().min(40).optional(),
+  LICENSING_CONTROL_PLANE_URL: z.url().optional(),
+  LICENSING_INSTALLATION_ID: z.uuid().optional(),
+  LICENSING_INSTALLATION_KEY_REF: secretRef(
+    'vault://kv/hotella/license#installation_key',
+  ).optional(),
+  LICENSING_RENEW_HOURS: z.coerce.number().int().min(1).max(48).default(6),
   // Outbound webhooks (Spec §75, ADR-0012): the master key endpoint signing secrets derive from, and whether plain
   // http or private addresses may be targets (development and tests only).
   WEBHOOK_SIGNING_KEY_REF: secretRef('vault://kv/hotella/webhooks#signing_key').optional(),
@@ -243,6 +258,21 @@ export interface AppConfig {
     readonly enrollmentTtlHours: number;
     readonly heartbeatSeconds: number;
   };
+  readonly licensing: {
+    /** How long the last facts read successfully still answer when licensing cannot be read. */
+    readonly staleGraceHours: number;
+    /** `site`: entitlements come from the signed bundle of the central control plane (ADR-0021). */
+    readonly mode: 'central' | 'site';
+    readonly bundleSigningKeyRef: string | null;
+    readonly bundleValidDays: number;
+    readonly bundleGraceDays: number;
+    /** Site: the platform's Ed25519 public key, SPKI DER in base64 (pinned). */
+    readonly bundlePublicKey: string | null;
+    readonly controlPlaneUrl: string | null;
+    readonly installationId: string | null;
+    readonly installationKeyRef: string | null;
+    readonly renewHours: number;
+  };
   readonly webhooks: {
     readonly signingKeyRef: string | null;
     readonly allowInsecure: boolean;
@@ -279,6 +309,21 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
     if (missing.length > 0)
       throw new ConfigValidationError(
         missing.map(([path]) => ({ path, message: `required when SECRETS_VAULT_ADDR is set` })),
+      );
+  }
+  if (e.LICENSING_MODE === 'site') {
+    // A hotel-site installation answers from the central control plane's signed bundle (ADR-0021).
+    const missing = (
+      [
+        ['LICENSING_BUNDLE_PUBLIC_KEY', e.LICENSING_BUNDLE_PUBLIC_KEY],
+        ['LICENSING_CONTROL_PLANE_URL', e.LICENSING_CONTROL_PLANE_URL],
+        ['LICENSING_INSTALLATION_ID', e.LICENSING_INSTALLATION_ID],
+        ['LICENSING_INSTALLATION_KEY_REF', e.LICENSING_INSTALLATION_KEY_REF],
+      ] as const
+    ).filter(([, v]) => !v);
+    if (missing.length > 0)
+      throw new ConfigValidationError(
+        missing.map(([path]) => ({ path, message: 'required when LICENSING_MODE=site' })),
       );
   }
   if (e.NODE_ENV === 'production') {
@@ -393,6 +438,18 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
       certValidityDays: e.AGENT_CERT_VALIDITY_DAYS,
       enrollmentTtlHours: e.AGENT_ENROLLMENT_TTL_HOURS,
       heartbeatSeconds: e.AGENT_HEARTBEAT_SECONDS,
+    },
+    licensing: {
+      staleGraceHours: e.LICENSING_STALE_GRACE_HOURS,
+      mode: e.LICENSING_MODE,
+      bundleSigningKeyRef: e.LICENSING_BUNDLE_SIGNING_KEY_REF ?? null,
+      bundleValidDays: e.LICENSING_BUNDLE_VALID_DAYS,
+      bundleGraceDays: e.LICENSING_BUNDLE_GRACE_DAYS,
+      bundlePublicKey: e.LICENSING_BUNDLE_PUBLIC_KEY ?? null,
+      controlPlaneUrl: e.LICENSING_CONTROL_PLANE_URL ?? null,
+      installationId: e.LICENSING_INSTALLATION_ID ?? null,
+      installationKeyRef: e.LICENSING_INSTALLATION_KEY_REF ?? null,
+      renewHours: e.LICENSING_RENEW_HOURS,
     },
     webhooks: {
       signingKeyRef: e.WEBHOOK_SIGNING_KEY_REF ?? null,

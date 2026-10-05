@@ -57,6 +57,14 @@ export interface FeatureFacts {
   readonly defaultIncluded: boolean;
 }
 
+/** Everything licensing knows about one tenant, loaded at once and evaluated per property in memory. */
+export interface TenantFacts {
+  readonly subscriptions: readonly SubscriptionFacts[];
+  readonly grants: readonly GrantFacts[];
+  readonly overrides: readonly OverrideFacts[];
+  readonly features: readonly FeatureFacts[];
+}
+
 export interface EntitlementSource {
   readonly kind: 'SUBSCRIPTION' | 'GRANT';
   readonly id: string;

@@ -1923,6 +1923,9 @@ importers:
       '@hotella/platform-queue':
         specifier: workspace:*
         version: link:../../platform/queue
+      '@hotella/platform-secrets':
+        specifier: workspace:*
+        version: link:../../platform/secrets
       '@hotella/platform-settings':
         specifier: workspace:*
         version: link:../../platform/settings
@@ -1942,9 +1945,6 @@ importers:
       '@hotella/platform-http':
         specifier: workspace:*
         version: link:../../platform/http
-      '@hotella/platform-secrets':
-        specifier: workspace:*
-        version: link:../../platform/secrets
       '@hotella/platform-testing':
         specifier: workspace:*
         version: link:../../platform/testing

@@ -316,6 +316,13 @@
       "when": 1791101338030,
       "tag": "0044_commissioning",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1791195705290,
+      "tag": "0045_license_installations",
+      "breakpoints": true
     }
   ]
 }

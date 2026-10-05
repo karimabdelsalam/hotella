@@ -154,7 +154,14 @@ export async function startGatewayHarness(
   const env = {
     NODE_ENV: 'test',
     LOG_LEVEL: 'silent',
-    DATABASE_URL: await applicationRoleUrl(databaseUrl, 'hotella_app_sim'),
+    // One role per suite (suites run in parallel; each call re-keys its role): the code's prefix names the suite.
+    DATABASE_URL: await applicationRoleUrl(
+      databaseUrl,
+      `hotella_app_sim_${code
+        .split('-')[0]!
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '_')}`,
+    ),
     VALKEY_URL: 'redis://127.0.0.1:1',
     AGENT_HEARTBEAT_SECONDS: '5',
     AGENT_GATEWAY_PUBLIC_URL: `https://localhost:${gatewayPort}`,
