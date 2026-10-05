@@ -54,6 +54,11 @@ Then add the three sites to your proxy:
 The proxy must pass WebSocket upgrades for `api.` (realtime). Open the agent port to the internet, and never proxy it:
 the gateway terminates mutual TLS itself.
 
+**Small servers (demo or trial).** From 2 vCPU, 8 GB RAM and 40 GB of disk, the installer runs as a demo/trial
+installation. It warns, adds 4 GB of swap when the server has none, and builds the images with two tasks at a time
+(`HOTELLA_BUILD_CONCURRENCY=2` in `infra/docker/.env`). The running platform needs about 4 GB. A live hotel needs the
+pilot baseline. Below 8 GB the installer stops unless `--skip-checks` is given.
+
 **Sizing on a shared host.** The pilot baseline (checklist §1.1: 8 vCPU, 32 GB) is for Hotella alone. Add what the
 other systems use, or install with `--skip-checks` knowingly and watch `hotella monitor`. To isolate Hotella fully (its
 own kernel limits, firewall and Docker), run the same command inside a VM or a system container (Incus/LXD with

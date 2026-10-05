@@ -26,7 +26,8 @@ API, worker, agent gateway, staff and guest web apps, observability):
 | Network | public IPv4, 100 Mbit/s symmetric, DNS names for API, staff, guest and agent gateway, TLS certificates | 1 Gbit/s, load balancer |
 | GPU | not needed — AI runs at the providers through the Model Gateway | only if self-hosted models are chosen later |
 
-These figures are a planning baseline from the architecture (worker queues, pgvector, one Node process per role), not
+A demo or trial installation (no live hotel) runs from 2 vCPU, 8 GB RAM and 40 GB of disk. The installer adds swap
+and builds more slowly there (deploy runbook, "Small servers"). These figures are a planning baseline from the architecture (worker queues, pgvector, one Node process per role), not
 yet a measured load test; the pilot's monitoring (§13) confirms or adjusts them before the next hotels.
 
 ### 1.2 Hotel agent host (at each hotel)

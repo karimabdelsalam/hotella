@@ -9,6 +9,8 @@
 ARG NODE_IMAGE=node:24-bookworm-slim
 
 FROM ${NODE_IMAGE} AS build
+# How many build tasks run at once; 2 keeps a build within an 8 GB server (install-ubuntu.sh sets it).
+ARG BUILD_CONCURRENCY=4
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1 TURBO_TELEMETRY_DISABLED=1
 RUN corepack enable
 WORKDIR /repo
@@ -24,7 +26,7 @@ COPY apps/guest-web/package.json apps/guest-web/package.json
 COPY packages ./packages
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm turbo run build --filter=@hotella/api... --filter=@hotella/worker... \
+RUN pnpm turbo run build --concurrency="${BUILD_CONCURRENCY}" --filter=@hotella/api... --filter=@hotella/worker... \
   --filter=@hotella/agent-gateway... --filter=@hotella/pms-simulator... --filter=@hotella/staff-web... \
   --filter=@hotella/guest-web...
 # Self-contained production bundles: dist + production dependencies, workspace packages copied in.

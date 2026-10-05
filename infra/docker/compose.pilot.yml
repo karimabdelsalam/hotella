@@ -113,7 +113,12 @@ services:
   # One-shot: applies migrations as the admin role, then grants the application role (pilot.sh migrate).
   migrate:
     image: hotella/api:${HOTELLA_VERSION:-local}
-    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: api }
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: api
+      # Parallel build tasks; the installer lowers it on small servers (memory).
+      args: { BUILD_CONCURRENCY: '${HOTELLA_BUILD_CONCURRENCY:-4}' }
     profiles: [ops]
     entrypoint: ['/bin/sh', '-c']
     command:
@@ -130,7 +135,12 @@ services:
 
   api:
     image: hotella/api:${HOTELLA_VERSION:-local}
-    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: api }
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: api
+      # Parallel build tasks; the installer lowers it on small servers (memory).
+      args: { BUILD_CONCURRENCY: '${HOTELLA_BUILD_CONCURRENCY:-4}' }
     restart: unless-stopped
     environment:
       <<: *app-env
@@ -149,7 +159,12 @@ services:
 
   worker:
     image: hotella/worker:${HOTELLA_VERSION:-local}
-    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: worker }
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: worker
+      # Parallel build tasks; the installer lowers it on small servers (memory).
+      args: { BUILD_CONCURRENCY: '${HOTELLA_BUILD_CONCURRENCY:-4}' }
     restart: unless-stopped
     environment:
       <<: *app-env
@@ -168,7 +183,12 @@ services:
   # realtime endpoint (HOTELLA_PUBLIC_WS_URL, e.g. wss://ops.example.com/api/v1/realtime).
   staff-web:
     image: hotella/staff-web:${HOTELLA_VERSION:-local}
-    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: staff-web }
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: staff-web
+      # Parallel build tasks; the installer lowers it on small servers (memory).
+      args: { BUILD_CONCURRENCY: '${HOTELLA_BUILD_CONCURRENCY:-4}' }
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -184,7 +204,12 @@ services:
   # stays in an httpOnly cookie of this origin; the browser reaches the API only through its same-origin proxy.
   guest-web:
     image: hotella/guest-web:${HOTELLA_VERSION:-local}
-    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: guest-web }
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: guest-web
+      # Parallel build tasks; the installer lowers it on small servers (memory).
+      args: { BUILD_CONCURRENCY: '${HOTELLA_BUILD_CONCURRENCY:-4}' }
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -199,7 +224,12 @@ services:
   # terminates in the gateway itself, so it is published directly (not through the host reverse proxy).
   agent-gateway:
     image: hotella/agent-gateway:${HOTELLA_VERSION:-local}
-    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: agent-gateway }
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: agent-gateway
+      # Parallel build tasks; the installer lowers it on small servers (memory).
+      args: { BUILD_CONCURRENCY: '${HOTELLA_BUILD_CONCURRENCY:-4}' }
     restart: unless-stopped
     environment:
       <<: *app-env
@@ -222,7 +252,12 @@ services:
   # Development/CI only: the PMS simulator acting as a hotel agent (pilot.sh simulate).
   simulator:
     image: hotella/pms-simulator:${HOTELLA_VERSION:-local}
-    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: pms-simulator }
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: pms-simulator
+      # Parallel build tasks; the installer lowers it on small servers (memory).
+      args: { BUILD_CONCURRENCY: '${HOTELLA_BUILD_CONCURRENCY:-4}' }
     profiles: [tools]
     volumes:
       - ./pilot/.secrets/agent/ca.crt:/run/agent-ca/ca.crt:ro

@@ -108,9 +108,16 @@ cpus=$(nproc)
 mem_gb=$(($(awk '/MemTotal/ {print $2}' /proc/meminfo) / 1024 / 1024))
 disk_gb=$(($(df -Pk / | awk 'NR==2 {print $4}') / 1024 / 1024))
 say "host: ${PRETTY_NAME}, ${cpus} vCPU, ${mem_gb} GB RAM, ${disk_gb} GB free on /"
-if [ "$cpus" -lt 4 ] || [ "$mem_gb" -lt 15 ] || [ "$disk_gb" -lt 80 ]; then
-  msg="below the minimum (4 vCPU, 16 GB RAM, 80 GB free); a hotel pilot needs 8 vCPU, 32 GB RAM, 500 GB NVMe"
+# Tiers: below 2 vCPU / 7 GB / 40 GB it does not run; below 16 GB it is a demo or trial installation (swap added,
+# smaller builds); a hotel pilot needs 8 vCPU, 32 GB RAM, 500 GB NVMe (checklist §1.1).
+SMALL=false
+if [ "$cpus" -lt 2 ] || [ "$mem_gb" -lt 7 ] || [ "$disk_gb" -lt 40 ]; then
+  msg="below the minimum (2 vCPU, 8 GB RAM, 40 GB free); a hotel pilot needs 8 vCPU, 32 GB RAM, 500 GB NVMe"
   $SKIP_CHECKS && warn "$msg" || die "$msg — use --skip-checks to install anyway"
+  SMALL=true
+elif [ "$mem_gb" -lt 15 ] || [ "$cpus" -lt 4 ]; then
+  warn "a small server: fine for a demo or a trial, not for a live hotel (pilot: 8 vCPU, 32 GB RAM, 500 GB NVMe)"
+  SMALL=true
 elif [ "$cpus" -lt 8 ] || [ "$mem_gb" -lt 30 ]; then
   warn "fine for trying it; a hotel pilot should have 8 vCPU, 32 GB RAM, 500 GB NVMe"
 fi
@@ -166,6 +173,14 @@ if ! $LOCAL && ! $SHARED && ! command -v caddy >/dev/null; then
   apt_install caddy
 fi
 
+# A small server builds the images with fewer tasks at once, and gets swap if it has none, so the build cannot run
+# out of memory (the running platform needs about 4 GB).
+if $SMALL && [ "$(awk '/SwapTotal/ {print $2}' /proc/meminfo)" -eq 0 ] && [ ! -e /swapfile ]; then
+  say "adding 4 GB of swap (/swapfile) for this small server"
+  fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >>/etc/fstab
+fi
+
 # Security updates install themselves (deploy runbook: host prerequisites); a shared server keeps its own policy.
 $SHARED || printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' \
   >/etc/apt/apt.conf.d/20auto-upgrades
@@ -217,6 +232,7 @@ HOTELLA_API_PORT=$API_PORT
 HOTELLA_STAFF_WEB_PORT=$STAFF_PORT
 HOTELLA_GUEST_WEB_PORT=$GUEST_PORT
 HOTELLA_AGENT_PORT=$AGENT_PORT
+HOTELLA_BUILD_CONCURRENCY=$($SMALL && echo 2 || echo 4)
 ${fcm}
 EOF
 export HOTELLA_AGENT_HOSTNAME="$AGENT_HOST"
