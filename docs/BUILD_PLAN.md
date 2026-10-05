@@ -3314,6 +3314,31 @@ manager, front desk, guest relations). Staff web: "Keys & Wi-Fi" (room → guest
 Simulator: `SimulatedAccessSystems` (lock and Wi-Fi faces, failing rooms). Tests: `room-access.integration.spec.ts`
 (guest), `access.e2e-spec.ts` (a lock agent over the real link). The AI concierge gets no key tool (HIGH risk).
 
+**13.4 design (refined before coding).**
+- *Planova Voice Profile v1:* the property's voice gateway (a PBX bridge or SIP trunk service, owner decision Q21)
+  posts signed events to `POST /webhooks/voice/:channelId` (`X-Hotella-Signature`, HMAC-SHA256 over `t.body` with
+  the channel's credential, 5-minute window): `call.started {call_id, from, to, at}`, `call.utterance {call_id,
+  utterance_id, at, text | audio_base64 + mime, language?}`, `call.ended {call_id, at, duration_s}`. It accepts
+  `POST {baseUrl}/say {to, text, audio_base64?, mime?}` (speak into the caller's live call) and `POST
+  {baseUrl}/transfer {to, extension}`. Adapter `VOICE_GATEWAY_STANDARD` (channel type `VOICE`), stateless like the
+  WhatsApp adapters.
+- *Speech without a cycle:* `ai` depends on `communications`, so comms declares the port `SPEECH_SERVICES`
+  (`transcribe`, `synthesize`) and the AI context registers its Model Gateway implementation into it (same pattern
+  as twin labels). The gateway gains `transcribe`/`synthesize` routed by the `AUDIO` capability with data class
+  SENSITIVE, so the egress policy keeps audio on on-prem providers unless an owner opens it (Q22); budgets and
+  model-call records apply as for completions. Providers: `OPENAI_COMPATIBLE` (`/audio/transcriptions`,
+  `/audio/speech` — what local Whisper/TTS servers expose) and `FAKE` for tests. Without a registered speech service
+  the platform still works with gateways that send text and speak text themselves.
+- *Flow:* an utterance with audio is transcribed at the webhook and the audio is dropped (never stored, Q23 off);
+  the text enters the Conversation Engine as an inbound message of the caller's identity on the VOICE channel, so the
+  concierge answers with the same tools; its reply goes out through the normal send loop, where the voice adapter
+  synthesizes it (when a speech service exists) and asks the gateway to say it. A hand-off (`comms.conversation
+  .handoff_requested`) on a VOICE conversation transfers the call to the channel's configured extension.
+- *Calls:* `comms.calls(id, tenant, property, channel_id, provider_call_id, from_identity_id, conversation_id,
+  status RINGING|ANSWERED|TRANSFERRED|ENDED, started_at, answered_at, transferred_at, ended_at, duration_s,
+  transfer_extension)` — no recording column until Q23; events `comms.call.started|ended.v1`; `VOICE_MINUTES`
+  (ceil of duration) metered once per call; staff read calls at `/properties/:id/calls` (`inbox.read`).
+
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,
   access state machine, voice profile parsing, connector registry and contract vectors.
