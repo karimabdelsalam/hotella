@@ -2951,7 +2951,7 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 | 12.1 | Evaluation sets/cases, dry-run tool executor, deterministic graders, regression runs, publish gate | done |
 | 12.2 | Agent releases: shadow (compare, never act) and canary (deterministic share), promote/rollback, kill switch | done |
 | 12.3 | Operational twin read model: consumers, neighbourhood queries, read-time names | done |
-| 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | planned |
+| 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | done |
 | 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | planned |
 | 12.6 | Quality and cost metrics job; staff-web Intelligence screens (insights, pulse, quality) in English and Arabic | planned |
 | 12.7 | Phase 12 acceptance (`docs/acceptance/phase-12.md`) | planned |
@@ -3041,6 +3041,40 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
   the asset's name only for a reader with `eng.asset.read`; a redelivered event is a duplicate; a late status does not
   win; 14 edges, 2 ended, none deletable or editable once ended; no guest name in the twin; another hotel, an unknown
   thing or kind, depth 4 and a reader without the permission are refused; RLS hides the rows from another tenant).
+- *As built (12.4):* migration `0052_ai_insights`: `ai.signals` (facts kept from events — `WORK_ORDER_CLOSED`,
+  `SLA_BREACHED`, `COMPLAINT_OPENED`, `HK_JOB_STATUS` — with ids and codes, unique per source event), `ai.insights`
+  (as in 12.A; one live — OPEN or ACKNOWLEDGED — insight per property, detector and fingerprint by a partial unique
+  index; optimistic `version`), `ai.insight_history` (append-only by trigger); `ai.feedback` may now be about an
+  insight (`insight_id`, `execution_id` nullable, one of them required) with kinds `RECOMMENDATION_ACCEPTED` /
+  `RECOMMENDATION_REJECTED`; RLS per tenant. Signals are written by the twin's consumer right after the twin (so a
+  breach carries its work item's department and a complaint the room its stay was in at that moment).
+  `domain/insights.ts` (unit-tested): `RECURRING_ASSET_FAILURE` (≥ `minFailures` corrective work orders done on one
+  asset in `windowDays`, naming the cause when most share it), `SLA_BREACH_CLUSTER` (breaches of a department in the
+  recent window ≥ max(`minBreaches`, `factor` × its own baseline over the same length)), `REPEAT_COMPLAINT` (per room
+  and per category), `SLOW_TURNAROUND` (a room type's DONE→INSPECTED median ≥ `factor` × the property's, with
+  `minSamples`); `confidence = min(1, samples ÷ (2 × threshold))`; severities from the same formulas; thresholds are the
+  settings `ai.insights.{recurring_failure, sla_cluster, repeat_complaint, slow_turnaround}` (platform → tenant →
+  property). The fifth detector, `ARRIVAL_RISK_TOMORROW`, is **contributed** by housekeeping through
+  `AI_INSIGHT_DETECTORS` (`ai/public`): tomorrow's arrivals its rules score HIGH, stays as evidence, rooms as affected,
+  no names — the registry lets any context add deterministic detectors without the AI context depending on it.
+  `InsightEngine.detect(property)`: entitled properties only (`AI_INTELLIGENCE`); a found insight refreshes the live
+  one (evidence, severity, `last_seen_at`, `expires_at` = now + its window; `occurrences` + 1 when the evidence has new
+  ids); otherwise a new OPEN insight is raised — but after a person resolved or dismissed one, only evidence it did not
+  have raises it again; a live insight no longer found expires when its evidence aged out; a failing contributed
+  detector changes nothing of its own insights. The worker runs `ai.insights.detect` hourly on `background-ai` for every
+  property the twin knows. API (`AI_INTELLIGENCE`): `GET /properties/:id/insights?status=&limit=` (HIGH first, latest
+  first), `GET …/insights/:insightId` (with history), `POST …/insights/detect` (run now), `POST …/:insightId/{acknowledge,
+  resolve}` (`{version, reason?}`) and `…/dismiss` (`{version, reason}` required): optimistic, audited
+  (`ai.insight.acknowledge|resolve|dismiss`), history row, `ai.insight.status_changed.v1`, and feedback (acknowledging
+  or resolving accepts the recommendation once; dismissing rejects it). Events `ai.insight.raised.v1` (detector,
+  severity, confidence) and `ai.insight.status_changed.v1`. Permissions `ai.insight.read`, `ai.insight.act` (general
+  manager, duty manager). Locale keys `ai.insight.detector.*`, `ai.insight.reason.*`, `ai.insight.action.*` in five
+  languages (no plural forms needed). Tests: detector unit tests; integration `insights.integration.spec.ts` (the §38
+  AC unit with its shared cause, an engineering breach cluster, a twice-complained room — from events through the
+  consumer; refresh vs. new evidence; version conflict, a reader cannot act, dismiss needs a reason, a closed insight
+  cannot move; feedback once per kind; same evidence does not reopen, a new repair raises a new insight; contributed
+  detector raised and expired two days later, a failing detector ignored; events; append-only history; another hotel
+  sees nothing); housekeeping's detector raises nothing for a MEDIUM day and one HIGH insight with ids only.
 
 #### 12.E Tests and acceptance
 - Unit: graders, canary bucketing, every detector's thresholds and confidence, insight fingerprinting, twin traversal,

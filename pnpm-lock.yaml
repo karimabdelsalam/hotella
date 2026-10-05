@@ -740,6 +740,9 @@ importers:
       '@hotella/platform-auth':
         specifier: workspace:*
         version: link:../../platform/auth
+      '@hotella/platform-config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@hotella/platform-database':
         specifier: workspace:*
         version: link:../../platform/database
@@ -783,9 +786,6 @@ importers:
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../integrations
-      '@hotella/platform-config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@hotella/platform-http':
         specifier: workspace:*
         version: link:../../platform/http

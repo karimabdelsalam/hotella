@@ -413,5 +413,8 @@
   "errors.ai.evaluation.not_passed": "The latest evaluation of this version on set {set} did not pass.",
   "errors.ai.agent.trial_not_supported": "Only a guest-conversation assistant can be tried in shadow or canary; release this version directly.",
   "errors.ai.agent.nothing_to_roll_back": "There is no trial to end and no earlier version to return to.",
-  "errors.ai.twin.not_found": "This item is not in the operational twin."
+  "errors.ai.twin.not_found": "This item is not in the operational twin.",
+  "errors.ai.insight.not_found": "This insight was not found.",
+  "errors.ai.insight.not_movable": "This insight can no longer be changed this way.",
+  "errors.ai.insight.version_conflict": "The insight was changed meanwhile. Reload and try again."
 }

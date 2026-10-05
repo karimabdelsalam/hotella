@@ -1,5 +1,6 @@
 /** The ONLY surface other bounded contexts may import from this package (ADR-0001). */
 import type { ZodType } from 'zod';
+import type { DetectedInsight } from '../domain/insights';
 
 export type DataClass = 'PUBLIC' | 'INTERNAL' | 'CONFIDENTIAL' | 'SENSITIVE' | 'RESTRICTED';
 export type Capability =
@@ -210,3 +211,25 @@ export interface TwinLabelRegistrar {
   register(labeler: TwinLabeler): void;
 }
 export const AI_TWIN_LABELS = Symbol.for('hotella.domain.ai.twin-labels');
+
+// ---- insights (Spec §38–§39, BUILD_PLAN 12.4) ----
+
+export type { DetectedInsight, InsightSeverity } from '../domain/insights';
+
+/**
+ * A deterministic detector another context contributes (e.g. housekeeping's arrival risk for tomorrow): it reads its
+ * own data and answers what it found at the property, with ids, counts and codes as evidence. It never calls a model.
+ */
+export interface InsightDetector {
+  /** `UPPER_SNAKE` detector code, unique across the platform. */
+  readonly code: string;
+  detect(input: {
+    readonly tenantId: string;
+    readonly propertyId: string;
+    readonly now: Date;
+  }): Promise<readonly DetectedInsight[]>;
+}
+export interface InsightDetectorRegistrar {
+  register(detector: InsightDetector): void;
+}
+export const AI_INSIGHT_DETECTORS = Symbol.for('hotella.domain.ai.insight-detectors');

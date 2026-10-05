@@ -36,6 +36,7 @@
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-audit": "workspace:*",
     "@hotella/platform-auth": "workspace:*",
+    "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",
     "@hotella/platform-events": "workspace:*",
     "@hotella/platform-flags": "workspace:*",
@@ -52,7 +53,6 @@
   },
   "devDependencies": {
     "@hotella/domain-integrations": "workspace:*",
-    "@hotella/platform-config": "workspace:*",
     "@hotella/platform-http": "workspace:*",
     "@hotella/platform-testing": "workspace:*",
     "@hotella/tooling": "workspace:*",

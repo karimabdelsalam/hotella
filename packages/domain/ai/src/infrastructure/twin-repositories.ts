@@ -196,4 +196,47 @@ export class TwinRepositories {
       }))
       .filter((e) => asked.has(key(e.from)) || asked.has(key(e.to)));
   }
+
+  /** The codes a node holds (e.g. a work item's department), or undefined when the twin does not know it. */
+  async attributes(tenantId: string, ref: TwinRef): Promise<Record<string, unknown> | undefined> {
+    const [row] = await this.x
+      .select({ attributes: twinNodes.attributes })
+      .from(twinNodes)
+      .where(
+        and(
+          eq(twinNodes.tenantId, tenantId),
+          eq(twinNodes.kind, ref.kind),
+          eq(twinNodes.refId, ref.id),
+        ),
+      );
+    return row?.attributes as Record<string, unknown> | undefined;
+  }
+
+  /** Where an edge from a node pointed at a moment (e.g. which room a stay was in). */
+  async targetAt(
+    tenantId: string,
+    from: TwinRef,
+    relation: TwinRelation,
+    at: Date,
+  ): Promise<string | undefined> {
+    const f = alias(twinNodes, 'f');
+    const t = alias(twinNodes, 't');
+    const [row] = await this.x
+      .select({ id: t.refId })
+      .from(twinEdges)
+      .innerJoin(f, eq(f.id, twinEdges.fromNode))
+      .innerJoin(t, eq(t.id, twinEdges.toNode))
+      .where(
+        and(
+          eq(twinEdges.tenantId, tenantId),
+          eq(f.kind, from.kind),
+          eq(f.refId, from.id),
+          eq(twinEdges.relation, relation),
+          lte(twinEdges.validFrom, at),
+          or(isNull(twinEdges.validTo), gt(twinEdges.validTo, at)),
+        ),
+      )
+      .limit(1);
+    return row?.id;
+  }
 }

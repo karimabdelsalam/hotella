@@ -3,6 +3,7 @@ import { createEnvelope, type EventEnvelope, GuestCheckedOut } from '@hotella/co
 import { newId } from '@hotella/platform-database';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ArrivalRiskService } from './application/arrival-risk.service';
 import { RoomStateService } from './application/room-state.service';
 import { localDay } from './domain/jobs';
 import {
@@ -212,5 +213,65 @@ describe.skipIf(needsInfra())(`Arrival risk v1 (${infraSkipReason()})`, () => {
       .get(`${base()}/arrival-risk?day=yesterday`)
       .set('X-Test-Actor', gm())
       .expect(400);
+  });
+
+  it('contributes ARRIVAL_RISK_TOMORROW to the insight engine: only HIGH arrivals, ids as evidence, no names', async () => {
+    const service = h.app.get(ArrivalRiskService);
+    const scope = { tenantId: hotel.tenantId, propertyId: hotel.propertyId, now: new Date() };
+    // Tomorrow's only arrival is MEDIUM: nothing to raise.
+    expect(await service.insightDetector().detect(scope)).toEqual([]);
+    // With HIGH arrivals (scored as the rules would), one insight for the day.
+    const scored = Object.assign(Object.create(service) as ArrivalRiskService, {
+      assess: async () => ({
+        day: '2026-10-06',
+        arrivals: [
+          {
+            stayId: 's2',
+            roomId: 'r2',
+            vip: false,
+            score: 70,
+            level: 'HIGH',
+            guestName: 'Not copied',
+          },
+          {
+            stayId: 's1',
+            roomId: null,
+            vip: true,
+            score: 90,
+            level: 'HIGH',
+            guestName: 'Not copied',
+          },
+          {
+            stayId: 's3',
+            roomId: 'r3',
+            vip: false,
+            score: 30,
+            level: 'MEDIUM',
+            guestName: 'Not copied',
+          },
+        ],
+      }),
+    });
+    const found = await scored.insightDetector().detect(scope);
+    expect(found).toEqual([
+      expect.objectContaining({
+        detector: 'ARRIVAL_RISK_TOMORROW',
+        fingerprint: 'day:2026-10-06',
+        severity: 'HIGH',
+        confidence: 0.8,
+        reasonParams: { count: 2, day: '2026-10-06' },
+        evidence: [
+          {
+            kind: 'HIGH_RISK_ARRIVALS',
+            refType: 'STAY',
+            refIds: ['s1', 's2'],
+            count: 2,
+            window: 'P1D',
+          },
+        ],
+        affected: [{ type: 'LOCATION', id: 'r2' }],
+      }),
+    ]);
+    expect(JSON.stringify(found)).not.toContain('Not copied');
   });
 });

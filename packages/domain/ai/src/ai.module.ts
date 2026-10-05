@@ -2,13 +2,16 @@ import { Global, Inject, Module, type OnModuleInit, type Provider } from '@nestj
 import { ApprovalDecided, MessageReceived, ReplyDraftUsed } from '@hotella/contracts-events';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { AI_AGENT_AUTHORIZER, AI_POLICY_STAGE } from '@hotella/platform-auth';
+import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import { ManifestRegistry } from '@hotella/platform-manifest';
+import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { SettingsRegistry } from '@hotella/platform-settings';
 import {
   AiAdminController,
   AiEvaluationController,
   AiExecutionsController,
+  AiInsightsController,
   AiTwinController,
 } from './api/controllers';
 import { AiAdminService } from './application/admin.service';
@@ -19,6 +22,12 @@ import { ContextEngine } from './application/context-engine';
 import { AI_EVALUATION_JOB, EvaluationService } from './application/evaluation.service';
 import { ExecutionAuditService } from './application/execution-audit.service';
 import { FeedbackRecorder } from './application/feedback-recorder';
+import {
+  InsightDetectorRegistry,
+  InsightEngine,
+  InsightService,
+} from './application/insights.service';
+import { SIGNAL_EVENTS, SignalRecorder } from './application/signal-recorder';
 import { ModelGatewayService } from './application/gateway.service';
 import { ModelProviderRegistry } from './application/provider-registry';
 import { AI_ACTION_APPROVAL, ToolExecutor } from './application/tools/executor';
@@ -32,9 +41,16 @@ import { BUILT_IN_AGENTS, GUEST_CONCIERGE } from './domain/agents';
 import { AI_SETTINGS } from './domain/settings';
 import { EvaluationRepositories } from './infrastructure/evaluation-repositories';
 import { AiRepositories } from './infrastructure/repositories';
+import { InsightRepositories } from './infrastructure/insight-repositories';
 import { TwinRepositories } from './infrastructure/twin-repositories';
 import { AI_MANIFEST } from './manifest';
-import { AI_TOOL_REGISTRY, AI_TWIN_LABELS, MODEL_GATEWAY, STAFF_ASSISTANT_API } from './public';
+import {
+  AI_INSIGHT_DETECTORS,
+  AI_TOOL_REGISTRY,
+  AI_TWIN_LABELS,
+  MODEL_GATEWAY,
+  STAFF_ASSISTANT_API,
+} from './public';
 
 /** Inbox consumers of the worker: rejected or expired AI proposals are closed; guest messages wake the concierge. */
 export const AI_PROPOSAL_SETTLE_CONSUMER = 'ai.proposal-settle';
@@ -42,6 +58,9 @@ export const AI_CONCIERGE_CONSUMER = 'ai.concierge';
 export const AI_FEEDBACK_CONSUMER = 'ai.feedback';
 /** The operational twin's projection (one consumer for every event it follows). */
 export const AI_TWIN_CONSUMER = 'ai.twin';
+/** Hourly: the insight detectors of every active property (BUILD_PLAN 12.4). */
+export const AI_INSIGHTS_JOB = 'ai.insights.detect';
+const INSIGHTS_EVERY_MS = 60 * 60 * 1000;
 /** The concierge runs as a job on `background-ai`, never on the realtime queue that delivered the message. */
 export const AI_CONCIERGE_JOB = 'ai.concierge.run';
 
@@ -55,6 +74,11 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     TwinLabelRegistry,
     { provide: AI_TWIN_LABELS, useExisting: TwinLabelRegistry },
     TwinProjector,
+    InsightRepositories,
+    SignalRecorder,
+    InsightDetectorRegistry,
+    { provide: AI_INSIGHT_DETECTORS, useExisting: InsightDetectorRegistry },
+    InsightEngine,
     ModelProviderRegistry,
     ModelGatewayService,
     ProposalSettler,
@@ -78,6 +102,11 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     TwinLabelRegistry,
     AI_TWIN_LABELS,
     TwinProjector,
+    InsightRepositories,
+    SignalRecorder,
+    InsightDetectorRegistry,
+    AI_INSIGHT_DETECTORS,
+    InsightEngine,
   ],
 })
 export class AiCoreModule {}
@@ -137,8 +166,9 @@ export class AiToolsModule implements OnModuleInit {
     AiExecutionsController,
     AiEvaluationController,
     AiTwinController,
+    AiInsightsController,
   ],
-  providers: [AiAdminService, ExecutionAuditService, TwinService],
+  providers: [AiAdminService, ExecutionAuditService, TwinService, InsightService],
 })
 export class AiModule implements OnModuleInit {
   /**
@@ -177,8 +207,12 @@ export class AiWorkerModule implements OnModuleInit {
     private readonly feedback: FeedbackRecorder,
     private readonly evaluation: EvaluationService,
     private readonly twin: TwinProjector,
+    private readonly signals: SignalRecorder,
+    private readonly insights: InsightEngine,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    @InjectLogger() private readonly logger: Logger,
   ) {}
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     this.consumers.on(ApprovalDecided.name, AI_PROPOSAL_SETTLE_CONSUMER, async (envelope) => {
       if (!envelope.tenant_id) return;
       const e = ApprovalDecided.parse(envelope);
@@ -214,7 +248,28 @@ export class AiWorkerModule implements OnModuleInit {
       await this.evaluation.execute(data.runId);
     });
     // The operational twin (BUILD_PLAN 12.3): a projection of what other contexts announce.
-    for (const name of TWIN_EVENTS)
-      this.consumers.on(name, AI_TWIN_CONSUMER, (envelope) => this.twin.project(envelope));
+    // The insight signals ride the same consumer, after the twin (they read the room or department it knows).
+    for (const name of new Set([...TWIN_EVENTS, ...SIGNAL_EVENTS]))
+      this.consumers.on(name, AI_TWIN_CONSUMER, async (envelope) => {
+        await this.twin.project(envelope);
+        await this.signals.record(envelope);
+      });
+    this.consumers.onJob(AI_INSIGHTS_JOB, async () => {
+      await this.insights.sweep();
+    });
+    if (!this.config.worker.schedulerEnabled) return;
+    await this.queues.queue('background-ai').upsertJobScheduler(
+      AI_INSIGHTS_JOB,
+      { every: INSIGHTS_EVERY_MS },
+      {
+        name: AI_INSIGHTS_JOB,
+        data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
+        opts: { removeOnComplete: 10, removeOnFail: 50 },
+      },
+    );
+    this.logger.info(
+      { job: AI_INSIGHTS_JOB, every_ms: INSIGHTS_EVERY_MS },
+      'insight schedule armed',
+    );
   }
 }

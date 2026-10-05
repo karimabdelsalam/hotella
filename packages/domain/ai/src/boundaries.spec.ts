@@ -30,7 +30,7 @@ describe('the AI context writes no business table', () => {
     expect(offending).toEqual([]);
   });
 
-  it('declares tables in the ai schema only, and only its repositories touch them (ai, evaluation and twin)', () => {
+  it('declares tables in the ai schema only, and only its repositories touch them (ai, evaluation, insights and twin)', () => {
     const schema = readFileSync(join(SRC, 'infrastructure', 'schema.ts'), 'utf8');
     expect([...schema.matchAll(/pgSchema\('([a-z_]+)'\)/g)].map((m) => m[1])).toEqual(['ai']);
     const drizzleWriters = files.filter((file) =>
@@ -38,6 +38,7 @@ describe('the AI context writes no business table', () => {
     );
     expect(drizzleWriters.map((f) => relative(SRC, f)).sort()).toEqual([
       join('infrastructure', 'evaluation-repositories.ts'),
+      join('infrastructure', 'insight-repositories.ts'),
       join('infrastructure', 'repositories.ts'),
       join('infrastructure', 'twin-repositories.ts'),
     ]);

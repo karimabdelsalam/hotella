@@ -37,6 +37,12 @@ import {
   ExecutionAuditService,
   executionsQuerySchema,
 } from '../application/execution-audit.service';
+import {
+  insightActSchema,
+  insightDismissSchema,
+  insightListSchema,
+  InsightService,
+} from '../application/insights.service';
 import { TwinService, twinQuerySchema } from '../application/twin.service';
 
 class CreateProviderDto extends createZodDto(createProviderSchema) {}
@@ -54,6 +60,9 @@ class PublishAgentVersionDto extends createZodDto(publishSchema) {}
 class ReleaseAgentDto extends createZodDto(releaseSchema) {}
 class RollbackAgentDto extends createZodDto(rollbackSchema) {}
 class TwinQueryDto extends createZodDto(twinQuerySchema) {}
+class InsightListDto extends createZodDto(insightListSchema) {}
+class InsightActDto extends createZodDto(insightActSchema) {}
+class InsightDismissDto extends createZodDto(insightDismissSchema) {}
 
 /** AI providers, models and routing (ADR-0018). */
 @Controller('ai')
@@ -294,5 +303,74 @@ export class AiTwinController {
     const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
     if (!tenantId) throw AppError.notFound('org.property.not_found');
     return this.twin.read({ tenantId, propertyId }, kind, refId, query);
+  }
+}
+
+/** Insights of a property (Spec §38, BUILD_PLAN 12.4): what the detectors found, and what people did about it. */
+@Controller('properties/:propertyId/insights')
+@PropertyScoped({ from: 'param' })
+export class AiInsightsController {
+  constructor(
+    private readonly insights: InsightService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope(propertyId: string) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return { tenantId, propertyId };
+  }
+
+  @Get()
+  @RequirePermission('ai.insight.read', { checkedBy: 'gate' })
+  list(@Param('propertyId') propertyId: string, @Query() query: InsightListDto) {
+    return this.insights.list(this.scope(propertyId), query);
+  }
+
+  @Post('detect')
+  @HttpCode(200)
+  @RequirePermission('ai.insight.act', { checkedBy: 'gate' })
+  detect(@Param('propertyId') propertyId: string) {
+    return this.insights.detectNow(this.scope(propertyId));
+  }
+
+  @Get(':insightId')
+  @RequirePermission('ai.insight.read', { checkedBy: 'gate' })
+  detail(@Param('propertyId') propertyId: string, @Param('insightId') id: string) {
+    return this.insights.detail(this.scope(propertyId), id);
+  }
+
+  @Post(':insightId/acknowledge')
+  @HttpCode(200)
+  @RequirePermission('ai.insight.act', { checkedBy: 'gate' })
+  acknowledge(
+    @Param('propertyId') propertyId: string,
+    @Param('insightId') id: string,
+    @Body() body: InsightActDto,
+  ) {
+    return this.insights.acknowledge(this.scope(propertyId), id, body);
+  }
+
+  @Post(':insightId/resolve')
+  @HttpCode(200)
+  @RequirePermission('ai.insight.act', { checkedBy: 'gate' })
+  resolve(
+    @Param('propertyId') propertyId: string,
+    @Param('insightId') id: string,
+    @Body() body: InsightActDto,
+  ) {
+    return this.insights.resolve(this.scope(propertyId), id, body);
+  }
+
+  @Post(':insightId/dismiss')
+  @HttpCode(200)
+  @RequirePermission('ai.insight.act', { checkedBy: 'gate' })
+  dismiss(
+    @Param('propertyId') propertyId: string,
+    @Param('insightId') id: string,
+    @Body() body: InsightDismissDto,
+  ) {
+    return this.insights.dismiss(this.scope(propertyId), id, body);
   }
 }

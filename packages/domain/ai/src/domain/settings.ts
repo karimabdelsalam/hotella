@@ -40,11 +40,59 @@ export const AI_EVALUATION_MIN_PASS_RATE = defineSetting({
   descriptionKey: 'ai.setting.evaluation_min_pass_rate',
 });
 
+/** Detector thresholds (BUILD_PLAN 12.4): a hotel may tune them; the detectors stay deterministic code. */
+const days = z.number().int().min(1).max(90);
+export const AI_INSIGHTS_RECURRING_FAILURE = defineSetting({
+  key: 'ai.insights.recurring_failure',
+  scopes: ['PLATFORM', 'TENANT', 'PROPERTY'],
+  schema: z.object({ windowDays: days, minFailures: z.number().int().min(2).max(20) }),
+  default: { windowDays: 30, minFailures: 3 },
+  descriptionKey: 'ai.setting.insights_recurring_failure',
+});
+export const AI_INSIGHTS_SLA_CLUSTER = defineSetting({
+  key: 'ai.insights.sla_cluster',
+  scopes: ['PLATFORM', 'TENANT', 'PROPERTY'],
+  schema: z.object({
+    recentDays: days,
+    baselineDays: days,
+    minBreaches: z.number().int().min(1).max(100),
+    factor: z.number().min(1).max(10),
+  }),
+  default: { recentDays: 7, baselineDays: 28, minBreaches: 3, factor: 2 },
+  descriptionKey: 'ai.setting.insights_sla_cluster',
+});
+export const AI_INSIGHTS_REPEAT_COMPLAINT = defineSetting({
+  key: 'ai.insights.repeat_complaint',
+  scopes: ['PLATFORM', 'TENANT', 'PROPERTY'],
+  schema: z.object({
+    windowDays: days,
+    minPerRoom: z.number().int().min(2).max(20),
+    minPerCategory: z.number().int().min(2).max(50),
+  }),
+  default: { windowDays: 14, minPerRoom: 2, minPerCategory: 3 },
+  descriptionKey: 'ai.setting.insights_repeat_complaint',
+});
+export const AI_INSIGHTS_SLOW_TURNAROUND = defineSetting({
+  key: 'ai.insights.slow_turnaround',
+  scopes: ['PLATFORM', 'TENANT', 'PROPERTY'],
+  schema: z.object({
+    windowDays: days,
+    minSamples: z.number().int().min(2).max(100),
+    factor: z.number().min(1).max(10),
+  }),
+  default: { windowDays: 14, minSamples: 5, factor: 1.5 },
+  descriptionKey: 'ai.setting.insights_slow_turnaround',
+});
+
 export const AI_SETTINGS = [
   AI_EXTERNAL_PROVIDERS_ALLOWED,
   AI_EXTERNAL_PROVIDERS_ENABLED,
   AI_BUDGET_MONTHLY_LIMIT_MINOR,
   AI_EVALUATION_MIN_PASS_RATE,
+  AI_INSIGHTS_RECURRING_FAILURE,
+  AI_INSIGHTS_SLA_CLUSTER,
+  AI_INSIGHTS_REPEAT_COMPLAINT,
+  AI_INSIGHTS_SLOW_TURNAROUND,
 ];
 
 /** Kill switches (Spec §42) are feature flags: a flag set to on stops that path. */

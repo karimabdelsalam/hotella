@@ -1,5 +1,10 @@
 import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
-import { AI_TOOL_REGISTRY, type AiToolRegistrar } from '@hotella/domain-ai/public';
+import {
+  AI_INSIGHT_DETECTORS,
+  AI_TOOL_REGISTRY,
+  type AiToolRegistrar,
+  type InsightDetectorRegistrar,
+} from '@hotella/domain-ai/public';
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
@@ -45,6 +50,7 @@ const STAYOVER_EVERY_MS = 60 * 60 * 1000;
     ReadinessService,
     RoomStateService,
     JobService,
+    ArrivalRiskService,
     HousekeepingPublicApiService,
     { provide: HOUSEKEEPING_API, useExisting: HousekeepingPublicApiService },
   ],
@@ -53,6 +59,7 @@ const STAYOVER_EVERY_MS = 60 * 60 * 1000;
     ReadinessService,
     RoomStateService,
     JobService,
+    ArrivalRiskService,
     HOUSEKEEPING_API,
   ],
 })
@@ -61,9 +68,13 @@ export class HousekeepingCoreModule implements OnModuleInit {
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
     @Inject(HOUSEKEEPING_API) private readonly housekeeping: HousekeepingPublicApi,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
+    private readonly arrivals: ArrivalRiskService,
     @Optional() @Inject(AI_TOOL_REGISTRY) private readonly tools?: AiToolRegistrar,
+    @Optional() @Inject(AI_INSIGHT_DETECTORS) private readonly detectors?: InsightDetectorRegistrar,
   ) {}
   onModuleInit(): void {
+    // Tomorrow's risky arrivals become an insight for the duty manager (when the AI context is composed).
+    this.detectors?.register(this.arrivals.insightDetector());
     this.ops.registerWorkItemKind({
       code: HK_JOB_KIND,
       module: 'hk',
@@ -77,7 +88,6 @@ export class HousekeepingCoreModule implements OnModuleInit {
 /** Staff and guest API, settings and manifest, for the API process. */
 @Module({
   imports: [HousekeepingCoreModule],
-  providers: [ArrivalRiskService],
   controllers: [HousekeepingController, HousekeepingJobsController, GuestRoomSignalsController],
 })
 export class HousekeepingModule implements OnModuleInit {

@@ -4,6 +4,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgSchema,
   text,
   timestamp,
@@ -473,6 +474,8 @@ export const feedbackKind = ai.enum('feedback_kind', [
   'REASSIGNMENT',
   'GUEST_CORRECTION',
   'RATING',
+  'RECOMMENDATION_ACCEPTED',
+  'RECOMMENDATION_REJECTED',
 ]);
 
 /** How people corrected or rated an AI execution (Spec §40), e.g. how much staff edited a draft before sending it. */
@@ -483,9 +486,9 @@ export const feedback = classify(
       id: uuid('id').primaryKey(),
       tenantId: uuid('tenant_id').notNull(),
       propertyId: uuid('property_id'),
-      executionId: uuid('execution_id')
-        .notNull()
-        .references(() => executions.id, { onDelete: 'restrict' }),
+      /** The execution the feedback is about; null when it is about an insight (BUILD_PLAN 12.4). */
+      executionId: uuid('execution_id').references(() => executions.id, { onDelete: 'restrict' }),
+      insightId: uuid('insight_id'),
       kind: feedbackKind('kind').notNull(),
       editDistance: integer('edit_distance'),
       details: jsonb('details').notNull().default({}),
@@ -505,6 +508,7 @@ export const feedback = classify(
     tenantId: 'INTERNAL',
     propertyId: 'INTERNAL',
     executionId: 'INTERNAL',
+    insightId: 'INTERNAL',
     kind: 'INTERNAL',
     editDistance: 'INTERNAL',
     details: 'INTERNAL',
@@ -821,3 +825,141 @@ export const twinEdges = classify(
 
 export type TwinNodeRow = typeof twinNodes.$inferSelect;
 export type TwinEdgeRow = typeof twinEdges.$inferSelect;
+
+/**
+ * A fact the insight engine keeps from a domain event (BUILD_PLAN 12.4): ids and codes, at the moment it happened.
+ * Detectors count these; retention follows the longest detector window.
+ */
+export const signals = classify(
+  ai.table(
+    'signals',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      signal: varchar('signal', { length: 40 }).notNull(),
+      subjectKind: varchar('subject_kind', { length: 32 }).notNull(),
+      subjectRef: uuid('subject_ref').notNull(),
+      codes: jsonb('codes').notNull().default({}),
+      occurredAt: tz('occurred_at').notNull(),
+      sourceEventId: uuid('source_event_id').notNull(),
+      createdAt: tz('created_at').notNull().defaultNow(),
+    },
+    (t) => [
+      unique('signals_source_uq').on(t.tenantId, t.sourceEventId, t.signal),
+      index('signals_property_idx').on(t.tenantId, t.propertyId, t.signal, t.occurredAt),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    signal: 'INTERNAL',
+    subjectKind: 'INTERNAL',
+    subjectRef: 'INTERNAL',
+    codes: 'INTERNAL',
+    occurredAt: 'INTERNAL',
+    sourceEventId: 'INTERNAL',
+    createdAt: 'INTERNAL',
+  },
+);
+
+export const insightSeverity = ai.enum('insight_severity', ['LOW', 'MEDIUM', 'HIGH']);
+export const insightStatus = ai.enum('insight_status', [
+  'OPEN',
+  'ACKNOWLEDGED',
+  'RESOLVED',
+  'DISMISSED',
+  'EXPIRED',
+]);
+
+/** What a detector found at a property, with its evidence (Spec §38): one live insight per detector and fingerprint. */
+export const insights = classify(
+  ai.table(
+    'insights',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      detector: varchar('detector', { length: 64 }).notNull(),
+      fingerprint: varchar('fingerprint', { length: 200 }).notNull(),
+      severity: insightSeverity('severity').notNull(),
+      confidence: numeric('confidence', { precision: 4, scale: 3, mode: 'number' }).notNull(),
+      reasonKey: varchar('reason_key', { length: 128 }).notNull(),
+      reasonParams: jsonb('reason_params').notNull().default({}),
+      evidence: jsonb('evidence').notNull().default([]),
+      affected: jsonb('affected').notNull().default([]),
+      suggestedAction: jsonb('suggested_action'),
+      status: insightStatus('status').notNull().default('OPEN'),
+      firstSeenAt: tz('first_seen_at').notNull(),
+      lastSeenAt: tz('last_seen_at').notNull(),
+      occurrences: integer('occurrences').notNull().default(1),
+      expiresAt: tz('expires_at').notNull(),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('insights_live_uq')
+        .on(t.tenantId, t.propertyId, t.detector, t.fingerprint)
+        .where(sql`${t.status} in ('OPEN', 'ACKNOWLEDGED')`),
+      index('insights_property_idx').on(t.tenantId, t.propertyId, t.status, t.lastSeenAt),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    detector: 'INTERNAL',
+    fingerprint: 'INTERNAL',
+    severity: 'INTERNAL',
+    confidence: 'INTERNAL',
+    reasonKey: 'INTERNAL',
+    reasonParams: 'INTERNAL',
+    evidence: 'INTERNAL',
+    affected: 'INTERNAL',
+    suggestedAction: 'INTERNAL',
+    status: 'INTERNAL',
+    firstSeenAt: 'INTERNAL',
+    lastSeenAt: 'INTERNAL',
+    occurrences: 'INTERNAL',
+    expiresAt: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Every status move of an insight (append-only, rule 10). */
+export const insightHistory = classify(
+  ai.table(
+    'insight_history',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      insightId: uuid('insight_id')
+        .notNull()
+        .references(() => insights.id, { onDelete: 'restrict' }),
+      fromStatus: insightStatus('from_status'),
+      toStatus: insightStatus('to_status').notNull(),
+      actorType: varchar('actor_type', { length: 16 }).notNull(),
+      actorId: uuid('actor_id'),
+      reason: varchar('reason', { length: 500 }),
+      at: tz('at').notNull().defaultNow(),
+    },
+    (t) => [index('insight_history_insight_idx').on(t.insightId, t.at)],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    insightId: 'INTERNAL',
+    fromStatus: 'INTERNAL',
+    toStatus: 'INTERNAL',
+    actorType: 'INTERNAL',
+    actorId: 'INTERNAL',
+    reason: 'CONFIDENTIAL',
+    at: 'INTERNAL',
+  },
+);
+
+export type SignalRow = typeof signals.$inferSelect;
+export type InsightRow = typeof insights.$inferSelect;
+export type InsightHistoryRow = typeof insightHistory.$inferSelect;

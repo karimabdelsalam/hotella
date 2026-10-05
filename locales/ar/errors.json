@@ -413,5 +413,8 @@
   "errors.ai.evaluation.not_passed": "لم ينجح آخر تقييم لهذا الإصدار على المجموعة {set}.",
   "errors.ai.agent.trial_not_supported": "لا يمكن تجربة إصدار في وضع الظل أو الكناري إلا لمساعد محادثات النزلاء؛ أصدِر هذا الإصدار مباشرة.",
   "errors.ai.agent.nothing_to_roll_back": "لا توجد تجربة لإنهائها ولا إصدار سابق للعودة إليه.",
-  "errors.ai.twin.not_found": "هذا العنصر غير موجود في التوأم التشغيلي."
+  "errors.ai.twin.not_found": "هذا العنصر غير موجود في التوأم التشغيلي.",
+  "errors.ai.insight.not_found": "لم يتم العثور على هذه الرؤية.",
+  "errors.ai.insight.not_movable": "لم يعد من الممكن تغيير هذه الرؤية بهذه الطريقة.",
+  "errors.ai.insight.version_conflict": "تم تغيير الرؤية في الأثناء. أعد التحميل وحاول مرة أخرى."
 }
