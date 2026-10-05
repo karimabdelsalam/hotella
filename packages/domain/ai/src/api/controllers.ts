@@ -37,6 +37,7 @@ import {
   ExecutionAuditService,
   executionsQuerySchema,
 } from '../application/execution-audit.service';
+import { TwinService, twinQuerySchema } from '../application/twin.service';
 
 class CreateProviderDto extends createZodDto(createProviderSchema) {}
 class UpdateProviderDto extends createZodDto(updateProviderSchema) {}
@@ -52,6 +53,7 @@ class StartEvaluationDto extends createZodDto(startEvaluationSchema) {}
 class PublishAgentVersionDto extends createZodDto(publishSchema) {}
 class ReleaseAgentDto extends createZodDto(releaseSchema) {}
 class RollbackAgentDto extends createZodDto(rollbackSchema) {}
+class TwinQueryDto extends createZodDto(twinQuerySchema) {}
 
 /** AI providers, models and routing (ADR-0018). */
 @Controller('ai')
@@ -268,5 +270,29 @@ export class AiEvaluationController {
   @RequirePermission('ai.evaluation.read', { checkedBy: 'gate' })
   runs(@Param('code') code: string, @Param('versionId') versionId: string) {
     return this.evaluation.runsOf(code, versionId);
+  }
+}
+
+/** The operational twin of a property (Spec §37, BUILD_PLAN 12.3): what a thing is connected to, now or at a moment. */
+@Controller('properties/:propertyId/twin')
+@PropertyScoped({ from: 'param' })
+export class AiTwinController {
+  constructor(
+    private readonly twin: TwinService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get(':kind/:refId')
+  @RequirePermission('ai.twin.read', { checkedBy: 'gate' })
+  read(
+    @Param('propertyId') propertyId: string,
+    @Param('kind') kind: string,
+    @Param('refId') refId: string,
+    @Query() query: TwinQueryDto,
+  ) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return this.twin.read({ tenantId, propertyId }, kind, refId, query);
   }
 }

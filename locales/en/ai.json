@@ -10,5 +10,6 @@
   "ai.permission.evaluation_read": "See AI evaluation sets, runs and releases",
   "ai.permission.evaluation_manage": "Write AI evaluation cases and run evaluations",
   "ai.permission.agent_release": "Release a new AI assistant version once its evaluation passed",
+  "ai.permission.twin_read": "See the operational twin: how rooms, stays, work and equipment are connected",
   "ai.setting.evaluation_min_pass_rate": "Share of evaluation cases a new AI assistant version must pass before it can be released"
 }

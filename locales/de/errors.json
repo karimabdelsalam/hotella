@@ -412,5 +412,6 @@
   "errors.ai.evaluation.run_not_found": "Der Evaluierungslauf wurde nicht gefunden.",
   "errors.ai.evaluation.not_passed": "Die letzte Evaluierung dieser Version auf dem Set {set} wurde nicht bestanden.",
   "errors.ai.agent.trial_not_supported": "Nur ein Assistent für Gästegespräche kann im Schatten- oder Canary-Modus erprobt werden; geben Sie diese Version direkt frei.",
-  "errors.ai.agent.nothing_to_roll_back": "Es gibt keine laufende Erprobung und keine frühere Version, zu der zurückgekehrt werden kann."
+  "errors.ai.agent.nothing_to_roll_back": "Es gibt keine laufende Erprobung und keine frühere Version, zu der zurückgekehrt werden kann.",
+  "errors.ai.twin.not_found": "Dieses Element ist nicht im operativen Zwilling enthalten."
 }

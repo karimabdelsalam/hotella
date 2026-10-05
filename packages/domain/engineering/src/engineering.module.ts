@@ -1,5 +1,10 @@
 import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
-import { AI_TOOL_REGISTRY, type AiToolRegistrar } from '@hotella/domain-ai/public';
+import {
+  AI_TOOL_REGISTRY,
+  AI_TWIN_LABELS,
+  type AiToolRegistrar,
+  type TwinLabelRegistrar,
+} from '@hotella/domain-ai/public';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { ManifestRegistry } from '@hotella/platform-manifest';
@@ -59,10 +64,25 @@ export class EngineeringCoreModule implements OnModuleInit {
   constructor(
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
     private readonly aiTools: EngineeringAiTools,
+    private readonly api: EngineeringPublicApiService,
     @Optional() @Inject(AI_TOOL_REGISTRY) private readonly tools?: AiToolRegistrar,
+    @Optional() @Inject(AI_TWIN_LABELS) private readonly twinLabels?: TwinLabelRegistrar,
   ) {}
   onModuleInit(): void {
     if (this.tools) this.aiTools.registerInto(this.tools);
+    // Assets in the operational twin are named by engineering, for readers who may see assets.
+    this.twinLabels?.register({
+      kind: 'ASSET',
+      permission: 'eng.asset.read',
+      labels: async (tenantId, propertyId, ids) => {
+        const out = new Map<string, string>();
+        for (const id of ids) {
+          const asset = await this.api.getAsset(tenantId, propertyId, id);
+          if (asset) out.set(id, `${asset.assetNumber} · ${asset.name}`);
+        }
+        return out;
+      },
+    });
     this.ops.registerWorkItemKind({
       code: ENG_WORK_ORDER_KIND,
       module: 'eng',

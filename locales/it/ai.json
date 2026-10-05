@@ -10,5 +10,6 @@
   "ai.permission.evaluation_read": "Vedere set di valutazione, esecuzioni e rilasci dell’IA",
   "ai.permission.evaluation_manage": "Scrivere casi di valutazione dell’IA ed eseguire valutazioni",
   "ai.permission.agent_release": "Rilasciare una nuova versione dell’assistente IA dopo che la valutazione è stata superata",
+  "ai.permission.twin_read": "Vedere il gemello operativo: come sono collegati camere, soggiorni, lavori e impianti",
   "ai.setting.evaluation_min_pass_rate": "Quota di casi di valutazione che una nuova versione dell’assistente deve superare prima del rilascio"
 }

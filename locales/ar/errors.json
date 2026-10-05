@@ -412,5 +412,6 @@
   "errors.ai.evaluation.run_not_found": "لم يتم العثور على عملية التقييم.",
   "errors.ai.evaluation.not_passed": "لم ينجح آخر تقييم لهذا الإصدار على المجموعة {set}.",
   "errors.ai.agent.trial_not_supported": "لا يمكن تجربة إصدار في وضع الظل أو الكناري إلا لمساعد محادثات النزلاء؛ أصدِر هذا الإصدار مباشرة.",
-  "errors.ai.agent.nothing_to_roll_back": "لا توجد تجربة لإنهائها ولا إصدار سابق للعودة إليه."
+  "errors.ai.agent.nothing_to_roll_back": "لا توجد تجربة لإنهائها ولا إصدار سابق للعودة إليه.",
+  "errors.ai.twin.not_found": "هذا العنصر غير موجود في التوأم التشغيلي."
 }

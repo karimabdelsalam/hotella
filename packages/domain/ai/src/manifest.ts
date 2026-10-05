@@ -18,6 +18,7 @@ export const AI_MANIFEST = defineManifest({
       risk: 'MEDIUM',
     },
     { code: 'ai.agent.release', descriptionKey: 'ai.permission.agent_release', risk: 'HIGH' },
+    { code: 'ai.twin.read', descriptionKey: 'ai.permission.twin_read', risk: 'READ' },
   ],
   events: [AiEvaluationCompleted.name, AiAgentReleased.name],
   // Tools v1 (BUILD_PLAN 6.2): the risk decides autonomy; the permission is all an agent holds for the tool.
@@ -37,6 +38,6 @@ export const AI_MANIFEST = defineManifest({
     },
     { code: 'communication.send_message', risk: 'LOW', requiredPermission: 'inbox.reply' },
   ],
-  entitlements: ['AI_GUEST', 'AI_ENGINEERING', 'AI_MANAGER'],
+  entitlements: ['AI_GUEST', 'AI_ENGINEERING', 'AI_MANAGER', 'AI_INTELLIGENCE'],
   localeNamespaces: ['ai'],
 });

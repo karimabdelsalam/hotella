@@ -174,3 +174,39 @@ export interface StaffAssistantApi {
 export const STAFF_ASSISTANT_API = Symbol.for('hotella.domain.ai.staff-assistant');
 
 export { AI_MANIFEST } from '../manifest';
+
+// ---- operational twin (Spec §37, BUILD_PLAN 12.3) ----
+
+/** What the twin connects (ids from the owning contexts). */
+export type TwinKindCode =
+  | 'LOCATION'
+  | 'STAY'
+  | 'GUEST'
+  | 'ASSET'
+  | 'WORK_ITEM'
+  | 'WORK_ORDER'
+  | 'SERVICE_REQUEST'
+  | 'COMPLAINT'
+  | 'CONVERSATION'
+  | 'INSPECTION'
+  | 'LOST_ITEM'
+  | 'STAFF';
+
+/**
+ * Names for twin nodes, looked up when someone reads the twin (the twin itself keeps no names). Answers a label per id
+ * it knows, in the owning context's own words (an asset number and name, a room number).
+ */
+export interface TwinLabeler {
+  readonly kind: TwinKindCode;
+  /** The reader must hold this permission at the property to see these labels (none: anyone who may read the twin). */
+  readonly permission?: string;
+  labels(
+    tenantId: string,
+    propertyId: string,
+    ids: readonly string[],
+  ): Promise<ReadonlyMap<string, string>>;
+}
+export interface TwinLabelRegistrar {
+  register(labeler: TwinLabeler): void;
+}
+export const AI_TWIN_LABELS = Symbol.for('hotella.domain.ai.twin-labels');

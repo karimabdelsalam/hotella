@@ -412,5 +412,6 @@
   "errors.ai.evaluation.run_not_found": "The evaluation run was not found.",
   "errors.ai.evaluation.not_passed": "The latest evaluation of this version on set {set} did not pass.",
   "errors.ai.agent.trial_not_supported": "Only a guest-conversation assistant can be tried in shadow or canary; release this version directly.",
-  "errors.ai.agent.nothing_to_roll_back": "There is no trial to end and no earlier version to return to."
+  "errors.ai.agent.nothing_to_roll_back": "There is no trial to end and no earlier version to return to.",
+  "errors.ai.twin.not_found": "This item is not in the operational twin."
 }

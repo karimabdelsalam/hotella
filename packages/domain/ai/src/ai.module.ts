@@ -9,6 +9,7 @@ import {
   AiAdminController,
   AiEvaluationController,
   AiExecutionsController,
+  AiTwinController,
 } from './api/controllers';
 import { AiAdminService } from './application/admin.service';
 import { AGENT_DEFINITIONS, AgentCatalog } from './application/agent-catalog';
@@ -24,18 +25,23 @@ import { AI_ACTION_APPROVAL, ToolExecutor } from './application/tools/executor';
 import { ProposalSettler } from './application/tools/proposal-settler';
 import { ToolRegistry } from './application/tools/registry';
 import { AiPolicyStage, ScopedAgentAuthorizer } from './application/tools/scope';
+import { TWIN_EVENTS } from './application/twin-projection';
+import { TwinLabelRegistry, TwinProjector, TwinService } from './application/twin.service';
 import { ToolsV1 } from './application/tools/v1';
 import { BUILT_IN_AGENTS, GUEST_CONCIERGE } from './domain/agents';
 import { AI_SETTINGS } from './domain/settings';
 import { EvaluationRepositories } from './infrastructure/evaluation-repositories';
 import { AiRepositories } from './infrastructure/repositories';
+import { TwinRepositories } from './infrastructure/twin-repositories';
 import { AI_MANIFEST } from './manifest';
-import { AI_TOOL_REGISTRY, MODEL_GATEWAY, STAFF_ASSISTANT_API } from './public';
+import { AI_TOOL_REGISTRY, AI_TWIN_LABELS, MODEL_GATEWAY, STAFF_ASSISTANT_API } from './public';
 
 /** Inbox consumers of the worker: rejected or expired AI proposals are closed; guest messages wake the concierge. */
 export const AI_PROPOSAL_SETTLE_CONSUMER = 'ai.proposal-settle';
 export const AI_CONCIERGE_CONSUMER = 'ai.concierge';
 export const AI_FEEDBACK_CONSUMER = 'ai.feedback';
+/** The operational twin's projection (one consumer for every event it follows). */
+export const AI_TWIN_CONSUMER = 'ai.twin';
 /** The concierge runs as a job on `background-ai`, never on the realtime queue that delivered the message. */
 export const AI_CONCIERGE_JOB = 'ai.concierge.run';
 
@@ -45,6 +51,10 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
   providers: [
     AiRepositories,
     EvaluationRepositories,
+    TwinRepositories,
+    TwinLabelRegistry,
+    { provide: AI_TWIN_LABELS, useExisting: TwinLabelRegistry },
+    TwinProjector,
     ModelProviderRegistry,
     ModelGatewayService,
     ProposalSettler,
@@ -64,6 +74,10 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     FeedbackRecorder,
     MODEL_GATEWAY,
     CONCIERGE_AGENT,
+    TwinRepositories,
+    TwinLabelRegistry,
+    AI_TWIN_LABELS,
+    TwinProjector,
   ],
 })
 export class AiCoreModule {}
@@ -118,8 +132,13 @@ export class AiToolsModule implements OnModuleInit {
 /** Administration API, tools, settings and manifest, for the API process. */
 @Module({
   imports: [AiCoreModule, AiToolsModule],
-  controllers: [AiAdminController, AiExecutionsController, AiEvaluationController],
-  providers: [AiAdminService, ExecutionAuditService],
+  controllers: [
+    AiAdminController,
+    AiExecutionsController,
+    AiEvaluationController,
+    AiTwinController,
+  ],
+  providers: [AiAdminService, ExecutionAuditService, TwinService],
 })
 export class AiModule implements OnModuleInit {
   /**
@@ -157,6 +176,7 @@ export class AiWorkerModule implements OnModuleInit {
     private readonly runtime: ConciergeRuntime,
     private readonly feedback: FeedbackRecorder,
     private readonly evaluation: EvaluationService,
+    private readonly twin: TwinProjector,
   ) {}
   onModuleInit(): void {
     this.consumers.on(ApprovalDecided.name, AI_PROPOSAL_SETTLE_CONSUMER, async (envelope) => {
@@ -193,5 +213,8 @@ export class AiWorkerModule implements OnModuleInit {
     this.consumers.onJob<{ runId: string }>(AI_EVALUATION_JOB, async (data) => {
       await this.evaluation.execute(data.runId);
     });
+    // The operational twin (BUILD_PLAN 12.3): a projection of what other contexts announce.
+    for (const name of TWIN_EVENTS)
+      this.consumers.on(name, AI_TWIN_CONSUMER, (envelope) => this.twin.project(envelope));
   }
 }

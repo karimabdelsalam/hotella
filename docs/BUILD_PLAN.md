@@ -2950,7 +2950,7 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 |---|---|---|
 | 12.1 | Evaluation sets/cases, dry-run tool executor, deterministic graders, regression runs, publish gate | done |
 | 12.2 | Agent releases: shadow (compare, never act) and canary (deterministic share), promote/rollback, kill switch | done |
-| 12.3 | Operational twin read model: consumers, neighbourhood queries, read-time names | planned |
+| 12.3 | Operational twin read model: consumers, neighbourhood queries, read-time names | done |
 | 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | planned |
 | 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | planned |
 | 12.6 | Quality and cost metrics job; staff-web Intelligence screens (insights, pulse, quality) in English and Arabic | planned |
@@ -3016,6 +3016,31 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
   the trial closes the shadow run FAILED; CANARY answers by the conversation's bucket and the side stays stable;
   ACTIVE switches the reply to v2; rollback reinstates v1 with unchanged content, v2 superseded and not releasable
   again, nothing more to roll back; release history and audit rows), green on reruns.
+- *As built (12.3):* migration `0051_ai_twin`: `ai.twin_nodes` (one per `(tenant, kind, ref_id)`; `state` with the
+  moment it was observed, `attributes` jsonb of codes only) and `ai.twin_edges` (`from_node —relation→ to_node`,
+  `valid_from`, `valid_to`; one open edge per triple; a trigger lets an edge only be ended, never edited again or
+  deleted — rule 10); RLS per tenant. Kinds: `LOCATION` (a room is a location; `room` is accepted in the URL), `STAY`,
+  `GUEST`, `ASSET`, `WORK_ITEM`, `WORK_ORDER`, `SERVICE_REQUEST`, `COMPLAINT`, `CONVERSATION`, `INSPECTION`,
+  `LOST_ITEM`, `STAFF` (the plan's list plus `SERVICE_REQUEST` and `STAFF`, which the §80 chain needs). Relations:
+  `HAS_GUEST`, `IN_ROOM` (one at a time), `AT`, `FOR_STAY`, `BY_GUEST`, `ASSIGNED_TO`, `TRACKS`, `ON_ASSET`,
+  `RAISED`. `application/twin-projection.ts` (pure, unit-tested) maps 18 events — stay created / status / room
+  changed, guest anonymized, work item created / status, task assigned (the previous assignee's edge ends), work order
+  created / closed (failure, cause, resolution codes, downtime), service request created / status, complaint opened /
+  resolved, conversation opened, inspection completed, finding raised (its urgent work), lost & found registered /
+  released / disposed — to node and edge operations; the worker applies them through the inbox (consumer `ai.twin`,
+  exactly once) at the event's `occurred_at`, and a late event never overwrites a newer state. `domain/twin.ts`:
+  `neighbourhood(start, depth 1–3, edgesOf)` — breadth first in both directions, deterministic order, capped at 200
+  nodes (`truncated`). API: `GET /properties/:id/twin/:kind/:refId?depth=1..3&at=` (permission `ai.twin.read`, given
+  to the general manager and the duty manager; entitlement `AI_INTELLIGENCE`) answers the nodes (distance, state,
+  codes, label) and the edges valid at `at` (default now; states are the latest known). Names are never stored: they
+  are looked up at read time through `AI_TWIN_LABELS` (`ai/public`), where the AI context names locations (room number
+  or location code, organization API) and staff (display name, identity API) and engineering names assets (number and
+  name) for readers holding `eng.asset.read`; guests stay unnamed in v1. Tests: traversal and projection unit tests;
+  integration `twin.integration.spec.ts` (the §80 chain as events: the stay's neighbourhood now and before the room
+  move; reassignment shows the current engineer now and the first one earlier, by name; the closed work order's codes;
+  the asset's name only for a reader with `eng.asset.read`; a redelivered event is a duplicate; a late status does not
+  win; 14 edges, 2 ended, none deletable or editable once ended; no guest name in the twin; another hotel, an unknown
+  thing or kind, depth 4 and a reader without the permission are refused; RLS hides the rows from another tenant).
 
 #### 12.E Tests and acceptance
 - Unit: graders, canary bucketing, every detector's thresholds and confidence, insight fingerprinting, twin traversal,

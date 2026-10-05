@@ -30,6 +30,7 @@
     "@hotella/domain-catalog": "workspace:*",
     "@hotella/domain-communications": "workspace:*",
     "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-licensing": "workspace:*",
     "@hotella/domain-operations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
@@ -50,7 +51,6 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@hotella/domain-identity": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-http": "workspace:*",

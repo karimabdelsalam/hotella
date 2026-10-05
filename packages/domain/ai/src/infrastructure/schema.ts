@@ -729,3 +729,95 @@ export type EvaluationCaseRow = typeof evaluationCases.$inferSelect;
 export type EvaluationRunRow = typeof evaluationRuns.$inferSelect;
 export type EvaluationResultRow = typeof evaluationResults.$inferSelect;
 export type AgentReleaseRow = typeof agentReleases.$inferSelect;
+
+export const twinKind = ai.enum('twin_kind', [
+  'LOCATION',
+  'STAY',
+  'GUEST',
+  'ASSET',
+  'WORK_ITEM',
+  'WORK_ORDER',
+  'SERVICE_REQUEST',
+  'COMPLAINT',
+  'CONVERSATION',
+  'INSPECTION',
+  'LOST_ITEM',
+  'STAFF',
+]);
+
+/**
+ * A thing in the operational twin (BUILD_PLAN 12.3): its id in the owning context, its latest state and codes — never
+ * a name or free text. A projection of events, never the source of truth.
+ */
+export const twinNodes = classify(
+  ai.table(
+    'twin_nodes',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      kind: twinKind('kind').notNull(),
+      refId: uuid('ref_id').notNull(),
+      state: varchar('state', { length: 32 }),
+      /** When the state was observed (an older event never overwrites a newer state). */
+      stateAt: tz('state_at'),
+      attributes: jsonb('attributes').notNull().default({}),
+    },
+    (t) => [uniqueIndex('twin_nodes_ref_uq').on(t.tenantId, t.kind, t.refId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    kind: 'INTERNAL',
+    refId: 'INTERNAL',
+    state: 'INTERNAL',
+    stateAt: 'INTERNAL',
+    attributes: 'INTERNAL',
+  },
+);
+
+/** A connection between two things, valid from one moment until it ends (ended, never deleted — rule 10). */
+export const twinEdges = classify(
+  ai.table(
+    'twin_edges',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      fromNode: uuid('from_node')
+        .notNull()
+        .references(() => twinNodes.id, { onDelete: 'restrict' }),
+      relation: varchar('relation', { length: 32 }).notNull(),
+      toNode: uuid('to_node')
+        .notNull()
+        .references(() => twinNodes.id, { onDelete: 'restrict' }),
+      validFrom: tz('valid_from').notNull(),
+      validTo: tz('valid_to'),
+    },
+    (t) => [
+      uniqueIndex('twin_edges_open_uq')
+        .on(t.fromNode, t.relation, t.toNode)
+        .where(sql`${t.validTo} is null`),
+      index('twin_edges_from_idx').on(t.fromNode, t.validFrom),
+      index('twin_edges_to_idx').on(t.toNode, t.validFrom),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    fromNode: 'INTERNAL',
+    relation: 'INTERNAL',
+    toNode: 'INTERNAL',
+    validFrom: 'INTERNAL',
+    validTo: 'INTERNAL',
+  },
+);
+
+export type TwinNodeRow = typeof twinNodes.$inferSelect;
+export type TwinEdgeRow = typeof twinEdges.$inferSelect;

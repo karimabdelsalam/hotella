@@ -412,5 +412,6 @@
   "errors.ai.evaluation.run_not_found": "Esecuzione della valutazione non trovata.",
   "errors.ai.evaluation.not_passed": "L’ultima valutazione di questa versione sul set {set} non è stata superata.",
   "errors.ai.agent.trial_not_supported": "Solo un assistente per le conversazioni con gli ospiti può essere provato in shadow o canary; rilascia questa versione direttamente.",
-  "errors.ai.agent.nothing_to_roll_back": "Non c’è alcuna prova da terminare né una versione precedente a cui tornare."
+  "errors.ai.agent.nothing_to_roll_back": "Non c’è alcuna prova da terminare né una versione precedente a cui tornare.",
+  "errors.ai.twin.not_found": "Questo elemento non è presente nel gemello operativo."
 }

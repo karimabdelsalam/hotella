@@ -54,6 +54,9 @@ export const ADMIN = JSON.stringify({
 export const staff = (id: string, tenantId: string): string =>
   JSON.stringify({ type: 'USER', id, tenantId, isPlatformAdmin: false });
 
+/** Staff display names the fake identity knows (tests add theirs; e.g. names shown in the twin). */
+export const STAFF_NAMES = new Map<string, string>();
+
 /** Operations looks staff up through identity; nobody is notified in these tests. */
 @Global()
 @Module({
@@ -61,7 +64,16 @@ export const staff = (id: string, tenantId: string): string =>
     {
       provide: IDENTITY_API,
       useValue: {
-        getStaffMember: async () => null,
+        getStaffMember: async (tenantId: string, id: string) =>
+          STAFF_NAMES.has(id)
+            ? {
+                id,
+                tenantId,
+                displayName: STAFF_NAMES.get(id)!,
+                localePref: null,
+                status: 'ACTIVE',
+              }
+            : null,
         usersWithPermission: async () => [],
         usersWithRole: async () => [],
         getStaffContact: async () => null,

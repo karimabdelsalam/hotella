@@ -722,6 +722,9 @@ importers:
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../guest
+      '@hotella/domain-identity':
+        specifier: workspace:*
+        version: link:../identity
       '@hotella/domain-licensing':
         specifier: workspace:*
         version: link:../licensing
@@ -777,9 +780,6 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@hotella/domain-identity':
-        specifier: workspace:*
-        version: link:../identity
       '@hotella/domain-integrations':
         specifier: workspace:*
         version: link:../integrations
