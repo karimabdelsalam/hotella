@@ -25,6 +25,40 @@ For the first pilot hotel with its demo data, `sudo bash infra/install/sea-beach
 <e-mail>` runs the same installer and then creates Sea Beach Edge and its demo content (`docs/pilot/sea-beach-edge/`
 §4). Any hotel: `install-ubuntu.sh --hotel <profile.json> [--demo <demo.json>]`.
 
+## Sharing a server with other systems
+
+Hotella runs as its own Docker Compose project (`hotella-pilot`). Its containers, volumes and internal network are
+separate from anything else on the host. Its web ports are bound to `127.0.0.1` only. The exception is the hotel
+agents' gateway, which must be reachable from the hotels (`HOTELLA_AGENT_PORT`, default 8443).
+
+On a server that already runs other systems, install with `--shared`:
+
+```bash
+sudo bash infra/install/sea-beach-edge.sh --shared --domain <domain> --email <e-mail> \
+  [--api-port 3000 --staff-port 3100 --guest-port 3200 --agent-port 8443]
+```
+
+| What the installer normally does | With `--shared` |
+|---|---|
+| Installs Caddy and writes `/etc/caddy/Caddyfile` | Untouched. Writes `infra/docker/reverse-proxy.nginx.conf` and `reverse-proxy.Caddyfile` with the chosen ports for **your** proxy |
+| Enables ufw with only SSH, 80, 443 and the agent port | Untouched. If ufw is already active, only the agent port is allowed (other rules stay as they are) |
+| Refuses when 80/443 are taken | 80/443 belong to your proxy. Only Hotella's own ports are checked, and a busy one names the option to move it |
+| Sets the host's automatic security updates | Left as the server has them |
+| Docker | Reuses the Docker already installed, or installs it |
+
+Then add the three sites to your proxy:
+- **nginx:** copy the example to `/etc/nginx/conf.d/hotella.conf`, run `nginx -t && systemctl reload nginx`, then
+  `certbot --nginx -d api.<domain> -d staff.<domain> -d guest.<domain>`.
+- **Caddy:** paste the example into your Caddyfile.
+
+The proxy must pass WebSocket upgrades for `api.` (realtime). Open the agent port to the internet, and never proxy it:
+the gateway terminates mutual TLS itself.
+
+**Sizing on a shared host.** The pilot baseline (checklist §1.1: 8 vCPU, 32 GB) is for Hotella alone. Add what the
+other systems use, or install with `--skip-checks` knowingly and watch `hotella monitor`. To isolate Hotella fully (its
+own kernel limits, firewall and Docker), run the same command inside a VM or a system container (Incus/LXD with
+`security.nesting=true`) instead. Docker-in-Docker is not supported.
+
 ## First installation
 ```bash
 git clone <repo> /opt/hotella && cd /opt/hotella        # or unpack the release bundle

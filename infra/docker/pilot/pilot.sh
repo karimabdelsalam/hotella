@@ -28,6 +28,9 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_DIR="$(dirname "$HERE")"
 SECRETS="$HERE/.secrets"
+# The installation's settings (public URLs, host ports) that Compose reads; the commands here use the same values.
+# shellcheck disable=SC1091
+if [ -f "$DOCKER_DIR/.env" ]; then set -a; . "$DOCKER_DIR/.env"; set +a; fi
 PROJECT="hotella-pilot"
 compose() { docker compose -p "$PROJECT" -f "$DOCKER_DIR/compose.pilot.yml" "$@"; }
 log() { printf '\033[1m[pilot]\033[0m %s\n' "$*"; }

@@ -24,6 +24,10 @@
 #   --email E         first platform administrator and the Let's Encrypt contact
 #   --admin-name N    the administrator's given name (default: Admin)
 #   --local           no domain, no reverse proxy, no firewall changes: everything on localhost
+#   --shared          a server that already runs other systems: no Caddy, no firewall changes; your own reverse
+#                     proxy serves api., staff., guest.<domain> (an nginx and a Caddy example are written for you)
+#   --api-port P --staff-port P --guest-port P --agent-port P
+#                     host ports (defaults 3000, 3100, 3200, 8443) when other systems already use them
 #   --dir PATH        installation directory (default: /opt/hotella)
 #   --repo URL        git repository to clone when not run from a checkout
 #   --ref REF         branch or tag to install (default: main)
@@ -45,11 +49,16 @@ REF="main"
 SKIP_CHECKS=false
 HOTEL=""
 DEMO=""
+SHARED=false
+API_PORT=3000
+STAFF_PORT=3100
+GUEST_PORT=3200
+AGENT_PORT=8443
 
 say() { printf '\033[1;36m[hotella]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[hotella] warning:\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31m[hotella] error:\033[0m %s\n' "$*" >&2; exit 1; }
-usage() { sed -n '2,40p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,39p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -57,6 +66,11 @@ while [ $# -gt 0 ]; do
     --email) EMAIL="${2:?}"; shift 2 ;;
     --admin-name) ADMIN_NAME="${2:?}"; shift 2 ;;
     --local) LOCAL=true; shift ;;
+    --shared) SHARED=true; shift ;;
+    --api-port) API_PORT="${2:?}"; shift 2 ;;
+    --staff-port) STAFF_PORT="${2:?}"; shift 2 ;;
+    --guest-port) GUEST_PORT="${2:?}"; shift 2 ;;
+    --agent-port) AGENT_PORT="${2:?}"; shift 2 ;;
     --dir) DIR="${2:?}"; shift 2 ;;
     --repo) REPO="${2:?}"; shift 2 ;;
     --ref) REF="${2:?}"; shift 2 ;;
@@ -71,6 +85,10 @@ done
 # ---------------------------------------------------------------- 1. the host
 [ "$(id -u)" -eq 0 ] || die "run as root: sudo bash $0 …"
 [ -z "$HOTEL" ] || [ -s "$HOTEL" ] || die "no such hotel profile: $HOTEL"
+for p in "$API_PORT" "$STAFF_PORT" "$GUEST_PORT" "$AGENT_PORT"; do
+  [[ "$p" =~ ^[0-9]+$ ]] && [ "$p" -ge 1024 ] && [ "$p" -le 65535 ] || die "not a usable port: $p (1024–65535)"
+done
+! { $SHARED && $LOCAL; } || die "--shared and --local exclude each other"
 [ -z "$DEMO" ] || { [ -n "$HOTEL" ] && [ -s "$DEMO" ]; } || die "--demo needs --hotel and an existing file"
 [ -n "$EMAIL" ] || die "--email is required (the first platform administrator)"
 [[ "$EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] || die "--email does not look like an e-mail address"
@@ -96,12 +114,27 @@ if [ "$cpus" -lt 4 ] || [ "$mem_gb" -lt 15 ] || [ "$disk_gb" -lt 80 ]; then
 elif [ "$cpus" -lt 8 ] || [ "$mem_gb" -lt 30 ]; then
   warn "fine for trying it; a hotel pilot should have 8 vCPU, 32 GB RAM, 500 GB NVMe"
 fi
+# Ports: a port Hotella's own containers already hold (a second run) is fine; anything else is a conflict.
+port_owner() { ss -ltnpH "( sport = :$1 )" 2>/dev/null | head -1; }
+hotella_running() { command -v docker >/dev/null && docker ps -q --filter label=com.docker.compose.project=hotella-pilot | grep -q .; }
+check_port() {
+  local owner; owner="$(port_owner "$1")"
+  [ -z "$owner" ] && return 0
+  hotella_running && [[ "$owner" == *docker-proxy* ]] && return 0
+  die "port $1 is already in use ($owner) — choose another with $2"
+}
+check_port "$API_PORT" --api-port
+check_port "$STAFF_PORT" --staff-port
+check_port "$GUEST_PORT" --guest-port
 if ! $LOCAL; then
-  for port in 80 443 8443; do
-    if ss -ltnH "( sport = :$port )" 2>/dev/null | grep -q . && ! systemctl is-active --quiet caddy; then
-      die "port $port is already in use: $(ss -ltnpH "( sport = :$port )" | head -1)"
-    fi
-  done
+  check_port "$AGENT_PORT" --agent-port
+  if ! $SHARED; then
+    for port in 80 443; do
+      if [ -n "$(port_owner "$port")" ] && ! systemctl is-active --quiet caddy; then
+        die "port $port is already in use: $(port_owner "$port") — on a server with other systems use --shared"
+      fi
+    done
+  fi
 fi
 
 export DEBIAN_FRONTEND=noninteractive
@@ -124,7 +157,7 @@ if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; t
 fi
 systemctl enable --now docker >/dev/null
 
-if ! $LOCAL && ! command -v caddy >/dev/null; then
+if ! $LOCAL && ! $SHARED && ! command -v caddy >/dev/null; then
   say "installing Caddy (HTTPS with automatic certificates)"
   curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key |
     gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
@@ -133,8 +166,8 @@ if ! $LOCAL && ! command -v caddy >/dev/null; then
   apt_install caddy
 fi
 
-# Security updates install themselves (deploy runbook: host prerequisites).
-printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' \
+# Security updates install themselves (deploy runbook: host prerequisites); a shared server keeps its own policy.
+$SHARED || printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' \
   >/etc/apt/apt.conf.d/20auto-upgrades
 
 # ---------------------------------------------------------------- 3. the code
@@ -167,8 +200,8 @@ PILOT="$DIR/infra/docker/pilot/pilot.sh"
 
 # ---------------------------------------------------------------- 4. the platform
 if $LOCAL; then
-  API_URL="http://localhost:3000"; STAFF_URL="http://localhost:3100"; GUEST_URL="http://localhost:3200"
-  WS_URL="ws://localhost:3000/api/v1/realtime"; AGENT_HOST="localhost"; AGENT_BIND="127.0.0.1"
+  API_URL="http://localhost:$API_PORT"; STAFF_URL="http://localhost:$STAFF_PORT"; GUEST_URL="http://localhost:$GUEST_PORT"
+  WS_URL="ws://localhost:$API_PORT/api/v1/realtime"; AGENT_HOST="localhost"; AGENT_BIND="127.0.0.1"
 else
   API_URL="https://api.$DOMAIN"; STAFF_URL="https://staff.$DOMAIN"; GUEST_URL="https://guest.$DOMAIN"
   WS_URL="wss://api.$DOMAIN/api/v1/realtime"; AGENT_HOST="agent.$DOMAIN"; AGENT_BIND="0.0.0.0"
@@ -180,9 +213,15 @@ cat >"$DIR/infra/docker/.env" <<EOF
 HOTELLA_PUBLIC_BASE_URL=$GUEST_URL
 HOTELLA_PUBLIC_WS_URL=$WS_URL
 HOTELLA_AGENT_BIND=$AGENT_BIND
+HOTELLA_API_PORT=$API_PORT
+HOTELLA_STAFF_WEB_PORT=$STAFF_PORT
+HOTELLA_GUEST_WEB_PORT=$GUEST_PORT
+HOTELLA_AGENT_PORT=$AGENT_PORT
 ${fcm}
 EOF
 export HOTELLA_AGENT_HOSTNAME="$AGENT_HOST"
+export HOTELLA_API_PORT="$API_PORT" HOTELLA_STAFF_WEB_PORT="$STAFF_PORT" HOTELLA_GUEST_WEB_PORT="$GUEST_PORT"
+export HOTELLA_AGENT_PORT="$AGENT_PORT"
 
 say "generating credentials (kept in $DIR/infra/docker/pilot/.secrets, mode 0700)"
 "$PILOT" init
@@ -206,6 +245,54 @@ if ! $LOCAL; then
       warn "$name.$DOMAIN points at $resolved, but this server is $ip"
     fi
   done
+fi
+if $SHARED; then
+  # Another reverse proxy already owns 80/443 on this server: write examples for it, touch nothing of it.
+  cat >"$DIR/infra/docker/reverse-proxy.nginx.conf" <<EOF
+# Hotella behind an existing nginx (written by install-ubuntu.sh --shared). Copy to /etc/nginx/conf.d/hotella.conf,
+# nginx -t && systemctl reload nginx, then add HTTPS: certbot --nginx -d api.$DOMAIN -d staff.$DOMAIN -d guest.$DOMAIN
+# The hotel agents' gateway (agent.$DOMAIN:$AGENT_PORT) terminates its own mutual TLS: it is NOT proxied here.
+map \$http_upgrade \$hotella_connection { default upgrade; '' close; }
+server {
+  listen 80; server_name api.$DOMAIN;
+  location / {
+    proxy_pass http://127.0.0.1:$API_PORT;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection \$hotella_connection;
+    proxy_set_header Host \$host; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https; client_max_body_size 25m;
+  }
+}
+server {
+  listen 80; server_name staff.$DOMAIN;
+  location / { proxy_pass http://127.0.0.1:$STAFF_PORT; proxy_set_header Host \$host;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto https; }
+}
+server {
+  listen 80; server_name guest.$DOMAIN;
+  location / { proxy_pass http://127.0.0.1:$GUEST_PORT; proxy_set_header Host \$host;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto https; }
+}
+EOF
+  cat >"$DIR/infra/docker/reverse-proxy.Caddyfile" <<EOF
+# Hotella behind an existing Caddy (written by install-ubuntu.sh --shared): add these sites to your Caddyfile.
+api.$DOMAIN {
+	reverse_proxy 127.0.0.1:$API_PORT
+}
+staff.$DOMAIN {
+	reverse_proxy 127.0.0.1:$STAFF_PORT
+}
+guest.$DOMAIN {
+	reverse_proxy 127.0.0.1:$GUEST_PORT
+}
+EOF
+  # Only the hotel agents' port is opened, and only when the server already runs ufw (other rules stay as they are).
+  if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q '^Status: active'; then
+    ufw allow "$AGENT_PORT/tcp" >/dev/null
+  fi
+  say "shared server: Caddy and the firewall were not touched; reverse-proxy examples in $DIR/infra/docker/reverse-proxy.*"
+fi
+if ! $LOCAL && ! $SHARED; then
   say "publishing the sites through Caddy"
   cat >/etc/caddy/Caddyfile <<EOF
 # Hotella (written by infra/install/install-ubuntu.sh). The agent gateway (agent.$DOMAIN:8443) terminates its own
@@ -226,17 +313,17 @@ if ! $LOCAL; then
 
 api.$DOMAIN {
 	import hotella
-	reverse_proxy 127.0.0.1:3000
+	reverse_proxy 127.0.0.1:$API_PORT
 }
 
 staff.$DOMAIN {
 	import hotella
-	reverse_proxy 127.0.0.1:3100
+	reverse_proxy 127.0.0.1:$STAFF_PORT
 }
 
 guest.$DOMAIN {
 	import hotella
-	reverse_proxy 127.0.0.1:3200
+	reverse_proxy 127.0.0.1:$GUEST_PORT
 }
 EOF
   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
@@ -247,7 +334,7 @@ EOF
   ufw allow OpenSSH >/dev/null
   ufw allow 80/tcp >/dev/null
   ufw allow 443/tcp >/dev/null
-  ufw allow 8443/tcp >/dev/null
+  ufw allow "$AGENT_PORT/tcp" >/dev/null
   ufw --force enable >/dev/null
 fi
 
@@ -287,9 +374,9 @@ chmod 0644 /etc/cron.d/hotella-monitor
 if [ -n "$HOTEL" ]; then
   token=""
   if $can_login; then
-    token="$(python3 - "$EMAIL" "$password" <<'PY' || true
+    token="$(python3 - "$EMAIL" "$password" "$API_PORT" <<'PY' || true
 import json, sys, urllib.request
-req = urllib.request.Request("http://127.0.0.1:3000/api/v1/auth/login", method="POST",
+req = urllib.request.Request(f"http://127.0.0.1:{sys.argv[3]}/api/v1/auth/login", method="POST",
     data=json.dumps({"email": sys.argv[1], "password": sys.argv[2]}).encode(), headers={"content-type": "application/json"})
 print(json.load(urllib.request.urlopen(req, timeout=30))["accessToken"])
 PY
@@ -323,7 +410,7 @@ $(printf '\033[1;32m')Hotella is installed.$(printf '\033[0m')
   Staff web      $STAFF_URL
   Guest web      $GUEST_URL
   API            $API_URL/api/v1   (health: $API_URL/api/v1/ready)
-  Hotel agents   $AGENT_HOST:8443   (mutual TLS; enrollment codes from the staff web)
+  Hotel agents   $AGENT_HOST:$AGENT_PORT   (mutual TLS; enrollment codes from the staff web)
   Administrator  $EMAIL
 EOF
 if $generated; then
@@ -339,6 +426,13 @@ if [ -n "$DEMO" ] && [ -s "$DIR/infra/docker/pilot/.secrets/demo/accounts.json" 
   cat <<EOF
   Demo hotel     $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tenant"]["code"])' "$HOTEL") — DEMO DATA (fictional staff and guests)
   Demo accounts  sudo cat $DIR/infra/docker/pilot/.secrets/demo/accounts.json   (hotel code, e-mail, password)
+EOF
+fi
+if $SHARED; then
+  cat <<EOF
+  Shared server  your reverse proxy must serve api., staff. and guest.$DOMAIN — examples written for you:
+                 $DIR/infra/docker/reverse-proxy.nginx.conf   ·   $DIR/infra/docker/reverse-proxy.Caddyfile
+                 open TCP $AGENT_PORT to the internet for the hotel agents (mutual TLS, never through the proxy)
 EOF
 fi
 cat <<EOF

@@ -404,6 +404,9 @@ def load_config() -> dict:
         domain = domain_from_public_url(compose_env.get("HOTELLA_PUBLIC_BASE_URL", ""))
         if domain:
             config["HOTELLA_DOMAIN"] = domain
+        for k in ("HOTELLA_API_PORT", "HOTELLA_AGENT_PORT"):  # host ports chosen at installation
+            if compose_env.get(k):
+                config[k] = compose_env[k]
     alerting = SECRETS / "alerting.env"
     if alerting.exists():
         config.update(parse_env(alerting.read_text()))
