@@ -2711,7 +2711,7 @@ usage_collector_cursors(collector, tenant_id null, cursor, updated_at)
   and day through `usage_collector_cursors`) from providers the owning contexts register (`USAGE_GAUGES`):
   organization → `ACTIVE_PROPERTIES`, identity → `ACTIVE_STAFF`. `license.usage.purge` drops events older than 400
   days daily; aggregates stay.
-- Not yet produced: `STORAGE_BYTES` (object storage keeps no per-tenant accounting yet), `VOICE_MINUTES` (Phase 13)
+- Not yet produced: `STORAGE_BYTES` (object storage keeps no per-tenant accounting yet), `VOICE_MINUTES` produced since 13.4 (answered call time)
   and `API_CALLS` (counted for API clients from 11.5). Their limits can be defined; nothing is measured until then.
 - Reports: `GET /control/tenants/:tenantId/usage?granularity&from&to&metric&propertyId` (`license.usage.read`,
   aggregates only, at most two years) and the current month in the tenant's own `GET /tenants/:tenantId/license`.
@@ -3210,7 +3210,7 @@ eng (telemetry)
 | 13.3 | Stay-bound access: `ACCESS_API`, lock and Wi-Fi neutral connectors, auto-revoke on check-out and moves, staff UI; simulator | done |
 | 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | done |
 | 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | done |
-| 13.6 | Phase 13 acceptance (`docs/acceptance/phase-13.md`) | planned |
+| 13.6 | Phase 13 acceptance (`docs/acceptance/phase-13.md`) | done |
 
 Order rationale: the SDK first (everything else plugs into it); telemetry and access next (deterministic, high
 operational value, no vendor needed to prove them); voice after (depends on an AUDIO model on-prem and Q22/Q23).
