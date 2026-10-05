@@ -41,7 +41,8 @@ retrieved, rotated, revoked and audited. Operational commands are in `docs/runbo
    write it, restart the worker, check one model call in `/ai/usage`, revoke the old key at the provider.
 5. **Revoke** — on suspected exposure: revoke at the source (provider console, `ALTER ROLE`, AppRole secret-id
    destroy), rotate, and record the incident.
-6. **Audit** — OpenBao's file audit device is enabled at initialisation (`pilot.sh vault-init`): every read and write is
+6. **Audit** — OpenBao's file audit device is declared in its server configuration (`openbao.hcl`; OpenBao 2.x does not let
+   the API create audit devices) and checked by `pilot.sh vault-init`: every read and write is
    logged with the identity (values are HMAC-ed by OpenBao, never in clear). Rotations are recorded in the change log;
    application-side changes that reference secrets (provider and channel configuration) are in `audit.audit_log`.
 7. **Back up** — OpenBao's storage is backed up with the platform; unseal shares are held by different custodians.

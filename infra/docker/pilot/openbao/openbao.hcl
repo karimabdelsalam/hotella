@@ -15,3 +15,12 @@ listener "tcp" {
   tls_cert_file = "/openbao/tls/server.crt"
   tls_key_file  = "/openbao/tls/server.key"
 }
+
+# File audit device (docs/security/SECRETS_LIFECYCLE.md): every request with its identity, values HMAC-ed. Declared
+# here because OpenBao 2.x does not let the API create audit devices (a compromised token must not redirect them).
+audit "file" "file" {
+  description = "Hotella pilot audit log"
+  options {
+    file_path = "/openbao/logs/audit.log"
+  }
+}
