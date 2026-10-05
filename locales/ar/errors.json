@@ -193,6 +193,7 @@
   "errors.catalog.request.not_found": "لم يتم العثور على الطلب.",
   "errors.catalog.request.cannot_cancel": "لم يعد من الممكن إلغاء هذا الطلب.",
   "errors.ai.gateway.unavailable": "خدمة الذكاء الاصطناعي غير متاحة الآن.",
+  "errors.ai.gateway.images_need_vision": "لا يمكن إرسال الصور إلا إلى نموذج يقرأ الصور.",
   "errors.ai.provider.not_found": "لم يتم العثور على مزوّد الذكاء الاصطناعي.",
   "errors.ai.provider.code_taken": "يوجد مزوّد ذكاء اصطناعي بهذا الرمز بالفعل.",
   "errors.ai.provider.version_conflict": "قام شخص آخر بتعديل هذا المزوّد؛ أعد التحميل وحاول مرة أخرى.",

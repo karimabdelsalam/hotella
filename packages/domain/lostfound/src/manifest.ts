@@ -1,5 +1,6 @@
 import {
   LostFoundItemDisposed,
+  LostFoundItemPhotoAdded,
   LostFoundItemRegistered,
   LostFoundItemReleased,
 } from '@hotella/contracts-events';
@@ -16,8 +17,13 @@ export const LOSTFOUND_MANIFEST = defineManifest({
     { code: 'lostfound.manage', descriptionKey: 'lostfound.permission.manage', risk: 'LOW' },
     { code: 'lostfound.release', descriptionKey: 'lostfound.permission.release', risk: 'MEDIUM' },
   ],
-  events: [LostFoundItemRegistered.name, LostFoundItemReleased.name, LostFoundItemDisposed.name],
-  entitlements: ['LOST_FOUND'],
+  events: [
+    LostFoundItemRegistered.name,
+    LostFoundItemPhotoAdded.name,
+    LostFoundItemReleased.name,
+    LostFoundItemDisposed.name,
+  ],
+  entitlements: ['LOST_FOUND', 'AI_VISION'],
   entitlement: 'LOST_FOUND',
   localeNamespaces: ['lostfound'],
 });

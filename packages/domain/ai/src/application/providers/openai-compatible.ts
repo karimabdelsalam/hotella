@@ -64,6 +64,19 @@ export class OpenAiCompatibleProvider implements ModelProvider {
                   }
                 : {}),
             };
+          case 'user':
+            return m.images?.length
+              ? {
+                  role: 'user',
+                  content: [
+                    ...m.images.map((image) => ({
+                      type: 'image_url',
+                      image_url: { url: `data:${image.mediaType};base64,${image.base64}` },
+                    })),
+                    { type: 'text', text: m.content },
+                  ],
+                }
+              : { role: 'user', content: m.content };
           default:
             return { role: m.role, content: m.content };
         }

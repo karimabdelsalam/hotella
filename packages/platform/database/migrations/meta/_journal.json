@@ -337,6 +337,13 @@
       "when": 1791206072317,
       "tag": "0047_staff_devices",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791218350976,
+      "tag": "0048_lostfound_vision",
+      "breakpoints": true
     }
   ]
 }

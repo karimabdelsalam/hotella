@@ -51,9 +51,37 @@ async function mockBackend(page: Page, permissions: readonly string[]) {
   });
   let matched = false;
   let released = false;
+  // A second black phone handed in the same day: a possible duplicate of #1 (BUILD_PLAN 9.5).
+  const twin = item({ id: 'f-2', number: 4, roomNumber: null, placeNote: 'Lobby' });
   const detail = (i: ReturnType<typeof item>) => ({
     ...i,
     ai: null,
+    vision:
+      i.id === 'u-1'
+        ? [
+            {
+              photo: 'p-u.jpg',
+              objectType: 'umbrella',
+              category: 'OTHER',
+              description: 'A folded blue umbrella with a wooden handle.',
+              colours: ['BLUE'],
+              material: 'nylon',
+              brand: null,
+            },
+          ]
+        : [
+            {
+              photo: 'p-1.jpg',
+              objectType: 'smartphone',
+              category: 'PHONE',
+              description: 'A black smartphone with a cracked screen.',
+              colours: ['BLACK'],
+              material: 'glass',
+              brand: 'Samsung',
+            },
+          ],
+    possibleDuplicates:
+      i.id === 'f-1' ? [{ score: 80, reasons: ['OBJECT_TYPE', 'COLOUR'], item: twin }] : [],
     matches:
       i.id === 'u-1'
         ? []
@@ -190,6 +218,17 @@ test('the desk confirms a proposed match and hands the phone back against a clai
   await expect(page.getByRole('status')).toHaveText('The match was confirmed.');
   await expect(page.getByRole('heading', { name: '#1 · Phone' })).toBeVisible();
   await expect(page.locator('[data-linked="CONFIRMED"]')).toContainText('#2 · Phone');
+  // What a vision model read from the photo, apart from the staff's words, and a possible second hand-in.
+  await expect(page.getByTestId('vision')).toContainText(
+    'AI read the photo as: smartphone · Phone · Black · glass · Samsung',
+  );
+  await expect(page.getByTestId('vision')).toContainText(
+    'A black smartphone with a cracked screen.',
+  );
+  const duplicates = page.getByTestId('duplicates');
+  await expect(duplicates).toContainText('Possibly the same item handed in again');
+  await expect(duplicates).toContainText('#4 · Phone');
+  await expect(duplicates).toContainText('Same object (read by AI)');
 
   const release = page.getByRole('form', { name: 'Hand back to owner' });
   await release.getByLabel('Who takes it').fill('Mona Delta');
@@ -214,6 +253,10 @@ test('in Arabic, an item past retention is disposed of with a reason, right-to-l
   await page.getByRole('tab', { name: 'انتهت مدة حفظها' }).click();
   await page.locator('[data-item="3"]').click();
   await expect(page.getByRole('heading', { name: 'رقم 3 · أخرى' })).toBeVisible();
+  await expect(page.getByTestId('vision')).toContainText(
+    'قرأ الذكاء الاصطناعي الصورة على أنها: umbrella · أخرى · أزرق · nylon',
+  );
+  await expect(page.getByTestId('duplicates')).toHaveCount(0);
   const form = page.getByRole('form', { name: 'التصرف في الغرض' });
   await form.getByLabel('السبب').fill('لم يطالب به أحد');
   await form.getByRole('button', { name: 'التصرف في الغرض' }).click();

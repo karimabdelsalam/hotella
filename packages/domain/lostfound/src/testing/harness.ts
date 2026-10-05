@@ -35,6 +35,8 @@ import request from 'supertest';
 import { MODEL_GATEWAY } from '@hotella/domain-ai/public';
 import { StorageService } from '@hotella/platform-storage';
 import { AttributesService } from '../application/attributes.service';
+import { VisionService } from '../application/vision.service';
+import { ENTITLEMENT_API } from '@hotella/domain-licensing/public';
 import { LostFoundModule } from '../lostfound.module';
 
 /** Test-only composition of Lost & Found with organization, guests, fake storage and a fake Model Gateway. */
@@ -76,16 +78,33 @@ class FakeStorageModule {}
 export const GATEWAY = {
   answer: null as string | null,
   fail: false,
-  calls: [] as Array<{ capability: string; messages: unknown[] }>,
+  calls: [] as Array<{
+    capability: string;
+    messages: unknown[];
+    system: unknown[];
+    agentCode?: string | null;
+  }>,
 };
+/** The tenants' licence as Lost & Found sees it: `<tenantId>:<entitlement>` held. */
+export const ENTITLED = new Set<string>();
 @Global()
 @Module({
   providers: [
     {
       provide: MODEL_GATEWAY,
       useValue: {
-        complete: async (input: { capability: string; messages: unknown[] }) => {
-          GATEWAY.calls.push({ capability: input.capability, messages: input.messages });
+        complete: async (input: {
+          capability: string;
+          messages: unknown[];
+          system: unknown[];
+          agentCode?: string | null;
+        }) => {
+          GATEWAY.calls.push({
+            capability: input.capability,
+            messages: input.messages,
+            system: input.system,
+            agentCode: input.agentCode,
+          });
           if (GATEWAY.fail) throw new Error('provider down');
           return {
             content: GATEWAY.answer,
@@ -100,9 +119,18 @@ export const GATEWAY = {
         },
       },
     },
+    {
+      provide: ENTITLEMENT_API,
+      useValue: {
+        can: async (tenantId: string, _propertyId: string | null, code: string) =>
+          ENTITLED.has(`${tenantId}:${code}`),
+      },
+    },
     AttributesService,
+    VisionService,
   ],
-  exports: [MODEL_GATEWAY, AttributesService],
+  // The licence fake stays private to this module (only VisionService reads it here).
+  exports: [MODEL_GATEWAY, AttributesService, VisionService],
 })
 class FakeGatewayModule {}
 

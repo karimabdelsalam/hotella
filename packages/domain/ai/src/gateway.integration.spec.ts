@@ -361,4 +361,78 @@ describe.skipIf(needsInfra())(`Model Gateway against PostgreSQL (${infraSkipReas
       .expect(200);
     expect(rules.body).toEqual([]);
   });
+
+  it('a photo goes only with VISION, only to a provider allowed SENSITIVE data, and as an image part (9.5)', async () => {
+    const photo = {
+      mediaType: 'image/jpeg' as const,
+      data: Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]),
+      dataClass: 'SENSITIVE' as const,
+    };
+    const look = (capability: 'VISION' | 'REASONING_HIGH') =>
+      gateway.complete({
+        tenantId,
+        propertyId,
+        capability,
+        system: [{ text: 'Describe the object in the photo.', dataClass: 'INTERNAL' }],
+        messages: [
+          { role: 'user', content: 'What is it?', dataClass: 'INTERNAL', images: [photo] },
+        ],
+      });
+    await expect(look('REASONING_HIGH')).rejects.toMatchObject({
+      code: 'ai.gateway.images_need_vision',
+    });
+
+    const visionModel = async (code: string, egress: string, maxDataClass: string) => {
+      const providerId = (
+        await http()
+          .post('/ai/providers')
+          .set('X-Test-Actor', admin)
+          .send({ code: `${code}_${stamp}`, kind: 'FAKE', egress, maxDataClass })
+          .expect(201)
+      ).body.id as string;
+      return (
+        await http()
+          .post('/ai/models')
+          .set('X-Test-Actor', admin)
+          .send({ providerId, code: `${code.toLowerCase()}-v-${stamp}`, capabilities: ['VISION'] })
+          .expect(201)
+      ).body.id as string;
+    };
+    const cloudVision = await visionModel('VCLOUD', 'EXTERNAL', 'CONFIDENTIAL');
+    const localVision = await visionModel('VLOCAL', 'ON_PREM', 'SENSITIVE');
+    await setting(
+      'ai.external_providers.allowed',
+      [`CLOUD_${stamp}`, `VCLOUD_${stamp}`],
+      'PLATFORM',
+    );
+    await setting('ai.external_providers.enabled', true, 'TENANT');
+    await setting('ai.budget.monthly_limit_minor', 100_000_000, 'TENANT');
+
+    // The only routed provider may not receive SENSITIVE data: nothing leaves the platform.
+    await http()
+      .put('/ai/routing-rules/platform')
+      .set('X-Test-Actor', admin)
+      .send({ capability: 'VISION', modelIds: [cloudVision] })
+      .expect(200);
+    await expect(look('VISION')).rejects.toMatchObject({
+      code: 'ai.gateway.unavailable',
+      params: { reason: 'EGRESS_POLICY' },
+    });
+    expect(fake.requests).toHaveLength(0);
+
+    // With an on-prem model allowed SENSITIVE behind it, that one reads the photo.
+    await http()
+      .put('/ai/routing-rules/platform')
+      .set('X-Test-Actor', admin)
+      .send({ capability: 'VISION', modelIds: [cloudVision, localVision] })
+      .expect(200);
+    const out = await look('VISION');
+    expect(out.model).toBe(`vlocal-v-${stamp}`);
+    expect(fake.requests.map((r) => r.providerCode)).toEqual([`VLOCAL_${stamp}`]);
+    expect(fake.requests[0]!.request.messages.find((m) => m.role === 'user')).toEqual({
+      role: 'user',
+      content: 'What is it?',
+      images: [{ mediaType: 'image/jpeg', base64: Buffer.from(photo.data).toString('base64') }],
+    });
+  });
 });

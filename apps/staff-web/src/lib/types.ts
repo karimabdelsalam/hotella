@@ -402,6 +402,22 @@ export interface LostFoundDetail extends LostFoundItem {
     readonly colours: readonly string[];
     readonly brand: string | null;
   } | null;
+  /** What a vision model read from each photo (only when the property turned it on, BUILD_PLAN 9.5). */
+  readonly vision?: ReadonlyArray<{
+    readonly photo: string;
+    readonly objectType: string | null;
+    readonly category: string | null;
+    readonly description: string | null;
+    readonly colours: readonly string[];
+    readonly material: string | null;
+    readonly brand: string | null;
+  }>;
+  /** Other open found items that may be the same object handed in twice. */
+  readonly possibleDuplicates?: ReadonlyArray<{
+    readonly score: number;
+    readonly reasons: readonly string[];
+    readonly item: LostFoundItem;
+  }>;
   readonly matches: ReadonlyArray<{
     readonly id: string;
     readonly score: number;

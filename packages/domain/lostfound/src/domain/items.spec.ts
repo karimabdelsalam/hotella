@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { isOpen, matchScore, type MatchSide, retentionUntil } from './items';
+import {
+  duplicateScore,
+  type FoundSide,
+  isOpen,
+  matchScore,
+  type MatchSide,
+  mergeSuggestions,
+  retentionUntil,
+} from './items';
 
 const day = 86_400_000;
 const at = new Date('2026-10-03T10:00:00Z');
@@ -57,5 +65,58 @@ describe('lifecycle', () => {
 
   it('keeps an item until the retention date', () => {
     expect(retentionUntil(at, 90)).toBe('2027-01-01');
+  });
+});
+
+describe('photo readings (BUILD_PLAN 9.5)', () => {
+  it('merges the description and photo readings into one set of signals', () => {
+    expect(mergeSuggestions([])).toBeNull();
+    expect(
+      mergeSuggestions([
+        { objectType: null, colours: ['BLACK'], brand: null },
+        { objectType: 'sunglasses', colours: ['BLACK', 'GOLD'], brand: 'Ray-Ban' },
+        { objectType: 'glasses case', colours: ['BROWN'], brand: 'Other' },
+      ]),
+    ).toEqual({ objectType: 'sunglasses', colours: ['BLACK', 'GOLD', 'BROWN'], brand: 'Ray-Ban' });
+  });
+
+  const glasses: FoundSide = {
+    colour: null,
+    brand: null,
+    locationId: 'pool',
+    at,
+    ai: { objectType: 'Sunglasses', colours: ['BLACK'], brand: 'Ray-Ban' },
+  };
+
+  it('flags the same sunglasses handed in twice at the pool, with its reasons', () => {
+    expect(
+      duplicateScore(glasses, {
+        ...glasses,
+        at: new Date(at.getTime() + day),
+        ai: { objectType: 'sunglasses ', colours: ['BLACK', 'GOLD'], brand: 'RAY BAN' },
+      }),
+    ).toEqual({ score: 100, reasons: ['OBJECT_TYPE', 'COLOUR', 'BRAND', 'LOCATION'] });
+  });
+
+  it('needs the same kind of object named by a model, a close date, and no contradicting brand', () => {
+    expect(
+      duplicateScore(glasses, { ...glasses, ai: { ...glasses.ai!, objectType: 'watch' } }),
+    ).toBeNull();
+    expect(duplicateScore(glasses, { ...glasses, ai: null })).toBeNull();
+    expect(
+      duplicateScore(glasses, { ...glasses, at: new Date(at.getTime() + 4 * day) }),
+    ).toBeNull();
+    expect(
+      duplicateScore(glasses, { ...glasses, ai: { ...glasses.ai!, brand: 'Oakley' } }),
+    ).toBeNull();
+    // Staff-recorded colour counts: a white pair is not the black one.
+    expect(
+      duplicateScore(glasses, {
+        ...glasses,
+        colour: 'WHITE',
+        locationId: null,
+        ai: { ...glasses.ai!, brand: null },
+      }),
+    ).toBeNull();
   });
 });

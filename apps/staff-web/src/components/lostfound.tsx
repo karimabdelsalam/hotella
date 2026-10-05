@@ -544,6 +544,48 @@ export function LostFoundApp() {
                       })}
                     </p>
                   )}
+                  {open.vision?.map((v) => (
+                    <div key={v.photo} className="text-xs text-slate-500" data-testid="vision">
+                      <p>
+                        {t('vision_read', {
+                          what: [
+                            v.objectType,
+                            v.category ? t(`category.${v.category}`) : null,
+                            ...v.colours.map((c) => t(`colour.${c}`)),
+                            v.material,
+                            v.brand,
+                          ]
+                            .filter(Boolean)
+                            .join(' · '),
+                        })}
+                      </p>
+                      {v.description && <p className="italic">{v.description}</p>}
+                    </div>
+                  ))}
+                  {!!open.possibleDuplicates?.length && (
+                    <div className="rounded-xl bg-amber-50 p-3 text-sm" data-testid="duplicates">
+                      <p className="font-semibold">{t('duplicates')}</p>
+                      <ul className="mt-1 flex flex-col gap-1">
+                        {open.possibleDuplicates.map((d) => (
+                          <li key={d.item.id} className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className="font-semibold underline"
+                              onClick={() => void openItem(d.item.id)}
+                            >
+                              {title(d.item)}
+                            </button>
+                            <span className="text-slate-600">{where(d.item)}</span>
+                            {d.reasons.map((r) => (
+                              <Badge key={r} tone="info">
+                                {t(`duplicate_reason.${r}`)}
+                              </Badge>
+                            ))}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
                     {open.photoKeys.map((k) => (
                       <img

@@ -30,6 +30,7 @@ import { ManifestModule } from '@hotella/platform-manifest';
 import { ObservabilityModule } from '@hotella/platform-observability';
 import { BULLMQ_EVENT_TRANSPORT, QueueModule } from '@hotella/platform-queue';
 import { SecretsModule } from '@hotella/platform-secrets';
+import { StorageModule } from '@hotella/platform-storage';
 import { SettingsCoreModule } from '@hotella/platform-settings';
 import { WorkerRuntimeModule } from './runtime/runtime.module';
 import { WorkerManifestsModule } from './runtime/manifests.module';
@@ -86,7 +87,10 @@ const WORKER_MODULES = [
   InspectionWorkerModule,
   // Recovery whose approval was rejected or expired; the concierge's complaint-candidate tool.
   RelationsWorkerModule,
-  // AI-derived attributes of lost and found items on `background-ai`, then matching again.
+  // Photos in object storage, for the Lost & Found vision reading (credentials resolved on first use).
+  StorageModule.forRoot({ lazy: true }),
+  // AI-derived attributes of lost and found items (description and, when enabled, photos) on `background-ai`, then
+  // matching again.
   LostFoundWorkerModule,
   // À la carte reservations: a stay's checkout or cancellation cancels its future bookings.
   RestaurantWorkerModule,

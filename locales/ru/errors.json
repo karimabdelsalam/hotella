@@ -193,6 +193,7 @@
   "errors.catalog.request.not_found": "Заявка не найдена.",
   "errors.catalog.request.cannot_cancel": "Эту заявку уже нельзя отменить.",
   "errors.ai.gateway.unavailable": "Сервис ИИ сейчас недоступен.",
+  "errors.ai.gateway.images_need_vision": "Фотографии можно отправлять только модели, которая умеет читать изображения.",
   "errors.ai.provider.not_found": "ИИ-провайдер не найден.",
   "errors.ai.provider.code_taken": "ИИ-провайдер с таким кодом уже существует.",
   "errors.ai.provider.version_conflict": "Этого провайдера изменил кто-то другой; перезагрузите и попробуйте ещё раз.",

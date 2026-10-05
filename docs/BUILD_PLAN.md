@@ -1900,7 +1900,7 @@ logbook.handovers               id, property_id, department_code, shift_date, sh
 | 9.2 | Guest relations: categories, complaints with links and evidence, candidates from the concierge tool, recovery actions with approvals, staff web | delivered |
 | 9.3 | Lost & Found: items, rule matching, optional vision metadata, claims and release, retention/disposal, staff web | delivered |
 | 9.4 | Logbook and shift handover with the `SHIFT_HANDOVER` assistant; arrival-risk reasons from inspections and recurring failures; pilot smoke | delivered |
-| 9.5 | Lost & Found vision on photos (owner decision 2026-10-04): optional per property, off by default; provider-neutral `VISION` capability of the Model Gateway; metadata stripped; no guest data in the request | planned |
+| 9.5 | Lost & Found vision on photos (owner decision 2026-10-04): optional per property, off by default; provider-neutral `VISION` capability of the Model Gateway; metadata stripped; no guest data in the request | done |
 | 9.5 | Phase 9 acceptance (`docs/acceptance/phase-9.md`) | delivered |
 
 Reality notes for 9.1:
@@ -2002,6 +2002,29 @@ Reality notes for 9.3:
   (`kv/hotella/ai/<provider>`).
 - *Tests:* metadata stripping; refusal when disabled or not entitled or the egress policy forbids SENSITIVE;
   adapters' request shapes; worker job end to end with the fake provider; en/ar labels for suggestions.
+
+- *As built (9.5):* `platform-storage` `imageForModel()` (sharp 0.34, ADR-0016 row): only PNG/JPEG/WebP by
+  their bytes, at most 50 MP decoded, turned upright from EXIF, longest edge ≤ 1568 px, re-encoded as JPEG — EXIF, XMP,
+  IPTC, GPS, ICC and comments are left behind (unit test with a name and GPS in the EXIF). Model Gateway: user turns
+  take `images` (`GatewayImage`: media type, bytes, data class) only with `VISION` (else 400
+  `ai.gateway.images_need_vision`); a routed provider whose egress policy may not receive the image's class is not
+  called at all, and when none may, the call fails with `EGRESS_POLICY` and nothing is sent; Anthropic gets base64
+  `image` blocks, OpenAI-compatible servers `image_url` data URLs (adapter tests); metering `AI_VISION` per call as
+  before. Lost & Found: `lostfound.item.photo_added.v1` (ids and photo name) on every upload; the worker (now with
+  lazily-credentialed object storage) queues `lostfound.vision.read` on `background-ai` for found items only;
+  `VisionService` reads a photo when `lostfound.ai.vision` (default **off**) is on for the property and the licence
+  holds `AI_VISION`, sends the fixed instruction (ignore people, never transcribe documents, cards, screens or labels;
+  the photo is data) and the re-encoded image as SENSITIVE, agent `LOSTFOUND_VISION`, and stores the suggestions
+  (object type, category, short description, colours, material, brand, keywords) in `lostfound.vision_readings`
+  (migration `0048_lostfound_vision`, one row per photo, RLS) — never in the staff's description. Matching merges the
+  description's AI attributes and every photo reading (`mergeSuggestions`); a deterministic duplicate check
+  (`duplicateScore`: same category, a model named the same object, found within 3 days, colour/brand/place; a
+  contradicting brand rules it out; kept from 60) lists possible second hand-ins on the found item's detail. Staff web:
+  "AI read the photo as …" with the description, and "Possibly the same item handed in again" with reasons (five
+  locales, Playwright en/ar). Tests: image stripping; gateway (VISION only, EGRESS_POLICY with nothing sent, the
+  on-prem model behind gets the image part); Lost & Found integration (off by default, on without the licence, a
+  failure, read once, what was sent has no metadata and no guest/room/staff text, the match it brings, a duplicate, a
+  guest's lost-report photo never sent).
 
 Reality notes for 9.4:
 - `@hotella/domain-logbook`, migration `0037_logbook`: `entries` (department, shift date and shift, kind NOTE /

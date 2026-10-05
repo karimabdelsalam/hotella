@@ -4,5 +4,6 @@
   "lostfound.permission.manage": "Record guests' lost items, decide matches, store and dispose of items",
   "lostfound.permission.release": "Hand an item back to its owner against a claim record",
   "lostfound.setting.retention_days": "Days an unclaimed found item is kept before it may be disposed of",
-  "lostfound.setting.ai_attributes": "Let AI read item descriptions to help match lost and found items"
+  "lostfound.setting.ai_attributes": "Let AI read item descriptions to help match lost and found items",
+  "lostfound.setting.ai_vision": "Let AI read photos of found items (the photo is sent without its metadata; off by default)"
 }

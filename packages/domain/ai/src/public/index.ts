@@ -23,8 +23,24 @@ export interface GatewayToolCall {
   readonly arguments: Record<string, unknown>;
 }
 
+/**
+ * A photo for the `VISION` capability. The caller passes it already re-encoded without metadata (platform-storage
+ * `imageForModel`); its data class decides which providers may receive it — none, and the call is refused.
+ */
+export interface GatewayImage {
+  readonly mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  readonly data: Uint8Array;
+  readonly dataClass: DataClass;
+}
+
 export type GatewayMessage =
-  | { readonly role: 'user'; readonly content: string; readonly dataClass: DataClass }
+  | {
+      readonly role: 'user';
+      readonly content: string;
+      readonly dataClass: DataClass;
+      /** Only with the `VISION` capability. */
+      readonly images?: readonly GatewayImage[];
+    }
   | {
       readonly role: 'assistant';
       readonly content: string | null;

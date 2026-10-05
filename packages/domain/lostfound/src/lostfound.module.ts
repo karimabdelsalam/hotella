@@ -1,5 +1,5 @@
 import { Global, Module, type OnModuleInit } from '@nestjs/common';
-import { LostFoundItemRegistered } from '@hotella/contracts-events';
+import { LostFoundItemPhotoAdded, LostFoundItemRegistered } from '@hotella/contracts-events';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { SettingsRegistry } from '@hotella/platform-settings';
@@ -7,6 +7,7 @@ import { LostFoundController } from './api/controllers';
 import { AttributesService } from './application/attributes.service';
 import { ItemService } from './application/item.service';
 import { LostFoundPublicApiService } from './application/public-api.service';
+import { VisionService } from './application/vision.service';
 import { LOSTFOUND_SETTINGS } from './domain/settings';
 import { LostFoundRepositories } from './infrastructure/repositories';
 import { LOSTFOUND_MANIFEST } from './manifest';
@@ -15,6 +16,9 @@ import { LOSTFOUND_API } from './public';
 /** Inbox consumer of the worker and the job it queues on `background-ai`. */
 export const LOSTFOUND_ATTRIBUTES_CONSUMER = 'lostfound.attributes';
 export const LOSTFOUND_ATTRIBUTES_JOB = 'lostfound.attributes.derive';
+/** Inbox consumer and job of the photo reading (BUILD_PLAN 9.5). */
+export const LOSTFOUND_VISION_CONSUMER = 'lostfound.vision';
+export const LOSTFOUND_VISION_JOB = 'lostfound.vision.read';
 
 /** Lost & Found without HTTP routes (API and worker): repositories, items and `LOSTFOUND_API`. */
 @Global()
@@ -47,14 +51,16 @@ export class LostFoundModule implements OnModuleInit {
 
 /**
  * Worker side (needs `MODEL_GATEWAY`, i.e. the AI core): a newly registered item gets AI-derived attributes on
- * `background-ai`, then matching runs again with them.
+ * `background-ai`, a found item's new photo is read by a vision model when the property enabled it, then matching
+ * runs again with them.
  */
-@Module({ imports: [LostFoundCoreModule], providers: [AttributesService] })
+@Module({ imports: [LostFoundCoreModule], providers: [AttributesService, VisionService] })
 export class LostFoundWorkerModule implements OnModuleInit {
   constructor(
     private readonly consumers: EventConsumerRegistry,
     private readonly queues: QueueRegistry,
     private readonly attributes: AttributesService,
+    private readonly vision: VisionService,
   ) {}
   onModuleInit(): void {
     this.consumers.on(
@@ -75,6 +81,24 @@ export class LostFoundWorkerModule implements OnModuleInit {
       LOSTFOUND_ATTRIBUTES_JOB,
       async (data) => {
         await this.attributes.derive(data.tenantId, data.itemId);
+      },
+    );
+    this.consumers.on(LostFoundItemPhotoAdded.name, LOSTFOUND_VISION_CONSUMER, async (envelope) => {
+      if (!envelope.tenant_id) return;
+      const e = LostFoundItemPhotoAdded.parse(envelope);
+      // Lost reports' photos are the guest's own: only found items are read.
+      if (e.payload.kind !== 'FOUND') return;
+      await this.queues.enqueue(
+        'background-ai',
+        LOSTFOUND_VISION_JOB,
+        { tenantId: envelope.tenant_id, itemId: e.payload.item_id, photo: e.payload.photo },
+        { jobId: `lostfound-vision-${e.payload.item_id}-${e.payload.photo}` },
+      );
+    });
+    this.consumers.onJob<{ tenantId: string; itemId: string; photo: string }>(
+      LOSTFOUND_VISION_JOB,
+      async (data) => {
+        await this.vision.read(data.tenantId, data.itemId, data.photo);
       },
     );
   }

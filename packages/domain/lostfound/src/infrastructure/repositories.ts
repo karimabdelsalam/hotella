@@ -20,6 +20,8 @@ import {
   items,
   matchCandidates,
   type MatchRow,
+  type VisionReadingRow,
+  visionReadings,
 } from './schema';
 
 @Injectable()
@@ -155,6 +157,59 @@ export class LostFoundRepositories {
           .where(tenantWhere(aiMetadata, scope, inArray(aiMetadata.itemId, [...itemIds])))
       : [];
     return new Map<string, AiMetadataRow>(rows.map((r) => [r.itemId, r]));
+  }
+
+  /** One reading per photo; a second reading of the same photo is ignored. */
+  async insertVisionReading(values: typeof visionReadings.$inferInsert): Promise<boolean> {
+    const rows = await this.x
+      .insert(visionReadings)
+      .values(values)
+      .onConflictDoNothing()
+      .returning({ id: visionReadings.id });
+    return rows.length > 0;
+  }
+  async visionReadingOf(scope: TenantScope, itemId: string, photo: string) {
+    const [row] = await this.x
+      .select({ id: visionReadings.id })
+      .from(visionReadings)
+      .where(
+        tenantWhere(
+          visionReadings,
+          scope,
+          and(eq(visionReadings.itemId, itemId), eq(visionReadings.photo, photo)),
+        ),
+      );
+    return row;
+  }
+  /** The readings of these items, oldest first per item. */
+  async visionReadingsOf(scope: TenantScope, itemIds: readonly string[]) {
+    const rows = itemIds.length
+      ? await this.x
+          .select()
+          .from(visionReadings)
+          .where(tenantWhere(visionReadings, scope, inArray(visionReadings.itemId, [...itemIds])))
+          .orderBy(asc(visionReadings.createdAt))
+      : [];
+    const out = new Map<string, VisionReadingRow[]>();
+    for (const r of rows) out.set(r.itemId, [...(out.get(r.itemId) ?? []), r]);
+    return out;
+  }
+  /** Other open found items of the same category at the property (candidates for a duplicate hand-in). */
+  openFoundAlike(scope: PropertyScope, item: ItemRow): Promise<ItemRow[]> {
+    return this.x
+      .select()
+      .from(items)
+      .where(
+        propertyWhere(
+          items,
+          scope,
+          eq(items.kind, 'FOUND'),
+          eq(items.category, item.category),
+          inArray(items.status, ['REGISTERED', 'MATCHED']),
+          sql`${items.id} <> ${item.id}`,
+        ),
+      )
+      .limit(200);
   }
 
   // ---- matches ----

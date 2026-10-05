@@ -59,6 +59,9 @@ export class ModelGatewayService implements ModelGatewayApi {
   ) {}
 
   async complete(input: GatewayCompletionInput): Promise<GatewayCompletion> {
+    const images = input.messages.flatMap((m) => (m.role === 'user' ? (m.images ?? []) : []));
+    if (images.length && input.capability !== 'VISION')
+      throw new AppError('ai.gateway.images_need_vision', HttpStatus.BAD_REQUEST);
     await this.requireLicenceRoom(input.tenantId, input.propertyId ?? null);
     const candidates = await this.candidates(
       input.tenantId,
@@ -67,9 +70,15 @@ export class ModelGatewayService implements ModelGatewayApi {
     );
     let previous: string | null = null;
     let lastError: ModelProviderError | null = null;
+    let refusedImages = 0;
     for (const c of candidates) {
       const adapter = this.providers.get(c.provider.kind);
       if (!adapter) continue;
+      // An image cannot be withheld from a turn like text: a provider that may not receive it is not called at all.
+      if (!images.every((i) => mayReceive(c.policy, i.dataClass))) {
+        refusedImages++;
+        continue;
+      }
       const { messages, dropped } = this.prepare(c.policy, input.system, input.messages);
       const started = Date.now();
       try {
@@ -113,7 +122,7 @@ export class ModelGatewayService implements ModelGatewayApi {
       }
     }
     throw new AppError('ai.gateway.unavailable', HttpStatus.SERVICE_UNAVAILABLE, {
-      reason: lastError?.code ?? 'NO_ROUTE',
+      reason: lastError?.code ?? (refusedImages ? 'EGRESS_POLICY' : 'NO_ROUTE'),
     });
   }
 
@@ -259,7 +268,19 @@ export class ModelGatewayService implements ModelGatewayApi {
     const out: ChatMessage[] = [];
     if (parts.kept.length) out.push({ role: 'system', content: parts.kept.join('\n\n') });
     for (const m of messages) {
-      if (m.role === 'user') out.push({ role: 'user', content: text(m.content, m.dataClass) });
+      if (m.role === 'user')
+        out.push({
+          role: 'user',
+          content: text(m.content, m.dataClass),
+          ...(m.images?.length
+            ? {
+                images: m.images.map((i) => ({
+                  mediaType: i.mediaType,
+                  base64: Buffer.from(i.data).toString('base64'),
+                })),
+              }
+            : {}),
+        });
       else if (m.role === 'tool')
         out.push({ role: 'tool', toolCallId: m.toolCallId, content: text(m.content, m.dataClass) });
       else

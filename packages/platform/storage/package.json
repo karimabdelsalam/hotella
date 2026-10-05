@@ -26,7 +26,8 @@
     "@aws-sdk/s3-request-presigner": "3.1146.0",
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-secrets": "workspace:*",
-    "@nestjs/common": "11.2.7"
+    "@nestjs/common": "11.2.7",
+    "sharp": "0.34.5"
   },
   "devDependencies": {
     "@hotella/platform-testing": "workspace:*",

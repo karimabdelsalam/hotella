@@ -15,8 +15,10 @@ export interface StorageOptions {
   readonly endpoint: string;
   readonly region: string;
   readonly bucket: string;
-  readonly accessKey: string;
-  readonly secretKey: string;
+  readonly accessKey?: string;
+  readonly secretKey?: string;
+  /** Credentials read when the first request needs them (a process that may never touch storage still boots). */
+  readonly credentials?: () => Promise<{ accessKey: string; secretKey: string }>;
   /** SeaweedFS and most on-prem S3 stores need path-style URLs. */
   readonly forcePathStyle?: boolean;
 }
@@ -48,7 +50,12 @@ export class StorageService {
       endpoint: options.endpoint,
       region: options.region,
       forcePathStyle: options.forcePathStyle ?? true,
-      credentials: { accessKeyId: options.accessKey, secretAccessKey: options.secretKey },
+      credentials: options.credentials
+        ? async () => {
+            const c = await options.credentials!();
+            return { accessKeyId: c.accessKey, secretAccessKey: c.secretKey };
+          }
+        : { accessKeyId: options.accessKey ?? '', secretAccessKey: options.secretKey ?? '' },
     };
     this.client = client ?? new S3Client(config);
   }

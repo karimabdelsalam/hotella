@@ -154,6 +154,77 @@ export function matchScore(
   return score >= MATCH_MIN_SCORE ? { score: Math.min(score, 100), reasons } : null;
 }
 
+/** What models suggested about an item: from its description and from each of its photos (BUILD_PLAN 9.5). */
+export interface AiSuggestions {
+  readonly objectType: string | null;
+  readonly colours: readonly string[];
+  readonly brand: string | null;
+}
+
+/**
+ * One set of AI signals for matching: the colours any source saw, and the first brand and object type one named
+ * (the description's reading first, then the photos in the order they were read).
+ */
+export function mergeSuggestions(
+  sources: readonly (AiSuggestions | null | undefined)[],
+): AiSuggestions | null {
+  const present = sources.filter((s): s is AiSuggestions => !!s);
+  if (present.length === 0) return null;
+  return {
+    objectType: present.find((s) => s.objectType)?.objectType ?? null,
+    colours: [...new Set(present.flatMap((s) => s.colours))],
+    brand: present.find((s) => s.brand)?.brand ?? null,
+  };
+}
+
+export interface FoundSide {
+  readonly colour: Colour | null;
+  readonly brand: string | null;
+  readonly locationId: string | null;
+  readonly at: Date;
+  readonly ai: AiSuggestions | null;
+}
+
+export type DuplicateReason = 'OBJECT_TYPE' | 'COLOUR' | 'BRAND' | 'LOCATION';
+/** Two hand-ins of the same thing are found within this window. */
+const DUPLICATE_WINDOW_MS = 3 * 86_400_000;
+export const DUPLICATE_MIN_SCORE = 60;
+
+/**
+ * Whether two found items of the same category may be the same object handed in twice (BUILD_PLAN 9.5): only when a
+ * model named the same kind of object for both and they were found within three days; colour, brand and place add up.
+ * A hint for the desk, never an automatic merge.
+ */
+export function duplicateScore(
+  a: FoundSide,
+  b: FoundSide,
+): { readonly score: number; readonly reasons: readonly DuplicateReason[] } | null {
+  if (Math.abs(a.at.getTime() - b.at.getTime()) > DUPLICATE_WINDOW_MS) return null;
+  const typeA = norm(a.ai?.objectType);
+  if (!typeA || typeA !== norm(b.ai?.objectType)) return null;
+  const reasons: DuplicateReason[] = ['OBJECT_TYPE'];
+  let score = 40;
+  const coloursA = a.colour ? [a.colour] : (a.ai?.colours ?? []);
+  const coloursB = b.colour ? [b.colour] : (b.ai?.colours ?? []);
+  if (coloursA.some((c) => coloursB.includes(c))) {
+    score += 20;
+    reasons.push('COLOUR');
+  } else if (coloursA.length && coloursB.length) score -= 20;
+  const brandA = norm(a.brand) || norm(a.ai?.brand);
+  const brandB = norm(b.brand) || norm(b.ai?.brand);
+  if (brandA && brandB) {
+    if (brandA === brandB) {
+      score += 20;
+      reasons.push('BRAND');
+    } else score -= 30;
+  }
+  if (a.locationId && a.locationId === b.locationId) {
+    score += 20;
+    reasons.push('LOCATION');
+  }
+  return score >= DUPLICATE_MIN_SCORE ? { score: Math.min(score, 100), reasons } : null;
+}
+
 /** When an unclaimed found item may be disposed of (UTC date, `YYYY-MM-DD`). */
 export function retentionUntil(foundAt: Date, days: number): string {
   return new Date(foundAt.getTime() + days * 86_400_000).toISOString().slice(0, 10);

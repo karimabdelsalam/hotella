@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
 import { z } from 'zod';
 import {
   LostFoundItemDisposed,
+  LostFoundItemPhotoAdded,
   LostFoundItemRegistered,
   LostFoundItemReleased,
 } from '@hotella/contracts-events';
@@ -21,14 +22,17 @@ import { AppError } from '@hotella/platform-i18n';
 import { SettingsReader } from '@hotella/platform-settings';
 import { IMAGE_EXTENSIONS, sniffImage, StorageService } from '@hotella/platform-storage';
 import {
+  type AiSuggestions,
   COLOURS,
   DISPOSAL_METHODS,
+  duplicateScore,
   isOpen,
   isValuable,
   ITEM_CATEGORIES,
   ITEM_STATUSES,
   type ItemStatus,
   matchScore,
+  mergeSuggestions,
   retentionUntil,
 } from '../domain/items';
 import { RETENTION_DAYS } from '../domain/settings';
@@ -187,18 +191,15 @@ export class ItemService {
     if (!isOpen(item.status as ItemStatus)) return [];
     const others = await this.repo.openCounterparts(scope, item);
     if (others.length === 0) return [];
-    const ai = await this.repo.aiMetadataOf(scope, [item.id, ...others.map((o) => o.id)]);
-    const side = (i: ItemRow) => {
-      const meta = ai.get(i.id);
-      return {
-        category: i.category,
-        colour: i.colour,
-        brand: i.brand,
-        locationId: i.locationId,
-        at: i.occurredAt,
-        ai: meta ? { colours: meta.colours, brand: meta.brand } : null,
-      };
-    };
+    const ai = await this.suggestions(scope, [item.id, ...others.map((o) => o.id)]);
+    const side = (i: ItemRow) => ({
+      category: i.category,
+      colour: i.colour,
+      brand: i.brand,
+      locationId: i.locationId,
+      at: i.occurredAt,
+      ai: ai.get(i.id) ?? null,
+    });
     const created: MatchRow[] = [];
     for (const other of others) {
       const [found, lost] = item.kind === 'FOUND' ? [item, other] : [other, item];
@@ -270,6 +271,7 @@ export class ItemService {
         ).map((i) => [i.id, i]),
       );
       const ai = (await this.repo.aiMetadataOf(scope, [item.id])).get(item.id);
+      const readings = (await this.repo.visionReadingsOf(scope, [item.id])).get(item.id) ?? [];
       return {
         ...this.view(item, rooms),
         ai: ai
@@ -280,6 +282,18 @@ export class ItemService {
               keywords: ai.keywords,
             }
           : null,
+        vision: readings.map((r) => ({
+          photo: r.photo,
+          objectType: r.objectType,
+          category: r.category,
+          description: r.description,
+          colours: r.colours,
+          material: r.material,
+          brand: r.brand,
+          keywords: r.keywords,
+          readAt: r.createdAt,
+        })),
+        possibleDuplicates: await this.duplicatesOf(scope, item, rooms),
         matches: matchRows.map((m) => {
           const other = others.get(m.foundItemId === item.id ? m.lostItemId : m.foundItemId)!;
           return { ...m, other: this.view(other, rooms) };
@@ -485,6 +499,13 @@ export class ItemService {
         photoKeys: [...item.photoKeys, name],
       });
       await this.history(scope, row, 'PHOTO', null, null, null);
+      await this.events.publish(LostFoundItemPhotoAdded, {
+        tenantId: scope.tenantId,
+        propertyId: scope.propertyId,
+        source: 'lostfound',
+        aggregate: { type: 'lostfound_item', id: row.id },
+        payload: { item_id: row.id, kind: row.kind, photo: name },
+      });
       return { name, version: row.version };
     });
   }
@@ -502,6 +523,12 @@ export class ItemService {
         return { body, type };
       },
     );
+  }
+
+  /** A stored photo's bytes for platform-internal use (the vision reading); null when storage or the photo is gone. */
+  async storedPhoto(item: ItemRow, name: string): Promise<Buffer | null> {
+    if (!item.photoKeys.includes(name) || !this.storage) return null;
+    return this.storage.getBuffer(this.photoKey(item, name)).catch(() => null);
   }
 
   // ---- helpers ----
@@ -569,6 +596,47 @@ export class ItemService {
   }
 
   /** What staff screens see: the item, where it was (room number) and, for found items, whether it is due. */
+  /** The AI signals of each item: its description's reading and its photos' readings, merged (9.5). */
+  private async suggestions(scope: PropertyScope, ids: readonly string[]) {
+    const [meta, readings] = await Promise.all([
+      this.repo.aiMetadataOf(scope, ids),
+      this.repo.visionReadingsOf(scope, ids),
+    ]);
+    const out = new Map<string, AiSuggestions>();
+    for (const id of ids) {
+      const merged = mergeSuggestions([meta.get(id), ...(readings.get(id) ?? [])]);
+      if (merged) out.set(id, merged);
+    }
+    return out;
+  }
+
+  /** Other open found items that may be the same object handed in twice (a hint for the desk, BUILD_PLAN 9.5). */
+  private async duplicatesOf(scope: PropertyScope, item: ItemRow, rooms: Map<string, string>) {
+    if (item.kind !== 'FOUND' || !isOpen(item.status as ItemStatus)) return [];
+    const others = await this.repo.openFoundAlike(scope, item);
+    if (others.length === 0) return [];
+    const ai = await this.suggestions(scope, [item.id, ...others.map((o) => o.id)]);
+    const side = (i: ItemRow) => ({
+      colour: i.colour,
+      brand: i.brand,
+      locationId: i.locationId,
+      at: i.occurredAt,
+      ai: ai.get(i.id) ?? null,
+    });
+    return others
+      .map((other) => ({ other, d: duplicateScore(side(item), side(other)) }))
+      .filter(
+        (x): x is { other: ItemRow; d: NonNullable<ReturnType<typeof duplicateScore>> } => !!x.d,
+      )
+      .sort((a, b) => b.d.score - a.d.score)
+      .slice(0, 5)
+      .map(({ other, d }) => ({
+        score: d.score,
+        reasons: d.reasons,
+        item: this.view(other, rooms),
+      }));
+  }
+
   private view(item: ItemRow, rooms: Map<string, string>) {
     const today = new Date().toISOString().slice(0, 10);
     return {

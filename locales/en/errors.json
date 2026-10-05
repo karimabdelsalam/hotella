@@ -193,6 +193,7 @@
   "errors.catalog.request.not_found": "Request not found.",
   "errors.catalog.request.cannot_cancel": "This request can no longer be cancelled.",
   "errors.ai.gateway.unavailable": "The AI service is not available right now.",
+  "errors.ai.gateway.images_need_vision": "Photos can only be sent to a model that reads images.",
   "errors.ai.provider.not_found": "AI provider not found.",
   "errors.ai.provider.code_taken": "An AI provider with this code already exists.",
   "errors.ai.provider.version_conflict": "Someone else changed this provider; reload and try again.",

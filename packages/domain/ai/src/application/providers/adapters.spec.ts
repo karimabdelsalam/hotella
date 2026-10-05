@@ -226,3 +226,55 @@ describe('Anthropic adapter', () => {
     ).rejects.toMatchObject({ code: 'AUTH_FAILED' });
   });
 });
+
+describe('images for the VISION capability (BUILD_PLAN 9.5)', () => {
+  const image = { mediaType: 'image/jpeg' as const, base64: 'AAEC' };
+  const messages = [
+    { role: 'system' as const, content: 'Describe the object.' },
+    { role: 'user' as const, content: 'What is this?', images: [image] },
+  ];
+
+  it('Anthropic: a base64 image block before the text of the user turn', async () => {
+    const r = recorder(200, {
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'A pair of sunglasses' }],
+      usage: { input_tokens: 900, output_tokens: 6 },
+    });
+    await new AnthropicProvider(r.fetchFn).complete(ctx('k'), { model: 'm', messages });
+    expect(r.calls[0]!.body.messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AAEC' } },
+          { type: 'text', text: 'What is this?' },
+        ],
+      },
+    ]);
+  });
+
+  it('OpenAI-compatible: an image_url data URL part before the text part', async () => {
+    const r = recorder(200, {
+      choices: [{ finish_reason: 'stop', message: { content: 'A pair of sunglasses' } }],
+      usage: { prompt_tokens: 900, completion_tokens: 6 },
+    });
+    await new OpenAiCompatibleProvider(r.fetchFn).complete(ctx('k'), { model: 'm', messages });
+    expect((r.calls[0]!.body.messages as unknown[])[1]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAEC' } },
+        { type: 'text', text: 'What is this?' },
+      ],
+    });
+  });
+
+  it('a text-only turn keeps its plain shape', async () => {
+    const r = recorder(200, {
+      choices: [{ finish_reason: 'stop', message: { content: 'ok' } }],
+    });
+    await new OpenAiCompatibleProvider(r.fetchFn).complete(ctx('k'), {
+      model: 'm',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect(r.calls[0]!.body.messages).toEqual([{ role: 'user', content: 'hi' }]);
+  });
+});

@@ -118,8 +118,14 @@ function turns(messages: readonly ChatMessage[]): unknown[] {
   };
   for (const m of messages) {
     if (m.role === 'system') continue;
-    if (m.role === 'user') push('user', { type: 'text', text: m.content });
-    else if (m.role === 'tool')
+    if (m.role === 'user') {
+      for (const image of m.images ?? [])
+        push('user', {
+          type: 'image',
+          source: { type: 'base64', media_type: image.mediaType, data: image.base64 },
+        });
+      push('user', { type: 'text', text: m.content });
+    } else if (m.role === 'tool')
       push('user', { type: 'tool_result', tool_use_id: m.toolCallId, content: m.content });
     else {
       if (m.content) push('assistant', { type: 'text', text: m.content });

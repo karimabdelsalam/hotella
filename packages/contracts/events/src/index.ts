@@ -59,6 +59,7 @@ export {
 export { ComplaintOpened, ComplaintResolved } from './relations-events';
 export {
   LostFoundItemDisposed,
+  LostFoundItemPhotoAdded,
   LostFoundItemRegistered,
   LostFoundItemReleased,
 } from './lostfound-events';

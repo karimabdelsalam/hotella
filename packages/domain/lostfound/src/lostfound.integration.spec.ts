@@ -3,10 +3,14 @@ import type { EventEnvelope } from '@hotella/contracts-events';
 import { newId } from '@hotella/platform-database';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import sharp from 'sharp';
 import { AttributesService } from './application/attributes.service';
+import { VisionService } from './application/vision.service';
 import { LOSTFOUND_API, type LostFoundPublicApi } from './public';
 import {
+  ADMIN,
   createHotel,
+  ENTITLED,
   GATEWAY,
   type Hotel,
   type LostFoundHarness,
@@ -303,6 +307,158 @@ describe.skipIf(needsInfra())(`Lost & Found (${infraSkipReason()})`, () => {
         status: 'PROPOSED',
       }),
     ]);
+  });
+
+  it('photos are read by a vision model only when the property and the licence allow it, without metadata (9.5)', async () => {
+    const vision = h.app.get(VisionService);
+    const lost = await register({
+      kind: 'LOST',
+      category: 'GLASSES',
+      colour: 'BLACK',
+      brand: 'Oakley',
+      description: 'Black Oakley sports sunglasses',
+      occurredAt: daysAgo(5),
+    }).expect(201);
+    const found = await register(
+      {
+        kind: 'FOUND',
+        category: 'GLASSES',
+        description: 'Sunglasses on a sunbed',
+        placeNote: 'Beach',
+      },
+      attendant(),
+    ).expect(201);
+    // A phone photo carrying its owner's name and the place in its metadata.
+    const photo = await sharp({
+      create: { width: 2400, height: 1800, channels: 3, background: { r: 10, g: 10, b: 10 } },
+    })
+      .withExif({
+        IFD0: { Artist: 'Giulia Rossi' },
+        IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '30/1 2/1 44/1' },
+      })
+      .jpeg()
+      .toBuffer();
+    const upload = async (itemId: string) =>
+      (
+        await h
+          .http()
+          .post(`${base()}/items/${itemId}/photos`)
+          .set('X-Test-Actor', attendant())
+          .set('content-type', 'image/jpeg')
+          .send(photo)
+          .expect(201)
+      ).body.name as string;
+    const name = await upload(found.body.id);
+    expect(await outbox('lostfound.item.photo_added')).toContainEqual({
+      item_id: found.body.id,
+      kind: 'FOUND',
+      photo: name,
+    });
+
+    // Off by default: nothing is sent.
+    GATEWAY.calls.length = 0;
+    GATEWAY.answer = JSON.stringify({
+      object_type: 'sunglasses',
+      category: 'GLASSES',
+      description: 'Black wraparound sports sunglasses with mirrored lenses.',
+      colours: ['BLACK'],
+      material: 'plastic',
+      brand: 'Oakley',
+      keywords: ['mirrored lenses', 'wraparound'],
+    });
+    expect(await vision.read(hotel.tenantId, found.body.id, name)).toBe('SKIPPED');
+    await h
+      .http()
+      .put('/config/values/lostfound.ai.vision')
+      .set('X-Test-Actor', ADMIN)
+      .send({
+        scope: 'PROPERTY',
+        tenantId: hotel.tenantId,
+        propertyId: hotel.propertyId,
+        value: true,
+      })
+      .expect(200);
+    // Turned on, but the hotel's licence does not include AI vision.
+    expect(await vision.read(hotel.tenantId, found.body.id, name)).toBe('SKIPPED');
+    expect(GATEWAY.calls).toEqual([]);
+
+    ENTITLED.add(`${hotel.tenantId}:AI_VISION`);
+    GATEWAY.fail = true;
+    expect(await vision.read(hotel.tenantId, found.body.id, name)).toBe('FAILED');
+    GATEWAY.fail = false;
+    expect(await vision.read(hotel.tenantId, found.body.id, name)).toBe('READ');
+    expect(await vision.read(hotel.tenantId, found.body.id, name)).toBe('SKIPPED');
+
+    // What left the platform: a fixed instruction and the re-encoded photo, nothing about the guest, room or staff.
+    const call = GATEWAY.calls.at(-1)!;
+    expect(call).toMatchObject({ capability: 'VISION', agentCode: 'LOSTFOUND_VISION' });
+    const [message] = call.messages as Array<{
+      content: string;
+      dataClass: string;
+      images: Array<{ mediaType: string; data: Uint8Array; dataClass: string }>;
+    }>;
+    expect(message!.content).toBe(
+      'Describe the object in this photo for the lost-and-found register.',
+    );
+    expect(JSON.stringify(call.system)).not.toContain('Beach');
+    expect(JSON.stringify(call.system)).not.toContain('sunbed');
+    const [image] = message!.images;
+    expect(image).toMatchObject({ mediaType: 'image/jpeg', dataClass: 'SENSITIVE' });
+    const sent = Buffer.from(image!.data);
+    expect(sent.includes('Giulia Rossi')).toBe(false);
+    const meta = await sharp(sent).metadata();
+    expect(meta.exif).toBeUndefined();
+    expect(Math.max(meta.width!, meta.height!)).toBe(1568);
+
+    // Suggestions stand apart from the staff's words and bring the match the rules alone missed.
+    const detail = await item(found.body.id);
+    expect(detail.description).toBe('Sunglasses on a sunbed');
+    expect(detail.colour).toBeNull();
+    expect(detail.vision).toEqual([
+      expect.objectContaining({
+        photo: name,
+        objectType: 'sunglasses',
+        category: 'GLASSES',
+        colours: ['BLACK'],
+        material: 'plastic',
+        brand: 'Oakley',
+      }),
+    ]);
+    expect(detail.matches).toEqual([
+      expect.objectContaining({
+        lostItemId: lost.body.id,
+        reasons: ['CATEGORY', 'COLOUR_AI', 'BRAND_AI'],
+        status: 'PROPOSED',
+      }),
+    ]);
+
+    // The same sunglasses handed in again at the beach bar: the desk sees a possible duplicate.
+    const again = await register(
+      { kind: 'FOUND', category: 'GLASSES', description: 'Sunglasses at the beach bar' },
+      attendant(),
+    ).expect(201);
+    const second = await upload(again.body.id);
+    expect(await vision.read(hotel.tenantId, again.body.id, second)).toBe('READ');
+    expect((await item(found.body.id)).possibleDuplicates).toEqual([
+      expect.objectContaining({
+        score: 80,
+        reasons: ['OBJECT_TYPE', 'COLOUR', 'BRAND'],
+        item: expect.objectContaining({ id: again.body.id }),
+      }),
+    ]);
+
+    // A guest's own photo of what they lost is never sent.
+    const lostPhoto = await upload(lost.body.id);
+    expect(await vision.read(hotel.tenantId, lost.body.id, lostPhoto)).toBe('SKIPPED');
+
+    // The desk confirms the first pair; the other proposal for the same report is rejected with it.
+    const proposal = (await item(found.body.id)).matches[0] as { id: string; version: number };
+    await h
+      .http()
+      .post(`${base()}/matches/${proposal.id}/confirm`)
+      .set('X-Test-Actor', desk())
+      .send({ version: proposal.version })
+      .expect(200);
   });
 
   it('an unclaimed item is disposed of only after its retention date, by an explicit audited action', async () => {

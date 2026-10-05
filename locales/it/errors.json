@@ -193,6 +193,7 @@
   "errors.catalog.request.not_found": "Richiesta non trovata.",
   "errors.catalog.request.cannot_cancel": "Questa richiesta non può più essere annullata.",
   "errors.ai.gateway.unavailable": "Il servizio IA non è disponibile al momento.",
+  "errors.ai.gateway.images_need_vision": "Le foto possono essere inviate solo a un modello che legge immagini.",
   "errors.ai.provider.not_found": "Provider IA non trovato.",
   "errors.ai.provider.code_taken": "Esiste già un provider IA con questo codice.",
   "errors.ai.provider.version_conflict": "Un'altra persona ha modificato questo provider; ricarichi e riprovi.",

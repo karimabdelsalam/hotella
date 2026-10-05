@@ -15,3 +15,7 @@ saveExact: true
 # @swc/core's script only verifies its prebuilt binary.
 onlyBuiltDependencies:
   - '@swc/core'
+# sharp (images for vision models, BUILD_PLAN 9.5) loads its prebuilt N-API binary from @img/sharp-*; its install
+# script would only fall back to compiling libvips, so it never runs.
+ignoredBuiltDependencies:
+  - sharp

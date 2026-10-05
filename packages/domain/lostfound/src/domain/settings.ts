@@ -25,4 +25,17 @@ export const AI_ATTRIBUTES = defineSetting({
   descriptionKey: 'lostfound.setting.ai_attributes',
 });
 
-export const LOSTFOUND_SETTINGS = [RETENTION_DAYS, AI_ATTRIBUTES];
+/**
+ * Whether a vision model reads the photos of found items into suggestions (owner decision 2026-10-04, BUILD_PLAN 9.5).
+ * Off unless the property turns it on; it also needs the `AI_VISION` entitlement and a routed provider that may
+ * receive SENSITIVE data. The photo leaves the platform re-encoded without metadata, with a fixed instruction only.
+ */
+export const AI_VISION = defineSetting({
+  key: 'lostfound.ai.vision',
+  scopes: SCOPES,
+  schema: z.boolean(),
+  default: false,
+  descriptionKey: 'lostfound.setting.ai_vision',
+});
+
+export const LOSTFOUND_SETTINGS = [RETENTION_DAYS, AI_ATTRIBUTES, AI_VISION];

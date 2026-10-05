@@ -19,6 +19,18 @@ export const LostFoundItemRegistered = defineEvent({
   }),
 });
 
+export const LostFoundItemPhotoAdded = defineEvent({
+  type: 'lostfound.item.photo_added',
+  version: 1,
+  description:
+    'A photo was attached to an item (the photo itself stays in object storage; only its name is carried).',
+  payload: z.object({
+    item_id: z.uuid(),
+    kind: z.enum(['FOUND', 'LOST']),
+    photo: z.string().max(80),
+  }),
+});
+
 export const LostFoundItemReleased = defineEvent({
   type: 'lostfound.item.released',
   version: 1,

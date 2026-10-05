@@ -176,6 +176,47 @@ export const aiMetadata = classify(
   },
 );
 
+/**
+ * What a vision model read from one photo of a found item (BUILD_PLAN 9.5): suggestions only, kept apart from the
+ * staff's description (Spec §13), one row per photo. The photo never leaves object storage except re-encoded without
+ * metadata for the model call.
+ */
+export const visionReadings = classify(
+  lostfound.table(
+    'vision_readings',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      itemId: uuid('item_id')
+        .notNull()
+        .references(() => items.id, { onDelete: 'restrict' }),
+      photo: varchar('photo', { length: 80 }).notNull(),
+      objectType: varchar('object_type', { length: 80 }),
+      category: varchar('category', { length: 32 }),
+      description: varchar('description', { length: 300 }),
+      colours: jsonb('colours').$type<string[]>().notNull().default([]),
+      material: varchar('material', { length: 60 }),
+      brand: varchar('brand', { length: 60 }),
+      keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+      modelCallId: varchar('model_call_id', { length: 64 }).notNull(),
+    },
+    (t) => [uniqueIndex('vision_readings_photo_uq').on(t.itemId, t.photo)],
+  ),
+  {
+    ...audit,
+    itemId: 'INTERNAL',
+    photo: 'INTERNAL',
+    objectType: 'INTERNAL',
+    category: 'INTERNAL',
+    description: 'CONFIDENTIAL',
+    colours: 'INTERNAL',
+    material: 'INTERNAL',
+    brand: 'INTERNAL',
+    keywords: 'CONFIDENTIAL',
+    modelCallId: 'INTERNAL',
+  },
+);
+
 /** A found item that may be a guest's lost one, with the score and why; a person confirms or rejects it. */
 export const matchCandidates = classify(
   lostfound.table(
@@ -262,3 +303,4 @@ export type ItemRow = typeof items.$inferSelect;
 export type MatchRow = typeof matchCandidates.$inferSelect;
 export type ClaimRow = typeof claims.$inferSelect;
 export type AiMetadataRow = typeof aiMetadata.$inferSelect;
+export type VisionReadingRow = typeof visionReadings.$inferSelect;

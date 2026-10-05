@@ -2,7 +2,7 @@
   "name": "@hotella/domain-lostfound",
   "version": "0.0.0",
   "private": true,
-  "description": "Lost & Found (Spec \u00a713): found and lost items with photos, rule-based matching (and AI-derived attributes kept apart from the staff description), claims and audited release, retention and explicit disposal.",
+  "description": "Lost & Found (Spec §13): found and lost items with photos, rule-based matching (and AI-derived attributes kept apart from the staff description), claims and audited release, retention and explicit disposal.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -29,6 +29,7 @@
     "@hotella/contracts-events": "workspace:*",
     "@hotella/domain-ai": "workspace:*",
     "@hotella/domain-guest": "workspace:*",
+    "@hotella/domain-licensing": "workspace:*",
     "@hotella/domain-organization": "workspace:*",
     "@hotella/platform-audit": "workspace:*",
     "@hotella/platform-auth": "workspace:*",
@@ -63,6 +64,7 @@
     "pg": "8.23.1",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
+    "sharp": "0.34.5",
     "supertest": "7.3.1",
     "vitest": "4.1.11"
   }

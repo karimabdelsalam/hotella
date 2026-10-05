@@ -13,9 +13,15 @@ export interface ToolCall {
   readonly arguments: Record<string, unknown>;
 }
 
+/** An image of a user turn, base64-encoded for the wire. */
+export interface ImagePart {
+  readonly mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  readonly base64: string;
+}
+
 export type ChatMessage =
   | { readonly role: 'system'; readonly content: string }
-  | { readonly role: 'user'; readonly content: string }
+  | { readonly role: 'user'; readonly content: string; readonly images?: readonly ImagePart[] }
   | {
       readonly role: 'assistant';
       readonly content: string | null;

@@ -193,6 +193,7 @@
   "errors.catalog.request.not_found": "Anfrage nicht gefunden.",
   "errors.catalog.request.cannot_cancel": "Diese Anfrage kann nicht mehr storniert werden.",
   "errors.ai.gateway.unavailable": "Der KI-Dienst ist derzeit nicht verfügbar.",
+  "errors.ai.gateway.images_need_vision": "Fotos können nur an ein Modell gesendet werden, das Bilder lesen kann.",
   "errors.ai.provider.not_found": "KI-Anbieter nicht gefunden.",
   "errors.ai.provider.code_taken": "Ein KI-Anbieter mit diesem Code existiert bereits.",
   "errors.ai.provider.version_conflict": "Jemand anderes hat diesen Anbieter geändert; laden Sie neu und versuchen Sie es erneut.",
