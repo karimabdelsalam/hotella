@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
 import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform-auth';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
@@ -38,12 +39,28 @@ import {
 } from '../application/maintenance.service';
 import { askCopilotSchema, CopilotService } from '../application/copilot.service';
 import {
+  createPointSchema,
+  createRuleSchema,
+  minutesQuerySchema,
+  TelemetryService,
+  updatePointSchema,
+  versionSchema,
+} from '../application/telemetry.service';
+import {
   createRestrictionSchema,
   listRestrictionsSchema,
   RestrictionService,
 } from '../application/restriction.service';
 
 class AskCopilotDto extends createZodDto(askCopilotSchema) {}
+class CreatePointDto extends createZodDto(createPointSchema) {}
+class UpdatePointDto extends createZodDto(updatePointSchema) {}
+class CreateRuleDto extends createZodDto(createRuleSchema) {}
+class TelemetryVersionDto extends createZodDto(versionSchema) {}
+class MinutesQueryDto extends createZodDto(minutesQuerySchema) {}
+class AlarmsQueryDto extends createZodDto(
+  z.object({ live: z.enum(['true', 'false']).optional(), pointId: z.uuid().optional() }),
+) {}
 class CreateAssetTypeDto extends createZodDto(createAssetTypeSchema) {}
 class UpdateAssetTypeDto extends createZodDto(updateAssetTypeSchema) {}
 class CreateAssetModelDto extends createZodDto(createAssetModelSchema) {}
@@ -427,5 +444,97 @@ export class MaintenanceController {
   @RequirePermission('eng.restriction.manage', { checkedBy: 'gate' })
   release(@Param('propertyId') propertyId: string, @Param('restrictionId') id: string) {
     return this.restrictions.release(this.scope(propertyId), id);
+  }
+}
+
+/** Building telemetry of a property (ADR-0024, BUILD_PLAN 13.2): points, rules, alarms and minute aggregates. */
+@Controller('properties/:propertyId/eng/telemetry')
+@PropertyScoped({ from: 'param' })
+export class TelemetryController {
+  constructor(
+    private readonly telemetry: TelemetryService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope(propertyId: string) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return { tenantId, propertyId };
+  }
+
+  @Get('points')
+  @RequirePermission('eng.telemetry.read', { checkedBy: 'gate' })
+  points(@Param('propertyId') propertyId: string) {
+    return this.telemetry.listPoints(this.scope(propertyId));
+  }
+
+  @Post('points')
+  @RequirePermission('eng.telemetry.manage', { checkedBy: 'gate' })
+  createPoint(@Param('propertyId') propertyId: string, @Body() body: CreatePointDto) {
+    return this.telemetry.createPoint(this.scope(propertyId), body);
+  }
+
+  @Patch('points/:pointId')
+  @RequirePermission('eng.telemetry.manage', { checkedBy: 'gate' })
+  updatePoint(
+    @Param('propertyId') propertyId: string,
+    @Param('pointId') pointId: string,
+    @Body() body: UpdatePointDto,
+  ) {
+    return this.telemetry.updatePoint(this.scope(propertyId), pointId, body);
+  }
+
+  @Get('points/:pointId/minutes')
+  @RequirePermission('eng.telemetry.read', { checkedBy: 'gate' })
+  minutes(
+    @Param('propertyId') propertyId: string,
+    @Param('pointId') pointId: string,
+    @Query() query: MinutesQueryDto,
+  ) {
+    return this.telemetry.minutes(this.scope(propertyId), pointId, query);
+  }
+
+  @Get('rules')
+  @RequirePermission('eng.telemetry.read', { checkedBy: 'gate' })
+  rules(@Param('propertyId') propertyId: string, @Query('pointId') pointId?: string) {
+    return this.telemetry.listRules(this.scope(propertyId), pointId);
+  }
+
+  @Post('rules')
+  @RequirePermission('eng.telemetry.manage', { checkedBy: 'gate' })
+  createRule(@Param('propertyId') propertyId: string, @Body() body: CreateRuleDto) {
+    return this.telemetry.createRule(this.scope(propertyId), body);
+  }
+
+  @Post('rules/:ruleId/retire')
+  @HttpCode(200)
+  @RequirePermission('eng.telemetry.manage', { checkedBy: 'gate' })
+  retire(
+    @Param('propertyId') propertyId: string,
+    @Param('ruleId') ruleId: string,
+    @Body() body: TelemetryVersionDto,
+  ) {
+    return this.telemetry.retireRule(this.scope(propertyId), ruleId, body.version);
+  }
+
+  @Get('alarms')
+  @RequirePermission('eng.telemetry.read', { checkedBy: 'gate' })
+  alarms(@Param('propertyId') propertyId: string, @Query() query: AlarmsQueryDto) {
+    return this.telemetry.listAlarms(this.scope(propertyId), {
+      live: query.live === 'true',
+      pointId: query.pointId,
+    });
+  }
+
+  @Post('alarms/:alarmId/acknowledge')
+  @HttpCode(200)
+  @RequirePermission('eng.telemetry.acknowledge', { checkedBy: 'gate' })
+  acknowledge(
+    @Param('propertyId') propertyId: string,
+    @Param('alarmId') alarmId: string,
+    @Body() body: TelemetryVersionDto,
+  ) {
+    return this.telemetry.acknowledge(this.scope(propertyId), alarmId, body.version);
   }
 }

@@ -3,6 +3,7 @@ import {
   IntegrationCapabilityChanged,
   IntegrationExceptionOpened,
   IntegrationHealthChanged,
+  IntegrationTelemetryReceived,
   ReconciliationCompleted,
   ReconciliationSnapshotCompleted,
 } from '@hotella/contracts-events';
@@ -61,6 +62,7 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
     IntegrationExceptionOpened.name,
     IntegrationHealthChanged.name,
     IntegrationCapabilityChanged.name,
+    IntegrationTelemetryReceived.name,
     ReconciliationSnapshotCompleted.name,
     ReconciliationCompleted.name,
   ],

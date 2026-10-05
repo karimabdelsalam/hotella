@@ -8,5 +8,8 @@
   "eng.work_kind.work_order": "Инженерный наряд-заказ",
   "eng.work_order.title": "{type, select, CORRECTIVE {Ремонт} PREVENTIVE {Плановое техобслуживание} PREDICTIVE {Прогнозное техобслуживание} INSPECTION {Инженерный осмотр} EMERGENCY {Аварийный ремонт} PROJECT {Проект} other {Инженерные работы}} · WO-{number}",
   "eng.permission.pm_manage": "Планирование профилактического обслуживания",
-  "eng.permission.restriction_manage": "Вывод номеров из эксплуатации и возврат в эксплуатацию"
+  "eng.permission.restriction_manage": "Вывод номеров из эксплуатации и возврат в эксплуатацию",
+  "eng.permission.telemetry_read": "Просмотр телеметрии здания: точки, показания и тревоги",
+  "eng.permission.telemetry_manage": "Настройка точек телеметрии и правил тревог",
+  "eng.permission.telemetry_acknowledge": "Подтверждение тревог телеметрии"
 }

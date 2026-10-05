@@ -58,7 +58,7 @@
   "mobile.request.asked_again": "{count, plural, one {# Mal erneut gewünscht} other {# Mal erneut gewünscht}}",
   "mobile.alerts.title": "Warnungen",
   "mobile.alerts.empty": "Keine offenen Warnungen.",
-  "mobile.alert.type": "{type, select, SLA_RESPONSE_BREACHED {Vorgang nicht übernommen} SLA_AT_RISK {Vorgang kurz vor der Frist} SLA_RESOLUTION_BREACHED {Vorgang über der Frist} CHANNEL_UNHEALTHY {Ein Nachrichtenkanal zu Gästen fällt aus} AI_BUDGET_EXHAUSTED {Das KI-Budget ist aufgebraucht} other {Erfordert Aufmerksamkeit}}",
+  "mobile.alert.type": "{type, select, SLA_RESPONSE_BREACHED {Vorgang nicht übernommen} SLA_AT_RISK {Vorgang kurz vor der Frist} SLA_RESOLUTION_BREACHED {Vorgang über der Frist} CHANNEL_UNHEALTHY {Ein Nachrichtenkanal zu Gästen fällt aus} AI_BUDGET_EXHAUSTED {Das KI-Budget ist aufgebraucht} TELEMETRY_ALARM {Ein Alarm der Gebäudesensoren} other {Erfordert Aufmerksamkeit}}",
   "mobile.alert.severity": "{severity, select, CRITICAL {Kritisch} WARNING {Warnung} other {Information}}",
   "mobile.alert.status": "{status, select, OPEN {Offen} ACKNOWLEDGED {Zur Kenntnis genommen} other {Erledigt}}",
   "mobile.alert.seen": "{count, plural, one {Einmal aufgetreten} other {# Mal aufgetreten}}",

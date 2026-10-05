@@ -47,6 +47,10 @@ export {
   MeterReadingRecorded,
   PmDue,
   RoomRestrictionChanged,
+  TELEMETRY_QUANTITIES,
+  TELEMETRY_RULE_KINDS,
+  TelemetryAlarmCleared,
+  TelemetryAlarmRaised,
   WORK_ORDER_TYPES,
   WorkOrderClosed,
   WorkOrderCreated,
@@ -91,6 +95,7 @@ export {
   IntegrationExceptionOpened,
   IntegrationCapabilityChanged,
   IntegrationHealthChanged,
+  IntegrationTelemetryReceived,
   ReconciliationCompleted,
   ReconciliationSnapshotCompleted,
 } from './integration-events';

@@ -2,6 +2,8 @@ import {
   MeterReadingRecorded,
   PmDue,
   RoomRestrictionChanged,
+  TelemetryAlarmCleared,
+  TelemetryAlarmRaised,
   WorkOrderClosed,
   WorkOrderCreated,
 } from '@hotella/contracts-events';
@@ -29,6 +31,17 @@ export const ENGINEERING_MANIFEST = defineManifest({
       descriptionKey: 'eng.permission.restriction_manage',
       risk: 'MEDIUM',
     },
+    { code: 'eng.telemetry.read', descriptionKey: 'eng.permission.telemetry_read', risk: 'READ' },
+    {
+      code: 'eng.telemetry.manage',
+      descriptionKey: 'eng.permission.telemetry_manage',
+      risk: 'MEDIUM',
+    },
+    {
+      code: 'eng.telemetry.acknowledge',
+      descriptionKey: 'eng.permission.telemetry_acknowledge',
+      risk: 'LOW',
+    },
   ],
   events: [
     WorkOrderCreated.name,
@@ -36,6 +49,8 @@ export const ENGINEERING_MANIFEST = defineManifest({
     MeterReadingRecorded.name,
     PmDue.name,
     RoomRestrictionChanged.name,
+    TelemetryAlarmRaised.name,
+    TelemetryAlarmCleared.name,
   ],
   // The Engineering Copilot's tools (BUILD_PLAN 8.4): all READ.
   aiTools: [
@@ -52,7 +67,7 @@ export const ENGINEERING_MANIFEST = defineManifest({
     },
     { code: 'engineering.search_manuals', risk: 'READ', requiredPermission: 'eng.asset.read' },
   ],
-  integrationCapabilities: ['OOO_WRITE'],
+  integrationCapabilities: ['OOO_WRITE', 'TELEMETRY_READ'],
   entitlements: ['ENGINEERING'],
   entitlement: 'ENGINEERING',
   localeNamespaces: ['eng'],

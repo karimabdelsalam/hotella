@@ -146,7 +146,7 @@ abstract class AppLocalizations {
   /// mobile.alert.type
   ///
   /// In en, this message translates to:
-  /// **'{type, select, SLA_RESPONSE_BREACHED {Work not picked up} SLA_AT_RISK {Work close to its deadline} SLA_RESOLUTION_BREACHED {Work past its deadline} CHANNEL_UNHEALTHY {A guest messaging channel is failing} AI_BUDGET_EXHAUSTED {The AI budget is used up} other {Needs attention}}'**
+  /// **'{type, select, SLA_RESPONSE_BREACHED {Work not picked up} SLA_AT_RISK {Work close to its deadline} SLA_RESOLUTION_BREACHED {Work past its deadline} CHANNEL_UNHEALTHY {A guest messaging channel is failing} AI_BUDGET_EXHAUSTED {The AI budget is used up} TELEMETRY_ALARM {A building sensor alarm} other {Needs attention}}'**
   String alertType(String type);
 
   /// mobile.alerts.empty

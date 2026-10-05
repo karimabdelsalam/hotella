@@ -65,6 +65,9 @@ export function codesOf(record: InboundRecord): CodeNeed[] {
       // Reported as found; an unmapped room is itself a reconciliation finding, so it never blocks.
       if (record.room_code) out.push({ type: 'ROOM', code: record.room_code, required: false });
       break;
+    case 'TELEMETRY_SAMPLES':
+      // Points are resolved by engineering's registry, which reports unknown ones (never blocking).
+      break;
   }
   return out;
 }
@@ -90,7 +93,13 @@ export type SyncRecord = Extract<
   InboundRecord,
   { kind: 'SYNC_START' | 'IN_HOUSE_ENTRY' | 'SYNC_END' }
 >;
-export type CanonicalRecord = Exclude<InboundRecord, SyncRecord>;
+/** Telemetry samples go to engineering as one batch event (BUILD_PLAN 13.2), not through `toCanonical`. */
+export type TelemetryRecord = Extract<InboundRecord, { kind: 'TELEMETRY_SAMPLES' }>;
+export type CanonicalRecord = Exclude<InboundRecord, SyncRecord | TelemetryRecord>;
+
+export function isTelemetryRecord(record: InboundRecord): record is TelemetryRecord {
+  return record.kind === 'TELEMETRY_SAMPLES';
+}
 
 export function isSyncRecord(record: InboundRecord): record is SyncRecord {
   return (

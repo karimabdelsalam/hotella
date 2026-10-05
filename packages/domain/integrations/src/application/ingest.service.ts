@@ -6,7 +6,10 @@ import {
   type RawInboundMessageInput,
   RECORD_CAPABILITY,
 } from '@hotella/contracts-connectors';
-import { IntegrationExceptionOpened } from '@hotella/contracts-events';
+import {
+  IntegrationExceptionOpened,
+  IntegrationTelemetryReceived,
+} from '@hotella/contracts-events';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
 import {
   DATABASE,
@@ -19,7 +22,7 @@ import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { ConnectorRegistry } from '../connectors/registry';
 import { effectiveCapabilities } from '../domain/instance';
-import { codesOf, isSyncRecord, toCanonical } from '../domain/mapping';
+import { codesOf, isSyncRecord, isTelemetryRecord, toCanonical } from '../domain/mapping';
 import { ProfileRepositories } from '../infrastructure/profile-repositories';
 import { IntegrationRepositories } from '../infrastructure/repositories';
 import { HealthService } from './health.service';
@@ -261,6 +264,19 @@ export class IngestService {
 
     const eventIds: string[] = [];
     for (const [i, record] of records.entries()) {
+      if (isTelemetryRecord(record)) {
+        const envelope = await this.events.publish(IntegrationTelemetryReceived, {
+          tenantId: instance.tenantId,
+          propertyId: instance.propertyId,
+          source: `integration:${instance.connectorCode}`,
+          sourceReference: `${instance.id}:${m.sourceMessageId}#${i}`,
+          aggregate: { type: 'integration_message', id: m.id },
+          occurredAt: new Date(Math.max(...record.samples.map((x) => Date.parse(x.at)))),
+          payload: { instance_id: instance.id, message_id: m.id, samples: record.samples },
+        });
+        eventIds.push(envelope.event_id);
+        continue;
+      }
       if (isSyncRecord(record)) {
         const roomId =
           record.kind === 'IN_HOUSE_ENTRY' && record.room_code

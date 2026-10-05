@@ -58,6 +58,7 @@ class AppLocalizationsAr extends AppLocalizations {
       'SLA_RESOLUTION_BREACHED': 'تجاوز العمل موعده النهائي',
       'CHANNEL_UNHEALTHY': 'قناة مراسلة الضيوف لا تعمل',
       'AI_BUDGET_EXHAUSTED': 'نفدت ميزانية الذكاء الاصطناعي',
+      'TELEMETRY_ALARM': 'إنذار من حساسات المبنى',
       'other': 'يحتاج إلى متابعة',
     });
     return '$_temp0';

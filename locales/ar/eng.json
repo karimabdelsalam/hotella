@@ -8,5 +8,8 @@
   "eng.work_kind.work_order": "أمر عمل صيانة",
   "eng.work_order.title": "{type, select, CORRECTIVE {إصلاح} PREVENTIVE {صيانة وقائية} PREDICTIVE {صيانة تنبؤية} INSPECTION {فحص هندسي} EMERGENCY {إصلاح طارئ} PROJECT {مشروع} other {أعمال صيانة}} · WO-{number}",
   "eng.permission.pm_manage": "تخطيط الصيانة الوقائية",
-  "eng.permission.restriction_manage": "إخراج الغرف من الخدمة وإعادتها"
+  "eng.permission.restriction_manage": "إخراج الغرف من الخدمة وإعادتها",
+  "eng.permission.telemetry_read": "قراءة بيانات حساسات المبنى: النقاط والقراءات والإنذارات",
+  "eng.permission.telemetry_manage": "إعداد نقاط القياس وقواعد الإنذار",
+  "eng.permission.telemetry_acknowledge": "تأكيد استلام إنذارات الحساسات"
 }

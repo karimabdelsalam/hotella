@@ -3195,9 +3195,9 @@ eng (telemetry)
   (`integration.manage`); voice webhooks under the comms webhook controller (`VOICE` provider); `/properties/:id/calls`
   (`inbox.read`); `/properties/:id/eng/telemetry/points|rules|alarms` (`eng.telemetry.read|manage`);
   `/properties/:id/stays/:stayId/access` (`access.read`, `access.key.issue`, `access.wifi.issue`).
-- Events: `comms.call.started|ended.v1`, `eng.telemetry.alarm_raised|alarm_cleared.v1`,
+- Events: `comms.call.started|ended.v1`, `eng.telemetry_alarm.raised|cleared.v1`, `integration.telemetry_batch.received.v1`,
   `integration.access.issued|revoked|failed.v1`, `hotel.pos.check_closed.v1`.
-- Permissions: `eng.telemetry.read`, `eng.telemetry.manage`, `access.read`, `access.key.issue`, `access.wifi.issue`.
+- Permissions: `eng.telemetry.read`, `eng.telemetry.manage`, `eng.telemetry.acknowledge`, `access.read`, `access.key.issue`, `access.wifi.issue`.
 - Entitlements: `VOICE_AI`/`AI_VOICE` (existing), `CONNECTOR_PBX`, `CONNECTOR_BMS`, new `CONNECTOR_LOCK`,
   `CONNECTOR_WIFI`, `CONNECTOR_POS`, `CONNECTOR_ERP`; metric `VOICE_MINUTES` produced.
 - Locale namespaces: `comms.call.*`, `eng.telemetry.*`, `integration.access.*`, `staff.telemetry.*`.
@@ -3228,6 +3228,36 @@ from the platform webhook key, endpoint id and `secret_version`, never stored, s
 Tests: `inbound.integration.spec.ts` (signed ingest → `hotel.guest.checked_in`, duplicate retry, missing/stale/
 tampered/foreign signatures, rotation, revocation, tenant isolation), webhook unit tests, `vectors.spec.ts`,
 `ConnectorRegistryTests` (.NET), the OPERA conformance suites unchanged and green.
+
+**13.2 design (refined before coding).**
+- *Planova Telemetry Profile v1:* message type `TELEMETRY_BATCH` `{ samples: [{ point, value, at }] }` (1–500
+  samples, finite numbers, ISO instants) → record `TELEMETRY_SAMPLES` (capability `TELEMETRY_READ`). Neutral
+  connector `BMS_STANDARD` (category BMS, entitlement `CONNECTOR_BMS`, transports agent and webhook, no commands),
+  with contract vectors. Vendor BMS gateways (BACnet/Modbus/MQTT bridges, Q24) are later connectors to this profile.
+- *One event per message, not per sample:* the ingest turns a `TELEMETRY_SAMPLES` record into one
+  `integration.telemetry_batch.received.v1` (connector-neutral samples with their external point codes; no outbox row
+  per sample) — the agent gateway does not load engineering, so a direct call would not reach it. Engineering's worker
+  consumer resolves the codes against its point registry; each unknown code is reported back
+  (`INTEGRATIONS_API.reportUnknownCode`) as an `UNKNOWN_MAPPING` exception with mapping type `POINT` (new enum value),
+  never blocking and never guessed (rule 16): samples of unknown or `IGNORED` points are dropped. Creating the point
+  settles its exception (`INTEGRATIONS_API.resolveUnknownCode`); the integration mapping screen refuses `POINT`.
+- *Points are engineering's mapping* (`eng.telemetry_points`, unique per instance and external code; asset and/or
+  location; quantity, unit; `ACTIVE|IGNORED`). *Minute aggregates* `eng.telemetry_minutes` (min, max, sum, samples,
+  last, last_at) upserted per point and minute, range-partitioned by month (hand-written SQL; a daily job keeps the
+  next two months and drops partitions older than 400 days). Raw samples are not kept.
+- *Rules are immutable once created* (rule 9: retire and create a new one): `THRESHOLD {above|below, clear_at,
+  for_minutes}` on the minute average with hysteresis, `RATE {max_delta, window_minutes}`, `STUCK {minutes,
+  tolerance}`, `MISSING {minutes}`; severity `WARNING|CRITICAL`; action `ALERT` or `WORK_ORDER`. Threshold, rate and
+  stuck are evaluated after each batch for the points it touched; missing data by a 5-minute sweep. Pure functions in
+  `domain/telemetry.ts` (rule 11).
+- *Alarms* (`eng.telemetry_alarms`): one live alarm per point and rule (`OPEN`/`ACKNOWLEDGED`), cleared by the rule's
+  clear condition, history kept (rule 10); `eng.telemetry_alarm.raised.v1` / `eng.telemetry_alarm.cleared.v1`. Reactions: every
+  raise is an operational alert (`OPERATIONS_API.raiseAlert`, deduplicated by alarm); `WORK_ORDER` rules open a
+  `PREDICTIVE` work order with source `TELEMETRY` on the point's asset or location; the insight signals count
+  `TELEMETRY_ALARM`.
+- *API:* `/properties/:id/eng/telemetry/points` (GET, POST, PATCH status), `/rules` (GET, POST, POST `:id/retire`),
+  `/alarms` (GET, POST `:id/acknowledge`), `/points/:id/minutes?from&to`; permissions `eng.telemetry.read|manage`.
+  Simulator: a BMS face posting signed `TELEMETRY_BATCH` webhooks (13.1 ingress). Staff web: Engineering → Telemetry.
 
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,

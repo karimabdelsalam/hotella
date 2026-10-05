@@ -60,6 +60,8 @@ export const CONNECTOR_CAPABILITIES = [
   'WIFI_SESSION_CREATE',
   'WIFI_SESSION_REVOKE',
   'DEVICE_READ',
+  // BMS / IoT (Planova Telemetry Profile v1, ADR-0024)
+  'TELEMETRY_READ',
 ] as const;
 export type ConnectorCapability = (typeof CONNECTOR_CAPABILITIES)[number];
 
@@ -96,7 +98,16 @@ export function isWriteCapability(capability: ConnectorCapability): boolean {
  * raise an integration exception. REQUIRED kinds block the message until a mapping is confirmed; OPTIONAL kinds let
  * the message through with the canonical field left empty (the exception still records the gap).
  */
-export const MAPPING_TYPES = ['ROOM', 'ROOM_TYPE', 'RATE', 'MARKET', 'VIP', 'ROOM_STATUS'] as const;
+export const MAPPING_TYPES = [
+  'ROOM',
+  'ROOM_TYPE',
+  'RATE',
+  'MARKET',
+  'VIP',
+  'ROOM_STATUS',
+  // A telemetry point; engineering's point registry is the mapping (BUILD_PLAN 13.2), so it never blocks a message.
+  'POINT',
+] as const;
 export type MappingType = (typeof MAPPING_TYPES)[number];
 export const REQUIRED_MAPPING_TYPES: ReadonlySet<MappingType> = new Set(['ROOM', 'ROOM_STATUS']);
 

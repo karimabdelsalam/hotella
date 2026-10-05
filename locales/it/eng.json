@@ -8,5 +8,8 @@
   "eng.work_kind.work_order": "Ordine di lavoro tecnico",
   "eng.work_order.title": "{type, select, CORRECTIVE {Riparazione} PREVENTIVE {Manutenzione preventiva} PREDICTIVE {Manutenzione predittiva} INSPECTION {Ispezione tecnica} EMERGENCY {Riparazione urgente} PROJECT {Progetto} other {Lavoro tecnico}} · WO-{number}",
   "eng.permission.pm_manage": "Pianificare la manutenzione preventiva",
-  "eng.permission.restriction_manage": "Mettere le camere fuori servizio e rimetterle in servizio"
+  "eng.permission.restriction_manage": "Mettere le camere fuori servizio e rimetterle in servizio",
+  "eng.permission.telemetry_read": "Leggere la telemetria dell'edificio: punti, letture e allarmi",
+  "eng.permission.telemetry_manage": "Configurare i punti di telemetria e le regole di allarme",
+  "eng.permission.telemetry_acknowledge": "Prendere in carico gli allarmi di telemetria"
 }

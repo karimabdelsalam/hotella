@@ -64,3 +64,29 @@ export const IntegrationCapabilityChanged = defineEvent({
     connectors: z.array(z.string()),
   }),
 });
+
+/**
+ * Building telemetry (Planova Telemetry Profile v1, BUILD_PLAN 13.2): the connector-neutral samples of one message,
+ * one event per message (never per sample). Point codes are still external: engineering resolves them against its
+ * point registry and reports unknown ones back as integration exceptions (rule 16).
+ */
+export const IntegrationTelemetryReceived = defineEvent({
+  type: 'integration.telemetry_batch.received',
+  version: 1,
+  description:
+    'A batch of telemetry samples arrived from a BMS/IoT integration; engineering keeps minute aggregates and evaluates its rules.',
+  payload: z.object({
+    instance_id: z.uuid(),
+    message_id: z.uuid(),
+    samples: z
+      .array(
+        z.object({
+          point: z.string().min(1).max(64),
+          value: z.number(),
+          at: z.iso.datetime({ offset: true }),
+        }),
+      )
+      .min(1)
+      .max(500),
+  }),
+});

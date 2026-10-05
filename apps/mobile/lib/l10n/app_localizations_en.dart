@@ -57,6 +57,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'SLA_RESOLUTION_BREACHED': 'Work past its deadline',
       'CHANNEL_UNHEALTHY': 'A guest messaging channel is failing',
       'AI_BUDGET_EXHAUSTED': 'The AI budget is used up',
+      'TELEMETRY_ALARM': 'A building sensor alarm',
       'other': 'Needs attention',
     });
     return '$_temp0';

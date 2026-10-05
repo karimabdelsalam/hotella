@@ -63,6 +63,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'SLA_RESOLUTION_BREACHED': 'Lavoro oltre la scadenza',
       'CHANNEL_UNHEALTHY': 'Un canale di messaggi agli ospiti non funziona',
       'AI_BUDGET_EXHAUSTED': 'Il budget IA è esaurito',
+      'TELEMETRY_ALARM': 'Un allarme dei sensori dell’edificio',
       'other': 'Richiede attenzione',
     });
     return '$_temp0';

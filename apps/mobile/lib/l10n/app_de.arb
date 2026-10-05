@@ -7,7 +7,7 @@
   "alertSeen": "{count, plural, one {Einmal aufgetreten} other {{count} Mal aufgetreten}}",
   "alertSeverity": "{severity, select, CRITICAL {Kritisch} WARNING {Warnung} other {Information}}",
   "alertStatus": "{status, select, OPEN {Offen} ACKNOWLEDGED {Zur Kenntnis genommen} other {Erledigt}}",
-  "alertType": "{type, select, SLA_RESPONSE_BREACHED {Vorgang nicht übernommen} SLA_AT_RISK {Vorgang kurz vor der Frist} SLA_RESOLUTION_BREACHED {Vorgang über der Frist} CHANNEL_UNHEALTHY {Ein Nachrichtenkanal zu Gästen fällt aus} AI_BUDGET_EXHAUSTED {Das KI-Budget ist aufgebraucht} other {Erfordert Aufmerksamkeit}}",
+  "alertType": "{type, select, SLA_RESPONSE_BREACHED {Vorgang nicht übernommen} SLA_AT_RISK {Vorgang kurz vor der Frist} SLA_RESOLUTION_BREACHED {Vorgang über der Frist} CHANNEL_UNHEALTHY {Ein Nachrichtenkanal zu Gästen fällt aus} AI_BUDGET_EXHAUSTED {Das KI-Budget ist aufgebraucht} TELEMETRY_ALARM {Ein Alarm der Gebäudesensoren} other {Erfordert Aufmerksamkeit}}",
   "alertsEmpty": "Keine offenen Warnungen.",
   "alertsTitle": "Warnungen",
   "appTitle": "Hotella",

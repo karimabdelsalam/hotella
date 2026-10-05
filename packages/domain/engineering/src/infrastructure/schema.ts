@@ -2,11 +2,13 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   date,
+  doublePrecision,
   index,
   integer,
   jsonb,
   numeric,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -20,6 +22,7 @@ import {
   translationUnique,
   versioned,
 } from '@hotella/platform-database';
+import { TELEMETRY_QUANTITIES, TELEMETRY_RULE_KINDS } from '@hotella/contracts-events';
 import type { PmTrigger } from '../domain/pm';
 import type { PropertyField } from '../domain/properties';
 
@@ -271,6 +274,7 @@ export const workOrderSource = eng.enum('work_order_source', [
   'PM',
   'INSPECTION',
   'AI',
+  'TELEMETRY',
 ]);
 export const workOrderStatus = eng.enum('work_order_status', [
   'OPEN',
@@ -710,3 +714,202 @@ export type PmPlanRow = typeof pmPlans.$inferSelect;
 export type RoomRestrictionRow = typeof roomRestrictions.$inferSelect;
 export type PartRow = typeof parts.$inferSelect;
 export type WarrantyCaseRow = typeof warrantyCases.$inferSelect;
+
+// ---- building telemetry (ADR-0024, BUILD_PLAN 13.2) ----
+
+export const telemetryQuantity = eng.enum('telemetry_quantity', TELEMETRY_QUANTITIES);
+export const telemetryPointStatus = eng.enum('telemetry_point_status', ['ACTIVE', 'IGNORED']);
+export const telemetryRuleKind = eng.enum('telemetry_rule_kind', TELEMETRY_RULE_KINDS);
+export const telemetrySeverity = eng.enum('telemetry_severity', ['WARNING', 'CRITICAL']);
+export const telemetryAction = eng.enum('telemetry_action', ['ALERT', 'WORK_ORDER']);
+export const telemetryRuleStatus = eng.enum('telemetry_rule_status', ['ACTIVE', 'RETIRED']);
+export const telemetryAlarmStatus = eng.enum('telemetry_alarm_status', [
+  'OPEN',
+  'ACKNOWLEDGED',
+  'CLEARED',
+]);
+
+/**
+ * An external point (a BMS point, a sensor) of a telemetry integration, and what it measures here: this registry is
+ * the point mapping (an unknown point code is an integration exception, never guessed — rule 16).
+ */
+export const telemetryPoints = classify(
+  eng.table(
+    'telemetry_points',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id').notNull(),
+      externalCode: varchar('external_code', { length: 64 }).notNull(),
+      name: varchar('name', { length: 200 }),
+      assetId: uuid('asset_id').references(() => assets.id, { onDelete: 'restrict' }),
+      locationId: uuid('location_id'),
+      quantity: telemetryQuantity('quantity').notNull(),
+      unit: varchar('unit', { length: 16 }).notNull(),
+      status: telemetryPointStatus('status').notNull().default('ACTIVE'),
+      lastValue: doublePrecision('last_value'),
+      lastAt: timestamp('last_at', { withTimezone: true, mode: 'date' }),
+      createdBy: uuid('created_by'),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('telemetry_points_code_uq').on(t.instanceId, t.externalCode),
+      index('telemetry_points_property_idx').on(t.tenantId, t.propertyId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    externalCode: 'INTERNAL',
+    name: 'INTERNAL',
+    assetId: 'INTERNAL',
+    locationId: 'INTERNAL',
+    quantity: 'INTERNAL',
+    unit: 'INTERNAL',
+    status: 'INTERNAL',
+    lastValue: 'INTERNAL',
+    lastAt: 'INTERNAL',
+    createdBy: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/**
+ * One row per point and minute (raw samples are not kept): range-partitioned by month in the migration, retention
+ * 400 days (`eng.maintain_telemetry_partitions`).
+ */
+export const telemetryMinutes = classify(
+  eng.table(
+    'telemetry_minutes',
+    {
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      pointId: uuid('point_id')
+        .notNull()
+        .references(() => telemetryPoints.id, { onDelete: 'restrict' }),
+      minute: timestamp('minute', { withTimezone: true, mode: 'date' }).notNull(),
+      min: doublePrecision('min').notNull(),
+      max: doublePrecision('max').notNull(),
+      sum: doublePrecision('sum').notNull(),
+      samples: integer('samples').notNull(),
+      last: doublePrecision('last').notNull(),
+      lastAt: timestamp('last_at', { withTimezone: true, mode: 'date' }).notNull(),
+    },
+    (t) => [primaryKey({ name: 'telemetry_minutes_pk', columns: [t.pointId, t.minute] })],
+  ),
+  {
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    pointId: 'INTERNAL',
+    minute: 'INTERNAL',
+    min: 'INTERNAL',
+    max: 'INTERNAL',
+    sum: 'INTERNAL',
+    samples: 'INTERNAL',
+    last: 'INTERNAL',
+    lastAt: 'INTERNAL',
+  },
+);
+
+/** A deterministic rule on one point (rule 11). Immutable once created (rule 9): retire it and create another. */
+export const telemetryRules = classify(
+  eng.table(
+    'telemetry_rules',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      pointId: uuid('point_id')
+        .notNull()
+        .references(() => telemetryPoints.id, { onDelete: 'restrict' }),
+      kind: telemetryRuleKind('kind').notNull(),
+      params: jsonb('params').$type<Record<string, number>>().notNull(),
+      severity: telemetrySeverity('severity').notNull(),
+      action: telemetryAction('action').notNull(),
+      status: telemetryRuleStatus('status').notNull().default('ACTIVE'),
+      createdBy: uuid('created_by'),
+      retiredAt: timestamp('retired_at', { withTimezone: true, mode: 'date' }),
+      retiredBy: uuid('retired_by'),
+      ...versioned(),
+    },
+    (t) => [index('telemetry_rules_point_idx').on(t.pointId, t.status)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    pointId: 'INTERNAL',
+    kind: 'INTERNAL',
+    params: 'INTERNAL',
+    severity: 'INTERNAL',
+    action: 'INTERNAL',
+    status: 'INTERNAL',
+    createdBy: 'INTERNAL',
+    retiredAt: 'INTERNAL',
+    retiredBy: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** One live alarm per rule at a time; cleared alarms stay as history (rule 10). */
+export const telemetryAlarms = classify(
+  eng.table(
+    'telemetry_alarms',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      pointId: uuid('point_id')
+        .notNull()
+        .references(() => telemetryPoints.id, { onDelete: 'restrict' }),
+      ruleId: uuid('rule_id')
+        .notNull()
+        .references(() => telemetryRules.id, { onDelete: 'restrict' }),
+      status: telemetryAlarmStatus('status').notNull().default('OPEN'),
+      raisedAt: timestamp('raised_at', { withTimezone: true, mode: 'date' }).notNull(),
+      value: doublePrecision('value'),
+      peak: doublePrecision('peak'),
+      acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true, mode: 'date' }),
+      acknowledgedBy: uuid('acknowledged_by'),
+      clearedAt: timestamp('cleared_at', { withTimezone: true, mode: 'date' }),
+      workOrderId: uuid('work_order_id').references(() => workOrders.id, { onDelete: 'restrict' }),
+      ...versioned(),
+    },
+    (t) => [
+      uniqueIndex('telemetry_alarms_live_uq')
+        .on(t.ruleId)
+        .where(sql`${t.status} <> 'CLEARED'`),
+      index('telemetry_alarms_property_idx').on(t.tenantId, t.propertyId, t.status),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    pointId: 'INTERNAL',
+    ruleId: 'INTERNAL',
+    status: 'INTERNAL',
+    raisedAt: 'INTERNAL',
+    value: 'INTERNAL',
+    peak: 'INTERNAL',
+    acknowledgedAt: 'INTERNAL',
+    acknowledgedBy: 'INTERNAL',
+    clearedAt: 'INTERNAL',
+    workOrderId: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+
+export type TelemetryPointRow = typeof telemetryPoints.$inferSelect;
+export type TelemetryMinuteRow = typeof telemetryMinutes.$inferSelect;
+export type TelemetryRuleRow = typeof telemetryRules.$inferSelect;
+export type TelemetryAlarmRow = typeof telemetryAlarms.$inferSelect;

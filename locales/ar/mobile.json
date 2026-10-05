@@ -58,7 +58,7 @@
   "mobile.request.asked_again": "{count, plural, zero {لم يُطلب مجددًا} one {طُلب مجددًا مرة واحدة} two {طُلب مجددًا مرتين} few {طُلب مجددًا # مرات} many {طُلب مجددًا # مرة} other {طُلب مجددًا # مرة}}",
   "mobile.alerts.title": "التنبيهات",
   "mobile.alerts.empty": "لا توجد تنبيهات مفتوحة.",
-  "mobile.alert.type": "{type, select, SLA_RESPONSE_BREACHED {لم يستلم أحد العمل} SLA_AT_RISK {العمل يقترب من موعده النهائي} SLA_RESOLUTION_BREACHED {تجاوز العمل موعده النهائي} CHANNEL_UNHEALTHY {قناة مراسلة الضيوف لا تعمل} AI_BUDGET_EXHAUSTED {نفدت ميزانية الذكاء الاصطناعي} other {يحتاج إلى متابعة}}",
+  "mobile.alert.type": "{type, select, SLA_RESPONSE_BREACHED {لم يستلم أحد العمل} SLA_AT_RISK {العمل يقترب من موعده النهائي} SLA_RESOLUTION_BREACHED {تجاوز العمل موعده النهائي} CHANNEL_UNHEALTHY {قناة مراسلة الضيوف لا تعمل} AI_BUDGET_EXHAUSTED {نفدت ميزانية الذكاء الاصطناعي} TELEMETRY_ALARM {إنذار من حساسات المبنى} other {يحتاج إلى متابعة}}",
   "mobile.alert.severity": "{severity, select, CRITICAL {حرج} WARNING {تحذير} other {معلومة}}",
   "mobile.alert.status": "{status, select, OPEN {مفتوح} ACKNOWLEDGED {تم الاطلاع} other {تم الحل}}",
   "mobile.alert.seen": "{count, plural, zero {لم يُرصد} one {رُصد مرة واحدة} two {رُصد مرتين} few {رُصد # مرات} many {رُصد # مرة} other {رُصد # مرة}}",

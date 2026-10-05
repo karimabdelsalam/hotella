@@ -58,7 +58,7 @@
   "mobile.request.asked_again": "{count, plural, one {Повторно запрошено # раз} few {Повторно запрошено # раза} many {Повторно запрошено # раз} other {Повторно запрошено # раза}}",
   "mobile.alerts.title": "Оповещения",
   "mobile.alerts.empty": "Нет открытых оповещений.",
-  "mobile.alert.type": "{type, select, SLA_RESPONSE_BREACHED {Работу никто не взял} SLA_AT_RISK {Срок работы подходит к концу} SLA_RESOLUTION_BREACHED {Срок работы истёк} CHANNEL_UNHEALTHY {Канал сообщений гостям не работает} AI_BUDGET_EXHAUSTED {Бюджет ИИ исчерпан} other {Требует внимания}}",
+  "mobile.alert.type": "{type, select, SLA_RESPONSE_BREACHED {Работу никто не взял} SLA_AT_RISK {Срок работы подходит к концу} SLA_RESOLUTION_BREACHED {Срок работы истёк} CHANNEL_UNHEALTHY {Канал сообщений гостям не работает} AI_BUDGET_EXHAUSTED {Бюджет ИИ исчерпан} TELEMETRY_ALARM {Тревога датчиков здания} other {Требует внимания}}",
   "mobile.alert.severity": "{severity, select, CRITICAL {Критично} WARNING {Предупреждение} other {Информация}}",
   "mobile.alert.status": "{status, select, OPEN {Открыто} ACKNOWLEDGED {Принято к сведению} other {Решено}}",
   "mobile.alert.seen": "{count, plural, one {Замечено # раз} few {Замечено # раза} many {Замечено # раз} other {Замечено # раза}}",

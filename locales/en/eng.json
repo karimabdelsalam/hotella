@@ -8,5 +8,8 @@
   "eng.work_kind.work_order": "Engineering work order",
   "eng.work_order.title": "{type, select, CORRECTIVE {Repair} PREVENTIVE {Preventive maintenance} PREDICTIVE {Predictive maintenance} INSPECTION {Engineering inspection} EMERGENCY {Emergency repair} PROJECT {Project} other {Engineering work}} · WO-{number}",
   "eng.permission.pm_manage": "Plan preventive maintenance",
-  "eng.permission.restriction_manage": "Take rooms out of order and back in service"
+  "eng.permission.restriction_manage": "Take rooms out of order and back in service",
+  "eng.permission.telemetry_read": "Read building telemetry: points, readings and alarms",
+  "eng.permission.telemetry_manage": "Set up telemetry points and alarm rules",
+  "eng.permission.telemetry_acknowledge": "Acknowledge telemetry alarms"
 }

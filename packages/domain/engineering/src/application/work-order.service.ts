@@ -178,6 +178,26 @@ export class WorkOrderService {
     });
   }
 
+  /**
+   * A telemetry rule asked for work (BUILD_PLAN 13.2): PREDICTIVE, on the point's asset or place, more urgent for a
+   * critical alarm (system actor).
+   */
+  openFromTelemetry(
+    scope: PropertyScope,
+    o: { assetId: string | null; locationId: string; severity: 'WARNING' | 'CRITICAL' },
+  ): Promise<WorkOrderRow> {
+    return this.open(scope, {
+      type: 'PREDICTIVE',
+      source: 'TELEMETRY',
+      assetId: o.assetId,
+      locationId: o.locationId,
+      symptomCode: null,
+      diagnosis: null,
+      priority: o.severity === 'CRITICAL' ? 'HIGH' : 'NORMAL',
+      workItemId: null,
+    });
+  }
+
   /** The due sweep opens a plan's PREVENTIVE work with the procedure version it must follow (system actor). */
   openPreventive(
     scope: PropertyScope,

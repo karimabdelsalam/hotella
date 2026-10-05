@@ -7,7 +7,7 @@
   "alertSeen": "{count, plural, one {Visto una volta} many {Visto {count} volte} other {Visto {count} volte}}",
   "alertSeverity": "{severity, select, CRITICAL {Critico} WARNING {Attenzione} other {Informazione}}",
   "alertStatus": "{status, select, OPEN {Aperto} ACKNOWLEDGED {Preso visione} other {Risolto}}",
-  "alertType": "{type, select, SLA_RESPONSE_BREACHED {Lavoro non preso in carico} SLA_AT_RISK {Lavoro vicino alla scadenza} SLA_RESOLUTION_BREACHED {Lavoro oltre la scadenza} CHANNEL_UNHEALTHY {Un canale di messaggi agli ospiti non funziona} AI_BUDGET_EXHAUSTED {Il budget IA è esaurito} other {Richiede attenzione}}",
+  "alertType": "{type, select, SLA_RESPONSE_BREACHED {Lavoro non preso in carico} SLA_AT_RISK {Lavoro vicino alla scadenza} SLA_RESOLUTION_BREACHED {Lavoro oltre la scadenza} CHANNEL_UNHEALTHY {Un canale di messaggi agli ospiti non funziona} AI_BUDGET_EXHAUSTED {Il budget IA è esaurito} TELEMETRY_ALARM {Un allarme dei sensori dell’edificio} other {Richiede attenzione}}",
   "alertsEmpty": "Nessun avviso aperto.",
   "alertsTitle": "Avvisi",
   "appTitle": "Hotella",

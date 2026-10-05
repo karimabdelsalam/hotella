@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { ReconciliationCompleted } from '@hotella/contracts-events';
+import { IntegrationExceptionOpened, ReconciliationCompleted } from '@hotella/contracts-events';
 import { EventPublisher } from '@hotella/platform-events';
-import type { ConnectorCapability } from '@hotella/contracts-connectors';
+import type { ConnectorCapability, MappingType } from '@hotella/contracts-connectors';
 import { newId } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { CapabilityRegistry } from './application/capability-registry';
@@ -20,6 +20,7 @@ import type {
   IntegrationInstanceSummary,
   IntegrationsPublicApi,
   LinkReferenceInput,
+  UnknownCodeReport,
 } from './public';
 
 @Injectable()
@@ -32,6 +33,55 @@ export class IntegrationsPublicApiService implements IntegrationsPublicApi {
     private readonly events: EventPublisher,
     private readonly capabilities: CapabilityRegistry,
   ) {}
+
+  async reportUnknownCode(input: UnknownCodeReport): Promise<void> {
+    const instance = await this.repo.instance(
+      { tenantId: input.tenantId },
+      input.integrationInstanceId,
+    );
+    if (!instance) throw AppError.notFound('integration.instance.not_found');
+    const opened = await this.repo.upsertUnknownCode({
+      tenantId: instance.tenantId,
+      propertyId: instance.propertyId,
+      instanceId: instance.id,
+      messageId: input.messageId,
+      mappingType: input.mappingType,
+      externalCode: input.externalCode,
+      detail: { required: false },
+    });
+    // Announced once, like the ingest's own unknown codes; repeats only count.
+    if (opened)
+      await this.events.publish(IntegrationExceptionOpened, {
+        tenantId: instance.tenantId,
+        propertyId: instance.propertyId,
+        source: 'integration',
+        aggregate: { type: 'integration_exception', id: opened },
+        payload: {
+          exception_id: opened,
+          instance_id: instance.id,
+          kind: 'UNKNOWN_MAPPING',
+          mapping_type: input.mappingType,
+          external_code: input.externalCode,
+        },
+      });
+  }
+
+  async resolveUnknownCode(
+    tenantId: string,
+    integrationInstanceId: string,
+    mappingType: MappingType,
+    externalCode: string,
+    resolvedBy: string | null,
+  ): Promise<number> {
+    const resolved = await this.repo.resolveUnknownCode(
+      { tenantId },
+      integrationInstanceId,
+      mappingType,
+      externalCode,
+      resolvedBy,
+    );
+    return resolved.length;
+  }
 
   unlinkExternalIdentity(
     tenantId: string,

@@ -64,6 +64,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'SLA_RESOLUTION_BREACHED': 'Срок работы истёк',
       'CHANNEL_UNHEALTHY': 'Канал сообщений гостям не работает',
       'AI_BUDGET_EXHAUSTED': 'Бюджет ИИ исчерпан',
+      'TELEMETRY_ALARM': 'Тревога датчиков здания',
       'other': 'Требует внимания',
     });
     return '$_temp0';

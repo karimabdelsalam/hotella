@@ -62,6 +62,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'SLA_RESOLUTION_BREACHED': 'Vorgang über der Frist',
       'CHANNEL_UNHEALTHY': 'Ein Nachrichtenkanal zu Gästen fällt aus',
       'AI_BUDGET_EXHAUSTED': 'Das KI-Budget ist aufgebraucht',
+      'TELEMETRY_ALARM': 'Ein Alarm der Gebäudesensoren',
       'other': 'Erfordert Aufmerksamkeit',
     });
     return '$_temp0';

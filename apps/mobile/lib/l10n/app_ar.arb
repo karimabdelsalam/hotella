@@ -7,7 +7,7 @@
   "alertSeen": "{count, plural, zero {لم يُرصد} one {رُصد مرة واحدة} two {رُصد مرتين} few {رُصد {count} مرات} many {رُصد {count} مرة} other {رُصد {count} مرة}}",
   "alertSeverity": "{severity, select, CRITICAL {حرج} WARNING {تحذير} other {معلومة}}",
   "alertStatus": "{status, select, OPEN {مفتوح} ACKNOWLEDGED {تم الاطلاع} other {تم الحل}}",
-  "alertType": "{type, select, SLA_RESPONSE_BREACHED {لم يستلم أحد العمل} SLA_AT_RISK {العمل يقترب من موعده النهائي} SLA_RESOLUTION_BREACHED {تجاوز العمل موعده النهائي} CHANNEL_UNHEALTHY {قناة مراسلة الضيوف لا تعمل} AI_BUDGET_EXHAUSTED {نفدت ميزانية الذكاء الاصطناعي} other {يحتاج إلى متابعة}}",
+  "alertType": "{type, select, SLA_RESPONSE_BREACHED {لم يستلم أحد العمل} SLA_AT_RISK {العمل يقترب من موعده النهائي} SLA_RESOLUTION_BREACHED {تجاوز العمل موعده النهائي} CHANNEL_UNHEALTHY {قناة مراسلة الضيوف لا تعمل} AI_BUDGET_EXHAUSTED {نفدت ميزانية الذكاء الاصطناعي} TELEMETRY_ALARM {إنذار من حساسات المبنى} other {يحتاج إلى متابعة}}",
   "alertsEmpty": "لا توجد تنبيهات مفتوحة.",
   "alertsTitle": "التنبيهات",
   "appTitle": "Hotella",

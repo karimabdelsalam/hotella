@@ -58,7 +58,7 @@
   "mobile.request.asked_again": "{count, plural, one {Asked again # time} other {Asked again # times}}",
   "mobile.alerts.title": "Alerts",
   "mobile.alerts.empty": "No open alerts.",
-  "mobile.alert.type": "{type, select, SLA_RESPONSE_BREACHED {Work not picked up} SLA_AT_RISK {Work close to its deadline} SLA_RESOLUTION_BREACHED {Work past its deadline} CHANNEL_UNHEALTHY {A guest messaging channel is failing} AI_BUDGET_EXHAUSTED {The AI budget is used up} other {Needs attention}}",
+  "mobile.alert.type": "{type, select, SLA_RESPONSE_BREACHED {Work not picked up} SLA_AT_RISK {Work close to its deadline} SLA_RESOLUTION_BREACHED {Work past its deadline} CHANNEL_UNHEALTHY {A guest messaging channel is failing} AI_BUDGET_EXHAUSTED {The AI budget is used up} TELEMETRY_ALARM {A building sensor alarm} other {Needs attention}}",
   "mobile.alert.severity": "{severity, select, CRITICAL {Critical} WARNING {Warning} other {Information}}",
   "mobile.alert.status": "{status, select, OPEN {Open} ACKNOWLEDGED {Acknowledged} other {Resolved}}",
   "mobile.alert.seen": "{count, plural, one {Seen once} other {Seen # times}}",

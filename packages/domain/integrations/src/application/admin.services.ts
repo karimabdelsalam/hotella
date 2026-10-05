@@ -417,6 +417,12 @@ export class MappingService {
   }
 
   private async validateInternalValue(scope: PropertyScope, input: ConfirmMappingInput) {
+    // Telemetry points are mapped where they are defined: engineering's point registry (BUILD_PLAN 13.2).
+    if (input.mappingType === 'POINT')
+      throw new AppError(
+        'integration.mapping.point_in_engineering',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
     if (input.mappingType === 'ROOM') {
       const room = isUuid(input.internalValue)
         ? await this.org.getRoom(scope.tenantId, scope.propertyId, input.internalValue)

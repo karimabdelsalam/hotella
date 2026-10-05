@@ -8,5 +8,8 @@
   "eng.work_kind.work_order": "Technischer Arbeitsauftrag",
   "eng.work_order.title": "{type, select, CORRECTIVE {Reparatur} PREVENTIVE {Vorbeugende Wartung} PREDICTIVE {Vorausschauende Wartung} INSPECTION {Technische Inspektion} EMERGENCY {Notreparatur} PROJECT {Projekt} other {Technikarbeit}} · WO-{number}",
   "eng.permission.pm_manage": "Vorbeugende Wartung planen",
-  "eng.permission.restriction_manage": "Zimmer außer Betrieb nehmen und wieder in Betrieb setzen"
+  "eng.permission.restriction_manage": "Zimmer außer Betrieb nehmen und wieder in Betrieb setzen",
+  "eng.permission.telemetry_read": "Gebäudetelemetrie lesen: Messpunkte, Werte und Alarme",
+  "eng.permission.telemetry_manage": "Telemetrie-Messpunkte und Alarmregeln einrichten",
+  "eng.permission.telemetry_acknowledge": "Telemetriealarme quittieren"
 }

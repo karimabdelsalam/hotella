@@ -22,7 +22,7 @@ export const WorkOrderCreated = defineEvent({
     work_item_id: z.uuid(),
     number: z.number().int(),
     type: z.enum(WORK_ORDER_TYPES),
-    source: z.enum(['STAFF', 'GUEST_REQUEST', 'PM', 'INSPECTION', 'AI']),
+    source: z.enum(['STAFF', 'GUEST_REQUEST', 'PM', 'INSPECTION', 'AI', 'TELEMETRY']),
     asset_id: z.uuid().nullable(),
     location_id: z.uuid(),
     symptom_code: z.string().nullable(),
@@ -87,5 +87,56 @@ export const RoomRestrictionChanged = defineEvent({
     room_id: z.uuid(),
     kind: z.enum(['OOO', 'OOS', 'BLOCKED_OPERATIONALLY']),
     active: z.boolean(),
+  }),
+});
+
+export const TELEMETRY_QUANTITIES = [
+  'TEMPERATURE',
+  'HUMIDITY',
+  'POWER',
+  'ENERGY',
+  'WATER_FLOW',
+  'PRESSURE',
+  'CO2',
+  'OCCUPANCY',
+  'DOOR',
+  'LEAK',
+  'ALARM',
+  'OTHER',
+] as const;
+export const TELEMETRY_RULE_KINDS = ['THRESHOLD', 'RATE', 'STUCK', 'MISSING'] as const;
+
+export const TelemetryAlarmRaised = defineEvent({
+  type: 'eng.telemetry_alarm.raised',
+  version: 1,
+  description:
+    'A deterministic telemetry rule fired on a point (threshold, rate of change, stuck value, missing data); alerts, work orders and insights react.',
+  payload: z.object({
+    alarm_id: z.uuid(),
+    point_id: z.uuid(),
+    rule_id: z.uuid(),
+    rule_kind: z.enum(TELEMETRY_RULE_KINDS),
+    quantity: z.enum(TELEMETRY_QUANTITIES),
+    severity: z.enum(['WARNING', 'CRITICAL']),
+    asset_id: z.uuid().nullable(),
+    location_id: z.uuid().nullable(),
+    /** The minute value that fired the rule (null for missing data). */
+    value: z.number().nullable(),
+    raised_at: z.iso.datetime({ offset: true }),
+  }),
+});
+
+export const TelemetryAlarmCleared = defineEvent({
+  type: 'eng.telemetry_alarm.cleared',
+  version: 1,
+  description: "A telemetry alarm's clear condition held (hysteresis); the alarm stays in history.",
+  payload: z.object({
+    alarm_id: z.uuid(),
+    point_id: z.uuid(),
+    rule_id: z.uuid(),
+    asset_id: z.uuid().nullable(),
+    location_id: z.uuid().nullable(),
+    cleared_at: z.iso.datetime({ offset: true }),
+    duration_s: z.number().int().min(0),
   }),
 });

@@ -1,4 +1,5 @@
 import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
+import { IntegrationTelemetryReceived } from '@hotella/contracts-events';
 import {
   AI_TOOL_REGISTRY,
   AI_TWIN_LABELS,
@@ -15,6 +16,7 @@ import {
   EngineeringReferenceController,
   MaintenanceController,
   ProceduresController,
+  TelemetryController,
   WorkOrdersController,
 } from './api/controllers';
 import { MaintenanceService } from './application/maintenance.service';
@@ -24,12 +26,19 @@ import { AssetService } from './application/asset.service';
 import { CopilotService } from './application/copilot.service';
 import { EngineeringPublicApiService } from './application/public-api.service';
 import { ENG_WORK_ORDER_KIND, WorkOrderService } from './application/work-order.service';
+import { TelemetryService } from './application/telemetry.service';
 import { EngineeringRepositories } from './infrastructure/repositories';
+import { TelemetryRepositories } from './infrastructure/telemetry-repositories';
 import { ENGINEERING_MANIFEST } from './manifest';
 import { ENGINEERING_API } from './public';
 
 /** Inbox consumer of the worker: work orders follow their work items. */
 export const WORK_ORDER_CONSUMER = 'eng.work-orders';
+/** Inbox consumer of the worker: telemetry batches become minute aggregates and alarms (BUILD_PLAN 13.2). */
+export const TELEMETRY_CONSUMER = 'eng.telemetry';
+/** Five-minute job: missing-data rules and the aggregate partitions. */
+export const TELEMETRY_SWEEP_JOB = 'eng.telemetry.sweep';
+const TELEMETRY_SWEEP_EVERY_MS = 5 * 60 * 1000;
 /** Hourly job: opens the preventive work of every due plan. */
 export const PM_SWEEP_JOB = 'eng.pm.sweep';
 const PM_SWEEP_EVERY_MS = 60 * 60 * 1000;
@@ -48,11 +57,14 @@ const PM_SWEEP_EVERY_MS = 60 * 60 * 1000;
     MaintenanceService,
     RestrictionService,
     EngineeringAiTools,
+    TelemetryRepositories,
+    TelemetryService,
     EngineeringPublicApiService,
     { provide: ENGINEERING_API, useExisting: EngineeringPublicApiService },
   ],
   exports: [
     EngineeringRepositories,
+    TelemetryService,
     AssetService,
     WorkOrderService,
     MaintenanceService,
@@ -101,6 +113,7 @@ export class EngineeringCoreModule implements OnModuleInit {
     WorkOrdersController,
     ProceduresController,
     MaintenanceController,
+    TelemetryController,
   ],
 })
 export class EngineeringModule implements OnModuleInit {
@@ -119,15 +132,31 @@ export class EngineeringWorkerModule implements OnModuleInit {
     private readonly queues: QueueRegistry,
     private readonly orders: WorkOrderService,
     private readonly maintenance: MaintenanceService,
+    private readonly telemetry: TelemetryService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
   async onModuleInit(): Promise<void> {
     for (const def of WorkOrderService.consumes)
       this.consumers.on(def.name, WORK_ORDER_CONSUMER, (envelope) => this.orders.apply(envelope));
+    this.consumers.on(IntegrationTelemetryReceived.name, TELEMETRY_CONSUMER, (envelope) =>
+      this.telemetry.receive(envelope),
+    );
     this.consumers.onJob(PM_SWEEP_JOB, async () => {
       await this.maintenance.generateDue();
     });
+    this.consumers.onJob(TELEMETRY_SWEEP_JOB, async () => {
+      await this.telemetry.sweep();
+    });
     if (!this.config.worker.schedulerEnabled) return;
+    await this.queues.queue('normal').upsertJobScheduler(
+      TELEMETRY_SWEEP_JOB,
+      { every: TELEMETRY_SWEEP_EVERY_MS },
+      {
+        name: TELEMETRY_SWEEP_JOB,
+        data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
+        opts: { removeOnComplete: 10, removeOnFail: 50 },
+      },
+    );
     await this.queues.queue('normal').upsertJobScheduler(
       PM_SWEEP_JOB,
       { every: PM_SWEEP_EVERY_MS },

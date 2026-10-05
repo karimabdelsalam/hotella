@@ -50,14 +50,20 @@ export {
   inboundProfileSchema,
   inboundRecordSchema,
   inboundReservationSchema,
+  MAX_TELEMETRY_SAMPLES,
   orderingKeyOf,
   RECORD_CAPABILITY,
+  TELEMETRY_BATCH_MESSAGE,
+  telemetryBatchPayloadSchema,
+  telemetrySampleSchema,
 } from './records';
 export type {
   InboundProfile,
   InboundRecord,
   InboundRecordInput,
   InboundRecordKind,
+  TelemetryBatchPayload,
+  TelemetrySample,
 } from './records';
 export { FIAS_STANDARD_PROFILE_V1, fiasLinkRecords, profileCoverage } from './profiles';
 export type {

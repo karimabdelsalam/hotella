@@ -45,6 +45,26 @@ const stayCore = {
   market_code: code.nullable().default(null),
 };
 
+/** Samples one telemetry message may carry. */
+export const MAX_TELEMETRY_SAMPLES = 500;
+export const telemetrySampleSchema = z.object({
+  /** The external point code (BMS point, sensor id); mapped to an engineering point, never guessed. */
+  point: code,
+  value: z.number().finite(),
+  at: instant,
+});
+export type TelemetrySample = z.infer<typeof telemetrySampleSchema>;
+
+/**
+ * Planova Telemetry Profile v1: the raw message a BMS gateway (agent bridge or cloud webhook) sends — one
+ * `TELEMETRY_BATCH` per flush, the samples verbatim. Vendor gateways are connectors that produce exactly this.
+ */
+export const TELEMETRY_BATCH_MESSAGE = 'TELEMETRY_BATCH';
+export const telemetryBatchPayloadSchema = z.object({
+  samples: z.array(telemetrySampleSchema).min(1).max(MAX_TELEMETRY_SAMPLES),
+});
+export type TelemetryBatchPayload = z.infer<typeof telemetryBatchPayloadSchema>;
+
 export const inboundRecordSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('CHECK_IN'),
@@ -105,6 +125,14 @@ export const inboundRecordSchema = z.discriminatedUnion('kind', [
     occupied: z.boolean().nullable().default(null),
     occurred_at: instant,
   }),
+  /**
+   * Building telemetry (Planova Telemetry Profile v1): raw samples of external points. Not turned into domain events
+   * (rule 6, and far too many): the ingest hands them to engineering's telemetry sink, which keeps minute aggregates.
+   */
+  z.object({
+    kind: z.literal('TELEMETRY_SAMPLES'),
+    samples: z.array(telemetrySampleSchema).min(1).max(MAX_TELEMETRY_SAMPLES),
+  }),
 ]);
 export type InboundRecord = z.infer<typeof inboundRecordSchema>;
 export type InboundRecordInput = z.input<typeof inboundRecordSchema>;
@@ -122,6 +150,7 @@ export const RECORD_CAPABILITY = {
   SYNC_START: 'RECONCILIATION_READ',
   IN_HOUSE_ENTRY: 'RECONCILIATION_READ',
   SYNC_END: 'RECONCILIATION_READ',
+  TELEMETRY_SAMPLES: 'TELEMETRY_READ',
 } as const satisfies Record<InboundRecordKind, ConnectorCapability>;
 
 /**
@@ -136,6 +165,9 @@ export function orderingKeyOf(record: InboundRecord): string {
     case 'IN_HOUSE_ENTRY':
     case 'SYNC_END':
       return 'sync';
+    // Aggregates are order-independent and telemetry never waits for a mapping.
+    case 'TELEMETRY_SAMPLES':
+      return 'telemetry';
     case 'PROFILE_UPDATE':
       return record.reservation
         ? `reservation:${record.reservation.external_id}`

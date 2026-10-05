@@ -1,6 +1,7 @@
 /** The ONLY surface other bounded contexts may import from this package (ADR-0001). */
 import type {
   ConnectorCapability,
+  MappingType,
   PmsProfileRow,
   PmsReservationRow,
   PmsRoomRow,
@@ -100,6 +101,20 @@ export interface IntegrationsPublicApi {
     integrationInstanceId: string,
     reservationExternalIds: readonly string[],
   ): Promise<number>;
+  /**
+   * An external code another context could not resolve against the registry it owns (telemetry points in engineering,
+   * BUILD_PLAN 13.2): opens an UNKNOWN_MAPPING exception, or counts a repeat of the open one — never guessed
+   * (rule 16). Joins the caller's transaction.
+   */
+  reportUnknownCode(input: UnknownCodeReport): Promise<void>;
+  /** The code became known where it is defined: its open exception is resolved. Returns how many were. */
+  resolveUnknownCode(
+    tenantId: string,
+    integrationInstanceId: string,
+    mappingType: MappingType,
+    externalCode: string,
+    resolvedBy: string | null,
+  ): Promise<number>;
   /** The PMS in-house snapshot of a reconciliation run (Spec §52), for the stay owner to compare. */
   reconciliationSnapshot(tenantId: string, runId: string): Promise<ReconciliationSnapshot | null>;
   /**
@@ -111,6 +126,15 @@ export interface IntegrationsPublicApi {
     runId: string,
     findings: readonly ReconciliationFinding[],
   ): Promise<void>;
+}
+
+export interface UnknownCodeReport {
+  readonly tenantId: string;
+  readonly integrationInstanceId: string;
+  /** The integration message the code came in (from the canonical event). */
+  readonly messageId: string;
+  readonly mappingType: MappingType;
+  readonly externalCode: string;
 }
 
 export interface ReconciliationSnapshot {

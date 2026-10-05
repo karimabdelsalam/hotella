@@ -7,7 +7,7 @@
   "alertSeen": "{count, plural, one {Замечено {count} раз} few {Замечено {count} раза} many {Замечено {count} раз} other {Замечено {count} раза}}",
   "alertSeverity": "{severity, select, CRITICAL {Критично} WARNING {Предупреждение} other {Информация}}",
   "alertStatus": "{status, select, OPEN {Открыто} ACKNOWLEDGED {Принято к сведению} other {Решено}}",
-  "alertType": "{type, select, SLA_RESPONSE_BREACHED {Работу никто не взял} SLA_AT_RISK {Срок работы подходит к концу} SLA_RESOLUTION_BREACHED {Срок работы истёк} CHANNEL_UNHEALTHY {Канал сообщений гостям не работает} AI_BUDGET_EXHAUSTED {Бюджет ИИ исчерпан} other {Требует внимания}}",
+  "alertType": "{type, select, SLA_RESPONSE_BREACHED {Работу никто не взял} SLA_AT_RISK {Срок работы подходит к концу} SLA_RESOLUTION_BREACHED {Срок работы истёк} CHANNEL_UNHEALTHY {Канал сообщений гостям не работает} AI_BUDGET_EXHAUSTED {Бюджет ИИ исчерпан} TELEMETRY_ALARM {Тревога датчиков здания} other {Требует внимания}}",
   "alertsEmpty": "Нет открытых оповещений.",
   "alertsTitle": "Оповещения",
   "appTitle": "Hotella",

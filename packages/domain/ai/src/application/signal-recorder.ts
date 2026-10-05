@@ -7,6 +7,7 @@ import {
   ServiceRequestCreated,
   ServiceRequestStatusChanged,
   SlaBreached,
+  TelemetryAlarmRaised,
   WorkOrderClosed,
 } from '@hotella/contracts-events';
 import { newId } from '@hotella/platform-database';
@@ -21,6 +22,7 @@ export const SIGNAL_EVENTS: readonly string[] = [
   HkJobStatusChanged.name,
   ServiceRequestCreated.name,
   ServiceRequestStatusChanged.name,
+  TelemetryAlarmRaised.name,
 ];
 
 /**
@@ -107,6 +109,17 @@ export class SignalRecorder {
         return keep('SERVICE_REQUEST_STATUS', 'SERVICE_REQUEST', p.request_id, {
           from: p.from,
           to: p.to,
+        });
+      }
+      // Building telemetry alarms (BUILD_PLAN 13.2): what fired, on which equipment or place.
+      case TelemetryAlarmRaised.name: {
+        const p = TelemetryAlarmRaised.parse(envelope).payload;
+        return keep('TELEMETRY_ALARM', 'TELEMETRY_ALARM', p.alarm_id, {
+          asset: p.asset_id,
+          location: p.location_id,
+          quantity: p.quantity,
+          rule: p.rule_kind,
+          severity: p.severity,
         });
       }
       default:

@@ -47,7 +47,7 @@ export function downtimeMinutes(started: Date | null, ended: Date | null): numbe
 /** Default priority of new work: emergencies are urgent, guest-reported failures high. */
 export function defaultPriority(
   type: WorkOrderType,
-  source: 'STAFF' | 'GUEST_REQUEST' | 'PM' | 'INSPECTION' | 'AI',
+  source: 'STAFF' | 'GUEST_REQUEST' | 'PM' | 'INSPECTION' | 'AI' | 'TELEMETRY',
 ): 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT' {
   if (type === 'EMERGENCY') return 'URGENT';
   if (type === 'CORRECTIVE' && source === 'GUEST_REQUEST') return 'HIGH';

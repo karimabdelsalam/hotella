@@ -1,0 +1,122 @@
+{
+  "connector": "BMS_STANDARD",
+  "version": 1,
+  "cases": [
+    {
+      "name": "a batch of samples becomes one TELEMETRY_SAMPLES record, values and instants verbatim",
+      "message": {
+        "message_type": "TELEMETRY_BATCH",
+        "source_message_id": "b-1",
+        "payload": {
+          "samples": [
+            {
+              "point": "CH-1.SUPPLY_T",
+              "value": 6.5,
+              "at": "2026-10-05T10:00:05Z"
+            },
+            {
+              "point": "CH-1.SUPPLY_T",
+              "value": 6.7,
+              "at": "2026-10-05T10:00:35+02:00"
+            },
+            {
+              "point": "AHU-2.RH",
+              "value": 48,
+              "at": "2026-10-05T10:00:10Z"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "ok": true,
+        "records": [
+          {
+            "kind": "TELEMETRY_SAMPLES",
+            "samples": [
+              {
+                "point": "CH-1.SUPPLY_T",
+                "value": 6.5,
+                "at": "2026-10-05T10:00:05Z"
+              },
+              {
+                "point": "CH-1.SUPPLY_T",
+                "value": 6.7,
+                "at": "2026-10-05T10:00:35+02:00"
+              },
+              {
+                "point": "AHU-2.RH",
+                "value": 48,
+                "at": "2026-10-05T10:00:10Z"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "an empty batch is refused",
+      "message": {
+        "message_type": "TELEMETRY_BATCH",
+        "source_message_id": "b-2",
+        "payload": {
+          "samples": []
+        }
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "name": "a sample without a number is refused, not coerced",
+      "message": {
+        "message_type": "TELEMETRY_BATCH",
+        "source_message_id": "b-3",
+        "payload": {
+          "samples": [
+            {
+              "point": "P",
+              "value": "7",
+              "at": "2026-10-05T10:00:00Z"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "value"
+      }
+    },
+    {
+      "name": "a time without an offset is refused (no guessing the zone)",
+      "message": {
+        "message_type": "TELEMETRY_BATCH",
+        "source_message_id": "b-4",
+        "payload": {
+          "samples": [
+            {
+              "point": "P",
+              "value": 7,
+              "at": "2026-10-05T10:00:00"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "at"
+      }
+    },
+    {
+      "name": "another message type is refused",
+      "message": {
+        "message_type": "ALARM",
+        "source_message_id": "b-5",
+        "payload": {}
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "unsupported message type ALARM"
+      }
+    }
+  ]
+}

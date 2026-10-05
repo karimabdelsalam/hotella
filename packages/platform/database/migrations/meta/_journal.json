@@ -393,6 +393,13 @@
       "when": 1791227561965,
       "tag": "0055_integration_inbound",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791229303388,
+      "tag": "0056_eng_telemetry",
+      "breakpoints": true
     }
   ]
 }
