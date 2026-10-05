@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import {
   createEnvelope,
   type EventEnvelope,
@@ -267,7 +267,9 @@ describe.skipIf(needsInfra())(`Housekeeping room states (${infraSkipReason()})`,
           eq(eventsSchema.outbox.tenantId, hotel.tenantId),
           eq(eventsSchema.outbox.eventType, 'hk.room_signal.changed'),
         ),
-      );
+      )
+      // In the order they were written (the outbox id grows with time).
+      .orderBy(asc(eventsSchema.outbox.id));
     expect(
       changes.map((c) => {
         const p = (c.payload as EventEnvelope).payload as { signal: string; active: boolean };

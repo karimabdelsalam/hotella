@@ -231,6 +231,22 @@ describe.skipIf(needsInfra())(`Manager assistant (${infraSkipReason()})`, () => 
     });
   });
 
+  it('the Intelligence screen reads the same pulse over HTTP (ai.insight.read)', async () => {
+    const pulse = (
+      await h
+        .http()
+        .get(`/properties/${hotel.propertyId}/ai/pulse`)
+        .set('X-Test-Actor', gm())
+        .expect(200)
+    ).body;
+    expect(pulse.openWork).toEqual({ total: 1, byDepartment: { ENG: 1 } });
+    await h
+      .http()
+      .get(`/properties/${hotel.propertyId}/ai/pulse`)
+      .set('X-Test-Actor', staff(otherId, other.tenantId))
+      .expect(404);
+  });
+
   it('answers "what needs my attention today" from tools only, consulting the Engineering Copilot once', async () => {
     const body = (await ask('What needs my attention today?').expect(200)).body;
     expect(body).toMatchObject({ outcome: 'ANSWERED' });

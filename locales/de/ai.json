@@ -37,5 +37,6 @@
   "ai.insight.action.review_inspection_flow": "Prüfen Sie, wie gereinigte Zimmer dieses Typs zur Kontrolle gelangen.",
   "ai.insight.action.prepare_arrivals": "Gehen Sie die riskanten Anreisen von morgen mit Housekeeping und Technik durch.",
   "ai.permission.manager_use": "Dem Manager-Assistenten Fragen zum Hotel stellen",
-  "ai.permission.intelligence_cross_property": "Die Hotels der Gruppe vergleichen"
+  "ai.permission.intelligence_cross_property": "Die Hotels der Gruppe vergleichen",
+  "ai.permission.quality_read": "Qualität und Kosten der KI-Assistenten des Hotels sehen"
 }

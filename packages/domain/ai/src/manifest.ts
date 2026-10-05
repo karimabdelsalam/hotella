@@ -27,6 +27,7 @@ export const AI_MANIFEST = defineManifest({
     { code: 'ai.insight.read', descriptionKey: 'ai.permission.insight_read', risk: 'READ' },
     { code: 'ai.insight.act', descriptionKey: 'ai.permission.insight_act', risk: 'LOW' },
     { code: 'ai.manager.use', descriptionKey: 'ai.permission.manager_use', risk: 'READ' },
+    { code: 'ai.quality.read', descriptionKey: 'ai.permission.quality_read', risk: 'READ' },
     {
       code: 'ai.intelligence.cross_property',
       descriptionKey: 'ai.permission.intelligence_cross_property',

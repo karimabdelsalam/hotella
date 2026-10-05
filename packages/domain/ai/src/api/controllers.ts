@@ -44,6 +44,11 @@ import {
   InsightService,
 } from '../application/insights.service';
 import { askManagerSchema, ManagerService } from '../application/manager.service';
+import {
+  qualityQuerySchema,
+  qualityRecomputeSchema,
+  QualityService,
+} from '../application/quality.service';
 import { TwinService, twinQuerySchema } from '../application/twin.service';
 
 class CreateProviderDto extends createZodDto(createProviderSchema) {}
@@ -65,6 +70,8 @@ class InsightListDto extends createZodDto(insightListSchema) {}
 class InsightActDto extends createZodDto(insightActSchema) {}
 class InsightDismissDto extends createZodDto(insightDismissSchema) {}
 class AskManagerDto extends createZodDto(askManagerSchema) {}
+class QualityQueryDto extends createZodDto(qualityQuerySchema) {}
+class QualityRecomputeDto extends createZodDto(qualityRecomputeSchema) {}
 
 /** AI providers, models and routing (ADR-0018). */
 @Controller('ai')
@@ -396,6 +403,15 @@ export class AiManagerController {
     return this.manager.ask({ tenantId, propertyId }, body);
   }
 
+  @Get('properties/:propertyId/ai/pulse')
+  @PropertyScoped({ from: 'param' })
+  @RequirePermission('ai.insight.read', { checkedBy: 'gate' })
+  pulse(@Param('propertyId') propertyId: string) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return this.manager.pulse({ tenantId, propertyId });
+  }
+
   @Get('tenants/:tenantId/intelligence/compare')
   @RequirePermission('ai.intelligence.cross_property', { checkedBy: 'gate' })
   compare(@Param('tenantId') tenantId: string) {
@@ -403,5 +419,35 @@ export class AiManagerController {
     if (this.actors.require().tenantId !== tenantId)
       throw AppError.notFound('org.tenant.not_found');
     return this.manager.compare(tenantId);
+  }
+}
+
+/** AI quality and cost per agent and day (Spec §41, BUILD_PLAN 12.6). */
+@Controller('properties/:propertyId/ai/quality')
+@PropertyScoped({ from: 'param' })
+export class AiQualityController {
+  constructor(
+    private readonly quality: QualityService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  private scope(propertyId: string) {
+    const tenantId = this.ctx.tenantId ?? this.actors.require().tenantId;
+    if (!tenantId) throw AppError.notFound('org.property.not_found');
+    return { tenantId, propertyId };
+  }
+
+  @Get()
+  @RequirePermission('ai.quality.read', { checkedBy: 'gate' })
+  list(@Param('propertyId') propertyId: string, @Query() query: QualityQueryDto) {
+    return this.quality.list(this.scope(propertyId), query);
+  }
+
+  @Post('recompute')
+  @HttpCode(200)
+  @RequirePermission('ai.quality.read', { checkedBy: 'gate' })
+  recompute(@Param('propertyId') propertyId: string, @Body() body: QualityRecomputeDto) {
+    return this.quality.recompute(this.scope(propertyId), body);
   }
 }

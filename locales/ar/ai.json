@@ -37,5 +37,6 @@
   "ai.insight.action.review_inspection_flow": "راجع كيفية وصول الغرف المنظفة من هذا النوع إلى الفحص.",
   "ai.insight.action.prepare_arrivals": "راجع حالات الوصول ذات المخاطر غدًا مع التدبير الفندقي والصيانة.",
   "ai.permission.manager_use": "سؤال مساعد المدير عن الفندق",
-  "ai.permission.intelligence_cross_property": "المقارنة بين فنادق المجموعة"
+  "ai.permission.intelligence_cross_property": "المقارنة بين فنادق المجموعة",
+  "ai.permission.quality_read": "عرض جودة مساعدي الذكاء الاصطناعي في الفندق وتكلفتهم"
 }

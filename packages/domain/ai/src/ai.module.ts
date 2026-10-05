@@ -13,6 +13,7 @@ import {
   AiExecutionsController,
   AiInsightsController,
   AiManagerController,
+  AiQualityController,
   AiTwinController,
 } from './api/controllers';
 import { AiAdminService } from './application/admin.service';
@@ -30,6 +31,7 @@ import {
 } from './application/insights.service';
 import { ManagerService } from './application/manager.service';
 import { PulseService } from './application/pulse.service';
+import { QualityService } from './application/quality.service';
 import { SIGNAL_EVENTS, SignalRecorder } from './application/signal-recorder';
 import { ModelGatewayService } from './application/gateway.service';
 import { ModelProviderRegistry } from './application/provider-registry';
@@ -46,6 +48,7 @@ import { AI_SETTINGS } from './domain/settings';
 import { EvaluationRepositories } from './infrastructure/evaluation-repositories';
 import { AiRepositories } from './infrastructure/repositories';
 import { InsightRepositories } from './infrastructure/insight-repositories';
+import { QualityRepositories } from './infrastructure/quality-repositories';
 import { TwinRepositories } from './infrastructure/twin-repositories';
 import { AI_MANIFEST } from './manifest';
 import {
@@ -64,6 +67,9 @@ export const AI_FEEDBACK_CONSUMER = 'ai.feedback';
 export const AI_TWIN_CONSUMER = 'ai.twin';
 /** Hourly: the insight detectors of every active property (BUILD_PLAN 12.4). */
 export const AI_INSIGHTS_JOB = 'ai.insights.detect';
+/** Every six hours: the quality metrics of yesterday and today (BUILD_PLAN 12.6). */
+export const AI_QUALITY_JOB = 'ai.quality.compute';
+const QUALITY_EVERY_MS = 6 * 60 * 60 * 1000;
 const INSIGHTS_EVERY_MS = 60 * 60 * 1000;
 /** The concierge runs as a job on `background-ai`, never on the realtime queue that delivered the message. */
 export const AI_CONCIERGE_JOB = 'ai.concierge.run';
@@ -84,6 +90,8 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     { provide: AI_INSIGHT_DETECTORS, useExisting: InsightDetectorRegistry },
     InsightEngine,
     PulseService,
+    QualityRepositories,
+    QualityService,
     ModelProviderRegistry,
     ModelGatewayService,
     ProposalSettler,
@@ -113,6 +121,8 @@ export const AI_CONCIERGE_JOB = 'ai.concierge.run';
     AI_INSIGHT_DETECTORS,
     InsightEngine,
     PulseService,
+    QualityRepositories,
+    QualityService,
   ],
 })
 export class AiCoreModule {}
@@ -179,6 +189,7 @@ export class AiToolsModule implements OnModuleInit {
     AiTwinController,
     AiInsightsController,
     AiManagerController,
+    AiQualityController,
   ],
   providers: [AiAdminService, ExecutionAuditService, TwinService, InsightService, ManagerService],
 })
@@ -221,6 +232,7 @@ export class AiWorkerModule implements OnModuleInit {
     private readonly twin: TwinProjector,
     private readonly signals: SignalRecorder,
     private readonly insights: InsightEngine,
+    private readonly quality: QualityService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @InjectLogger() private readonly logger: Logger,
   ) {}
@@ -269,6 +281,9 @@ export class AiWorkerModule implements OnModuleInit {
     this.consumers.onJob(AI_INSIGHTS_JOB, async () => {
       await this.insights.sweep();
     });
+    this.consumers.onJob(AI_QUALITY_JOB, async () => {
+      await this.quality.sweep();
+    });
     if (!this.config.worker.schedulerEnabled) return;
     await this.queues.queue('background-ai').upsertJobScheduler(
       AI_INSIGHTS_JOB,
@@ -279,9 +294,18 @@ export class AiWorkerModule implements OnModuleInit {
         opts: { removeOnComplete: 10, removeOnFail: 50 },
       },
     );
+    await this.queues.queue('background-ai').upsertJobScheduler(
+      AI_QUALITY_JOB,
+      { every: QUALITY_EVERY_MS },
+      {
+        name: AI_QUALITY_JOB,
+        data: { data: {}, context: {}, enqueuedAt: new Date().toISOString() },
+        opts: { removeOnComplete: 10, removeOnFail: 50 },
+      },
+    );
     this.logger.info(
-      { job: AI_INSIGHTS_JOB, every_ms: INSIGHTS_EVERY_MS },
-      'insight schedule armed',
+      { jobs: [AI_INSIGHTS_JOB, AI_QUALITY_JOB], every_ms: [INSIGHTS_EVERY_MS, QUALITY_EVERY_MS] },
+      'insight and quality schedules armed',
     );
   }
 }

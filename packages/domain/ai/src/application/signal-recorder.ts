@@ -4,6 +4,8 @@ import {
   type EventEnvelope,
   eventName,
   HkJobStatusChanged,
+  ServiceRequestCreated,
+  ServiceRequestStatusChanged,
   SlaBreached,
   WorkOrderClosed,
 } from '@hotella/contracts-events';
@@ -17,6 +19,8 @@ export const SIGNAL_EVENTS: readonly string[] = [
   SlaBreached.name,
   ComplaintOpened.name,
   HkJobStatusChanged.name,
+  ServiceRequestCreated.name,
+  ServiceRequestStatusChanged.name,
 ];
 
 /**
@@ -86,6 +90,21 @@ export class SignalRecorder {
         const p = HkJobStatusChanged.parse(envelope).payload;
         return keep('HK_JOB_STATUS', 'HK_JOB', p.job_id, {
           room: p.room_id,
+          from: p.from,
+          to: p.to,
+        });
+      }
+      // What the quality metrics need about requests (BUILD_PLAN 12.6): who created them, and what became of them.
+      case ServiceRequestCreated.name: {
+        const p = ServiceRequestCreated.parse(envelope).payload;
+        return keep('SERVICE_REQUEST_CREATED', 'SERVICE_REQUEST', p.request_id, {
+          source: p.source,
+          service: p.service_code,
+        });
+      }
+      case ServiceRequestStatusChanged.name: {
+        const p = ServiceRequestStatusChanged.parse(envelope).payload;
+        return keep('SERVICE_REQUEST_STATUS', 'SERVICE_REQUEST', p.request_id, {
           from: p.from,
           to: p.to,
         });

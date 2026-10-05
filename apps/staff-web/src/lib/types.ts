@@ -594,3 +594,64 @@ export interface StayForBooking {
     readonly remaining: number | null;
   }>;
 }
+
+// ---- intelligence (see the AI context's insight, pulse and quality services, BUILD_PLAN 12.4–12.6) ----
+
+export interface Insight {
+  readonly id: string;
+  readonly detector: string;
+  readonly severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  readonly confidence: number;
+  readonly reasonKey: string;
+  readonly reasonParams: Readonly<Record<string, string | number>>;
+  readonly affected: ReadonlyArray<{ readonly type: string; readonly id: string }>;
+  readonly suggestedAction: {
+    readonly key: string;
+    readonly params: Readonly<Record<string, string | number>>;
+  } | null;
+  readonly status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED' | 'EXPIRED';
+  readonly firstSeenAt: string;
+  readonly lastSeenAt: string;
+  readonly occurrences: number;
+  readonly version: number;
+}
+
+export interface Pulse {
+  readonly at: string;
+  readonly openWork: {
+    readonly total: number;
+    readonly byDepartment: Readonly<Record<string, number>>;
+  };
+  readonly slaBreaches24h: {
+    readonly total: number;
+    readonly byDepartment: Readonly<Record<string, number>>;
+  };
+  readonly openComplaints: {
+    readonly total: number;
+    readonly bySeverity: Readonly<Record<string, number>>;
+  };
+  readonly roomsRestricted: {
+    readonly total: number;
+    readonly byKind: Readonly<Record<string, number>>;
+  };
+  readonly arrivalsTomorrow: { readonly day: string; readonly count: number };
+  readonly liveInsights: {
+    readonly total: number;
+    readonly bySeverity: Readonly<Record<string, number>>;
+  };
+}
+
+export interface QualityRow {
+  readonly day: string;
+  readonly agentCode: string;
+  readonly agentVersionId: string | null;
+  readonly metric: string;
+  readonly value: number;
+  readonly samples: number;
+}
+
+export interface ManagerAnswer {
+  readonly executionId: string;
+  readonly outcome: 'ANSWERED' | 'DISABLED' | 'FAILED';
+  readonly answer: string | null;
+}

@@ -174,6 +174,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       'ai.routing.manage',
       'ai.usage.read',
       'ai.execution.read',
+      'ai.quality.read',
       'ai.twin.read',
       'ai.insight.read',
       'ai.insight.act',

@@ -2953,7 +2953,7 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 | 12.3 | Operational twin read model: consumers, neighbourhood queries, read-time names | done |
 | 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | done |
 | 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | done |
-| 12.6 | Quality and cost metrics job; staff-web Intelligence screens (insights, pulse, quality) in English and Arabic | planned |
+| 12.6 | Quality and cost metrics job; staff-web Intelligence screens (insights, pulse, quality) in English and Arabic | done |
 | 12.7 | Phase 12 acceptance (`docs/acceptance/phase-12.md`) | planned |
 
 - *As built (12.1):* migration `0049_ai_evaluation`: `ai.evaluation_sets` (platform when `tenant_id` is null, else the
@@ -3095,6 +3095,28 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
   insights and one consult, the child execution is the copilot's, for the same person, linked to the parent, and the
   model saw the exact numbers; consult refused from another agent and from a consulted execution; the comparison
   refused as a tool and as a report without the grant, allowed with it, never across tenants; a clerk cannot ask).
+- *As built (12.6):* migration `0054_ai_quality`: `ai.quality_daily` (tenant, property, agent, version — null for an
+  agent-level metric —, UTC day, metric, value, samples; unique with NULLS NOT DISTINCT; RLS). `domain/quality.ts`
+  (unit-tested) turns recorded counts into metrics, each with its sample size and left out without samples:
+  `executions`, `fallback_rate` (FAILED or HANDED_OFF), `cost_per_execution_minor`, `tool_failure_rate` (TOOL_CALL steps
+  in ERROR), `human_override_rate` (proposals people rejected of those decided), `draft_edit_distance` (average of
+  `DRAFT_EDIT` feedback), `guest_recontact_rate` (a completed reply followed by another guest message in the same
+  conversation within 24 h), `task_creation_accuracy` (requests the AI created that were not cancelled within 24 h —
+  new signals `SERVICE_REQUEST_CREATED` / `SERVICE_REQUEST_STATUS`; attributed to `GUEST_CONCIERGE`) and
+  `recommendation_acceptance` (insight feedback; pseudo-agent `INSIGHTS`). Evaluation and shadow executions are left
+  out. `QualityService` recomputes a whole day (replace, so reruns give the same rows); the worker runs
+  `ai.quality.compute` every six hours for yesterday and today of every property the AI context knows. API (permission
+  `ai.quality.read`, general manager; `AI_INTELLIGENCE`): `GET /properties/:id/ai/quality?from&to` (≤ 92 days) and
+  `POST …/ai/quality/recompute` (`{day}`); `GET /properties/:id/ai/pulse` (`ai.insight.read`) serves the screen the same
+  pulse the Manager assistant reads. Staff web: `/intelligence` (section shown with `ai.insight.read` and
+  `AI_INTELLIGENCE`) — **Insights** (HIGH first, the reason, suggested action and detector name from the shared `ai.*`
+  catalog keys, confidence, acknowledge / resolve / dismiss with a required reason, and the Manager assistant's
+  question box for `ai.manager.use`), **Right now** (the pulse counts) and **AI quality** (latest value per assistant
+  and measure over the last week); the app's messages now include the `ai` namespace. Tests: quality unit test;
+  integration `quality.integration.spec.ts` (a seeded day gives exactly eight metrics, evaluation runs excluded,
+  recomputing gives the same rows, permission and tenant isolation, range validation); the pulse endpoint in the
+  manager spec; Playwright `intelligence.spec.ts` (English: reasons, acknowledge, dismiss needs a reason, the
+  assistant's answer, pulse and quality tabs; Arabic: RTL, translated reason and action, severity bar on the start side).
 
 #### 12.E Tests and acceptance
 - Unit: graders, canary bucketing, every detector's thresholds and confidence, insight fingerprinting, twin traversal,

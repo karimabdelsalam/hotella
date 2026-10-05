@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 4–9 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
+# Phase 4–9 and 12 deployed-pipeline smoke (CI "pilot deployment smoke"), after smoke-agent.sh left SIM-C2 in house:
 # a general manager signs in, issues an activation link, the guest asks for a code (the OTP key is read from OpenBao;
 # the SMS channel here cannot deliver), front desk confirms the guest in person, the guest gets a session and sees
 # their stay (through the guest web app's BFF); the printable room QR sheet renders; the realtime gateway accepts a
@@ -261,6 +261,24 @@ call "$P/ai/executions/$(jq -r .executionId <<<"$handover")" "${auth[@]}" |
 call "$P/logbook/handovers/$(jq -r .id <<<"$handover")/acknowledge" "${group_auth[@]}" -d '{"version":1}' |
   jq -e '.status == "ACKNOWLEDGED"' >/dev/null
 echo "logbook: OK"
+# Intelligence (Phase 12): the worker's twin consumer projected the stay and its room from the events the stack
+# produced; the detectors run; the pulse and the AI quality of today are counted by code, through the deployed api.
+for _ in $(seq 1 30); do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "$P/twin/stay/$stay?depth=2" "${auth[@]}")" = 200 ] && break
+  sleep 1
+done
+twin=$(call "$P/twin/stay/$stay?depth=2" "${auth[@]}")
+echo "twin: $(jq -c '{root: .root.kind, nodes: [.nodes[].kind] | group_by(.) | map({(.[0]): length}) | add}' <<<"$twin")"
+jq -e '.root.kind == "STAY" and ([.nodes[] | select(.kind == "LOCATION")] | length) >= 1' <<<"$twin" >/dev/null
+call "$P/insights/detect" "${auth[@]}" -d '{}' | jq -e 'has("raised") and has("expired")' >/dev/null
+call "$P/insights" "${auth[@]}" | jq -e 'type == "array"' >/dev/null
+pulse=$(call "$P/ai/pulse" "${auth[@]}")
+echo "pulse: $(jq -c '{work: .openWork.total, complaints: .openComplaints.total, arrivals: .arrivalsTomorrow.count}' <<<"$pulse")"
+jq -e '(.openWork.total | type) == "number" and (.arrivalsTomorrow.count | type) == "number"' <<<"$pulse" >/dev/null
+call "$P/ai/quality/recompute" "${auth[@]}" -d "{\"day\":\"$(date -u +%F)\"}" | jq -e '.metrics >= 1' >/dev/null
+call "$P/ai/quality?from=$(date -u +%F)&to=$(date -u +%F)" "${auth[@]}" |
+  jq -e '[.[] | select(.metric == "executions")] | length >= 1' >/dev/null
+echo "intelligence: OK"
 # The link was single use.
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$API/guest/activation/start" "${json[@]}" -d "{\"token\":\"$token\"}")" = 410 ]
 
@@ -284,7 +302,7 @@ grep -qi '^set-cookie: hotella_rt=.*httponly' "$DIR/.bff-headers"; rm -f "$DIR/.
 jq -e 'has("refreshToken") | not' <<<"$bff" >/dev/null
 curl -fsS "$WEB/hotella/properties/$property/conversations" -H "authorization: Bearer $(jq -r .accessToken <<<"$bff")" | jq -e 'type == "array"' >/dev/null
 for page in en/engineering ar/engineering en/arrivals ar/arrivals ar/branding en/inspections ar/relations \
-  en/lostfound ar/logbook; do
+  en/lostfound ar/logbook en/intelligence ar/intelligence; do
   [ "$(curl -s -o /dev/null -w '%{http_code}' "$WEB/$page")" = 200 ]
 done
 echo "staff web: OK"

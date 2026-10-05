@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -966,3 +967,44 @@ export const insightHistory = classify(
 export type SignalRow = typeof signals.$inferSelect;
 export type InsightRow = typeof insights.$inferSelect;
 export type InsightHistoryRow = typeof insightHistory.$inferSelect;
+
+/**
+ * Quality and cost of the AI per agent, version and day (Spec §41, BUILD_PLAN 12.6): computed by deterministic code from
+ * executions, steps, proposals, feedback and signals, and upserted (recomputing a day gives the same rows).
+ */
+export const qualityDaily = classify(
+  ai.table(
+    'quality_daily',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      agentCode: varchar('agent_code', { length: 64 }).notNull(),
+      /** Null for a metric of the agent as a whole (e.g. requests it created that people cancelled). */
+      agentVersionId: uuid('agent_version_id'),
+      day: date('day', { mode: 'string' }).notNull(),
+      metric: varchar('metric', { length: 48 }).notNull(),
+      value: numeric('value', { precision: 14, scale: 4, mode: 'number' }).notNull(),
+      samples: integer('samples').notNull(),
+      updatedAt: tz('updated_at').notNull().defaultNow(),
+    },
+    (t) => [
+      unique('quality_daily_uq')
+        .on(t.tenantId, t.propertyId, t.agentCode, t.agentVersionId, t.day, t.metric)
+        .nullsNotDistinct(),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    agentCode: 'INTERNAL',
+    agentVersionId: 'INTERNAL',
+    day: 'INTERNAL',
+    metric: 'INTERNAL',
+    value: 'INTERNAL',
+    samples: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+  },
+);
+export type QualityDailyRow = typeof qualityDaily.$inferSelect;

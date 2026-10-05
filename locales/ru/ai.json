@@ -37,5 +37,6 @@
   "ai.insight.action.review_inspection_flow": "Проверьте, как убранные номера этого типа попадают на проверку.",
   "ai.insight.action.prepare_arrivals": "Разберите рискованные заезды завтрашнего дня с хаускипингом и инженерной службой.",
   "ai.permission.manager_use": "Задавать вопросы ассистенту руководителя об отеле",
-  "ai.permission.intelligence_cross_property": "Сравнивать отели группы"
+  "ai.permission.intelligence_cross_property": "Сравнивать отели группы",
+  "ai.permission.quality_read": "Просматривать качество и стоимость ИИ-ассистентов отеля"
 }
