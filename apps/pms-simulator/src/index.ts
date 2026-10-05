@@ -25,3 +25,4 @@ export {
   samplesBetween,
 } from './bms/building';
 export type { SimPoint } from './bms/building';
+export { SimulatedAccessSystems } from './access/systems';

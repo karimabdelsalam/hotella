@@ -11,6 +11,7 @@ import { useSession } from '../lib/session';
 /** Each section, the permission that opens it (held at any property) and the licensed module it belongs to. */
 const SECTIONS = [
   ['inbox', 'inbox.read', 'GUEST_EXPERIENCE'],
+  ['keys', 'access.read', 'CORE'],
   ['housekeeping', 'hk.board.read', 'HOUSEKEEPING'],
   ['engineering', 'eng.work_order.read', 'ENGINEERING'],
   ['telemetry', 'eng.telemetry.read', 'ENGINEERING'],

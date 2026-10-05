@@ -343,7 +343,7 @@ grep -qi '^set-cookie: hotella_rt=.*httponly' "$DIR/.bff-headers"; rm -f "$DIR/.
 jq -e 'has("refreshToken") | not' <<<"$bff" >/dev/null
 curl -fsS "$WEB/hotella/properties/$property/conversations" -H "authorization: Bearer $(jq -r .accessToken <<<"$bff")" | jq -e 'type == "array"' >/dev/null
 for page in en/engineering ar/engineering en/arrivals ar/arrivals ar/branding en/inspections ar/relations \
-  en/lostfound ar/logbook en/intelligence ar/intelligence en/telemetry ar/telemetry; do
+  en/lostfound ar/logbook en/intelligence ar/intelligence en/telemetry ar/telemetry en/keys ar/keys; do
   [ "$(curl -s -o /dev/null -w '%{http_code}' "$WEB/$page")" = 200 ]
 done
 echo "staff web: OK"

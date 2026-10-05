@@ -3207,7 +3207,7 @@ eng (telemetry)
 |---|---|---|
 | 13.1 | Connector SDK v2: .NET `IConnectorAdapter` + registry, ~~link protocol 3~~ (ADR-0024 amendment), signed webhook ingress, health hook, contract-test kit | done |
 | 13.2 | IoT/BMS telemetry: points, mappings, minute aggregates, deterministic rules, alarms → alerts/work orders/insights; simulator face; staff screen | done |
-| 13.3 | Stay-bound access: `ACCESS_API`, lock and Wi-Fi neutral connectors, auto-revoke on check-out and moves, staff UI; simulator | planned |
+| 13.3 | Stay-bound access: `ACCESS_API`, lock and Wi-Fi neutral connectors, auto-revoke on check-out and moves, staff UI; simulator | done |
 | 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | planned |
 | 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | planned |
 | 13.6 | Phase 13 acceptance (`docs/acceptance/phase-13.md`) | planned |
@@ -3299,6 +3299,20 @@ work order, events; missing data by the sweep; ignored point and future samples 
   Events `integration.access.issued|revoked|failed.v1` (ids only).
 - *Staff web:* the arrivals/in-house stay panel gains "Room key" and "Wi-Fi" with their state; simulator lock and
   Wi-Fi faces answer the commands (configurable failure).
+
+**13.3 as built.** Contracts: capabilities `KEY_ENCODE`, `KEY_REVOKE`, `MOBILE_KEY_ISSUE` (writes), events
+`integration.access.issued|revoked|failed.v1`, entitlement `CONNECTOR_LOCK`. Integration: `LOCK_STANDARD`,
+`WIFI_STANDARD` (command-only), migration 0057 (`access_grants`, append-only `access_grant_events` with a trigger,
+tenant FKs + RLS), `AccessService` = `ACCESS_API` (`available`, `issue`, `revoke`, `listForStay`; routing to the
+property's active instance with the capability; idempotency keys `access:<grant>:issue|revoke`; issue commands expire
+after 15 min), the agent link hands every command result and expiry to it, worker consumer `integration.access`
+(stay status and room changes). A revoke the vendor cannot confirm stays `REVOKE_REQUESTED` and opens a `CONFLICT`
+integration exception; a `FAILED` grant is terminal (nothing to revoke). Guest: `RoomAccessService` and
+`/properties/:id/stays/:stayId/access` (GET, POST `{kind}`, POST `:grantId/revoke`), in-house stays only, valid until
+14:00 property time on the departure day. Permissions `access.read|key.issue|wifi.issue` on the guest desk (GM, duty
+manager, front desk, guest relations). Staff web: "Keys & Wi-Fi" (room → guest → issue / revoke), Playwright en/ar.
+Simulator: `SimulatedAccessSystems` (lock and Wi-Fi faces, failing rooms). Tests: `room-access.integration.spec.ts`
+(guest), `access.e2e-spec.ts` (a lock agent over the real link). The AI concierge gets no key tool (HIGH risk).
 
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,

@@ -706,3 +706,27 @@ export interface TelemetryAlarm {
   readonly workOrderId: string | null;
   readonly version: number;
 }
+
+// ---- room keys and Wi-Fi (see the guest context's room access service, BUILD_PLAN 13.3) ----
+
+export type AccessKind = 'KEY' | 'MOBILE_KEY' | 'WIFI';
+
+export interface AccessGrant {
+  readonly id: string;
+  readonly kind: AccessKind;
+  readonly roomNumber: string | null;
+  readonly status: 'REQUESTED' | 'ISSUED' | 'FAILED' | 'REVOKE_REQUESTED' | 'REVOKED';
+  readonly validUntil: string;
+  readonly issuedAt: string | null;
+  readonly revokedAt: string | null;
+  readonly revokeReason: string | null;
+  readonly version: number;
+}
+
+export interface RoomStay {
+  readonly id: string;
+  readonly status: string;
+  readonly expectedDeparture: string;
+  readonly room: { readonly id: string; readonly roomNumber: string };
+  readonly primaryGuest: { readonly givenName: string; readonly familyName: string | null } | null;
+}
