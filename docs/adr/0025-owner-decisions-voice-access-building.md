@@ -1,6 +1,7 @@
 # ADR-0025: Owner decisions Q21–Q27 — SIP voice (Grandstream), room-context callers, speech egress, VingCard locks, BMS protocols
 
-**Status:** Accepted — 2026-10-05 (product owner decisions Q21–Q27; engineering design below)
+**Status:** Accepted — 2026-10-05 (product owner decisions Q21–Q27; engineering design below). Decisions 1–4 are
+built (Sprint 13.7); 5–6 are deferred to future development (Phase 13 closed by the owner on 2026-10-05).
 
 ## Context
 ADR-0024 shipped Phase 13 on vendor-neutral profiles and left the vendors and three policies to the owner. The owner

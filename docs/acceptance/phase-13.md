@@ -40,8 +40,9 @@ Legend: ✅ verified by automation · 🟡 needs a human or an owner decision.
 - ERP item codes are external references of parts (`eng.part` ↔ `ERP_ITEM`), not a field on the part (rule 3) — 13.5.
 
 ## Open items carried forward
-- Owner decisions Q21–Q27 answered on 2026-10-05 (ADR-0025). Follow-ups: 13.8 SIP bridge (Grandstream), 13.9
-  BACnet/Modbus bridges, 13.10 VingCard adapter (needs ASSA ABLOY partner access).
+- Owner decisions Q21–Q27 answered on 2026-10-05 (ADR-0025). The owner closed Phase 13 the same day: 13.8 SIP bridge
+  (Grandstream), 13.9 BACnet/Modbus bridges and 13.10 VingCard adapter (needs ASSA ABLOY partner access) are future
+  development.
 - Staff screens for calls, stay spend and requisitions are API-only in v1 (the inbox already shows voice turns).
 - Pre-existing: `Promise.all` inside transactions in the integrations context (capability registry, commissioning)
   triggers pg's deprecation warning on concurrent queries of one client; it should become sequential before pg 9.

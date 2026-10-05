@@ -3212,9 +3212,13 @@ eng (telemetry)
 | 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | done |
 | 13.6 | Phase 13 acceptance (`docs/acceptance/phase-13.md`) | done |
 | 13.7 | Owner decisions Q22/Q27 (ADR-0025): voice extension directory, room-context assurance for the concierge, per-hotel approval for external speech | done |
-| 13.8 | SIP voice bridge in the hotel agent (`VOICE_SIP`), Grandstream UCM first (Q21) | planned |
-| 13.9 | BACnet/IP and Modbus TCP telemetry bridges in the agent (Q24) | planned |
-| 13.10 | VingCard / ASSA ABLOY lock adapter (Q25) | blocked — needs ASSA ABLOY partner access |
+| 13.8 | SIP voice bridge in the hotel agent (`VOICE_SIP`), Grandstream UCM first (Q21) | deferred — future development (owner, 2026-10-05) |
+| 13.9 | BACnet/IP and Modbus TCP telemetry bridges in the agent (Q24) | deferred — future development (owner, 2026-10-05) |
+| 13.10 | VingCard / ASSA ABLOY lock adapter (Q25) | deferred — future development; needs ASSA ABLOY partner access |
+
+**Phase 13 closed on 2026-10-05 (owner decision):** 13.1–13.7 are built and accepted (`docs/acceptance/phase-13.md`);
+13.8–13.10 are future development. The decisions behind them stay recorded in ADR-0025, and the neutral profiles and
+simulator faces remain the integration points until they are picked up.
 
 Order rationale: the SDK first (everything else plugs into it); telemetry and access next (deterministic, high
 operational value, no vendor needed to prove them); voice after (depends on an AUDIO model on-prem and Q22/Q23).
