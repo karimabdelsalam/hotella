@@ -1,0 +1,12 @@
+{
+  "eng.permission.asset_read": "Vedere le apparecchiature e i relativi documenti",
+  "eng.permission.asset_manage": "Registrare e aggiornare le apparecchiature",
+  "eng.permission.config_manage": "Configurare tipi di apparecchiatura e codici guasto",
+  "eng.permission.work_order_read": "Vedere lavori tecnici, ricambi e pratiche di garanzia",
+  "eng.permission.work_order_manage": "Aprire, registrare e completare i lavori tecnici",
+  "eng.permission.parts_manage": "Gestire la scorta dei ricambi",
+  "eng.work_kind.work_order": "Ordine di lavoro tecnico",
+  "eng.work_order.title": "{type, select, CORRECTIVE {Riparazione} PREVENTIVE {Manutenzione preventiva} PREDICTIVE {Manutenzione predittiva} INSPECTION {Ispezione tecnica} EMERGENCY {Riparazione urgente} PROJECT {Progetto} other {Lavoro tecnico}} · WO-{number}",
+  "eng.permission.pm_manage": "Pianificare la manutenzione preventiva",
+  "eng.permission.restriction_manage": "Mettere le camere fuori servizio e rimetterle in servizio"
+}

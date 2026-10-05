@@ -1,0 +1,23 @@
+{
+  "hk.permission.board_read": "Housekeeping-Übersicht einsehen",
+  "hk.permission.room_manage": "Zimmerstatus und Signale ändern",
+  "hk.permission.job_manage": "Reinigungsaufträge erstellen, zuweisen und verwalten",
+  "hk.permission.inspect": "Gereinigte Zimmer kontrollieren",
+  "hk.permission.config_manage": "Housekeeping-Credits und -Regeln einrichten",
+  "hk.permission.arrivals_read": "Heutige und morgige Anreisen mit ihrem Risiko einsehen",
+  "hk.job.title": "{type, select, STAYOVER {Bleibereinigung} CHECKOUT {Abreisereinigung} ARRIVAL {Anreisereinigung} DEEP_CLEAN {Grundreinigung} TURNDOWN {Turndown-Service} TOUCH_UP {Nachreinigung} VIP {VIP-Vorbereitung} other {Reinigung}} · Zimmer {room}",
+  "hk.work_kind.job": "Zimmerreinigung",
+  "hk.setting.inspection_required": "Gereinigte Zimmer werden erst nach der Kontrolle durch eine Aufsicht bezugsfertig",
+  "hk.setting.stayover_hour": "Uhrzeit (Ortszeit des Hauses), ab der Bleibereinigungen erstellt werden",
+  "hk.setting.readiness_dimensions": "Was ein freies Zimmer erfüllen muss, um bezugsfertig zu sein",
+  "hk.setting.arrival_clean": "Ein sauberes Zimmer am Anreisetag eines Gastes abschließend prüfen",
+  "hk.readiness.dimension.HOUSEKEEPING": "Gereinigt",
+  "hk.readiness.dimension.INSPECTION": "Kontrolliert",
+  "hk.readiness.dimension.ENGINEERING": "Keine offene Instandhaltung",
+  "hk.readiness.dimension.NO_OOO": "Nicht außer Betrieb",
+  "hk.readiness.reason.NOT_CLEAN": "Das Zimmer wurde noch nicht gereinigt.",
+  "hk.readiness.reason.NOT_INSPECTED": "Das Zimmer wurde noch nicht kontrolliert.",
+  "hk.readiness.reason.OPEN_ENGINEERING_WORK": "In diesem Zimmer sind noch Instandhaltungsarbeiten offen.",
+  "hk.readiness.reason.ENGINEERING_UNKNOWN": "Offene Instandhaltungsarbeiten konnten nicht geprüft werden.",
+  "hk.readiness.reason.OUT_OF_ORDER": "Das Zimmer ist außer Betrieb oder nicht im Verkauf."
+}

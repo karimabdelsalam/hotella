@@ -37,7 +37,7 @@ export const envSchema = z.object({
     .string()
     .regex(/^[a-z]{2}(-[A-Z]{2})?$/)
     .default('en'),
-  SUPPORTED_LOCALES: z.string().min(2).default('en,ar'),
+  SUPPORTED_LOCALES: z.string().min(2).default('en,ar,it,ru,de'),
   LOCALES_DIR: z.string().min(1).optional(),
 
   /** OpenTelemetry (ADR-0006). The SDK itself honours the standard OTEL_* variables; we only gate enablement. */

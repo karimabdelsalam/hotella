@@ -1,0 +1,14 @@
+{
+  "guest.permission.read": "Visualizzare gli ospiti che soggiornano nella struttura",
+  "guest.permission.manage": "Gestire preferenze e consensi degli ospiti",
+  "guest.permission.merge": "Unire profili ospite duplicati",
+  "guest.permission.data_request_manage": "Gestire le richieste sui dati degli ospiti (esportazione, rettifica, anonimizzazione)",
+  "guest.permission.stay_read": "Visualizzare soggiorni, camere e gruppi",
+  "guest.permission.stay_manage": "Annotare i soggiorni",
+  "guest.permission.grant_revoke": "Revocare l'accesso di un ospite",
+  "guest.setting.grant_in_stay_scopes": "Cosa può fare l'ospite principale durante il soggiorno",
+  "guest.setting.grant_companion_scopes": "Cosa possono fare gli accompagnatori durante il soggiorno",
+  "guest.setting.grant_pre_arrival_scopes": "Cosa possono fare gli ospiti prima dell'arrivo",
+  "guest.setting.grant_post_stay_scopes": "Cosa mantengono gli ospiti dopo il check-out",
+  "guest.setting.grant_post_stay_hours": "Per quante ore dopo il check-out gli ospiti mantengono l'accesso post-soggiorno"
+}

@@ -142,7 +142,7 @@ export interface StaffAssistantAnswer {
   readonly executionId: string;
   readonly outcome: 'ANSWERED' | 'DISABLED' | 'FAILED';
   readonly answer: string | null;
-  readonly locale: 'ar' | 'en';
+  readonly locale: 'ar' | 'en' | 'it' | 'ru' | 'de';
   /** The documents the tools returned while answering (exact versions, Spec §38). */
   readonly sources: ReadonlyArray<{
     readonly documentId: string;

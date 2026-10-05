@@ -3462,7 +3462,7 @@ out or cancels it — rule 19), or NO_SHOW; every transition is kept (rule 10). 
 restaurant team through the notification pipeline.
 
 **Permissions.** `restaurant.restaurant.read`, `restaurant.restaurant.manage`, `restaurant.reservation.read`,
-`restaurant.reservation.manage`, `restaurant.reservation.override`; guest scope `RESTAURANT_BOOKING`. Entitlement
+`restaurant.reservation.manage`, `restaurant.reservation.override`; guest scope `DINING` (already in the default guest scopes). Entitlement
 capability `restaurant.alacarte` (a plan module, never a plan-name check — rule 14).
 
 **AI.** Read tool `restaurant.availability` and booking tool `restaurant.book` for the concierge (MEDIUM risk, only

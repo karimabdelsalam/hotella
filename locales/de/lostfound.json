@@ -1,0 +1,8 @@
+{
+  "lostfound.permission.read": "Verlust- und Fundsachen, Abgleiche und Ansprüche einsehen",
+  "lostfound.permission.register": "Eine Fundsache abgeben",
+  "lostfound.permission.manage": "Verlustmeldungen von Gästen erfassen, über Abgleiche entscheiden, Gegenstände lagern und entsorgen",
+  "lostfound.permission.release": "Einen Gegenstand gegen einen Anspruchsnachweis an seinen Eigentümer zurückgeben",
+  "lostfound.setting.retention_days": "Tage, die eine nicht abgeholte Fundsache aufbewahrt wird, bevor sie entsorgt werden darf",
+  "lostfound.setting.ai_attributes": "KI Gegenstandsbeschreibungen lesen lassen, um Verlust- und Fundsachen abzugleichen"
+}

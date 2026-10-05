@@ -1,0 +1,10 @@
+{
+  "org.permission.tenant_manage": "Управление арендаторами и организациями",
+  "org.permission.property_read": "Просмотр объектов, помещений и номеров",
+  "org.permission.property_manage": "Создание и редактирование объектов",
+  "org.permission.location_manage": "Управление деревом помещений, типами номеров и номерами",
+  "org.permission.department_manage": "Управление отделами, отвечающими за операционную работу",
+  "org.permission.branding_read": "Просмотр профилей бренда",
+  "org.permission.branding_manage": "Редактирование профилей бренда",
+  "org.setting.checkout_time": "Стандартное время выезда в отеле (ЧЧ:ММ, часовой пояс отеля)."
+}

@@ -1,0 +1,22 @@
+{
+  "ops.permission.task_read": "Aufgaben und Arbeitsvorgänge anzeigen",
+  "ops.permission.task_assign": "Aufgaben zuweisen, neu zuweisen und Zuweisungen aufheben",
+  "ops.permission.task_accept": "Eigene Aufgaben übernehmen, starten und pausieren",
+  "ops.permission.task_complete": "Aufgaben abschließen",
+  "ops.permission.task_cancel": "Aufgaben stornieren",
+  "ops.permission.sla_manage": "Geschäftszeiten und SLA-Richtlinien verwalten",
+  "ops.permission.alert_read": "Betriebswarnungen anzeigen",
+  "ops.permission.alert_ack": "Betriebswarnungen bestätigen und auflösen",
+  "ops.permission.workflow_manage": "Workflows entwerfen und veröffentlichen",
+  "ops.permission.approval_read": "Genehmigungsanfragen anzeigen",
+  "ops.permission.approval_decide": "Sensible Aktionen genehmigen oder ablehnen",
+  "ops.permission.notification_read": "Eigene Benachrichtigungen sehen und bestätigen",
+  "ops.permission.notification_preferences_manage": "Eigene Benachrichtigungskanäle wählen",
+  "ops.notification.task_assigned.subject": "Neue Aufgabe für Sie",
+  "ops.notification.task_assigned.body": "Ihnen wurde eine Aufgabe zugewiesen. Öffnen Sie Ihre Aufgabenliste, um sie zu sehen.",
+  "ops.notification.sla_escalation.subject": "{trigger, select, RESPONSE_BREACH {Arbeit nicht übernommen} RESOLUTION_WARNING {Arbeit kurz vor Fristablauf} other {Frist für Arbeit überschritten}}",
+  "ops.notification.sla_escalation.body": "Eskalationsstufe {level}: {trigger, select, RESPONSE_BREACH {Niemand hat die Arbeit bisher übernommen.} RESOLUTION_WARNING {Die Frist für die Arbeit läuft bald ab.} other {Die Frist für die Arbeit wurde überschritten.}}",
+  "ops.notification.approval_requested.subject": "Genehmigung erforderlich",
+  "ops.notification.approval_requested.body": "Eine Anfrage ({kind}) mit {risk, select, CRITICAL {kritischem} HIGH {hohem} MEDIUM {mittlerem} other {geringem}} Risiko wartet auf Ihre Entscheidung.",
+  "ops.work.title_redacted": "Anfrage (Details entfernt)"
+}

@@ -1,0 +1,10 @@
+{
+  "ai.permission.provider_manage": "KI-Anbieter, Modelle und Standard-Routing einrichten",
+  "ai.permission.routing_manage": "Festlegen, welche KI-Modelle dieses Hotel bedienen",
+  "ai.permission.usage_read": "KI-Nutzung und -Kosten einsehen",
+  "ai.setting.external_providers_allowed": "KI-Anbieter außerhalb der Installation, die überhaupt verwendet werden dürfen",
+  "ai.setting.external_providers_enabled": "KI-Anbieter außerhalb der Installation für diese Hotelgruppe zulassen",
+  "ai.setting.budget_monthly_limit_minor": "Monatliches Limit für KI-Anbieter außerhalb der Installation (in kleinster Währungseinheit)",
+  "ai.approval.ai_action": "Eine vom KI-Assistenten vorgeschlagene Aktion",
+  "ai.permission.execution_read": "Einsehen, was der KI-Assistent getan hat und warum"
+}

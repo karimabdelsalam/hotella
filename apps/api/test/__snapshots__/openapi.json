@@ -22215,7 +22215,10 @@
             "type": "string",
             "enum": [
               "en",
-              "ar"
+              "ar",
+              "it",
+              "ru",
+              "de"
             ]
           }
         },

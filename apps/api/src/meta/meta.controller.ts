@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { Public } from '@hotella/platform-auth';
-import { AppError } from '@hotella/platform-i18n';
+import { AppError, SUPPORTED_LOCALES } from '@hotella/platform-i18n';
 import { ManifestRegistry, type ModuleManifest } from '@hotella/platform-manifest';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
@@ -8,7 +8,7 @@ import { z } from 'zod';
 /** Smoke-test DTO proving zod → validation pipe → Problem Details end to end (Sprint 0.1.3). */
 export const echoSchema = z.object({
   message: z.string().min(1).max(200),
-  locale: z.enum(['en', 'ar']).default('en'),
+  locale: z.enum(SUPPORTED_LOCALES).default('en'),
 });
 export class EchoDto extends createZodDto(echoSchema) {}
 
@@ -35,7 +35,7 @@ export class MetaController {
   }
 
   @Post('echo')
-  echo(@Body() body: EchoDto): { echoed: string; locale: 'en' | 'ar' } {
+  echo(@Body() body: EchoDto): { echoed: string; locale: (typeof SUPPORTED_LOCALES)[number] } {
     return { echoed: body.message, locale: body.locale };
   }
 }

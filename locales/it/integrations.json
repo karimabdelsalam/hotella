@@ -1,0 +1,10 @@
+{
+  "integration.permission.read": "Visualizzare integrazioni, stato di salute, mappature ed eccezioni",
+  "integration.permission.configure": "Creare e configurare integrazioni",
+  "integration.permission.replay": "Rieseguire i messaggi di integrazione",
+  "integration.permission.mapping_confirm": "Confermare le mappature dei codici e chiudere le eccezioni di integrazione",
+  "integration.permission.reconcile": "Eseguire e verificare la riconciliazione con i sistemi esterni",
+  "integration.permission.webhook_manage": "Gestire i webhook in uscita e rieseguirne le consegne",
+  "integration.permission.capability_manage": "Scegliere quale connettore serve ciascuna operazione PMS in un hotel",
+  "integration.permission.capability_verify": "Verificare le capacità PMS e approvare un'integrazione al collaudo"
+}

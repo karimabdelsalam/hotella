@@ -1,4 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const PROPERTY = '01900000-0000-7000-8000-000000000001';
 const CONVERSATION = '01900000-0000-7000-8000-0000000000c1';
@@ -240,3 +242,21 @@ test('switching language keeps the page; signing out returns to sign-in', async 
   await page.getByRole('button', { name: 'تسجيل الخروج' }).click();
   await expect(page).toHaveURL(/\/ar\/login$/);
 });
+
+// ADR-0022: Italian, Russian and German are left-to-right and come from the shared catalog.
+const catalog = (locale: string, ns: string): Record<string, string> =>
+  JSON.parse(
+    readFileSync(join(process.cwd(), '..', '..', 'locales', locale, `${ns}.json`), 'utf8'),
+  );
+for (const locale of ['it', 'ru', 'de'] as const) {
+  test(`the inbox in ${locale} is left-to-right and translated`, async ({ page }) => {
+    const t = catalog(locale, 'staff');
+    await mockBackend(page, { signedIn: true });
+    await page.goto(`/${locale}/inbox`);
+    await expect(page.locator('html')).toHaveAttribute('lang', locale);
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+    await expect(page.getByRole('heading', { name: t['staff.inbox.title'] })).toBeVisible();
+    await expect(page.getByRole('tab', { name: t['staff.inbox.filter_waiting'] })).toBeVisible();
+    await expect(page.getByTestId('attribution')).toContainText('Powered by Planova');
+  });
+}

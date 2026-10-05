@@ -1,0 +1,10 @@
+{
+  "ai.permission.provider_manage": "Настройка ИИ-провайдеров, моделей и маршрутизации по умолчанию",
+  "ai.permission.routing_manage": "Выбор ИИ-моделей, обслуживающих этот отель",
+  "ai.permission.usage_read": "Просмотр использования и стоимости ИИ",
+  "ai.setting.external_providers_allowed": "ИИ-провайдеры вне установки, которые вообще разрешено использовать",
+  "ai.setting.external_providers_enabled": "Разрешить ИИ-провайдеров вне установки для этой группы отелей",
+  "ai.setting.budget_monthly_limit_minor": "Месячный лимит для ИИ-провайдеров вне установки (в минимальных денежных единицах)",
+  "ai.approval.ai_action": "Действие, предложенное ИИ-ассистентом",
+  "ai.permission.execution_read": "Просмотр того, что сделал ИИ-ассистент и почему"
+}

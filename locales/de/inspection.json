@@ -1,0 +1,7 @@
+{
+  "inspection.permission.template_manage": "Inspektions-Checklisten verfassen und veröffentlichen",
+  "inspection.permission.perform": "Inspektionen durchführen",
+  "inspection.permission.read": "Inspektionen, ihre Ergebnisse und Befunde einsehen",
+  "inspection.work_kind.finding": "Inspektionsbefund",
+  "inspection.finding.title": "{severity, select, CRITICAL {Kritischer} MAJOR {Schwerer} MINOR {Geringfügiger} other {}} Befund {item} · Inspektion {number}"
+}

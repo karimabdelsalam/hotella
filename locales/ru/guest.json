@@ -1,0 +1,14 @@
+{
+  "guest.permission.read": "Просмотр гостей, проживающих в отеле",
+  "guest.permission.manage": "Ведение предпочтений и согласий гостей",
+  "guest.permission.merge": "Объединение дублирующихся профилей гостей",
+  "guest.permission.data_request_manage": "Обработка запросов гостей по данным (выгрузка, исправление, анонимизация)",
+  "guest.permission.stay_read": "Просмотр проживаний, номеров и состава гостей",
+  "guest.permission.stay_manage": "Добавление заметок к проживаниям",
+  "guest.permission.grant_revoke": "Отзыв доступа гостя",
+  "guest.setting.grant_in_stay_scopes": "Что может делать основной гость во время проживания",
+  "guest.setting.grant_companion_scopes": "Что могут делать сопровождающие гости во время проживания",
+  "guest.setting.grant_pre_arrival_scopes": "Что могут делать гости до заезда",
+  "guest.setting.grant_post_stay_scopes": "Что остаётся доступным гостям после выезда",
+  "guest.setting.grant_post_stay_hours": "Сколько часов после выезда у гостей сохраняется доступ"
+}

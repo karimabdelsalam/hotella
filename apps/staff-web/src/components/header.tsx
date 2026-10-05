@@ -1,14 +1,13 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { BrandMark, Button, cx, GlobeIcon } from '@hotella/ui';
+import { BrandMark, Button, cx, GlobeIcon, LOCALE_NAMES } from '@hotella/ui';
 import { Link, usePathname, useRouter } from '../i18n/navigation';
 import { routing } from '../i18n/routing';
 import { holdsAnywhere, useEntitled, useMe } from '../lib/access';
 import { logoUrl, useStaffBrand } from '../lib/brand';
 import { useSession } from '../lib/session';
 
-const NAMES: Record<string, string> = { en: 'English', ar: 'العربية' };
 /** Each section, the permission that opens it (held at any property) and the licensed module it belongs to. */
 const SECTIONS = [
   ['inbox', 'inbox.read', 'GUEST_EXPERIENCE'],
@@ -85,7 +84,7 @@ export function Header() {
             >
               {routing.locales.map((l) => (
                 <option key={l} value={l}>
-                  {NAMES[l] ?? l}
+                  {LOCALE_NAMES[l]}
                 </option>
               ))}
             </select>

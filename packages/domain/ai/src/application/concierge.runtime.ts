@@ -13,6 +13,7 @@ import {
   GUEST_CONCIERGE,
   HANDOFF_REASONS,
   type HandoffReason,
+  type ReplyLocale,
   replyLocale,
 } from '../domain/agents';
 import { killSwitch } from '../domain/settings';
@@ -25,9 +26,12 @@ import { ToolRegistry } from './tools/registry';
 
 export type ConciergeOutcome = 'SKIPPED' | 'REPLIED' | 'DRAFTED' | 'HANDED_OFF' | 'FAILED';
 
-const LANGUAGE: Record<'ar' | 'en', string> = {
+const LANGUAGE: Record<ReplyLocale, string> = {
   ar: 'Reply in Arabic, in the same dialect and tone the guest used (Egyptian Arabic is fine).',
   en: 'Reply in English.',
+  it: 'Reply in Italian, politely (Lei).',
+  ru: 'Reply in Russian, politely (Вы).',
+  de: 'Reply in German, politely (Sie).',
 };
 
 /**
@@ -185,7 +189,7 @@ export class ConciergeRuntime {
   private async converse(
     handle: ExecutionHandle,
     agent: PublishedAgent,
-    locale: 'ar' | 'en',
+    locale: ReplyLocale,
   ): Promise<{ reply: string; handoff: HandoffReason | null } | null> {
     const built = await this.context.build({
       tenantId: handle.tenantId,

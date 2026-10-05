@@ -1,0 +1,12 @@
+{
+  "eng.permission.asset_read": "Anlagen und ihre Dokumente einsehen",
+  "eng.permission.asset_manage": "Anlagen erfassen und aktualisieren",
+  "eng.permission.config_manage": "Anlagentypen und Fehlercodes einrichten",
+  "eng.permission.work_order_read": "Technikarbeiten, Ersatzteile und Garantiefälle einsehen",
+  "eng.permission.work_order_manage": "Technikarbeiten eröffnen, erfassen und abschließen",
+  "eng.permission.parts_manage": "Ersatzteilbestand verwalten",
+  "eng.work_kind.work_order": "Technischer Arbeitsauftrag",
+  "eng.work_order.title": "{type, select, CORRECTIVE {Reparatur} PREVENTIVE {Vorbeugende Wartung} PREDICTIVE {Vorausschauende Wartung} INSPECTION {Technische Inspektion} EMERGENCY {Notreparatur} PROJECT {Projekt} other {Technikarbeit}} · WO-{number}",
+  "eng.permission.pm_manage": "Vorbeugende Wartung planen",
+  "eng.permission.restriction_manage": "Zimmer außer Betrieb nehmen und wieder in Betrieb setzen"
+}

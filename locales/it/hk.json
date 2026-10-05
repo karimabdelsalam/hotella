@@ -1,0 +1,23 @@
+{
+  "hk.permission.board_read": "Vedere il tabellone dell'housekeeping",
+  "hk.permission.room_manage": "Modificare stati e segnalazioni delle camere",
+  "hk.permission.job_manage": "Creare, assegnare e gestire le pulizie",
+  "hk.permission.inspect": "Ispezionare le camere pulite",
+  "hk.permission.config_manage": "Configurare crediti e regole dell'housekeeping",
+  "hk.permission.arrivals_read": "Vedere gli arrivi di oggi e di domani con il relativo rischio",
+  "hk.job.title": "{type, select, STAYOVER {Pulizia di fermata} CHECKOUT {Pulizia di partenza} ARRIVAL {Pulizia di arrivo} DEEP_CLEAN {Pulizia a fondo} TURNDOWN {Servizio serale} TOUCH_UP {Ripasso} VIP {Allestimento VIP} other {Pulizia}} · camera {room}",
+  "hk.work_kind.job": "Pulizia della camera",
+  "hk.setting.inspection_required": "Le camere pulite attendono l'ispezione di un supervisore prima di essere pronte",
+  "hk.setting.stayover_hour": "Ora del giorno (ora della struttura) da cui vengono create le pulizie di fermata",
+  "hk.setting.readiness_dimensions": "Cosa deve superare una camera libera per essere pronta",
+  "hk.setting.arrival_clean": "Eseguire un controllo finale di arrivo su una camera pulita il giorno in cui arriva un ospite",
+  "hk.readiness.dimension.HOUSEKEEPING": "Pulita",
+  "hk.readiness.dimension.INSPECTION": "Ispezionata",
+  "hk.readiness.dimension.ENGINEERING": "Nessuna manutenzione aperta",
+  "hk.readiness.dimension.NO_OOO": "Non fuori servizio",
+  "hk.readiness.reason.NOT_CLEAN": "La camera non è ancora stata pulita.",
+  "hk.readiness.reason.NOT_INSPECTED": "La camera non è ancora stata ispezionata.",
+  "hk.readiness.reason.OPEN_ENGINEERING_WORK": "In questa camera ci sono ancora lavori di manutenzione aperti.",
+  "hk.readiness.reason.ENGINEERING_UNKNOWN": "Non è stato possibile verificare i lavori di manutenzione aperti.",
+  "hk.readiness.reason.OUT_OF_ORDER": "La camera è fuori uso o fuori servizio."
+}

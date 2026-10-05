@@ -1,0 +1,7 @@
+{
+  "inspection.permission.template_manage": "Scrivere e pubblicare checklist di ispezione",
+  "inspection.permission.perform": "Eseguire ispezioni",
+  "inspection.permission.read": "Vedere le ispezioni, i loro risultati e i rilievi",
+  "inspection.work_kind.finding": "Rilievo di ispezione",
+  "inspection.finding.title": "Rilievo{severity, select, CRITICAL { critico} MAJOR { grave} MINOR { lieve} other {}} {item} · ispezione {number}"
+}

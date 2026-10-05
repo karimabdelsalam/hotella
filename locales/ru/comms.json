@@ -1,0 +1,22 @@
+{
+  "comms.permission.channel_manage": "Настройка каналов сообщений и их провайдеров",
+  "comms.permission.activation_issue": "Выдача гостям ссылок активации",
+  "comms.permission.activation_assist": "Подтверждение гостя лично, если код не пришёл",
+  "comms.permission.qr_manage": "Создание, замена и отзыв QR-кодов номеров",
+  "comms.setting.otp_primary_channel": "Основной канал отправки кодов гостям",
+  "comms.setting.otp_fallback_channels": "Резервные каналы, если код не доставлен",
+  "comms.setting.otp_fallback_timeout_seconds": "Сколько секунд ждать подтверждения доставки перед переходом к следующему каналу",
+  "comms.setting.otp_manual_fallback_after_seconds": "Через сколько секунд гость может запросить код другим способом",
+  "comms.setting.otp_staff_assist_enabled": "Служба приёма может подтвердить гостя лично",
+  "comms.setting.activation_token_ttl_hours": "Сколько часов действует ссылка активации",
+  "comms.otp.sms_text": "{code} — Ваш код для {property}. Он действует 5 минут. Никому его не сообщайте.",
+  "comms.permission.inbox_read": "Просмотр переписки с гостями",
+  "comms.permission.inbox_reply": "Ответы гостям и закрытие переписки",
+  "comms.permission.inbox_assign": "Назначение переписки с гостями сотрудникам",
+  "comms.permission.inbox_takeover": "Перехват переписки у автоматизации",
+  "comms.inbound.activation_prompt": "Добро пожаловать в {property}. Чтобы мы могли помочь Вам во время проживания, пожалуйста, откройте ссылку, полученную при заселении, или отсканируйте QR-код в Вашем номере, а затем подтвердите свой номер телефона. Также Вам может помочь служба приёма.",
+  "comms.qr.sheet_title": "{property} — коды номеров",
+  "comms.qr.room": "Номер",
+  "comms.qr.instruction": "Отсканируйте, чтобы связаться с нами, заказать услуги и написать в отель.",
+  "comms.setting.ai_mode_default": "Как ИИ-ассистент участвует в новой переписке с подтверждённым гостем"
+}

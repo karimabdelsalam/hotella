@@ -11,3 +11,4 @@ export {
   SparkleIcon,
 } from './icons';
 export { Badge, Button, cx } from './primitives';
+export { LOCALE_NAMES, LOCALES, type Locale, RTL_LOCALES } from './locales';

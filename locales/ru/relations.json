@@ -1,0 +1,9 @@
+{
+  "relations.permission.read": "Просмотр жалоб, кандидатов в жалобы и компенсаций гостям",
+  "relations.permission.manage": "Регистрация жалоб, изменение их статуса, подтверждение или отклонение кандидатов от ИИ",
+  "relations.permission.category_manage": "Управление категориями жалоб",
+  "relations.permission.recovery_manage": "Предложение компенсаций гостям (комплименты, питание, скидки, возвраты)",
+  "relations.permission.suggest": "Предложение кандидата в жалобы (ИИ-консьерж)",
+  "relations.approval.recovery_action": "Компенсация гостю, требующая затрат отеля",
+  "relations.setting.recovery_high_risk_from": "Компенсация гостю начиная с этой суммы требует одобрения высокого риска"
+}

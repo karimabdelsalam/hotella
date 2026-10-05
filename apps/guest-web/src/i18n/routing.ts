@@ -1,9 +1,10 @@
 import { defineRouting } from 'next-intl/routing';
+import { LOCALES } from '@hotella/ui';
 
 /**
- * English and Arabic are first-class (Spec §79); Arabic renders right-to-left. Activation links and room QR codes are
+ * English, Arabic, Italian, Russian and German (Spec §79, ADR-0022); Arabic renders right-to-left. Activation links and room QR codes are
  * printed without a language (`/a/<token>`, `/q/<token>`): the middleware sends the guest to their browser's language.
  */
-export const routing = defineRouting({ locales: ['en', 'ar'], defaultLocale: 'en' });
+export const routing = defineRouting({ locales: LOCALES, defaultLocale: 'en' });
 export type Locale = (typeof routing.locales)[number];
-export const RTL_LOCALES: readonly string[] = ['ar'];
+export { RTL_LOCALES } from '@hotella/ui';

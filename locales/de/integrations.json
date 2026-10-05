@@ -1,0 +1,10 @@
+{
+  "integration.permission.read": "Integrationen, ihren Zustand, Zuordnungen und Ausnahmen anzeigen",
+  "integration.permission.configure": "Integrationen erstellen und konfigurieren",
+  "integration.permission.replay": "Integrationsnachrichten erneut verarbeiten",
+  "integration.permission.mapping_confirm": "Code-Zuordnungen bestätigen und Integrationsausnahmen schließen",
+  "integration.permission.reconcile": "Abgleich mit externen Systemen ausführen und prüfen",
+  "integration.permission.webhook_manage": "Ausgehende Webhooks verwalten und ihre Zustellungen erneut senden",
+  "integration.permission.capability_manage": "Festlegen, welcher Connector jede PMS-Operation in einem Hotel bedient",
+  "integration.permission.capability_verify": "PMS-Fähigkeiten verifizieren und eine Integration bei der Inbetriebnahme abnehmen"
+}

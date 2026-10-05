@@ -1,0 +1,23 @@
+{
+  "hk.permission.board_read": "Просмотр доски хаускипинга",
+  "hk.permission.room_manage": "Изменение состояний и сигналов номеров",
+  "hk.permission.job_manage": "Создание, назначение и управление заданиями на уборку",
+  "hk.permission.inspect": "Проверка убранных номеров",
+  "hk.permission.config_manage": "Настройка баллов и правил хаускипинга",
+  "hk.permission.arrivals_read": "Просмотр заездов на сегодня и завтра с оценкой риска",
+  "hk.job.title": "{type, select, STAYOVER {Текущая уборка} CHECKOUT {Уборка после выезда} ARRIVAL {Уборка к заезду} DEEP_CLEAN {Генеральная уборка} TURNDOWN {Вечерний сервис} TOUCH_UP {Экспресс-уборка} VIP {Подготовка для VIP} other {Уборка}} · номер {room}",
+  "hk.work_kind.job": "Уборка номера",
+  "hk.setting.inspection_required": "Убранные номера ожидают проверки супервайзера, прежде чем станут готовыми",
+  "hk.setting.stayover_hour": "Час (по времени отеля), с которого создаются задания на текущую уборку",
+  "hk.setting.readiness_dimensions": "Какие проверки должен пройти свободный номер, чтобы считаться готовым",
+  "hk.setting.arrival_clean": "Проводить финальную проверку чистого номера в день заезда гостя",
+  "hk.readiness.dimension.HOUSEKEEPING": "Убран",
+  "hk.readiness.dimension.INSPECTION": "Проверен",
+  "hk.readiness.dimension.ENGINEERING": "Нет открытых работ по обслуживанию",
+  "hk.readiness.dimension.NO_OOO": "Не выведен из эксплуатации",
+  "hk.readiness.reason.NOT_CLEAN": "Номер ещё не убран.",
+  "hk.readiness.reason.NOT_INSPECTED": "Номер ещё не проверен.",
+  "hk.readiness.reason.OPEN_ENGINEERING_WORK": "В этом номере ещё есть открытые работы по обслуживанию.",
+  "hk.readiness.reason.ENGINEERING_UNKNOWN": "Не удалось проверить наличие открытых работ по обслуживанию.",
+  "hk.readiness.reason.OUT_OF_ORDER": "Номер неисправен или выведен из эксплуатации."
+}

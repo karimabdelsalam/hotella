@@ -1,0 +1,10 @@
+{
+  "org.permission.tenant_manage": "Gestire tenant e organizzazioni",
+  "org.permission.property_read": "Visualizzare strutture, ubicazioni e camere",
+  "org.permission.property_manage": "Creare e modificare strutture",
+  "org.permission.location_manage": "Gestire l'albero delle ubicazioni, le tipologie di camera e le camere",
+  "org.permission.department_manage": "Gestire i reparti responsabili del lavoro operativo",
+  "org.permission.branding_read": "Visualizzare i profili di brand",
+  "org.permission.branding_manage": "Modificare i profili di brand",
+  "org.setting.checkout_time": "Orario standard di check-out della struttura (HH:MM, fuso orario della struttura)."
+}

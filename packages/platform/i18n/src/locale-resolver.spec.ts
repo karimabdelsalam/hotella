@@ -86,12 +86,12 @@ describe('LocaleResolver chain (Spec §79.3)', () => {
       (
         await request(app.getHttpServer())
           .get('/t')
-          .set('Accept-Language', 'de')
+          .set('Accept-Language', 'fr')
           .set('x-test-property', 'ar')
       ).body.locale,
     ).toBe('ar');
     expect(
-      (await request(app.getHttpServer()).get('/t').set('Accept-Language', 'de')).body.locale,
+      (await request(app.getHttpServer()).get('/t').set('Accept-Language', 'fr')).body.locale,
     ).toBe('en');
   });
   it('requested() is null when the locale is only a property or platform fallback', async () => {
@@ -99,7 +99,7 @@ describe('LocaleResolver chain (Spec §79.3)', () => {
     expect(detected.body.requested).toBe('ar');
     const property = await request(app.getHttpServer())
       .get('/t')
-      .set('Accept-Language', 'de')
+      .set('Accept-Language', 'fr')
       .set('x-test-property', 'ar');
     expect(property.body).toMatchObject({ locale: 'ar', requested: null });
     const fallback = await request(app.getHttpServer()).get('/t');

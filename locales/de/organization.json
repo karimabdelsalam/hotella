@@ -1,0 +1,10 @@
+{
+  "org.permission.tenant_manage": "Mandanten und Organisationen verwalten",
+  "org.permission.property_read": "Häuser, Standorte und Zimmer anzeigen",
+  "org.permission.property_manage": "Häuser erstellen und bearbeiten",
+  "org.permission.location_manage": "Standortbaum, Zimmertypen und Zimmer verwalten",
+  "org.permission.department_manage": "Abteilungen verwalten, denen operative Arbeit zugeordnet ist",
+  "org.permission.branding_read": "Markenprofile anzeigen",
+  "org.permission.branding_manage": "Markenprofile bearbeiten",
+  "org.setting.checkout_time": "Standard-Check-out-Zeit im Haus (HH:MM, Zeitzone des Hauses)."
+}

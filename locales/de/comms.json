@@ -1,0 +1,22 @@
+{
+  "comms.permission.channel_manage": "Messaging-Kanäle und ihre Anbieter einrichten",
+  "comms.permission.activation_issue": "Aktivierungslinks an Gäste ausgeben",
+  "comms.permission.activation_assist": "Einen Gast persönlich bestätigen, wenn kein Code ankommt",
+  "comms.permission.qr_manage": "QR-Codes für Zimmer erzeugen, erneuern und widerrufen",
+  "comms.setting.otp_primary_channel": "Kanal, über den Codes für Gäste zuerst gesendet werden",
+  "comms.setting.otp_fallback_channels": "Kanäle, die als Nächstes versucht werden, wenn ein Code nicht zugestellt wird",
+  "comms.setting.otp_fallback_timeout_seconds": "Sekunden Wartezeit auf eine Zustellbestätigung, bevor der nächste Kanal versucht wird",
+  "comms.setting.otp_manual_fallback_after_seconds": "Sekunden, bevor ein Gast den Code auf anderem Weg anfordern kann",
+  "comms.setting.otp_staff_assist_enabled": "Die Rezeption darf einen Gast persönlich bestätigen",
+  "comms.setting.activation_token_ttl_hours": "Stunden, die ein Aktivierungslink gültig bleibt",
+  "comms.otp.sms_text": "{code} ist Ihr Code für {property}. Er läuft in 5 Minuten ab. Geben Sie ihn niemals weiter.",
+  "comms.permission.inbox_read": "Unterhaltungen mit Gästen einsehen",
+  "comms.permission.inbox_reply": "Auf Unterhaltungen mit Gästen antworten und sie schließen",
+  "comms.permission.inbox_assign": "Unterhaltungen mit Gästen Mitarbeitenden zuweisen",
+  "comms.permission.inbox_takeover": "Eine Unterhaltung von der Automatisierung übernehmen",
+  "comms.inbound.activation_prompt": "Willkommen bei {property}. Damit wir Sie während Ihres Aufenthalts unterstützen können, öffnen Sie bitte den Link, den Sie beim Check-in erhalten haben, oder scannen Sie den QR-Code in Ihrem Zimmer und bestätigen Sie anschließend Ihre Nummer. Auch die Rezeption hilft Ihnen gerne weiter.",
+  "comms.qr.sheet_title": "{property} — Zimmercodes",
+  "comms.qr.room": "Zimmer",
+  "comms.qr.instruction": "Scannen Sie den Code, um uns zu erreichen, Services anzufragen und mit dem Hotel zu chatten.",
+  "comms.setting.ai_mode_default": "Wie der KI-Assistent an einer neuen Unterhaltung eines verifizierten Gastes teilnimmt"
+}

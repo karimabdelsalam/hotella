@@ -1,0 +1,6 @@
+{
+  "logbook.permission.read": "Schichtlogbuch und Übergaben lesen",
+  "logbook.permission.write": "Im Schichtlogbuch schreiben und Übergaben entwerfen",
+  "logbook.permission.handover_acknowledge": "Eine Schichtübergabe bestätigen (die Schicht übernehmen)",
+  "logbook.setting.shift_starts": "Beginn der Früh-, Spät- und Nachtschicht"
+}

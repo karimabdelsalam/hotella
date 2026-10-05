@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 
 const PROPERTY = '01900000-0000-7000-8000-000000000001';
@@ -365,5 +367,34 @@ test.describe('an Arabic browser', () => {
     );
     const manifest = await request.get('/ar/manifest.webmanifest');
     expect(await manifest.json()).toMatchObject({ lang: 'ar', dir: 'rtl', name: 'خدمات النزلاء' });
+  });
+});
+
+// ADR-0022: the guest app in Italian, Russian and German, from the shared catalog; a German browser lands in German.
+const portal = (locale: string): Record<string, string> =>
+  JSON.parse(
+    readFileSync(join(process.cwd(), '..', '..', 'locales', locale, 'portal.json'), 'utf8'),
+  );
+for (const locale of ['it', 'ru', 'de'] as const) {
+  test(`the guest app in ${locale} is left-to-right and translated`, async ({ page }) => {
+    const t = portal(locale);
+    await mockBackend(page, { signedIn: true });
+    await page.goto(`/${locale}`);
+    await expect(page.locator('html')).toHaveAttribute('lang', locale);
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+    await expect(
+      page.getByRole('heading', { name: t['portal.home.welcome']!.replace('{name}', 'Mona') }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: t['portal.home.room_signals'] })).toBeVisible();
+  });
+}
+
+test.describe('a German browser', () => {
+  test.use({ locale: 'de-DE' });
+  test('a link without a language opens in German', async ({ page }) => {
+    await mockBackend(page, { signedIn: false });
+    await page.goto(`/a/${TOKEN}`);
+    await expect(page).toHaveURL(new RegExp(`/de/a/${TOKEN}$`));
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   });
 });

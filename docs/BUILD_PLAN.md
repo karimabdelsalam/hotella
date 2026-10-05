@@ -2963,6 +2963,18 @@ Phase 13.
 - Tests: catalog check unit tests (plural categories per locale), i18n service resolution for `it`/`ru`/`de`,
   Playwright smoke per new locale (guest home, staff inbox), translation fallback (property default → `en`).
 - Owner item: native-speaker review of the drafted it/ru/de texts before the first hotel uses them.
+- *As built:* `SUPPORTED_LOCALES`/`RTL_LOCALES` in `platform-i18n` (server) and `LOCALES`/`RTL_LOCALES`/`LOCALE_NAMES`
+  (endonyms) in `@hotella/ui` (web; a test keeps `/locales` and the list in step); `checkMessages` adds argument and
+  CLDR plural-form checks (current CLDR gives Italian a `many` form as well; an exact `=0` stands in for Arabic
+  `zero`) — it found nine incomplete Arabic plurals, fixed. 1,356 keys × 3 new locales drafted in parallel and checked
+  (`pnpm locales:check` now covers all five). Web apps take every locale that has their namespaces
+  (`sync-messages.mjs`); the language menus list the five by their own names. The concierge and staff assistants
+  answer in all five: `replyLocale` reads Arabic and Cyrillic script and tells English, Italian and German apart by
+  common words and letters, else the conversation's language (deterministic). OPERA `GL` passes through when it is a
+  two-letter ISO 639-1 code (the Planova Standard Profile asks the hotel to configure GL that way); anything else is
+  not guessed. Cyrillic falls back from Cairo (no Cyrillic glyphs) to the system font. Tests: catalog checker unit
+  tests, reply-language unit tests, Playwright staff inbox and guest home in it/ru/de and a German browser landing in
+  German.
 
 #### 14.B Restaurant context (schema `restaurant`, Spec B.1)
 *Domain model (data class INTERNAL unless stated):*
@@ -2995,7 +3007,7 @@ Phase 13.
 (by `stayId`; optional `override: { reason }`), `POST …/restaurant-reservations/:id/{seat,complete,no-show,cancel}`.
 *Guest:* `GET /guest/restaurants` (open dates/sittings within the stay + remaining allowance),
 `GET|POST /guest/restaurant-reservations`, `POST /guest/restaurant-reservations/:id/cancel` — guest scope
-`RESTAURANT_BOOKING`. Errors: `restaurant.reservation.allowance_used`, `.sitting_full`, `.outside_stay`,
+`DINING`. Errors: `restaurant.reservation.allowance_used`, `.sitting_full`, `.outside_stay`,
 `.cutoff_passed`, `.party_size`, `.closed`.
 *Events:* `restaurant.reservation.created.v1`, `restaurant.reservation.cancelled.v1`,
 `restaurant.reservation.status_changed.v1`. *Permissions:* `restaurant.restaurant.read|manage`,
@@ -3018,7 +3030,7 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
 #### 14.D Sprints
 | Sprint | Scope | Status |
 |---|---|---|
-| 14.1 | Five locales: config, catalog check with CLDR plurals, it/ru/de catalogs, web apps, translation tables, PMS language mapping | planned |
+| 14.1 | Five locales: config, catalog check with CLDR plurals, it/ru/de catalogs, web apps, translation tables, PMS language mapping | done |
 | 14.2 | Restaurant context: model, migration, allowance and capacity rules, staff and guest APIs, events, checkout consumer, manifest, tests | planned |
 | 14.3 | Restaurant UI: staff board, phone booking, configuration screens; guest booking; concierge tools; e2e; acceptance | planned |
 | 14.4 | Staff app skeleton: Flutter project, generated client, ARB from the catalog, hotel code → branding → sign-in, CI job | planned |

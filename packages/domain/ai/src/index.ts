@@ -25,7 +25,7 @@ export { toModelName, ToolRegistry } from './application/tools/registry';
 export type { AiToolDefinition, ToolContext } from './application/tools/registry';
 export { aiExecutionScope, AiPolicyStage, ScopedAgentAuthorizer } from './application/tools/scope';
 export { decide, NO_AUTONOMY, riskRank } from './domain/policy';
-export { GUEST_CONCIERGE, HANDOFF_REASONS, replyLocale } from './domain/agents';
+export { GUEST_CONCIERGE, HANDOFF_REASONS, type ReplyLocale, replyLocale } from './domain/agents';
 export type { HandoffReason } from './domain/agents';
 export type { AutonomyPolicy, Decision, Risk } from './domain/policy';
 export { ModelGatewayService } from './application/gateway.service';

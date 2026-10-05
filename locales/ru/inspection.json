@@ -1,0 +1,7 @@
+{
+  "inspection.permission.template_manage": "Составление и публикация чек-листов проверок",
+  "inspection.permission.perform": "Проведение проверок",
+  "inspection.permission.read": "Просмотр проверок, их результатов и замечаний",
+  "inspection.work_kind.finding": "Замечание по проверке",
+  "inspection.finding.title": "{severity, select, CRITICAL {Критическое} MAJOR {Существенное} MINOR {Незначительное} other {}} замечание {item} · проверка {number}"
+}

@@ -2,12 +2,10 @@
 
 import type { InputHTMLAttributes, ReactNode } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { BrandMark, ChevronIcon, cx, GlobeIcon } from '@hotella/ui';
+import { BrandMark, ChevronIcon, cx, GlobeIcon, LOCALE_NAMES } from '@hotella/ui';
 import { Link, usePathname, useRouter } from '../i18n/navigation';
 import { routing } from '../i18n/routing';
 import { logoUrl, useBrand } from '../lib/brand';
-
-const NAMES: Record<string, string> = { en: 'English', ar: 'العربية' };
 
 /** The hotel's logo and name (from branding) and the language switch; logical spacing so it mirrors in Arabic. */
 export function TopBar({
@@ -44,7 +42,7 @@ export function TopBar({
           >
             {routing.locales.map((l) => (
               <option key={l} value={l} className="text-slate-900">
-                {NAMES[l] ?? l}
+                {LOCALE_NAMES[l]}
               </option>
             ))}
           </select>

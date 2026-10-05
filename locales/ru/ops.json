@@ -1,0 +1,22 @@
+{
+  "ops.permission.task_read": "Просмотр задач и рабочих элементов",
+  "ops.permission.task_assign": "Назначение, переназначение и снятие задач",
+  "ops.permission.task_accept": "Взятие, начало и приостановка своих задач",
+  "ops.permission.task_complete": "Завершение задач",
+  "ops.permission.task_cancel": "Отмена задач",
+  "ops.permission.sla_manage": "Управление рабочими часами и политиками SLA",
+  "ops.permission.alert_read": "Просмотр оперативных оповещений",
+  "ops.permission.alert_ack": "Подтверждение и закрытие оперативных оповещений",
+  "ops.permission.workflow_manage": "Разработка и публикация рабочих процессов",
+  "ops.permission.approval_read": "Просмотр запросов на одобрение",
+  "ops.permission.approval_decide": "Одобрение или отклонение чувствительных действий",
+  "ops.permission.notification_read": "Просмотр и подтверждение своих уведомлений",
+  "ops.permission.notification_preferences_manage": "Выбор своих каналов уведомлений",
+  "ops.notification.task_assigned.subject": "Новая задача для Вас",
+  "ops.notification.task_assigned.body": "Вам назначена задача. Откройте список задач, чтобы её увидеть.",
+  "ops.notification.sla_escalation.subject": "{trigger, select, RESPONSE_BREACH {Работа не взята} RESOLUTION_WARNING {Срок выполнения работы истекает} other {Срок выполнения работы истёк}}",
+  "ops.notification.sla_escalation.body": "Уровень эскалации {level}: {trigger, select, RESPONSE_BREACH {работу ещё никто не взял.} RESOLUTION_WARNING {срок выполнения работы скоро истечёт.} other {срок выполнения работы пропущен.}}",
+  "ops.notification.approval_requested.subject": "Требуется одобрение",
+  "ops.notification.approval_requested.body": "Запрос {risk, select, CRITICAL {критического уровня} HIGH {высокого риска} MEDIUM {среднего риска} other {низкого риска}} ({kind}) ожидает Вашего решения.",
+  "ops.work.title_redacted": "Заявка (подробности удалены)"
+}

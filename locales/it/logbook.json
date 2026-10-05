@@ -1,0 +1,6 @@
+{
+  "logbook.permission.read": "Leggere il registro di turno e i passaggi di consegne",
+  "logbook.permission.write": "Scrivere nel registro di turno e redigere i passaggi di consegne",
+  "logbook.permission.handover_acknowledge": "Confermare un passaggio di consegne (prendere in carico il turno)",
+  "logbook.setting.shift_starts": "Quando iniziano i turni del mattino, della sera e della notte"
+}

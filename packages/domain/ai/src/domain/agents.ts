@@ -199,14 +199,34 @@ export const BUILT_IN_AGENTS: readonly BuiltInAgent[] = [
 ];
 
 /**
- * The reply language (BUILD_PLAN 6.B): the script of the guest's message decides — Arabic letters mean Arabic, Latin
- * letters mean English — otherwise the conversation's language. Deterministic; never a second model call.
+ * The reply language (BUILD_PLAN 6.B, ADR-0022): the guest's own message decides — Arabic letters mean Arabic, Cyrillic
+ * means Russian, and Latin text is told apart by common words and letters (English, Italian, German); when the
+ * message does not say (too short, numbers only), the conversation's language. Deterministic; never a model call.
  */
-export function replyLocale(message: string, fallback: string): 'ar' | 'en' {
+export type ReplyLocale = 'ar' | 'en' | 'it' | 'ru' | 'de';
+const LATIN_MARKERS: Record<'en' | 'it' | 'de', RegExp> = {
+  en: /\b(the|is|are|my|please|thank|thanks|you|we|our|and|with|can|could|would|need|there|room|what|when|where)\b/g,
+  it: /\b(il|lo|la|gli|le|per|sono|grazie|non|che|della|nella|una|vorrei|camera|ciao|buongiorno|prego|quando|dove)\b|[àèéìòù]/g,
+  de: /\b(der|die|das|und|ist|nicht|bitte|danke|ich|wir|mit|ein|eine|zimmer|wann|wo|haben|können|möchte)\b|[äöüß]/g,
+};
+const LOCALES: readonly string[] = ['ar', 'en', 'it', 'ru', 'de'];
+
+export function replyLocale(message: string, fallback: string): ReplyLocale {
   const arabic = (message.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) ?? [])
     .length;
-  const latin = (message.match(/[A-Za-z]/g) ?? []).length;
-  if (arabic > 0 && arabic >= latin) return 'ar';
-  if (latin > 0) return 'en';
-  return fallback === 'ar' ? 'ar' : 'en';
+  const cyrillic = (message.match(/[\u0400-\u04FF]/g) ?? []).length;
+  const latin = (message.match(/[A-Za-zÀ-ÿ]/g) ?? []).length;
+  const known = LOCALES.includes(fallback) ? (fallback as ReplyLocale) : 'en';
+  if (arabic > 0 && arabic >= latin && arabic >= cyrillic) return 'ar';
+  if (cyrillic > 0 && cyrillic >= latin) return 'ru';
+  if (latin === 0) return known;
+  const text = message.toLowerCase();
+  const scores = (['en', 'it', 'de'] as const).map(
+    (l) => [l, (text.match(LATIN_MARKERS[l]) ?? []).length] as const,
+  );
+  const best = Math.max(...scores.map(([, n]) => n));
+  const leaders = scores.filter(([, n]) => n === best);
+  if (best > 0 && leaders.length === 1) return leaders[0]![0];
+  // Undecided Latin text: the conversation's language when it is a Latin one, else English.
+  return known === 'it' || known === 'de' || known === 'en' ? known : 'en';
 }

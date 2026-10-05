@@ -232,7 +232,7 @@ Open a PR; the template is the four quality gates (automated checks, spec review
 
 ## 7. How to add a guest-facing service (e.g. `PILLOW_MENU`)
 
-No code: create a service definition in the catalog (staff API/UI), add translations for `en`/`ar`, bind an SLA policy and workflow version, publish. If the service needs a new *workflow action* or *guard*, that is code in `packages/domain/operations` (register a named handler) — not a new task engine.
+No code: create a service definition in the catalog (staff API/UI), add translations for the property's languages (`en`, `ar`, `it`, `ru`, `de`), bind an SLA policy and workflow version, publish. If the service needs a new *workflow action* or *guard*, that is code in `packages/domain/operations` (register a named handler) — not a new task engine.
 
 ## 8. Testing philosophy
 

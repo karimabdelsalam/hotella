@@ -1,0 +1,8 @@
+{
+  "lostfound.permission.read": "Vedere oggetti smarriti e ritrovati, corrispondenze e richieste di restituzione",
+  "lostfound.permission.register": "Consegnare un oggetto ritrovato",
+  "lostfound.permission.manage": "Registrare gli oggetti smarriti dagli ospiti, decidere le corrispondenze, custodire ed eliminare gli oggetti",
+  "lostfound.permission.release": "Restituire un oggetto al proprietario a fronte di un verbale di restituzione",
+  "lostfound.setting.retention_days": "Giorni di custodia di un oggetto ritrovato non reclamato prima che possa essere eliminato",
+  "lostfound.setting.ai_attributes": "Consentire all'IA di leggere le descrizioni degli oggetti per aiutare ad abbinare oggetti smarriti e ritrovati"
+}

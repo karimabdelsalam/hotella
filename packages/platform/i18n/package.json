@@ -2,7 +2,7 @@
   "name": "@hotella/platform-i18n",
   "version": "0.0.0",
   "private": true,
-  "description": "ICU MessageFormat localization shared with the frontend catalog, locale resolution chain (Spec §79.3), AppError with localized Problem Details.",
+  "description": "ICU MessageFormat localization shared with the frontend catalog, locale resolution chain (Spec \u00a779.3), AppError with localized Problem Details.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -26,6 +26,7 @@
     "clean": "rm -rf dist coverage"
   },
   "dependencies": {
+    "@formatjs/icu-messageformat-parser": "3.5.20",
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
     "@nestjs/common": "11.2.7",

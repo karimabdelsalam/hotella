@@ -1,0 +1,22 @@
+{
+  "ops.permission.task_read": "Visualizzare attività e lavori",
+  "ops.permission.task_assign": "Assegnare, riassegnare e rimuovere l'assegnazione delle attività",
+  "ops.permission.task_accept": "Prendere, avviare e mettere in pausa le proprie attività",
+  "ops.permission.task_complete": "Completare le attività",
+  "ops.permission.task_cancel": "Annullare le attività",
+  "ops.permission.sla_manage": "Gestire orari di servizio e criteri SLA",
+  "ops.permission.alert_read": "Visualizzare gli avvisi operativi",
+  "ops.permission.alert_ack": "Confermare e risolvere gli avvisi operativi",
+  "ops.permission.workflow_manage": "Progettare e pubblicare flussi di lavoro",
+  "ops.permission.approval_read": "Visualizzare le richieste di approvazione",
+  "ops.permission.approval_decide": "Approvare o rifiutare azioni sensibili",
+  "ops.permission.notification_read": "Vedere e confermare le proprie notifiche",
+  "ops.permission.notification_preferences_manage": "Scegliere i propri canali di notifica",
+  "ops.notification.task_assigned.subject": "Nuova attività per te",
+  "ops.notification.task_assigned.body": "Ti è stata assegnata un'attività. Apri l'elenco delle tue attività per vederla.",
+  "ops.notification.sla_escalation.subject": "{trigger, select, RESPONSE_BREACH {Lavoro non preso in carico} RESOLUTION_WARNING {Lavoro vicino alla scadenza} other {Lavoro oltre la scadenza}}",
+  "ops.notification.sla_escalation.body": "Livello di escalation {level}: {trigger, select, RESPONSE_BREACH {nessuno ha ancora preso in carico il lavoro.} RESOLUTION_WARNING {il lavoro è vicino alla scadenza.} other {il lavoro ha superato la scadenza.}}",
+  "ops.notification.approval_requested.subject": "Approvazione necessaria",
+  "ops.notification.approval_requested.body": "Una richiesta {risk, select, CRITICAL {critica} HIGH {ad alto rischio} MEDIUM {a rischio medio} other {a basso rischio}} ({kind}) attende la tua decisione.",
+  "ops.work.title_redacted": "Richiesta (dettagli rimossi)"
+}

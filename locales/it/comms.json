@@ -1,0 +1,22 @@
+{
+  "comms.permission.channel_manage": "Configurare i canali di messaggistica e i relativi provider",
+  "comms.permission.activation_issue": "Consegnare i link di attivazione agli ospiti",
+  "comms.permission.activation_assist": "Confermare un ospite di persona quando il codice non arriva",
+  "comms.permission.qr_manage": "Generare, rinnovare e revocare i codici QR delle camere",
+  "comms.setting.otp_primary_channel": "Canale usato per primo per inviare i codici agli ospiti",
+  "comms.setting.otp_fallback_channels": "Canali provati successivamente quando un codice non viene consegnato",
+  "comms.setting.otp_fallback_timeout_seconds": "Secondi di attesa della conferma di consegna prima di provare il canale successivo",
+  "comms.setting.otp_manual_fallback_after_seconds": "Secondi prima che un ospite possa chiedere il codice in un altro modo",
+  "comms.setting.otp_staff_assist_enabled": "Il ricevimento può confermare un ospite di persona",
+  "comms.setting.activation_token_ttl_hours": "Ore di validità di un link di attivazione",
+  "comms.otp.sms_text": "{code} è il Suo codice per {property}. Scade tra 5 minuti. Non lo condivida con nessuno.",
+  "comms.permission.inbox_read": "Vedere le conversazioni con gli ospiti",
+  "comms.permission.inbox_reply": "Rispondere alle conversazioni con gli ospiti e chiuderle",
+  "comms.permission.inbox_assign": "Assegnare le conversazioni con gli ospiti al personale",
+  "comms.permission.inbox_takeover": "Prendere in carico una conversazione dall'automazione",
+  "comms.inbound.activation_prompt": "Benvenuto/a presso {property}. Per assisterLa durante il soggiorno, apra il link ricevuto al check-in o scansioni il codice QR presente in camera, quindi verifichi il Suo numero. Anche il ricevimento può aiutarLa.",
+  "comms.qr.sheet_title": "{property} — codici delle camere",
+  "comms.qr.room": "Camera",
+  "comms.qr.instruction": "Scansioni per contattarci, richiedere servizi e chattare con l'hotel.",
+  "comms.setting.ai_mode_default": "Come l'assistente IA partecipa a una nuova conversazione di un ospite verificato"
+}

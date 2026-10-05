@@ -1,5 +1,12 @@
 export { AppError } from './app-error';
-export { checkParity, findLocalesDir, loadCatalog } from './catalog';
+export {
+  checkMessages,
+  checkParity,
+  findLocalesDir,
+  loadCatalog,
+  RTL_LOCALES,
+  SUPPORTED_LOCALES,
+} from './catalog';
 export type { Catalog } from './catalog';
 export { I18nModule } from './i18n.module';
 export { I18nService } from './i18n.service';

@@ -28,7 +28,7 @@
     "db:generate": "node packages/platform/database/bin/hotella-db.mjs generate",
     "db:check": "node packages/platform/database/bin/hotella-db.mjs check",
     "db:studio": "node packages/platform/database/bin/hotella-db.mjs studio",
-    "locales:check": "node packages/platform/i18n/bin/locales-check.mjs en,ar"
+    "locales:check": "node packages/platform/i18n/bin/locales-check.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",

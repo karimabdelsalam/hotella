@@ -1,0 +1,9 @@
+{
+  "relations.permission.read": "Beschwerden, mögliche Beschwerden und Wiedergutmachungen einsehen",
+  "relations.permission.manage": "Beschwerden erfassen, ihren Status ändern und KI-Vorschläge bestätigen oder verwerfen",
+  "relations.permission.category_manage": "Beschwerdekategorien verwalten",
+  "relations.permission.recovery_manage": "Wiedergutmachung anbieten (Aufmerksamkeiten, Mahlzeiten, Rabatte, Erstattungen)",
+  "relations.permission.suggest": "Eine mögliche Beschwerde vorschlagen (KI-Concierge)",
+  "relations.approval.recovery_action": "Wiedergutmachung, die das Hotel Geld kostet",
+  "relations.setting.recovery_high_risk_from": "Wiedergutmachung ab diesem Betrag erfordert eine Hochrisiko-Genehmigung"
+}

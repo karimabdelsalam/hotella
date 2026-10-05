@@ -1,0 +1,9 @@
+{
+  "relations.permission.read": "Vedere reclami, possibili reclami e recupero del servizio",
+  "relations.permission.manage": "Registrare reclami, modificarne lo stato e confermare o scartare i possibili reclami segnalati dall'IA",
+  "relations.permission.category_manage": "Gestire le categorie di reclamo",
+  "relations.permission.recovery_manage": "Offrire azioni di recupero del servizio (omaggi, pasti, sconti, rimborsi)",
+  "relations.permission.suggest": "Suggerire un possibile reclamo (concierge IA)",
+  "relations.approval.recovery_action": "Recupero del servizio con un costo per l'hotel",
+  "relations.setting.recovery_high_risk_from": "Il recupero del servizio a partire da questo importo richiede un'approvazione ad alto rischio"
+}

@@ -1,0 +1,14 @@
+{
+  "guest.permission.read": "Gäste anzeigen, die im Haus übernachten",
+  "guest.permission.manage": "Präferenzen und Einwilligungen von Gästen pflegen",
+  "guest.permission.merge": "Doppelte Gästeprofile zusammenführen",
+  "guest.permission.data_request_manage": "Datenanfragen von Gästen bearbeiten (Export, Berichtigung, Anonymisierung)",
+  "guest.permission.stay_read": "Aufenthalte, Zimmer und Reisegruppen anzeigen",
+  "guest.permission.stay_manage": "Aufenthalte mit Anmerkungen versehen",
+  "guest.permission.grant_revoke": "Den Zugang eines Gastes widerrufen",
+  "guest.setting.grant_in_stay_scopes": "Was der Hauptgast während des Aufenthalts tun darf",
+  "guest.setting.grant_companion_scopes": "Was Mitreisende während des Aufenthalts tun dürfen",
+  "guest.setting.grant_pre_arrival_scopes": "Was Gäste vor der Anreise tun dürfen",
+  "guest.setting.grant_post_stay_scopes": "Was Gäste nach dem Check-out behalten",
+  "guest.setting.grant_post_stay_hours": "Wie viele Stunden nach dem Check-out Gäste den Zugang für die Zeit nach dem Aufenthalt behalten"
+}

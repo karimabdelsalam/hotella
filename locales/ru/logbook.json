@@ -1,0 +1,6 @@
+{
+  "logbook.permission.read": "Чтение журнала смены и передач смены",
+  "logbook.permission.write": "Записи в журнал смены и подготовка передачи смены",
+  "logbook.permission.handover_acknowledge": "Подтверждение передачи смены (приём смены)",
+  "logbook.setting.shift_starts": "Время начала утренней, вечерней и ночной смен"
+}

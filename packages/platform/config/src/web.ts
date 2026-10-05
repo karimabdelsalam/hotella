@@ -20,7 +20,7 @@ export const webEnvSchema = z.object({
     .string()
     .regex(/^[a-z]{2}(-[A-Z]{2})?$/)
     .default('en'),
-  SUPPORTED_LOCALES: z.string().min(2).default('en,ar'),
+  SUPPORTED_LOCALES: z.string().min(2).default('en,ar,it,ru,de'),
 });
 
 export interface WebConfig {

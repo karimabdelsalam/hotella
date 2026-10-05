@@ -7,6 +7,7 @@ import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import {
   AGENT_ENTITLEMENTS,
   ENGINEERING_COPILOT,
+  type ReplyLocale,
   replyLocale,
   SHIFT_HANDOVER,
 } from '../domain/agents';
@@ -28,9 +29,12 @@ import { ToolRegistry } from './tools/registry';
 /** The staff agents this runtime serves. */
 const STAFF_AGENTS = new Set([ENGINEERING_COPILOT.code, SHIFT_HANDOVER.code]);
 
-const LANGUAGE: Record<'ar' | 'en', string> = {
+const LANGUAGE: Record<ReplyLocale, string> = {
   ar: 'Answer in Arabic (Egyptian Arabic is fine); keep technical terms, codes and model numbers as written.',
   en: 'Answer in English.',
+  it: 'Answer in Italian; keep technical terms, codes and model numbers as written.',
+  ru: 'Answer in Russian; keep technical terms, codes and model numbers as written.',
+  de: 'Answer in German; keep technical terms, codes and model numbers as written.',
 };
 
 type Source = StaffAssistantAnswer['sources'][number];

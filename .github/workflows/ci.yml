@@ -61,7 +61,7 @@ jobs:
       - run: pnpm depcruise
       - run: pnpm build
       - run: pnpm typecheck
-      - name: Locale catalogs have en/ar key parity and valid ICU
+      - name: Locale catalogs (en, ar, it, ru, de) — key parity, valid ICU, same arguments, CLDR plural forms
         run: pnpm locales:check
       - name: Schema and migrations are in sync
         run: pnpm db:check

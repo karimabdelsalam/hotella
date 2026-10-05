@@ -1,0 +1,20 @@
+{
+  "app.name": "Hotella",
+  "app.powered_by": "Работает на {brand}",
+  "common.yes": "Да",
+  "common.no": "Нет",
+  "common.save": "Сохранить",
+  "common.cancel": "Отмена",
+  "common.items": "{count, plural, =0 {Нет элементов} one {# элемент} few {# элемента} many {# элементов} other {# элемента}}",
+  "locale.name.en": "Английский",
+  "locale.name.ar": "Арабский",
+  "locale.name.it": "Итальянский",
+  "locale.name.ru": "Русский",
+  "locale.name.de": "Немецкий",
+  "platform.permission.feature_flag_read": "Просмотр флагов функций",
+  "platform.permission.feature_flag_manage": "Включение и отключение флагов функций",
+  "platform.permission.outbox_read": "Просмотр исходящей очереди событий",
+  "platform.permission.outbox_replay": "Повторная отправка событий из исходящей очереди",
+  "platform.permission.config_read": "Просмотр конфигурации и политик хранения данных",
+  "platform.permission.config_manage": "Изменение конфигурации и политик хранения данных"
+}

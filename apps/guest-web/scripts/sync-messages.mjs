@@ -1,13 +1,20 @@
 // Builds the app's next-intl messages from the shared ICU catalog (/locales, ADR-0009): the flat `portal.*` keys
 // become nested objects (`portal.home.title` → { portal: { home: { title } } }). Generated files are not committed.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..', '..');
 const NAMESPACES = ['portal'];
-const LOCALES = ['en', 'ar'];
+// Every language of the shared catalog that has this app's namespaces (ADR-0022).
+const LOCALES = readdirSync(join(root, 'locales'), { withFileTypes: true })
+  .filter(
+    (d) =>
+      d.isDirectory() &&
+      NAMESPACES.every((ns) => existsSync(join(root, 'locales', d.name, `${ns}.json`))),
+  )
+  .map((d) => d.name);
 
 for (const locale of LOCALES) {
   const nested = {};

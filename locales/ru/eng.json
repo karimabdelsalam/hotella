@@ -1,0 +1,12 @@
+{
+  "eng.permission.asset_read": "Просмотр оборудования и его документов",
+  "eng.permission.asset_manage": "Регистрация и обновление оборудования",
+  "eng.permission.config_manage": "Настройка типов оборудования и кодов неисправностей",
+  "eng.permission.work_order_read": "Просмотр инженерных работ, запчастей и гарантийных случаев",
+  "eng.permission.work_order_manage": "Открытие, учёт и завершение инженерных работ",
+  "eng.permission.parts_manage": "Управление складом запчастей",
+  "eng.work_kind.work_order": "Инженерный наряд-заказ",
+  "eng.work_order.title": "{type, select, CORRECTIVE {Ремонт} PREVENTIVE {Плановое техобслуживание} PREDICTIVE {Прогнозное техобслуживание} INSPECTION {Инженерный осмотр} EMERGENCY {Аварийный ремонт} PROJECT {Проект} other {Инженерные работы}} · WO-{number}",
+  "eng.permission.pm_manage": "Планирование профилактического обслуживания",
+  "eng.permission.restriction_manage": "Вывод номеров из эксплуатации и возврат в эксплуатацию"
+}

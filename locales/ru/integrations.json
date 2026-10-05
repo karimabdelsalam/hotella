@@ -1,0 +1,10 @@
+{
+  "integration.permission.read": "Просмотр интеграций, их состояния, сопоставлений и исключений",
+  "integration.permission.configure": "Создание и настройка интеграций",
+  "integration.permission.replay": "Повторная обработка сообщений интеграций",
+  "integration.permission.mapping_confirm": "Подтверждение сопоставлений кодов и закрытие исключений интеграций",
+  "integration.permission.reconcile": "Запуск и просмотр сверки с внешними системами",
+  "integration.permission.webhook_manage": "Управление исходящими вебхуками и повторная отправка их доставок",
+  "integration.permission.capability_manage": "Выбор коннектора для каждой операции PMS в отеле",
+  "integration.permission.capability_verify": "Проверка возможностей PMS и приёмка интеграции при вводе в эксплуатацию"
+}

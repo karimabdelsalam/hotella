@@ -53,7 +53,7 @@ describe('loadConfig', () => {
     expect(
       loadConfig({ ...valid, WORKER_QUEUES: 'guest-realtime, critical-operational' }).worker.queues,
     ).toEqual(['guest-realtime', 'critical-operational']);
-    expect(loadConfig(valid).i18n.supportedLocales).toEqual(['en', 'ar']);
+    expect(loadConfig(valid).i18n.supportedLocales).toEqual(['en', 'ar', 'it', 'ru', 'de']);
     expect(() => loadConfig({ ...valid, DEFAULT_LOCALE: 'english' })).toThrow();
   });
 

@@ -260,6 +260,11 @@ in-house list. FIAS carries **no future reservations** — those come from the D
 | `DS` / `DE` | database swap start/end | `DA`, `TI` | reconciliation snapshot boundaries | **required** |
 | `NS` / `NE` | night audit start/end | `DA`, `TI` | business-date rollover hint | optional |
 
+**Guest language (`GL`):** the standard asks the hotel to send the two-letter ISO 639-1 code (`EN`, `AR`, `IT`, `RU`,
+`DE`, …); Hotella uses it as the guest's language for the guest app, messages and the concierge (ADR-0022). Any other
+coding (OPERA's own language codes) is an Interface Sheet difference: configure the interface to ISO codes; Hotella
+never guesses a language from another code (rule 16).
+
 **Records Hotella → OPERA:**
 
 | Record | Purpose | Fields | When | Required? |
