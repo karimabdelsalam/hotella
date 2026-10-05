@@ -18,10 +18,13 @@
   "ops.notification.sla_escalation.body": "Уровень эскалации {level}: {trigger, select, RESPONSE_BREACH {работу ещё никто не взял.} RESOLUTION_WARNING {срок выполнения работы скоро истечёт.} other {срок выполнения работы пропущен.}}",
   "ops.notification.approval_requested.subject": "Требуется одобрение",
   "ops.notification.approval_requested.body": "Запрос {risk, select, CRITICAL {критического уровня} HIGH {высокого риска} MEDIUM {среднего риска} other {низкого риска}} ({kind}) ожидает Вашего решения.",
+  "ops.notification.restaurant_booked.subject": "Новое бронирование в ресторане",
+  "ops.notification.restaurant_booked.body": "Столик на {party, plural, one {# персону} few {# персоны} many {# персон} other {# персоны}} на {date} в {time} забронирован {channel, select, AI {через консьержа} other {через приложение гостя}}.",
   "ops.work.title_redacted": "Заявка (подробности удалены)",
   "ops.push.default.title": "Новое в Hotella",
   "ops.push.default.body": "Откройте приложение, чтобы посмотреть.",
   "ops.push.task.title": "Новая задача для вас",
   "ops.push.escalation.title": "Эскалация",
-  "ops.push.approval.title": "Требуется одобрение"
+  "ops.push.approval.title": "Требуется одобрение",
+  "ops.push.restaurant.title": "Новое бронирование в ресторане"
 }

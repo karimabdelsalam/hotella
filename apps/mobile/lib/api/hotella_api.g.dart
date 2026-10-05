@@ -29,6 +29,18 @@ class MfaVerifyDto {
       };
 }
 
+/// Request body `ReasonRequiredDto`.
+class ReasonRequiredDto {
+  const ReasonRequiredDto({required this.reason, this.expectedVersion});
+  final String reason;
+  final int? expectedVersion;
+
+  Map<String, Object?> toJson() => {
+        'reason': reason,
+        if (expectedVersion != null) 'expectedVersion': expectedVersion,
+      };
+}
+
 /// Request body `RefreshDto`.
 class RefreshDto {
   const RefreshDto({required this.refreshToken});
@@ -55,18 +67,96 @@ class RegisterDeviceDto {
       };
 }
 
+/// Request body `ResolveAlertDto`.
+class ResolveAlertDto {
+  const ResolveAlertDto({required this.resolution});
+  final String resolution;
+
+  Map<String, Object?> toJson() => {
+        'resolution': resolution,
+      };
+}
+
+/// Request body `TaskActionDto`.
+class TaskActionDto {
+  const TaskActionDto({this.reason, this.expectedVersion});
+  final String? reason;
+  final int? expectedVersion;
+
+  Map<String, Object?> toJson() => {
+        if (reason != null) 'reason': reason,
+        if (expectedVersion != null) 'expectedVersion': expectedVersion,
+      };
+}
+
+/// Request body `TransitionDto`.
+class TransitionDto {
+  const TransitionDto({required this.version, this.reason});
+  final int version;
+  final String? reason;
+
+  Map<String, Object?> toJson() => {
+        'version': version,
+        if (reason != null) 'reason': reason,
+      };
+}
+
 /// The platform API operations the app uses (`/api/v1`).
 class HotellaApi {
   HotellaApi(this.transport);
   final ApiTransport transport;
 
+  /// `POST /api/v1/properties/{propertyId}/alerts/{alertId}/acknowledge` (AlertsController_acknowledge).
+  Future<Object?> acknowledgeAlert(String propertyId, String alertId) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/alerts/${Uri.encodeComponent(alertId)}/acknowledge');
+
+  /// `POST /api/v1/properties/{propertyId}/restaurant-reservations/{reservationId}/complete` (ReservationsController_complete).
+  Future<Object?> completeReservation(String propertyId, String reservationId, TransitionDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/restaurant-reservations/${Uri.encodeComponent(reservationId)}/complete', body: body.toJson());
+
+  /// `POST /api/v1/properties/{propertyId}/tasks/{taskId}/complete` (OperationsController_complete).
+  Future<Object?> completeTask(String propertyId, String taskId, TaskActionDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/tasks/${Uri.encodeComponent(taskId)}/complete', body: body.toJson());
+
   /// `GET /api/v1/public/hotels/{code}` (BrandingController_hotel).
   Future<Object?> findHotel(String code) =>
       transport.send('GET', '/public/hotels/${Uri.encodeComponent(code)}');
 
+  /// `GET /api/v1/properties/{propertyId}/restaurant-reservations/{reservationId}` (ReservationsController_detail).
+  Future<Object?> getReservation(String propertyId, String reservationId) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/restaurant-reservations/${Uri.encodeComponent(reservationId)}');
+
+  /// `GET /api/v1/properties/{propertyId}/service-requests/{id}` (StaffRequestsController_detail).
+  Future<Object?> getServiceRequest(String propertyId, String id) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/service-requests/${Uri.encodeComponent(id)}');
+
+  /// `GET /api/v1/properties/{propertyId}/tasks/{taskId}` (OperationsController_task).
+  Future<Object?> getTask(String propertyId, String taskId) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/tasks/${Uri.encodeComponent(taskId)}');
+
+  /// `GET /api/v1/properties/{propertyId}/work-items/{workItemId}` (OperationsController_workItem).
+  Future<Object?> getWorkItem(String propertyId, String workItemId) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/work-items/${Uri.encodeComponent(workItemId)}');
+
+  /// `GET /api/v1/properties/{propertyId}/alerts` (AlertsController_list).
+  Future<Object?> listAlerts(String propertyId, {String? status, String? limit}) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/alerts', query: {'status': status, 'limit': limit});
+
+  /// `GET /api/v1/properties/{propertyId}/notifications` (NotificationsController_list).
+  Future<Object?> listNotifications(String propertyId, {String? unread, String? limit}) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/notifications', query: {'unread': unread, 'limit': limit});
+
   /// `GET /api/v1/properties` (PropertiesController_list).
   Future<Object?> listProperties({String? tenantId}) =>
       transport.send('GET', '/properties', query: {'tenantId': tenantId});
+
+  /// `GET /api/v1/properties/{propertyId}/service-requests` (StaffRequestsController_board).
+  Future<Object?> listServiceRequests(String propertyId, {String? status, String? serviceCode, String? stayId, String? before, String? limit}) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/service-requests', query: {'status': status, 'serviceCode': serviceCode, 'stayId': stayId, 'before': before, 'limit': limit});
+
+  /// `GET /api/v1/properties/{propertyId}/tasks` (OperationsController_listTasks).
+  Future<Object?> listTasks(String propertyId, {String? assignee, String? department, String? status, String? workItemId, String? before, String? limit}) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/tasks', query: {'assignee': assignee, 'department': department, 'status': status, 'workItemId': workItemId, 'before': before, 'limit': limit});
 
   /// `POST /api/v1/auth/login` (AuthController_login).
   Future<Object?> login(LoginDto body) =>
@@ -76,9 +166,21 @@ class HotellaApi {
   Future<Object?> logout() =>
       transport.send('POST', '/auth/logout');
 
+  /// `POST /api/v1/properties/{propertyId}/notifications/{id}/read` (NotificationsController_read).
+  Future<Object?> markNotificationRead(String propertyId, String id) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/notifications/${Uri.encodeComponent(id)}/read');
+
   /// `GET /api/v1/me` (MeController_me).
   Future<Object?> me() =>
       transport.send('GET', '/me');
+
+  /// `POST /api/v1/properties/{propertyId}/restaurant-reservations/{reservationId}/no-show` (ReservationsController_noShow).
+  Future<Object?> noShowReservation(String propertyId, String reservationId, TransitionDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/restaurant-reservations/${Uri.encodeComponent(reservationId)}/no-show', body: body.toJson());
+
+  /// `POST /api/v1/properties/{propertyId}/tasks/{taskId}/pause` (OperationsController_pause).
+  Future<Object?> pauseTask(String propertyId, String taskId, ReasonRequiredDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/tasks/${Uri.encodeComponent(taskId)}/pause', body: body.toJson());
 
   /// `POST /api/v1/auth/refresh` (AuthController_refresh).
   Future<Object?> refresh(RefreshDto body) =>
@@ -88,9 +190,33 @@ class HotellaApi {
   Future<Object?> registerDevice(RegisterDeviceDto body) =>
       transport.send('POST', '/me/devices', body: body.toJson());
 
+  /// `POST /api/v1/properties/{propertyId}/tasks/{taskId}/reject` (OperationsController_reject).
+  Future<Object?> rejectTask(String propertyId, String taskId, ReasonRequiredDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/tasks/${Uri.encodeComponent(taskId)}/reject', body: body.toJson());
+
+  /// `POST /api/v1/properties/{propertyId}/alerts/{alertId}/resolve` (AlertsController_resolve).
+  Future<Object?> resolveAlert(String propertyId, String alertId, ResolveAlertDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/alerts/${Uri.encodeComponent(alertId)}/resolve', body: body.toJson());
+
+  /// `GET /api/v1/properties/{propertyId}/restaurant-reservations` (ReservationsController_board).
+  Future<Object?> restaurantBoard(String propertyId, {required String date, String? restaurantId}) =>
+      transport.send('GET', '/properties/${Uri.encodeComponent(propertyId)}/restaurant-reservations', query: {'date': date, 'restaurantId': restaurantId});
+
+  /// `POST /api/v1/properties/{propertyId}/tasks/{taskId}/resume` (OperationsController_resume).
+  Future<Object?> resumeTask(String propertyId, String taskId, TaskActionDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/tasks/${Uri.encodeComponent(taskId)}/resume', body: body.toJson());
+
   /// `DELETE /api/v1/me/devices/{deviceId}` (MeController_revokeDevice).
   Future<Object?> revokeDevice(String deviceId) =>
       transport.send('DELETE', '/me/devices/${Uri.encodeComponent(deviceId)}');
+
+  /// `POST /api/v1/properties/{propertyId}/restaurant-reservations/{reservationId}/seat` (ReservationsController_seat).
+  Future<Object?> seatReservation(String propertyId, String reservationId, TransitionDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/restaurant-reservations/${Uri.encodeComponent(reservationId)}/seat', body: body.toJson());
+
+  /// `POST /api/v1/properties/{propertyId}/tasks/{taskId}/start` (OperationsController_start).
+  Future<Object?> startTask(String propertyId, String taskId, TaskActionDto body) =>
+      transport.send('POST', '/properties/${Uri.encodeComponent(propertyId)}/tasks/${Uri.encodeComponent(taskId)}/start', body: body.toJson());
 
   /// `POST /api/v1/auth/mfa/verify` (AuthController_verifyMfa).
   Future<Object?> verifyMfa(MfaVerifyDto body) =>

@@ -18,6 +18,15 @@ abstract class PushRegistrar {
 
   /// Signing out: the address is deleted, so this phone never receives the next person's hotel work.
   Future<void> forget();
+
+  /// The person tapped a notification while the app was in the background: its data (references only).
+  Stream<Map<String, String>> get opened;
+
+  /// The notification the app was started from, if any.
+  Future<Map<String, String>?> launchedFrom();
+
+  /// A notification arrived while the app was open (the inbox count is refreshed).
+  Stream<void> get received;
 }
 
 /// A build without Firebase settings: the app works, nothing is pushed.
@@ -29,6 +38,12 @@ class NoPush implements PushRegistrar {
   Stream<PushAddress> get changes => const Stream.empty();
   @override
   Future<void> forget() async {}
+  @override
+  Stream<Map<String, String>> get opened => const Stream.empty();
+  @override
+  Future<Map<String, String>?> launchedFrom() async => null;
+  @override
+  Stream<void> get received => const Stream.empty();
 }
 
 /// Firebase settings are build-time values (`--dart-define=FIREBASE_…`, see apps/mobile/README.md): no
@@ -76,4 +91,20 @@ class FirebasePush implements PushRegistrar {
 
   @override
   Future<void> forget() => FirebaseMessaging.instance.deleteToken();
+
+  @override
+  Stream<Map<String, String>> get opened => FirebaseMessaging.onMessageOpenedApp.map(_data);
+
+  @override
+  Future<Map<String, String>?> launchedFrom() async {
+    final message = await FirebaseMessaging.instance.getInitialMessage();
+    return message == null ? null : _data(message);
+  }
+
+  @override
+  Stream<void> get received => FirebaseMessaging.onMessage.map((_) {});
+
+  static Map<String, String> _data(RemoteMessage message) => {
+    for (final e in message.data.entries) e.key: '${e.value}',
+  };
 }

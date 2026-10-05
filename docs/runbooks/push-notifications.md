@@ -61,5 +61,10 @@ Notifications* capability and *Background Modes → Remote notifications*.
   `channel: PUSH`); critical escalations ignore that, as for e-mail.
 - A phone Firebase no longer knows (app uninstalled) is revoked the first time a send reports it; other failures retry
   after 1, 2, 4 and 8 minutes.
+- Tapping a push opens what it is about in the app: a task, the work behind an escalation, or a restaurant booking
+  (new bookings from the guest app or the concierge are pushed to everyone who runs the restaurant board); anything
+  else opens the inbox. The push itself only says "New task for you", "New restaurant booking"…, never the guest.
+- Device acceptance (pilot checklist): sign in on a test phone as a restaurant host, book a table from the guest app,
+  check the push arrives with the generic title, tap it, and seat the booking from the screen it opens.
 - Checks: `ops.notification_deliveries` rows with `channel = 'PUSH'` — `SENT` with the Firebase message name,
   `SKIPPED` with `channel_not_configured` (no project) or `no_device`, `FAILED` after the retries.

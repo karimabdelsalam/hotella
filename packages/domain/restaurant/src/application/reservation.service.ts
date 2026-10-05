@@ -97,6 +97,21 @@ export class ReservationService {
     });
   }
 
+  /** One reservation as the board shows it, with its restaurant's name (a push opens it on the staff app). */
+  detail(scope: PropertyScope, id: string, locale: string) {
+    return this.act(scope, 'restaurant.reservation.read', 'read', async () => {
+      const row = await this.require(scope, id);
+      const restaurant = await this.repo.restaurant(scope, row.restaurantId);
+      const [view] = restaurant ? await this.restaurants.views(scope, [restaurant], locale) : [];
+      const names = await this.guestNames(scope, [row]);
+      return {
+        ...reservationView(row),
+        guestName: names.get(row.stayId) ?? null,
+        restaurantName: view?.name ?? restaurant?.code ?? null,
+      };
+    });
+  }
+
   /**
    * A phone booking starts from the room: the stays in it now (or arriving there today), their primary guest, the
    * dates and, per restaurant, how many bookings the stay has left.

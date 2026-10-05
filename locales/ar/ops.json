@@ -18,10 +18,13 @@
   "ops.notification.sla_escalation.body": "مستوى التصعيد {level}: {trigger, select, RESPONSE_BREACH {لم يستلم أحد العمل بعد.} RESOLUTION_WARNING {العمل يقترب من موعده النهائي.} other {تجاوز العمل موعده النهائي.}}",
   "ops.notification.approval_requested.subject": "مطلوب موافقة",
   "ops.notification.approval_requested.body": "طلب {risk, select, CRITICAL {حرج} HIGH {عالي المخاطر} MEDIUM {متوسط المخاطر} other {منخفض المخاطر}} ({kind}) بانتظار قرارك.",
+  "ops.notification.restaurant_booked.subject": "حجز مطعم جديد",
+  "ops.notification.restaurant_booked.body": "تم حجز طاولة {party, plural, zero {بدون ضيوف} one {لضيف واحد} two {لضيفين} few {لـ # ضيوف} many {لـ # ضيفًا} other {لـ # ضيف}} يوم {date} الساعة {time} {channel, select, AI {عبر الكونسيرج} other {من تطبيق الضيف}}.",
   "ops.work.title_redacted": "طلب (تمت إزالة التفاصيل)",
   "ops.push.default.title": "جديد في Hotella",
   "ops.push.default.body": "افتح التطبيق لعرض التفاصيل.",
   "ops.push.task.title": "مهمة جديدة لك",
   "ops.push.escalation.title": "تصعيد",
-  "ops.push.approval.title": "مطلوب موافقة"
+  "ops.push.approval.title": "مطلوب موافقة",
+  "ops.push.restaurant.title": "حجز مطعم جديد"
 }

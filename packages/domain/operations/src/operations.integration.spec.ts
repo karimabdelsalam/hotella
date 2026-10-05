@@ -6,7 +6,11 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { EventEnvelope } from '@hotella/contracts-events';
+import {
+  createEnvelope,
+  type EventEnvelope,
+  RestaurantReservationCreated,
+} from '@hotella/contracts-events';
 import { GuestCoreModule } from '@hotella/domain-guest';
 import { IDENTITY_API, type IdentityPublicApi } from '@hotella/domain-identity/public';
 import { IntegrationsCoreModule } from '@hotella/domain-integrations';
@@ -103,7 +107,14 @@ const grants: Record<string, string[]> = {
     'approval.read',
     'approval.decide',
   ],
-  [ids.sup]: [...SUPERVISOR, 'alert.read', 'alert.ack', 'approval.read', 'approval.decide'],
+  [ids.sup]: [
+    ...SUPERVISOR,
+    'alert.read',
+    'alert.ack',
+    'approval.read',
+    'approval.decide',
+    'restaurant.reservation.manage',
+  ],
   [ids.w1]: WORKER,
   [ids.w2]: WORKER,
   [ids.viewer]: ['task.read'],
@@ -1571,6 +1582,69 @@ describe.skipIf(needsInfra())(`Operations engine against PostgreSQL (${infraSkip
         ['category', 'intent_id', 'property_id', 'source_id', 'source_type'].sort(),
       );
       expect(push!.data.source_id).toBe(item.id);
+    });
+
+    it('a booking from the guest app reaches the restaurant team as a push without the guest; their own phone bookings do not', async () => {
+      pushes.length = 0;
+      const rules = app.get(NotificationRules);
+      const booking = (channel: 'GUEST_APP' | 'STAFF') =>
+        createEnvelope(RestaurantReservationCreated, {
+          eventId: newId(),
+          tenantId: tenantA,
+          propertyId: propertyA,
+          source: 'restaurant',
+          correlationId: null,
+          payload: {
+            reservation_id: newId(),
+            restaurant_id: newId(),
+            stay_id: newId(),
+            service_date: '2026-10-08',
+            starts_at: '20:30',
+            party_size: 2,
+            channel,
+            overridden: false,
+          },
+        });
+      const fromGuest = booking('GUEST_APP');
+      const byPhone = booking('STAFF');
+      for (const e of [fromGuest, byPhone]) await rules.apply(e);
+      const intents = await admin.query<{ id: string; source_id: string; category: string }>(
+        `select id, source_id, category from ops.notification_intents
+          where source_type = 'restaurant_reservation' and source_id = any($1)`,
+        [[fromGuest.payload.reservation_id, byPhone.payload.reservation_id]],
+      );
+      expect(intents.rows).toEqual([
+        expect.objectContaining({
+          source_id: fromGuest.payload.reservation_id,
+          category: 'RESTAURANT',
+        }),
+      ]);
+      await app.get(NotificationService).dispatch({ tenantId: tenantA }, intents.rows[0]!.id);
+      await app.get(NotificationService).deliverDue();
+      const rows = await deliveriesFor(fromGuest.payload.reservation_id);
+      // Only the people who run the board (here the duty manager) are told.
+      expect(
+        rows.map((d) => `${d.user_id === ids.sup ? 'sup' : d.user_id}:${d.channel}:${d.status}`),
+      ).toEqual(['sup:IN_APP:SENT', 'sup:PUSH:SENT']);
+      expect(pushes).toHaveLength(1);
+      expect(pushes[0]).toMatchObject({ title: 'حجز مطعم جديد' });
+      expect(pushes[0]!.data).toMatchObject({
+        category: 'RESTAURANT',
+        source_type: 'restaurant_reservation',
+        source_id: fromGuest.payload.reservation_id,
+      });
+      const inbox = await request(app.getHttpServer())
+        .get(`${base()}/notifications`)
+        .set('X-Test-Actor', actor(ids.sup))
+        .set('Accept-Language', 'en')
+        .expect(200);
+      expect(
+        (inbox.body as { source: { id: string } | null; body: string }[]).find(
+          (n) => n.source?.id === fromGuest.payload.reservation_id,
+        ),
+      ).toMatchObject({
+        body: 'A table for 2 guests on 2026-10-08 at 20:30 was booked from the guest app.',
+      });
     });
   });
 });

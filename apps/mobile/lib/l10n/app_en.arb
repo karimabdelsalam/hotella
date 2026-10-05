@@ -1,8 +1,77 @@
 {
   "@@locale": "en",
+  "alertAcknowledge": "Acknowledge",
+  "@alertAcknowledge": {
+    "description": "mobile.alert.acknowledge"
+  },
+  "alertLastSeen": "Last seen {time}",
+  "@alertLastSeen": {
+    "description": "mobile.alert.last_seen",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "alertResolution": "What was done?",
+  "@alertResolution": {
+    "description": "mobile.alert.resolution"
+  },
+  "alertResolve": "Resolve",
+  "@alertResolve": {
+    "description": "mobile.alert.resolve"
+  },
+  "alertSeen": "{count, plural, one {Seen once} other {Seen {count} times}}",
+  "@alertSeen": {
+    "description": "mobile.alert.seen",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "alertSeverity": "{severity, select, CRITICAL {Critical} WARNING {Warning} other {Information}}",
+  "@alertSeverity": {
+    "description": "mobile.alert.severity",
+    "placeholders": {
+      "severity": {
+        "type": "String"
+      }
+    }
+  },
+  "alertStatus": "{status, select, OPEN {Open} ACKNOWLEDGED {Acknowledged} other {Resolved}}",
+  "@alertStatus": {
+    "description": "mobile.alert.status",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "alertType": "{type, select, SLA_RESPONSE_BREACHED {Work not picked up} SLA_AT_RISK {Work close to its deadline} SLA_RESOLUTION_BREACHED {Work past its deadline} CHANNEL_UNHEALTHY {A guest messaging channel is failing} AI_BUDGET_EXHAUSTED {The AI budget is used up} other {Needs attention}}",
+  "@alertType": {
+    "description": "mobile.alert.type",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "alertsEmpty": "No open alerts.",
+  "@alertsEmpty": {
+    "description": "mobile.alerts.empty"
+  },
+  "alertsTitle": "Alerts",
+  "@alertsTitle": {
+    "description": "mobile.alerts.title"
+  },
   "appTitle": "Hotella",
   "@appTitle": {
     "description": "mobile.app.title"
+  },
+  "commonCancel": "Cancel",
+  "@commonCancel": {
+    "description": "mobile.common.cancel"
   },
   "commonError": "Something went wrong. Please try again.",
   "@commonError": {
@@ -15,6 +84,23 @@
   "commonOffline": "No connection. Try again when you are back online.",
   "@commonOffline": {
     "description": "mobile.common.offline"
+  },
+  "commonRetry": "Try again",
+  "@commonRetry": {
+    "description": "mobile.common.retry"
+  },
+  "commonSave": "Save",
+  "@commonSave": {
+    "description": "mobile.common.save"
+  },
+  "commonSavedAt": "Offline: showing what was saved at {time}.",
+  "@commonSavedAt": {
+    "description": "mobile.common.saved_at",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "homeNoSections": "Nothing is assigned to you in this hotel yet.",
   "@homeNoSections": {
@@ -90,6 +176,158 @@
   "@hotelTitle": {
     "description": "mobile.hotel.title"
   },
+  "inboxEmpty": "No notifications yet.",
+  "@inboxEmpty": {
+    "description": "mobile.inbox.empty"
+  },
+  "inboxTitle": "Notifications",
+  "@inboxTitle": {
+    "description": "mobile.inbox.title"
+  },
+  "requestAskedAgain": "{count, plural, one {Asked again {count} time} other {Asked again {count} times}}",
+  "@requestAskedAgain": {
+    "description": "mobile.request.asked_again",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "requestAskedAt": "Asked at {time}",
+  "@requestAskedAt": {
+    "description": "mobile.request.asked_at",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "requestRoom": "Room {room}",
+  "@requestRoom": {
+    "description": "mobile.request.room",
+    "placeholders": {
+      "room": {
+        "type": "String"
+      }
+    }
+  },
+  "requestStatus": "{status, select, OPEN {Open} IN_PROGRESS {In progress} COMPLETED {Completed} other {Cancelled}}",
+  "@requestStatus": {
+    "description": "mobile.request.status",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "requestTitle": "Guest request",
+  "@requestTitle": {
+    "description": "mobile.request.title"
+  },
+  "requestWantedFor": "Wanted for {time}",
+  "@requestWantedFor": {
+    "description": "mobile.request.wanted_for",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "requestsEmpty": "No open guest requests.",
+  "@requestsEmpty": {
+    "description": "mobile.requests.empty"
+  },
+  "requestsTitle": "Guest requests",
+  "@requestsTitle": {
+    "description": "mobile.requests.title"
+  },
+  "reservationComplete": "Finished",
+  "@reservationComplete": {
+    "description": "mobile.reservation.complete"
+  },
+  "reservationNoShow": "No-show",
+  "@reservationNoShow": {
+    "description": "mobile.reservation.no_show"
+  },
+  "reservationNotes": "Notes from the guest",
+  "@reservationNotes": {
+    "description": "mobile.reservation.notes"
+  },
+  "reservationParty": "{count, plural, one {{count} guest} other {{count} guests}}",
+  "@reservationParty": {
+    "description": "mobile.reservation.party",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "reservationRoom": "Room {room}",
+  "@reservationRoom": {
+    "description": "mobile.reservation.room",
+    "placeholders": {
+      "room": {
+        "type": "String"
+      }
+    }
+  },
+  "reservationSeat": "Seat",
+  "@reservationSeat": {
+    "description": "mobile.reservation.seat"
+  },
+  "reservationStatus": "{status, select, CONFIRMED {Confirmed} SEATED {Seated} COMPLETED {Finished} NO_SHOW {No-show} other {Cancelled}}",
+  "@reservationStatus": {
+    "description": "mobile.reservation.status",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "reservationTitle": "Booking",
+  "@reservationTitle": {
+    "description": "mobile.reservation.title"
+  },
+  "reservationWhen": "{date} at {time}",
+  "@reservationWhen": {
+    "description": "mobile.reservation.when",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "restaurantEmpty": "No bookings on this day.",
+  "@restaurantEmpty": {
+    "description": "mobile.restaurant.empty"
+  },
+  "restaurantNextDay": "Next day",
+  "@restaurantNextDay": {
+    "description": "mobile.restaurant.next_day"
+  },
+  "restaurantPreviousDay": "Previous day",
+  "@restaurantPreviousDay": {
+    "description": "mobile.restaurant.previous_day"
+  },
+  "restaurantSeats": "{booked} of {seats} seats booked",
+  "@restaurantSeats": {
+    "description": "mobile.restaurant.seats",
+    "placeholders": {
+      "booked": {
+        "type": "String"
+      },
+      "seats": {
+        "type": "String"
+      }
+    }
+  },
+  "restaurantTitle": "Restaurant bookings",
+  "@restaurantTitle": {
+    "description": "mobile.restaurant.title"
+  },
   "signinEmail": "Work e-mail",
   "@signinEmail": {
     "description": "mobile.signin.email"
@@ -126,5 +364,98 @@
   "signinVerify": "Verify",
   "@signinVerify": {
     "description": "mobile.signin.verify"
+  },
+  "taskComplete": "Mark as done",
+  "@taskComplete": {
+    "description": "mobile.task.complete"
+  },
+  "taskDue": "Due {time}",
+  "@taskDue": {
+    "description": "mobile.task.due",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "taskPartOf": "Part of: {title}",
+  "@taskPartOf": {
+    "description": "mobile.task.part_of",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "taskPause": "Pause",
+  "@taskPause": {
+    "description": "mobile.task.pause"
+  },
+  "taskPauseReason": "Why are you pausing?",
+  "@taskPauseReason": {
+    "description": "mobile.task.pause_reason"
+  },
+  "taskPriority": "{priority, select, LOW {Low priority} HIGH {High priority} URGENT {Urgent} other {Normal priority}}",
+  "@taskPriority": {
+    "description": "mobile.task.priority",
+    "placeholders": {
+      "priority": {
+        "type": "String"
+      }
+    }
+  },
+  "taskReject": "Decline",
+  "@taskReject": {
+    "description": "mobile.task.reject"
+  },
+  "taskRejectReason": "Why are you declining?",
+  "@taskRejectReason": {
+    "description": "mobile.task.reject_reason"
+  },
+  "taskResume": "Resume",
+  "@taskResume": {
+    "description": "mobile.task.resume"
+  },
+  "taskStart": "Start",
+  "@taskStart": {
+    "description": "mobile.task.start"
+  },
+  "taskStatus": "{status, select, NEW {New} ASSIGNED {Assigned to you} ACCEPTED {Accepted} IN_PROGRESS {In progress} PAUSED {Paused} DONE {Done} other {Cancelled}}",
+  "@taskStatus": {
+    "description": "mobile.task.status",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTitle": "Task",
+  "@taskTitle": {
+    "description": "mobile.task.title"
+  },
+  "tasksEmpty": "No open tasks for you.",
+  "@tasksEmpty": {
+    "description": "mobile.tasks.empty"
+  },
+  "tasksTitle": "My tasks",
+  "@tasksTitle": {
+    "description": "mobile.tasks.title"
+  },
+  "workStatus": "{status, select, OPEN {Open} IN_PROGRESS {In progress} RESOLVED {Resolved} other {Cancelled}}",
+  "@workStatus": {
+    "description": "mobile.work.status",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "workTasks": "Tasks",
+  "@workTasks": {
+    "description": "mobile.work.tasks"
+  },
+  "workTitle": "Work",
+  "@workTitle": {
+    "description": "mobile.work.title"
   }
 }

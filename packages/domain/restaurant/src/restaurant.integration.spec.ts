@@ -294,6 +294,19 @@ describe.skipIf(needsInfra())(`Restaurant — à la carte reservations (${infraS
       notes: 'nut allergy',
       status: 'CONFIRMED',
     });
+    // A push on the staff app opens one reservation.
+    const one = await h
+      .http()
+      .get(`${base()}/restaurant-reservations/${res.id}`)
+      .set('X-Test-Actor', host())
+      .expect(200);
+    expect(one.body).toMatchObject({
+      id: res.id,
+      guestName: 'Giulia Rossi',
+      roomNumber: '102',
+      restaurantName: expect.any(String),
+      version: res.version,
+    });
     const seated = await h
       .http()
       .post(`${base()}/restaurant-reservations/${res.id}/seat`)
@@ -712,6 +725,16 @@ describe.skipIf(needsInfra())(`Restaurant — à la carte reservations (${infraS
       .set('X-Test-Actor', actor)
       .expect(200);
     expect(own.body).toEqual([]);
+    const [anyReservation] = (
+      await h.db.execute(
+        sql`select id from restaurant.reservations where property_id = ${hotel.propertyId} limit 1`,
+      )
+    ).rows as { id: string }[];
+    await h
+      .http()
+      .get(`/properties/${other.propertyId}/restaurant-reservations/${anyReservation!.id}`)
+      .set('X-Test-Actor', actor)
+      .expect(404);
     await h
       .http()
       .post(`/properties/${other.propertyId}/restaurant-reservations`)

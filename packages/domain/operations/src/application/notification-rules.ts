@@ -3,6 +3,7 @@ import {
   ApprovalRequested,
   type EventEnvelope,
   EscalationTriggered,
+  RestaurantReservationCreated,
   TaskAssigned,
 } from '@hotella/contracts-events';
 import type { z } from 'zod';
@@ -16,7 +17,12 @@ type Payload<T extends { payload: z.ZodType }> = z.infer<T['payload']>;
  */
 @Injectable()
 export class NotificationRules {
-  static readonly consumes = [EscalationTriggered, ApprovalRequested, TaskAssigned] as const;
+  static readonly consumes = [
+    EscalationTriggered,
+    ApprovalRequested,
+    TaskAssigned,
+    RestaurantReservationCreated,
+  ] as const;
 
   constructor(private readonly notifications: NotificationService) {}
 
@@ -68,6 +74,27 @@ export class NotificationRules {
           templateKey: 'ops.notification.task_assigned',
           to: { type: 'USER', userId: p.assignee.id },
           source: { type: 'task', id: p.task_id },
+        });
+        return;
+      }
+      case RestaurantReservationCreated.type: {
+        // A booking the restaurant team did not take itself (guest app, concierge) is announced to whoever runs the
+        // board; the notification carries the party, night and time, never the guest (rule 21).
+        const p = envelope.payload as Payload<typeof RestaurantReservationCreated>;
+        if (p.channel === 'STAFF') return;
+        await this.notifications.notify({
+          tenantId,
+          propertyId,
+          category: 'RESTAURANT',
+          templateKey: 'ops.notification.restaurant_booked',
+          params: {
+            party: p.party_size,
+            date: p.service_date,
+            time: p.starts_at,
+            channel: p.channel,
+          },
+          to: { type: 'PERMISSION', permission: 'restaurant.reservation.manage' },
+          source: { type: 'restaurant_reservation', id: p.reservation_id },
         });
         return;
       }

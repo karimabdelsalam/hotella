@@ -185,6 +185,12 @@ export class ReservationsController extends PropertyController {
     return this.reservations.findStays(this.scope(propertyId), q.room, this.locale.get());
   }
 
+  @Get(':reservationId')
+  @RequirePermission('restaurant.reservation.read', { checkedBy: 'gate' })
+  detail(@Param('propertyId') propertyId: string, @Param('reservationId') id: string) {
+    return this.reservations.detail(this.scope(propertyId), id, this.locale.get());
+  }
+
   @Post()
   @RequirePermission('restaurant.reservation.manage', { checkedBy: 'gate' })
   book(@Param('propertyId') propertyId: string, @Body() body: StaffBookDto) {

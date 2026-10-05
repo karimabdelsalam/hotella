@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api/hotella_api.g.dart';
 import 'api/transport.dart';
+import 'cache.dart';
 import 'push.dart';
 
 /// The hotel a code resolved to: its brand as the app shows it (rule 15), never staff or guest data.
@@ -126,6 +127,17 @@ class MemorySessionStore implements SessionStore {
 
 enum SignInResult { signedIn, mfaRequired }
 
+/// What a screen shows: the answer, and when it is a saved one (offline), the time it was saved.
+@immutable
+class Loaded {
+  const Loaded(this.data, [this.savedAt]);
+  final Object? data;
+  final DateTime? savedAt;
+}
+
+/// Where a tapped notification leads: the property and the thing it is about (references only, ADR-0023).
+typedef PushTarget = ({String? propertyId, String? type, String? id});
+
 /// The app's state: the hotel, the session and the person. Screens read it and call its actions; the API decides.
 class AppState extends ChangeNotifier implements TokenSource {
   AppState({
@@ -139,17 +151,25 @@ class AppState extends ChangeNotifier implements TokenSource {
       ..tokens = this
       ..locale = locale;
     api = HotellaApi(transport);
+    cache = ReadCache(store);
   }
 
   final ApiTransport transport;
   final SessionStore store;
   late final HotellaApi api;
+  late final ReadCache cache;
 
   /// Where this phone's push address comes from (Firebase in store builds).
   final PushRegistrar push;
   final String? appVersion;
   String? _deviceId;
   StreamSubscription<PushAddress>? _pushChanges;
+  StreamSubscription<Map<String, String>>? _pushOpened;
+  StreamSubscription<void>? _pushReceived;
+  PushTarget? _opening;
+
+  /// Unread notifications at the selected property (the bell on the home screen).
+  int unread = 0;
 
   String _locale;
   Hotel? hotel;
@@ -170,8 +190,62 @@ class AppState extends ChangeNotifier implements TokenSource {
   String? get deviceId => _deviceId;
   bool get mfaPending => _challenge != null;
 
+  /// Whether the person may do [permission] at the selected property (the API decides again on every call).
+  bool can(String permission) {
+    final p = propertyId;
+    return me != null && p != null && me!.permissionsAt(p).contains(permission);
+  }
+
+  /// A tapped notification waiting to be opened once someone is signed in.
+  bool get hasOpening => _opening != null && signedIn;
+
+  /// The tapped notification to open now (once).
+  PushTarget? takeOpening() {
+    final target = _opening;
+    _opening = null;
+    return target;
+  }
+
+  /// Reads a screen's data at the selected property. Without a connection it returns the last answer saved on this
+  /// phone (and when it was saved); with neither, the error.
+  Future<Loaded> load(String key, Future<Object?> Function(String propertyId) fetch) async {
+    final property = propertyId;
+    if (property == null) throw const ApiException(404, 'org.property.not_found', null);
+    final scoped = '$property.$key';
+    try {
+      final data = await fetch(property);
+      await cache.put(scoped, data, DateTime.now());
+      return Loaded(data);
+    } on ApiException catch (e) {
+      if (!e.offline) rethrow;
+      final saved = await cache.get(scoped);
+      if (saved == null) rethrow;
+      return Loaded(saved.data, saved.at);
+    }
+  }
+
+  /// Counts the unread notifications (best effort: the bell is only a hint).
+  Future<void> refreshUnread() async {
+    final property = propertyId;
+    if (!signedIn || property == null || !can('notification.read')) return;
+    try {
+      final list = await api.listNotifications(property, unread: 'true', limit: '100') as List<Object?>?;
+      unread = list?.length ?? 0;
+      notifyListeners();
+    } on ApiException {
+      // Shown again at the next refresh.
+    }
+  }
+
   /// Restores what the last launch left (hotel, tokens, language).
   Future<void> restore() async {
+    _watchPush();
+    try {
+      final launched = await push.launchedFrom();
+      if (launched != null) _open(launched);
+    } on Object {
+      // Started normally.
+    }
     final hotelJson = await store.read('hotel');
     if (hotelJson != null) hotel = Hotel.fromJson(jsonDecode(hotelJson) as Map<String, Object?>);
     _locale = await store.read('locale') ?? _locale;
@@ -181,6 +255,7 @@ class AppState extends ChangeNotifier implements TokenSource {
       try {
         await _loadMe();
         unawaited(_registerPhone());
+        unawaited(refreshUnread());
       } on ApiException {
         await _clearSession();
       }
@@ -248,6 +323,7 @@ class AppState extends ChangeNotifier implements TokenSource {
       }
     }
     _deviceId = null;
+    _opening = null;
     try {
       await push.forget();
     } on Object {
@@ -259,6 +335,20 @@ class AppState extends ChangeNotifier implements TokenSource {
 
   void selectProperty(String id) {
     propertyId = id;
+    unread = 0;
+    notifyListeners();
+    unawaited(refreshUnread());
+  }
+
+  void _watchPush() {
+    _pushOpened ??= push.opened.listen(_open);
+    _pushReceived ??= push.received.listen((_) => unawaited(refreshUnread()));
+  }
+
+  void _open(Map<String, String> data) {
+    _opening = (propertyId: data['property_id'], type: data['source_type'], id: data['source_id']);
+    final property = data['property_id'];
+    if (property != null && properties.any((p) => p.id == property)) propertyId = property;
     notifyListeners();
   }
 
@@ -281,6 +371,7 @@ class AppState extends ChangeNotifier implements TokenSource {
     await _loadMe();
     notifyListeners();
     unawaited(_registerPhone());
+    unawaited(refreshUnread());
   }
 
   /// Registers this phone for pushes (best effort: the app works without them) and follows address changes.
@@ -317,6 +408,9 @@ class AppState extends ChangeNotifier implements TokenSource {
           ? hotel!.propertyId
           : (properties.isEmpty ? null : properties.first.id);
     }
+    // A tapped notification opens at its own property.
+    final target = _opening?.propertyId;
+    if (target != null && properties.any((p) => p.id == target)) propertyId = target;
   }
 
   Future<void> _clearSession() async {
@@ -326,6 +420,9 @@ class AppState extends ChangeNotifier implements TokenSource {
     me = null;
     properties = const [];
     propertyId = null;
+    unread = 0;
     await store.write('refresh', null);
+    // What the screens saved belongs to this person's session (CLAUDE.md rule 21): wiped with it.
+    await cache.clear();
   }
 }

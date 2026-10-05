@@ -4,6 +4,11 @@ One app for the staff of every hotel on the platform (ADR-0023): hotel code → 
 person's own account (same IAM, MFA and sessions as the staff web) → the parts of the app their permissions open.
 Guests never use it.
 
+Screens: my tasks (start, pause, resume, done, decline), guest requests, alerts (acknowledge, resolve), restaurant
+bookings by day (seat, no-show, finished), the work behind an escalation and the notification inbox. A tapped push opens
+its screen. Without a connection each screen shows its last saved answer (kept in the Keychain/Keystore, wiped on
+sign-out).
+
 - Strings: `/locales/*/mobile.json` → `node tool/sync_arb.mjs` → `lib/l10n/app_*.arb` → `flutter gen-l10n`.
 - API client: `apps/api/test/__snapshots__/openapi.json` → `node tool/gen_client.mjs` → `lib/api/hotella_api.g.dart`.
   Both generated files are checked in CI (`--check`); never edit them by hand.

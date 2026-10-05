@@ -3113,6 +3113,32 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
   widget test (registration body, removal before logout, token forgotten). Notification taps open the right screen in
   14.6.
 
+- *As built (14.6):* platform: `GET /properties/:p/restaurant-reservations/:id` (`restaurant.reservation.read`; the
+  board's view with the guest's name and the restaurant's name in the asked language; another tenant → 404) and a
+  notification rule on `restaurant.reservation.created`: a booking from the guest app or the concierge (not one the
+  restaurant team took itself) notifies everyone with `restaurant.reservation.manage` at the property — category
+  `RESTAURANT`, template `ops.notification.restaurant_booked` (party, night, time, channel; never the guest), push title
+  `ops.push.restaurant.title`, source `restaurant_reservation`. App (`apps/mobile`): the home sections open **My tasks**
+  (`assignee=me`, open statuses; a task with start / pause with a reason / resume / done / decline with a reason,
+  each sent with the version the person saw), **Guest requests** (open and in progress; detail with room, times, how
+  often it was asked and a link to the work), **Alerts** (open and acknowledged; acknowledge, resolve with what was
+  done, open the work behind an SLA alert), **Restaurant bookings** (the board of a day, moved by day; a booking with
+  seat / no-show / finished for `restaurant.reservation.manage`), a **work item** screen (an escalation's work and its
+  tasks) and the **inbox** (bell with the unread count, refreshed when a push arrives in the foreground; a tap marks it
+  read and opens what it is about). A tapped push (`source_type` task, work_item or restaurant_reservation; anything
+  else → inbox) opens its screen at its property, also when the app was started from it and after the session is
+  restored. Actions show only with the permission and the API decides again. Offline read cache: each screen's last
+  good answer is kept per property in the Keychain/Keystore (`ReadCache`); without a connection the screen shows it
+  with "Offline: showing what was saved at …", with nothing saved the error and a retry; sign-out (and a lost
+  session) wipes it. Every screen carries the Planova attribution. Strings: 55 `mobile.*` keys in the five locales
+  (ARB generated). The generated client covers 29 operations. Tests: restaurant integration (detail, isolation),
+  operations integration (a guest-app booking reaches the manager in Arabic as a push with references only, a staff
+  booking notifies nobody, the inbox text in English), app widget tests (tasks lifecycle with versions, offline banner
+  and wipe on sign-out, alerts acknowledge/resolve, a tapped booking push opens the booking and seats it, the app
+  started from a push opens the task after restore, inbox read + open, board by day, Arabic RTL screens). Acceptance on
+  devices (a waiter's phone receives the booking push and opens it) is part of the pilot checklist once the Firebase
+  project exists (`docs/runbooks/push-notifications.md`).
+
 #### 14.D Sprints
 | Sprint | Scope | Status |
 |---|---|---|
@@ -3121,7 +3147,7 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
 | 14.3 | Restaurant UI: staff board, phone booking, configuration screens; guest booking; concierge tools; e2e; acceptance | done |
 | 14.4 | Staff app skeleton: Flutter project, generated client, ARB from the catalog, hotel code → branding → sign-in, CI job | done |
 | 14.5 | Push notifications: devices, PUSH adapter (FCM/APNs) with OpenBao credentials, notification routing to devices | done |
-| 14.6 | Staff app screens: tasks, requests, alerts, restaurant bookings; offline read cache; acceptance on devices | planned |
+| 14.6 | Staff app screens: tasks, requests, alerts, restaurant bookings; offline read cache; acceptance on devices | done |
 
 #### 14.E Acceptance
 A guest of a 9-night stay books two dinners at the same à la carte restaurant and one at each other restaurant from the

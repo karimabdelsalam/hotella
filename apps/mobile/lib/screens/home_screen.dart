@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../session.dart';
 import '../widgets/common.dart';
+import 'alerts_screen.dart';
+import 'inbox_screen.dart';
+import 'requests_screen.dart';
+import 'restaurant_screen.dart';
+import 'tasks_screen.dart';
 
-/// A part of the app and the permission that opens it (the screens themselves arrive in Sprint 14.6).
+/// A part of the app and the permission that opens it.
 typedef Section = ({String key, String permission, IconData icon});
 
 const sections = <Section>[
@@ -27,6 +32,13 @@ class HomeScreen extends StatelessWidget {
     _ => t.homeSectionRestaurant,
   };
 
+  Widget _screen(String key) => switch (key) {
+    'tasks' => TasksScreen(state: state),
+    'requests' => RequestsScreen(state: state),
+    'alerts' => AlertsScreen(state: state),
+    _ => RestaurantScreen(state: state),
+  };
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
@@ -39,6 +51,20 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(hotel.displayName, key: const Key('hotel-name')),
         actions: [
+          if (state.can('notification.read'))
+            IconButton(
+              key: const Key('inbox'),
+              tooltip: t.inboxTitle,
+              icon: Badge(
+                isLabelVisible: state.unread > 0,
+                label: Text('${state.unread}', key: const Key('unread')),
+                child: const Icon(Icons.notifications_outlined),
+              ),
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => InboxScreen(state: state)));
+                await state.refreshUnread();
+              },
+            ),
           LanguageMenu(state: state),
           IconButton(
             key: const Key('sign-out'),
@@ -84,7 +110,14 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 8),
             for (final s in open)
               Card(
-                child: ListTile(key: Key('section-${s.key}'), leading: Icon(s.icon), title: Text(_label(t, s.key))),
+                child: ListTile(
+                  key: Key('section-${s.key}'),
+                  leading: Icon(s.icon),
+                  title: Text(_label(t, s.key)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () =>
+                      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => _screen(s.key))),
+                ),
               ),
             PoweredBy(hotel: hotel),
           ],

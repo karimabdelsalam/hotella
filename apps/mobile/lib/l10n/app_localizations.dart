@@ -101,11 +101,77 @@ abstract class AppLocalizations {
     Locale('ru'),
   ];
 
+  /// mobile.alert.acknowledge
+  ///
+  /// In en, this message translates to:
+  /// **'Acknowledge'**
+  String get alertAcknowledge;
+
+  /// mobile.alert.last_seen
+  ///
+  /// In en, this message translates to:
+  /// **'Last seen {time}'**
+  String alertLastSeen(String time);
+
+  /// mobile.alert.resolution
+  ///
+  /// In en, this message translates to:
+  /// **'What was done?'**
+  String get alertResolution;
+
+  /// mobile.alert.resolve
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve'**
+  String get alertResolve;
+
+  /// mobile.alert.seen
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {Seen once} other {Seen {count} times}}'**
+  String alertSeen(num count);
+
+  /// mobile.alert.severity
+  ///
+  /// In en, this message translates to:
+  /// **'{severity, select, CRITICAL {Critical} WARNING {Warning} other {Information}}'**
+  String alertSeverity(String severity);
+
+  /// mobile.alert.status
+  ///
+  /// In en, this message translates to:
+  /// **'{status, select, OPEN {Open} ACKNOWLEDGED {Acknowledged} other {Resolved}}'**
+  String alertStatus(String status);
+
+  /// mobile.alert.type
+  ///
+  /// In en, this message translates to:
+  /// **'{type, select, SLA_RESPONSE_BREACHED {Work not picked up} SLA_AT_RISK {Work close to its deadline} SLA_RESOLUTION_BREACHED {Work past its deadline} CHANNEL_UNHEALTHY {A guest messaging channel is failing} AI_BUDGET_EXHAUSTED {The AI budget is used up} other {Needs attention}}'**
+  String alertType(String type);
+
+  /// mobile.alerts.empty
+  ///
+  /// In en, this message translates to:
+  /// **'No open alerts.'**
+  String get alertsEmpty;
+
+  /// mobile.alerts.title
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts'**
+  String get alertsTitle;
+
   /// mobile.app.title
   ///
   /// In en, this message translates to:
   /// **'Hotella'**
   String get appTitle;
+
+  /// mobile.common.cancel
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
 
   /// mobile.common.error
   ///
@@ -124,6 +190,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No connection. Try again when you are back online.'**
   String get commonOffline;
+
+  /// mobile.common.retry
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get commonRetry;
+
+  /// mobile.common.save
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get commonSave;
+
+  /// mobile.common.saved_at
+  ///
+  /// In en, this message translates to:
+  /// **'Offline: showing what was saved at {time}.'**
+  String commonSavedAt(String time);
 
   /// mobile.home.no_sections
   ///
@@ -221,6 +305,150 @@ abstract class AppLocalizations {
   /// **'Your hotel'**
   String get hotelTitle;
 
+  /// mobile.inbox.empty
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet.'**
+  String get inboxEmpty;
+
+  /// mobile.inbox.title
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get inboxTitle;
+
+  /// mobile.request.asked_again
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {Asked again {count} time} other {Asked again {count} times}}'**
+  String requestAskedAgain(num count);
+
+  /// mobile.request.asked_at
+  ///
+  /// In en, this message translates to:
+  /// **'Asked at {time}'**
+  String requestAskedAt(String time);
+
+  /// mobile.request.room
+  ///
+  /// In en, this message translates to:
+  /// **'Room {room}'**
+  String requestRoom(String room);
+
+  /// mobile.request.status
+  ///
+  /// In en, this message translates to:
+  /// **'{status, select, OPEN {Open} IN_PROGRESS {In progress} COMPLETED {Completed} other {Cancelled}}'**
+  String requestStatus(String status);
+
+  /// mobile.request.title
+  ///
+  /// In en, this message translates to:
+  /// **'Guest request'**
+  String get requestTitle;
+
+  /// mobile.request.wanted_for
+  ///
+  /// In en, this message translates to:
+  /// **'Wanted for {time}'**
+  String requestWantedFor(String time);
+
+  /// mobile.requests.empty
+  ///
+  /// In en, this message translates to:
+  /// **'No open guest requests.'**
+  String get requestsEmpty;
+
+  /// mobile.requests.title
+  ///
+  /// In en, this message translates to:
+  /// **'Guest requests'**
+  String get requestsTitle;
+
+  /// mobile.reservation.complete
+  ///
+  /// In en, this message translates to:
+  /// **'Finished'**
+  String get reservationComplete;
+
+  /// mobile.reservation.no_show
+  ///
+  /// In en, this message translates to:
+  /// **'No-show'**
+  String get reservationNoShow;
+
+  /// mobile.reservation.notes
+  ///
+  /// In en, this message translates to:
+  /// **'Notes from the guest'**
+  String get reservationNotes;
+
+  /// mobile.reservation.party
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {{count} guest} other {{count} guests}}'**
+  String reservationParty(num count);
+
+  /// mobile.reservation.room
+  ///
+  /// In en, this message translates to:
+  /// **'Room {room}'**
+  String reservationRoom(String room);
+
+  /// mobile.reservation.seat
+  ///
+  /// In en, this message translates to:
+  /// **'Seat'**
+  String get reservationSeat;
+
+  /// mobile.reservation.status
+  ///
+  /// In en, this message translates to:
+  /// **'{status, select, CONFIRMED {Confirmed} SEATED {Seated} COMPLETED {Finished} NO_SHOW {No-show} other {Cancelled}}'**
+  String reservationStatus(String status);
+
+  /// mobile.reservation.title
+  ///
+  /// In en, this message translates to:
+  /// **'Booking'**
+  String get reservationTitle;
+
+  /// mobile.reservation.when
+  ///
+  /// In en, this message translates to:
+  /// **'{date} at {time}'**
+  String reservationWhen(String date, String time);
+
+  /// mobile.restaurant.empty
+  ///
+  /// In en, this message translates to:
+  /// **'No bookings on this day.'**
+  String get restaurantEmpty;
+
+  /// mobile.restaurant.next_day
+  ///
+  /// In en, this message translates to:
+  /// **'Next day'**
+  String get restaurantNextDay;
+
+  /// mobile.restaurant.previous_day
+  ///
+  /// In en, this message translates to:
+  /// **'Previous day'**
+  String get restaurantPreviousDay;
+
+  /// mobile.restaurant.seats
+  ///
+  /// In en, this message translates to:
+  /// **'{booked} of {seats} seats booked'**
+  String restaurantSeats(String booked, String seats);
+
+  /// mobile.restaurant.title
+  ///
+  /// In en, this message translates to:
+  /// **'Restaurant bookings'**
+  String get restaurantTitle;
+
   /// mobile.signin.email
   ///
   /// In en, this message translates to:
@@ -268,6 +496,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Verify'**
   String get signinVerify;
+
+  /// mobile.task.complete
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as done'**
+  String get taskComplete;
+
+  /// mobile.task.due
+  ///
+  /// In en, this message translates to:
+  /// **'Due {time}'**
+  String taskDue(String time);
+
+  /// mobile.task.part_of
+  ///
+  /// In en, this message translates to:
+  /// **'Part of: {title}'**
+  String taskPartOf(String title);
+
+  /// mobile.task.pause
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get taskPause;
+
+  /// mobile.task.pause_reason
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you pausing?'**
+  String get taskPauseReason;
+
+  /// mobile.task.priority
+  ///
+  /// In en, this message translates to:
+  /// **'{priority, select, LOW {Low priority} HIGH {High priority} URGENT {Urgent} other {Normal priority}}'**
+  String taskPriority(String priority);
+
+  /// mobile.task.reject
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get taskReject;
+
+  /// mobile.task.reject_reason
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you declining?'**
+  String get taskRejectReason;
+
+  /// mobile.task.resume
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get taskResume;
+
+  /// mobile.task.start
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get taskStart;
+
+  /// mobile.task.status
+  ///
+  /// In en, this message translates to:
+  /// **'{status, select, NEW {New} ASSIGNED {Assigned to you} ACCEPTED {Accepted} IN_PROGRESS {In progress} PAUSED {Paused} DONE {Done} other {Cancelled}}'**
+  String taskStatus(String status);
+
+  /// mobile.task.title
+  ///
+  /// In en, this message translates to:
+  /// **'Task'**
+  String get taskTitle;
+
+  /// mobile.tasks.empty
+  ///
+  /// In en, this message translates to:
+  /// **'No open tasks for you.'**
+  String get tasksEmpty;
+
+  /// mobile.tasks.title
+  ///
+  /// In en, this message translates to:
+  /// **'My tasks'**
+  String get tasksTitle;
+
+  /// mobile.work.status
+  ///
+  /// In en, this message translates to:
+  /// **'{status, select, OPEN {Open} IN_PROGRESS {In progress} RESOLVED {Resolved} other {Cancelled}}'**
+  String workStatus(String status);
+
+  /// mobile.work.tasks
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get workTasks;
+
+  /// mobile.work.title
+  ///
+  /// In en, this message translates to:
+  /// **'Work'**
+  String get workTitle;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
