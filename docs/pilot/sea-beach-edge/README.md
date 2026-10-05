@@ -1,8 +1,18 @@
 # Sea Beach Edge — pilot readiness
 
 **First pilot hotel** (owner, 2026-10-05). Checklist: [`../PILOT_READINESS_CHECKLIST.md`](../PILOT_READINESS_CHECKLIST.md)
-v1. Profile: [`profile.json`](profile.json). It does not validate yet: `node infra/docker/pilot/provision.mjs --check
-docs/pilot/sea-beach-edge/profile.json` lists the `TBD` values left to fill.
+v1.
+
+> **DEMO DATA (owner, 2026-10-06).** Until the hotel answers §2, [`profile.json`](profile.json) and
+> [`demo.json`](demo.json) hold demo values, so the platform can be tried end to end. The values are:
+> - Egypt, Cairo time, EGP, English by default;
+> - 50 rooms in a main building and beach villas, 5 room types, 7 departments;
+> - 9 staff accounts, one per role;
+> - the starter services, two à la carte restaurants, hotel information for the concierge and the brand;
+> - a simulated PMS with 8 fictional stays: 6 in house, 1 arriving, 1 checked out.
+>
+> Everything is marked `demo`, and every name and e-mail is fictional (`@seabeachedge.example`). Section 4 shows how
+> to set it all up on a server in one command, and how to replace the demo data with the hotel's own.
 
 | Code | Value |
 |---|---|
@@ -28,7 +38,7 @@ Legend: ✅ ready (evidence) · 🔧 Planova engineering, planned · ⛔ waiting
 | 9 | IFC8 / FIAS | ⛔ hotel | IFC8 licence for a generic FIAS interface, an interface number, and the Interface Sheet. |
 | 10 | OWS | ⛔ hotel | Optional: whether the hotel has it, its version, URL and user. |
 | 11 | On-site integration tests | ⛔ | After §8–§10. |
-| 12 | Hotel structure and modules | 🔧 / ⛔ hotel | Structure: `pilot.sh provision` (P.1, CI pilot smoke), waiting for the profile data below. Staff accounts and the service catalog have no screens yet (P.3). |
+| 12 | Hotel structure and modules | ✅ demo / ⛔ hotel | `infra/install/sea-beach-edge.sh` sets up the demo hotel (CI job "Ubuntu one-command install"). The hotel's administrator manages staff and roles (*Staff*) and services (*Services*) in the staff web (P.3). Real data waits for §2. |
 | 13 | AI configuration | ⛔ owner | Provider keys in OpenBao (Anthropic / OpenAI) and the budget (default 100 USD per month). |
 | 14 | Licensing | ✅ | `pilot.sh provision` licenses the tenant with `PILOT_ALL` for the pilot. The commercial plan is the owner's decision. |
 | 15 | Offline behaviour | ✅ / ⛔ | Proven in CI (agent queue, reconnect, offline entitlements). To be repeated on site. |
@@ -84,6 +94,40 @@ Legend: ✅ ready (evidence) · 🔧 Planova engineering, planned · ⛔ waiting
 1. Collect the answers to §2 and fill `profile.json` (only structure; nothing personal).
 2. The owner decides on the platform server, DNS and TLS, OpenBao custodians, AI keys, Firebase (Q19) and the Italian,
    Russian and German review (Q17).
-3. Engineering: P.2 monitoring and alerts; P.3 hotel administration screens (staff accounts and roles, service
-   catalog).
+3. Engineering: done (P.1 provisioning, P.2 monitoring and alerts, P.3 hotel administration screens).
 4. On site: `pilot.sh provision`, enrollment and commissioning, then the §11–§15 tests.
+
+## 4. Setting it up on a server (demo)
+
+On a fresh Ubuntu 22.04/24.04 server, after pointing `api.`, `staff.`, `guest.` and `agent.<domain>` at it:
+
+```bash
+git clone https://github.com/karimabdelsalam/hotella.git && cd hotella
+sudo bash infra/install/sea-beach-edge.sh --domain <domain> --email <your e-mail>
+# no domain yet (a VM or a laptop):  sudo bash infra/install/sea-beach-edge.sh --local --email <your e-mail>
+```
+
+At the end it prints the URLs, the platform administrator's password (once), and where the demo accounts are:
+`sudo cat /opt/hotella/infra/docker/pilot/.secrets/demo/accounts.json`. The file has the hotel code
+(`SEA_BEACH_EDGE`), each e-mail, its role and its password. Sign in to the staff web with the hotel code. The general
+manager is `gm@seabeachedge.example`.
+
+Then:
+- `sudo hotella alert-setup telegram` sets where alerts go.
+- `sudo hotella monitor --dry-run` shows the platform's state now.
+
+The demo stays come from the simulated PMS. The guest web and the room QR sheet work with them. AI answers need a
+provider key (checklist §13).
+
+## 5. From demo to the hotel's real data
+1. **Structure.** Put the hotel's answers into `profile.json`, remove `"demo": true` and run
+   `sudo hotella provision docs/pilot/sea-beach-edge/profile.json <token>`. New rooms, types and departments are added.
+   Demo rooms that do not exist at the hotel must be retired by the administrator; codes are never reused for something
+   else.
+2. **People.** The hotel's administrator invites the real staff (*Staff* → *Invite a person*) and disables every
+   `@seabeachedge.example` account. Disabling signs it out everywhere.
+3. **Services, restaurants, information.** The hotel edits and publishes its own (*Services*, *Restaurant* →
+   *Setup*). The demo information document is archived.
+4. **PMS.** The control plane sets *Demo PMS (simulator)* to DISABLED. The real OPERA connectors are enrolled and
+   commissioned (OPERA guide §16). The demo stays stay in history as checked-in data of the simulator. Before go-live,
+   a fresh tenant can be provisioned instead if the hotel prefers no demo history (an owner decision).

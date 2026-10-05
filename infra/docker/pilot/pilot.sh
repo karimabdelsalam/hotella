@@ -14,6 +14,9 @@
 #   pilot.sh provision <profile.json> <token>
 #                                 create the hotel from its profile (docs/pilot/README.md): tenant, pilot licence,
 #                                 property, buildings, floors, room types, rooms, departments, starter catalog, settings
+#   pilot.sh demo <profile.json> <demo.json> <token>
+#                                 demo content for a provisioned hotel: brand, staff accounts, services, restaurants,
+#                                 hotel information, a simulated PMS with demo stays (fictional data; README §4)
 #   pilot.sh monitor [--dry-run]  check the platform and notify alerts (cron runs it every 5 minutes; monitor.py)
 #   pilot.sh alert-setup webhook|telegram
 #                                 where alerts go: a webhook taking {"text": …} or a Telegram bot (asked, never echoed)
@@ -253,10 +256,15 @@ cmd_start() {
   wait_ready; wait_gateway; wait_staff_web; wait_guest_web
 }
 
-# Runs the PMS simulator as a hotel agent against the gateway: enroll with a token, replay a scenario.
+# Runs the PMS simulator as a hotel agent against the gateway: enroll with a token, replay a scenario (one of the
+# simulator's own, e.g. scenarios/basic-stay.yml, or a file on this host).
 cmd_simulate() {
-  local token="${1:?enrollment token}" scenario="${2:-scenarios/basic-stay.yml}"
-  compose run --rm -T --entrypoint sh simulator -c "
+  local token="${1:?enrollment token}" scenario="${2:-scenarios/basic-stay.yml}" mount=()
+  if [ -f "$scenario" ]; then
+    mount=(-v "$(realpath "$scenario"):/tmp/scenario.yml:ro")
+    scenario=/tmp/scenario.yml
+  fi
+  compose run --rm -T "${mount[@]}" --entrypoint sh simulator -c "
     node dist/main.js enroll --gateway https://agent-gateway:8443 --ca /run/agent-ca/ca.crt --token '$token' --state /tmp/sim &&
     node dist/main.js run --gateway https://agent-gateway:8443 --state /tmp/sim --scenario '$scenario'"
 }
@@ -304,6 +312,29 @@ cmd_provision() {
   provisioner "$profile" --tenant-only
   "$HERE/license-pilot.sh" "$token" "$(json_get "v['tenant']['code']" <"$profile")"
   provisioner "$profile"
+}
+
+# Demo content for a provisioned hotel (docs/pilot/README.md §4): brand, staff accounts (passwords kept in
+# .secrets/demo/accounts.json, 0600), the hotel's services, restaurants and information as its demo manager, and a
+# simulated PMS whose demo stays are replayed with the PMS simulator. Idempotent.
+cmd_demo() {
+  local profile demo token dir="$SECRETS/demo"
+  profile="$(realpath "${1:?hotel profile (JSON)}")"
+  demo="$(realpath "${2:?demo content (JSON)}")"
+  token="${3:?platform admin access token}"
+  mkdir -p "$dir"; chmod 0700 "$dir"
+  HOTELLA_TOKEN="$token" docker run --rm --network host -e HOTELLA_TOKEN \
+    -v "$HERE/demo-content.mjs:/provision/demo-content.mjs:ro" -v "$profile:/provision/profile.json:ro" \
+    -v "$demo:/provision/demo.json:ro" -v "$dir:/demo" \
+    --entrypoint node "hotella/api:${HOTELLA_VERSION:-local}" /provision/demo-content.mjs \
+    --api "${HOTELLA_API:-http://127.0.0.1:${HOTELLA_API_PORT:-3000}/api/v1}" --dir /demo \
+    /provision/profile.json /provision/demo.json
+  if [ -s "$dir/enrollment-token" ]; then
+    log "replaying the demo stays with the PMS simulator"
+    cmd_simulate "$(cat "$dir/enrollment-token")" "$dir/scenario.yml"
+    rm -f "$dir/enrollment-token"
+  fi
+  log "demo accounts (hotel code, e-mail, password): sudo cat $dir/accounts.json"
 }
 
 # Platform monitor (checklist §17): probes, rules and delivery are in monitor.py.
@@ -385,10 +416,11 @@ case "${1:-}" in
   backup) shift; cmd_backup "$@" ;;
   restore-drill) cmd_restore_drill ;;
   provision) shift; cmd_provision "$@" ;;
+  demo) shift; cmd_demo "$@" ;;
   monitor) shift; cmd_monitor "$@" ;;
   alert-setup) shift; cmd_alert_setup "$@" ;;
   push-setup) shift; cmd_push_setup "$@" ;;
   status) cmd_status ;;
   down) cmd_down ;;
-  *) sed -n '2,23p' "$0"; exit 1 ;;
+  *) sed -n '2,26p' "$0"; exit 1 ;;
 esac

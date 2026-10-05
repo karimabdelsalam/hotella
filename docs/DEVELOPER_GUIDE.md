@@ -272,7 +272,13 @@ Renovate opens grouped PRs weekly. Patch/minor: merge when CI is green. Major: m
 The pilot runs on one Linux host with `infra/docker/compose.pilot.yml`, driven by `infra/docker/pilot/pilot.sh` (`init → up → vault-init → migrate → start → admin → provision`, plus `backup`, `restore-drill`, `status`). A hotel is
 created from its profile (`docs/pilot/README.md`) with `pilot.sh provision <profile.json> <admin token>`; the
 provisioner (`infra/docker/pilot/provision.mjs`, dependency-free Node) has a unit suite run by CI with
-`node --test infra/docker/pilot/provision.test.mjs`. Images come from `infra/docker/Dockerfile` (targets `api`, `worker`); credentials live in OpenBao and reach the services through AppRole; the application uses the ordinary database role `hotella_app`. CI's "pilot deployment smoke" job runs exactly these commands on every push. Operations procedures: `docs/runbooks/`.
+`node --test infra/docker/pilot/provision.test.mjs`. Demo content for a provisioned hotel (staff accounts, services,
+restaurants, hotel information, a simulated PMS with stays) comes from `pilot.sh demo <profile> <demo.json> <token>`
+(`demo-content.mjs`, tests in `demo-content.test.mjs`); `infra/install/sea-beach-edge.sh` installs a server with the
+first pilot hotel and its demo data in one command. The platform monitor is `infra/docker/pilot/monitor.py`
+(`python3 -m unittest discover -s infra/docker/pilot -p '*_test.py'`). Hotel administrators manage people
+(`/[locale]/staff`, invitations accepted at `/[locale]/invite`) and guest services (`/[locale]/services`) in the staff
+web. Images come from `infra/docker/Dockerfile` (targets `api`, `worker`); credentials live in OpenBao and reach the services through AppRole; the application uses the ordinary database role `hotella_app`. CI's "pilot deployment smoke" job runs exactly these commands on every push. Operations procedures: `docs/runbooks/`.
 
 On a fresh Ubuntu 22.04/24.04 server the whole sequence is one command,
 `sudo bash infra/install/install-ubuntu.sh --domain <domain> --email <admin e-mail>` (Docker, Caddy with automatic

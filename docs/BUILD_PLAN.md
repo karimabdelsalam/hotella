@@ -3711,12 +3711,39 @@ No new bounded context.
 - **Tests.** The CI pilot smoke probes the deployed stack with no probe failing, then stops the worker and sees its
   alert fire. Runbook: `docs/runbooks/monitoring.md`.
 
+**P.3 decisions.**
+- **Staff web screens.**
+  - *Staff* (`iam.user.read`): list the hotel's people. Invite with a role at a property, or at every property for
+    tenant-wide managers. Change roles per membership, remove access, disable or enable an account.
+  - *Services* (`catalog.manage`): import the starter services, start a draft from the published version, edit the
+    department, priority, guest visibility and the names and short descriptions in five languages, publish (with
+    `catalog.publish`), retire or reactivate. A published version never changes (rule 9).
+  - The screens only call the existing APIs, so ActionGate, audit and RLS decide. A person never changes their own
+    access.
+- **Invitations.**
+  - The invitation API returns the hotel code with the one-time token.
+  - The screen shows the link once: `/<locale>/invite#token=…&hotel=…`. The secret lives in the fragment, so it never
+    reaches a server log, and the page removes it from the address bar after reading it.
+  - Delivery is by the hotel's own means. E-mail or WhatsApp delivery of invitations is later.
+  - The new *invite* page sets the password; the API checks the policy.
+- **Demo data (owner, 2026-10-06).**
+  - "Put demo data for everything for now": Sea Beach Edge's profile and `demo.json` hold demo values marked
+    `"demo": true`.
+  - `demo-content.mjs` applies them through the API. The hotel's content is entered as its demo general manager, never
+    as the platform administrator.
+  - The PMS stays are replayed by the simulator from a scenario dated from the hotel's today.
+  - Removal steps are in the hotel's README §5.
+- **One-command server setup.**
+  - `infra/install/sea-beach-edge.sh` runs `install-ubuntu.sh --hotel … --demo …`.
+  - The CI job "Ubuntu one-command install" now runs it on a fresh runner. It signs in as the demo manager and checks
+    staff, rooms, services, restaurants and six guests in house, then runs it again with nothing duplicated.
+
 | Sprint | Scope | Status |
 |---|---|---|
 | P.1 | Hotel profile v1, `provision.mjs` + `pilot.sh provision`, example profile in the CI pilot smoke, Sea Beach Edge profile and readiness status | done |
 | P.2 | Monitoring and alerts for checklist §17: agent offline, integration health, queue depth, backup failure, disk, certificate expiry, AI budget | done |
-| P.3 | Hotel administration in the staff web app: staff accounts, roles and memberships (invite, MFA for managers); service catalog (starter import, edit, publish) | planned |
-| P.4 | Site readiness with the hotel: fill the profile, provision, walk the checklist, the phase acceptance 🟡 items on site | waiting for the hotel |
+| P.3 | Hotel administration in the staff web app: staff accounts, roles and memberships (invite, accept, disable); service catalog (starter import, drafts, publish, retire); Sea Beach Edge demo data and the one-command server setup | done |
+| P.4 | Site readiness with the hotel: replace the demo data with the hotel's own, walk the checklist, the phase acceptance 🟡 items on site | waiting for the hotel |
 
 **Acceptance.** The Sea Beach Edge profile validates with no `TBD` left and provisions in one command. The hotel's
 administrator signs in, invites staff and publishes services without the API. Every §17 alert fires in a drill. The
@@ -3808,7 +3835,7 @@ A module/phase is accepted only when all of the following are true:
 | Q24 | BMS/IoT: which protocols and vendors to support first (BACnet/IP, Modbus TCP, MQTT, a vendor cloud) | 13.2 | **Answered 2026-10-05:** vendor-neutral; BACnet/IP and Modbus TCP bridges in the agent (ADR-0025, 13.9) |
 | Q25 | Door locks and Wi-Fi: which vendors (e.g. physical keys vs mobile keys) and partnership terms | 13.3 | **Answered 2026-10-05:** VingCard / ASSA ABLOY first, as an adapter (ADR-0025, 13.10; needs ASSA ABLOY partner access) |
 | Q26 | POS and ERP: which systems at the pilot hotel | 13.5 | **Answered 2026-10-05:** Wi-Fi, POS and ERP stay vendor-neutral, modular connectors (ADR-0025) |
-| Q28 | Sea Beach Edge: the hotel's data for its profile (timezone, currency, country, default language, room types, buildings, floors, rooms) and its systems (OPERA version, IFC8, OWS, WhatsApp number) | P.4 | open — the hotel (`docs/pilot/sea-beach-edge/README.md`) |
+| Q28 | Sea Beach Edge: the hotel's data for its profile (timezone, currency, country, default language, room types, buildings, floors, rooms) and its systems (OPERA version, IFC8, OWS, WhatsApp number) | P.4 | open — the hotel; demo values in use meanwhile (owner, 2026-10-06; `docs/pilot/sea-beach-edge/README.md`) |
 
 ---
 

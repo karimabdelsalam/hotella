@@ -1,21 +1,288 @@
 {
   "profileVersion": 1,
-  "tenant": { "code": "SEA_BEACH_EDGE", "name": "Sea Beach Edge" },
+  "demo": true,
+  "tenant": {
+    "code": "SEA_BEACH_EDGE",
+    "name": "Sea Beach Edge"
+  },
   "property": {
     "code": "SBE",
     "name": "Sea Beach Edge",
-    "timezone": "TBD",
-    "currency": "TBD",
-    "country": "TBD",
-    "defaultLocale": "TBD",
-    "enabledLocales": ["en", "ar", "it", "ru", "de"]
+    "timezone": "Africa/Cairo",
+    "currency": "EGP",
+    "country": "EG",
+    "defaultLocale": "en",
+    "enabledLocales": [
+      "en",
+      "ar",
+      "it",
+      "ru",
+      "de"
+    ]
   },
-  "roomTypes": "TBD",
-  "buildings": "TBD",
-  "departments": [
-    { "code": "HK", "names": { "en": "Housekeeping", "ar": "التدبير الفندقي", "it": "Housekeeping", "ru": "Хаускипинг", "de": "Housekeeping" } },
-    { "code": "ENG", "names": { "en": "Engineering", "ar": "الصيانة", "it": "Manutenzione", "ru": "Инженерная служба", "de": "Technik" } },
-    { "code": "FO", "names": { "en": "Front office", "ar": "الاستقبال", "it": "Ricevimento", "ru": "Служба приёма", "de": "Rezeption" } }
+  "roomTypes": [
+    {
+      "code": "STD",
+      "capacity": 2,
+      "names": {
+        "en": "Standard room",
+        "ar": "غرفة قياسية",
+        "it": "Camera standard",
+        "ru": "Стандартный номер",
+        "de": "Standardzimmer"
+      }
+    },
+    {
+      "code": "DLX",
+      "capacity": 3,
+      "names": {
+        "en": "Deluxe sea view",
+        "ar": "ديلوكس بإطلالة بحرية",
+        "it": "Deluxe vista mare",
+        "ru": "Делюкс с видом на море",
+        "de": "Deluxe mit Meerblick"
+      }
+    },
+    {
+      "code": "FAM",
+      "capacity": 4,
+      "names": {
+        "en": "Family room",
+        "ar": "غرفة عائلية",
+        "it": "Camera family",
+        "ru": "Семейный номер",
+        "de": "Familienzimmer"
+      }
+    },
+    {
+      "code": "STE",
+      "capacity": 4,
+      "names": {
+        "en": "Suite",
+        "ar": "جناح",
+        "it": "Suite",
+        "ru": "Люкс",
+        "de": "Suite"
+      }
+    },
+    {
+      "code": "VIL",
+      "capacity": 6,
+      "names": {
+        "en": "Beach villa",
+        "ar": "فيلا على الشاطئ",
+        "it": "Villa sulla spiaggia",
+        "ru": "Пляжная вилла",
+        "de": "Strandvilla"
+      }
+    }
   ],
-  "settings": []
+  "buildings": [
+    {
+      "code": "MAIN",
+      "names": {
+        "en": "Main building",
+        "ar": "المبنى الرئيسي",
+        "it": "Edificio principale",
+        "ru": "Главный корпус",
+        "de": "Hauptgebäude"
+      },
+      "floors": [
+        {
+          "code": "F1",
+          "floorLabel": "1",
+          "names": {
+            "en": "First floor",
+            "ar": "الطابق الأول",
+            "it": "Primo piano",
+            "ru": "Первый этаж",
+            "de": "Erster Stock"
+          },
+          "rooms": [
+            {
+              "from": 101,
+              "to": 118,
+              "roomType": "STD"
+            }
+          ]
+        },
+        {
+          "code": "F2",
+          "floorLabel": "2",
+          "names": {
+            "en": "Second floor",
+            "ar": "الطابق الثاني",
+            "it": "Secondo piano",
+            "ru": "Второй этаж",
+            "de": "Zweiter Stock"
+          },
+          "rooms": [
+            {
+              "from": 201,
+              "to": 216,
+              "roomType": "DLX"
+            },
+            {
+              "from": 217,
+              "to": 218,
+              "roomType": "FAM"
+            }
+          ]
+        },
+        {
+          "code": "F3",
+          "floorLabel": "3",
+          "names": {
+            "en": "Third floor",
+            "ar": "الطابق الثالث",
+            "it": "Terzo piano",
+            "ru": "Третий этаж",
+            "de": "Dritter Stock"
+          },
+          "rooms": [
+            {
+              "from": 301,
+              "to": 306,
+              "roomType": "STE"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "BEACH",
+      "names": {
+        "en": "Beach villas",
+        "ar": "فيلات الشاطئ",
+        "it": "Ville sulla spiaggia",
+        "ru": "Пляжные виллы",
+        "de": "Strandvillen"
+      },
+      "floors": [
+        {
+          "code": "GF",
+          "floorLabel": "G",
+          "names": {
+            "en": "Ground level",
+            "ar": "المستوى الأرضي",
+            "it": "Piano terra",
+            "ru": "Первый уровень",
+            "de": "Erdgeschoss"
+          },
+          "rooms": [
+            {
+              "number": "V01",
+              "roomType": "VIL"
+            },
+            {
+              "number": "V02",
+              "roomType": "VIL"
+            },
+            {
+              "number": "V03",
+              "roomType": "VIL"
+            },
+            {
+              "number": "V04",
+              "roomType": "VIL"
+            },
+            {
+              "number": "V05",
+              "roomType": "VIL"
+            },
+            {
+              "number": "V06",
+              "roomType": "VIL"
+            },
+            {
+              "number": "V07",
+              "roomType": "VIL"
+            },
+            {
+              "number": "V08",
+              "roomType": "VIL"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "departments": [
+    {
+      "code": "HK",
+      "names": {
+        "en": "Housekeeping",
+        "ar": "التدبير الفندقي",
+        "it": "Housekeeping",
+        "ru": "Хаускипинг",
+        "de": "Housekeeping"
+      }
+    },
+    {
+      "code": "ENG",
+      "names": {
+        "en": "Engineering",
+        "ar": "الصيانة",
+        "it": "Manutenzione",
+        "ru": "Инженерная служба",
+        "de": "Technik"
+      }
+    },
+    {
+      "code": "FO",
+      "names": {
+        "en": "Front office",
+        "ar": "الاستقبال",
+        "it": "Ricevimento",
+        "ru": "Служба приёма",
+        "de": "Rezeption"
+      }
+    },
+    {
+      "code": "GR",
+      "names": {
+        "en": "Guest relations",
+        "ar": "علاقات النزلاء",
+        "it": "Relazioni con gli ospiti",
+        "ru": "Служба по работе с гостями",
+        "de": "Gästebetreuung"
+      }
+    },
+    {
+      "code": "FB",
+      "names": {
+        "en": "Food and beverage",
+        "ar": "الأغذية والمشروبات",
+        "it": "Food & beverage",
+        "ru": "Питание и напитки",
+        "de": "Gastronomie"
+      }
+    },
+    {
+      "code": "SPA",
+      "names": {
+        "en": "Spa",
+        "ar": "السبا",
+        "it": "Spa",
+        "ru": "Спа",
+        "de": "Spa"
+      }
+    },
+    {
+      "code": "SEC",
+      "names": {
+        "en": "Security",
+        "ar": "الأمن",
+        "it": "Sicurezza",
+        "ru": "Служба безопасности",
+        "de": "Sicherheit"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "key": "hk.stayover.hour",
+      "value": 9
+    }
+  ]
 }

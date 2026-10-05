@@ -8,7 +8,8 @@
 #   4. runs the pilot deployment: credentials → images → OpenBao → migrations → api, worker, agent gateway, web apps
 #   5. publishes https://api.<domain>, https://staff.<domain>, https://guest.<domain> through Caddy (Let's Encrypt) and
 #      the hotel-agent gateway on agent.<domain>:8443 (mutual TLS, not behind the proxy)
-#   6. creates the first platform administrator, the first full backup, and the backup schedule
+#   6. creates the first platform administrator, the first full backup, the backup schedule and the platform monitor
+#   7. with --hotel: creates the hotel from its profile (and with --demo, its demo content)
 #
 # Quick start (DNS A records for api., staff., guest. and agent.<domain> must point at this server first):
 #   sudo bash infra/install/install-ubuntu.sh --domain hotel.example.com --email you@example.com
@@ -26,6 +27,8 @@
 #   --dir PATH        installation directory (default: /opt/hotella)
 #   --repo URL        git repository to clone when not run from a checkout
 #   --ref REF         branch or tag to install (default: main)
+#   --hotel FILE      a hotel profile to provision after the installation (docs/pilot/README.md)
+#   --demo FILE       demo content for that hotel: staff accounts, services, restaurants, simulated guests
 #   --skip-checks     install even below the recommended CPU/RAM/disk
 #   -h, --help        this text
 #
@@ -40,11 +43,13 @@ DIR="/opt/hotella"
 REPO="https://github.com/karimabdelsalam/hotella.git"
 REF="main"
 SKIP_CHECKS=false
+HOTEL=""
+DEMO=""
 
 say() { printf '\033[1;36m[hotella]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[hotella] warning:\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31m[hotella] error:\033[0m %s\n' "$*" >&2; exit 1; }
-usage() { sed -n '2,36p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,40p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -55,6 +60,8 @@ while [ $# -gt 0 ]; do
     --dir) DIR="${2:?}"; shift 2 ;;
     --repo) REPO="${2:?}"; shift 2 ;;
     --ref) REF="${2:?}"; shift 2 ;;
+    --hotel) HOTEL="$(realpath "${2:?}")"; shift 2 ;;
+    --demo) DEMO="$(realpath "${2:?}")"; shift 2 ;;
     --skip-checks) SKIP_CHECKS=true; shift ;;
     -h | --help) usage 0 ;;
     *) warn "unknown option: $1"; usage 1 ;;
@@ -63,6 +70,8 @@ done
 
 # ---------------------------------------------------------------- 1. the host
 [ "$(id -u)" -eq 0 ] || die "run as root: sudo bash $0 …"
+[ -z "$HOTEL" ] || [ -s "$HOTEL" ] || die "no such hotel profile: $HOTEL"
+[ -z "$DEMO" ] || { [ -n "$HOTEL" ] && [ -s "$DEMO" ]; } || die "--demo needs --hotel and an existing file"
 [ -n "$EMAIL" ] || die "--email is required (the first platform administrator)"
 [[ "$EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] || die "--email does not look like an e-mail address"
 if ! $LOCAL; then
@@ -250,9 +259,11 @@ if [ -z "$password" ]; then
   generated=true
 fi
 say "creating the platform administrator $EMAIL"
+can_login=true
 if ! HOTELLA_ADMIN_PASSWORD="$password" "$PILOT" admin "$EMAIL" "$ADMIN_NAME" >/dev/null 2>&1; then
   warn "the administrator was not created (it may already exist); sign in with your existing password"
   generated=false
+  [ -n "${HOTELLA_ADMIN_PASSWORD:-}" ] || can_login=false
 fi
 
 say "first full backup (also proves WAL archiving works)"
@@ -271,6 +282,30 @@ SHELL=/bin/bash
 */5 * * * * root $PILOT monitor >>/var/log/hotella-monitor.log 2>&1
 EOF
 chmod 0644 /etc/cron.d/hotella-monitor
+
+# ---------------------------------------------------------------- 7. the hotel
+if [ -n "$HOTEL" ]; then
+  token=""
+  if $can_login; then
+    token="$(python3 - "$EMAIL" "$password" <<'PY' || true
+import json, sys, urllib.request
+req = urllib.request.Request("http://127.0.0.1:3000/api/v1/auth/login", method="POST",
+    data=json.dumps({"email": sys.argv[1], "password": sys.argv[2]}).encode(), headers={"content-type": "application/json"})
+print(json.load(urllib.request.urlopen(req, timeout=30))["accessToken"])
+PY
+)"
+  fi
+  if [ -z "$token" ]; then
+    warn "could not sign in as $EMAIL: run  sudo hotella provision $HOTEL <token>  (and  hotella demo …) by hand"
+  else
+    say "creating the hotel from $(basename "$HOTEL")"
+    "$PILOT" provision "$HOTEL" "$token"
+    if [ -n "$DEMO" ]; then
+      say "adding the demo content ($(basename "$DEMO"))"
+      "$PILOT" demo "$HOTEL" "$DEMO" "$token"
+    fi
+  fi
+fi
 
 cat >/usr/local/bin/hotella <<EOF
 #!/usr/bin/env bash
@@ -295,6 +330,15 @@ if $generated; then
   cat <<EOF
   Password       $password
                  ↑ shown once and stored nowhere: save it in your password manager now.
+EOF
+fi
+cat <<EOF
+
+EOF
+if [ -n "$DEMO" ] && [ -s "$DIR/infra/docker/pilot/.secrets/demo/accounts.json" ]; then
+  cat <<EOF
+  Demo hotel     $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tenant"]["code"])' "$HOTEL") — DEMO DATA (fictional staff and guests)
+  Demo accounts  sudo cat $DIR/infra/docker/pilot/.secrets/demo/accounts.json   (hotel code, e-mail, password)
 EOF
 fi
 cat <<EOF

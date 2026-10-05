@@ -6,7 +6,7 @@ readiness status:
 
 | Hotel | Folder | Status |
 |---|---|---|
-| Sea Beach Edge (first pilot) | [`sea-beach-edge/`](sea-beach-edge/README.md) | collecting the hotel's data |
+| Sea Beach Edge (first pilot) | [`sea-beach-edge/`](sea-beach-edge/README.md) | demo data; collecting the hotel's own |
 
 Nothing about a hotel is in code (CLAUDE.md rule 15). Its names, rooms and settings are in its profile; its brand,
 services, staff and knowledge are entered on the platform by Planova or by the hotel.
@@ -18,6 +18,7 @@ A JSON file describing the hotel's structure.
 | Field | Meaning |
 |---|---|
 | `profileVersion` | `1` |
+| `demo` | optional, `true` while the values are demo data (the provisioner says so in its output) |
 | `tenant` | `{ code, name }` — the customer account (a hotel company or group). Codes are 2–32 of `A–Z 0–9 _ -` and never change. |
 | `property` | `{ code, name, timezone, currency, country, defaultLocale, enabledLocales }`. The timezone is an IANA zone (e.g. `Africa/Cairo`), the currency ISO 4217 (`EGP`), the country ISO 3166 alpha-2 (`EG`). Locales are `en ar it ru de`. |
 | `roomTypes[]` | `{ code, capacity, names }`. `code` is the hotel's own room-type code; the PMS mapping links it to OPERA later. |
@@ -79,3 +80,23 @@ These steps are in checklist order:
 8. Room QR sheet.
 
 Then the on-site tests of checklist §11–§15.
+
+## 4. Demo content
+
+To try a hotel before its data arrives, a demo file next to its profile adds fictional content:
+- brand;
+- staff accounts, one per role;
+- the starter services, restaurants with sittings, and hotel information documents;
+- a simulated PMS with stays dated from today.
+
+The tool is `infra/docker/pilot/demo-content.mjs`, run with
+`pilot.sh demo <profile.json> <demo.json> <token>`. It works through the API:
+- The brand, the accounts and the simulated PMS are created as the platform administrator.
+- The hotel's content is entered as the demo general manager, because the platform administrator may not touch it.
+
+The generated passwords are kept only in `.secrets/demo/accounts.json` (0600) and are never printed. The tool is
+idempotent.
+
+`infra/install/sea-beach-edge.sh` runs the installer with `--hotel` and `--demo` for the first pilot. Its CI job
+installs the whole demo hotel on a fresh Ubuntu runner and signs in as its manager. Replacing demo data with real data:
+`sea-beach-edge/README.md` §5.

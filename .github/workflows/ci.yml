@@ -64,7 +64,7 @@ jobs:
       - name: Locale catalogs (en, ar, it, ru, de) — key parity, valid ICU, same arguments, CLDR plural forms
         run: pnpm locales:check
       - name: Hotel provisioning tool — profile validation and an idempotent run (pilot hotels, docs/pilot)
-        run: node --test infra/docker/pilot/provision.test.mjs
+        run: node --test infra/docker/pilot/provision.test.mjs infra/docker/pilot/demo-content.test.mjs
       - name: Platform monitor rules — alerts fire once, remind, resolve once (checklist §17)
         run: python3 -m unittest discover -s infra/docker/pilot -p '*_test.py' -v
       - name: Schema and migrations are in sync
@@ -174,14 +174,15 @@ jobs:
     # packages, the whole pilot stack, the first administrator and backup; then the API, both web apps and a sign-in.
     name: Ubuntu one-command install
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs: verify
     steps:
       - uses: actions/checkout@v5
       - name: Install
         env:
           HOTELLA_ADMIN_PASSWORD: install smoke passphrase 2026
-        run: sudo -E bash infra/install/install-ubuntu.sh --local --email ci-admin@example.com --skip-checks
+        # The Sea Beach Edge script: the installer, then the hotel from its profile and its demo content.
+        run: sudo -E bash infra/install/sea-beach-edge.sh --local --email ci-admin@example.com --skip-checks
       - name: The installation answers
         run: |
           curl -fsS http://127.0.0.1:3000/api/v1/ready
@@ -190,13 +191,35 @@ jobs:
           curl -fsS http://127.0.0.1:3000/api/v1/auth/login -H 'content-type: application/json' \
             -d '{"email":"ci-admin@example.com","password":"install smoke passphrase 2026"}' | grep -q accessToken
           sudo hotella status
-          test -f /etc/cron.d/hotella
+          test -f /etc/cron.d/hotella && test -f /etc/cron.d/hotella-monitor
+          sudo hotella monitor --dry-run
+      - name: The demo hotel is there — its manager signs in, staff, services, restaurants and guests in house
+        run: |
+          accounts=/opt/hotella/infra/docker/pilot/.secrets/demo/accounts.json
+          sudo test "$(sudo stat -c %a $accounts)" = 600
+          pw=$(sudo python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["gm@seabeachedge.example"]["password"])' $accounts)
+          gm=$(curl -fsS http://127.0.0.1:3000/api/v1/auth/login -H 'content-type: application/json' \
+            -d "{\"tenantCode\":\"SEA_BEACH_EDGE\",\"email\":\"gm@seabeachedge.example\",\"password\":\"$pw\"}" | jq -r .accessToken)
+          api() { curl -fsS "http://127.0.0.1:3000/api/v1$1" -H "authorization: Bearer $gm"; }
+          tenant=$(api /me | jq -r .user.tenantId); property=$(api /properties | jq -r '.[0].id')
+          api "/tenants/$tenant/users" | jq -e 'length == 9'
+          api "/properties/$property/rooms" | jq -e 'length == 50'
+          api "/catalog/services?propertyId=$property" | jq -e 'length >= 6'
+          api "/properties/$property/restaurants" | jq -e '[.[] | select(.status == "ACTIVE")] | length == 2'
+          for _ in $(seq 1 60); do
+            in_house=$(sudo docker compose -p hotella-pilot -f /opt/hotella/infra/docker/compose.pilot.yml exec -T postgres \
+              psql -U hotella_admin -d hotella -Atc "select count(*) from guest.stays where property_id = '$property' and status = 'IN_HOUSE'")
+            [ "$in_house" = 6 ] && break; sleep 2
+          done
+          echo "in house: $in_house"; [ "$in_house" = 6 ]
       - name: Running it again changes nothing that works
         env:
           HOTELLA_ADMIN_PASSWORD: install smoke passphrase 2026
         run: |
-          sudo -E bash infra/install/install-ubuntu.sh --local --email ci-admin@example.com --skip-checks
+          sudo -E bash infra/install/sea-beach-edge.sh --local --email ci-admin@example.com --skip-checks
           curl -fsS http://127.0.0.1:3000/api/v1/ready
+          sudo docker compose -p hotella-pilot -f /opt/hotella/infra/docker/compose.pilot.yml exec -T postgres \
+            psql -U hotella_admin -d hotella -Atc "select count(*) from iam.users where email like '%@seabeachedge.example'" | grep -qx 9
       - name: Logs on failure
         if: failure()
         run: sudo docker compose -p hotella-pilot -f /opt/hotella/infra/docker/compose.pilot.yml logs --tail=150

@@ -128,13 +128,28 @@ test('the example profile is valid and expands its room ranges', () => {
   assert.equal(rooms.at(-1).number, 'P1');
 });
 
-test('the Sea Beach Edge profile is well formed and only waits for the hotel (TBD)', () => {
-  const problems = validateProfile(seaBeachEdge);
-  assert.equal(problems.length, 1, problems.join('\n'));
-  assert.match(problems[0], /^still to fill \(TBD\): /);
-  assert.match(problems[0], /property\.timezone/);
+test('the Sea Beach Edge profile (demo values for now) is valid: 50 rooms, five languages', () => {
+  assert.deepEqual(validateProfile(seaBeachEdge), []);
+  assert.equal(seaBeachEdge.demo, true);
   assert.equal(seaBeachEdge.property.name, 'Sea Beach Edge');
   assert.deepEqual(seaBeachEdge.property.enabledLocales, ['en', 'ar', 'it', 'ru', 'de']);
+  const rooms = expandRooms(seaBeachEdge);
+  assert.equal(rooms.length, 50);
+  assert.deepEqual(rooms.at(-1), {
+    building: 'BEACH',
+    floor: 'GF',
+    number: 'V08',
+    roomType: 'VIL',
+  });
+});
+
+test('a value still marked TBD is listed once and stops the profile', () => {
+  const pending = structuredClone(seaBeachEdge);
+  pending.property.timezone = 'TBD';
+  pending.buildings = 'TBD';
+  const problems = validateProfile(pending);
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.equal(problems[0], 'still to fill (TBD): property.timezone, buildings');
 });
 
 test('validation refuses what the API would refuse, and never guesses', () => {

@@ -21,6 +21,10 @@ as `pilot.sh`). It is safe to run again. `--local` installs on localhost without
 "Immediately after the first installation" below — the installer leaves the OpenBao unseal keys on the host for you
 to move.
 
+For the first pilot hotel with its demo data, `sudo bash infra/install/sea-beach-edge.sh --domain <domain> --email
+<e-mail>` runs the same installer and then creates Sea Beach Edge and its demo content (`docs/pilot/sea-beach-edge/`
+§4). Any hotel: `install-ubuntu.sh --hotel <profile.json> [--demo <demo.json>]`.
+
 ## First installation
 ```bash
 git clone <repo> /opt/hotella && cd /opt/hotella        # or unpack the release bundle

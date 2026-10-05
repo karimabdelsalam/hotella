@@ -1,0 +1,239 @@
+{
+  "demoVersion": 1,
+  "note": "DEMO DATA for trying the platform before the hotel's real data arrives. Every name, e-mail and guest here is fictional; replace or remove before go-live (docs/pilot/sea-beach-edge/README.md).",
+  "brand": {
+    "displayName": "Sea Beach Edge",
+    "primaryColor": "#0E7490",
+    "secondaryColor": "#F59E0B",
+    "contact": {
+      "email": "frontdesk@seabeachedge.example",
+      "website": "https://seabeachedge.example"
+    },
+    "aiPersona": {
+      "tone": "warm-professional"
+    },
+    "welcome": {
+      "en": "Welcome to Sea Beach Edge. We are here for anything you need.",
+      "ar": "أهلًا بك في Sea Beach Edge. نحن هنا لكل ما تحتاجه.",
+      "it": "Benvenuti al Sea Beach Edge. Siamo qui per qualsiasi cosa vi serva.",
+      "ru": "Добро пожаловать в Sea Beach Edge. Мы рядом, если что-то понадобится.",
+      "de": "Willkommen im Sea Beach Edge. Wir sind für alles da, was Sie brauchen."
+    }
+  },
+  "staff": [
+    {
+      "email": "gm@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "General Manager",
+      "locale": "en",
+      "role": "GENERAL_MANAGER",
+      "scope": "TENANT"
+    },
+    {
+      "email": "duty@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "Duty Manager",
+      "locale": "en",
+      "role": "DUTY_MANAGER"
+    },
+    {
+      "email": "hk.supervisor@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "HK Supervisor",
+      "locale": "ar",
+      "role": "HK_SUPERVISOR"
+    },
+    {
+      "email": "attendant@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "Room Attendant",
+      "locale": "ar",
+      "role": "ROOM_ATTENDANT"
+    },
+    {
+      "email": "chief.engineer@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "Chief Engineer",
+      "locale": "en",
+      "role": "CHIEF_ENGINEER"
+    },
+    {
+      "email": "engineer@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "Engineer",
+      "locale": "ar",
+      "role": "ENGINEER"
+    },
+    {
+      "email": "frontdesk@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "Front Desk",
+      "locale": "en",
+      "role": "FRONT_DESK"
+    },
+    {
+      "email": "relations@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "Guest Relations",
+      "locale": "it",
+      "role": "GUEST_RELATIONS"
+    },
+    {
+      "email": "restaurant@seabeachedge.example",
+      "givenName": "Demo",
+      "familyName": "Restaurant Host",
+      "locale": "en",
+      "role": "RESTAURANT_HOST"
+    }
+  ],
+  "starterCatalog": true,
+  "restaurants": [
+    {
+      "code": "LA_BREZZA",
+      "names": {
+        "en": "La Brezza (Italian)",
+        "ar": "لا بريزا (إيطالي)",
+        "it": "La Brezza (italiano)",
+        "ru": "La Brezza (итальянский)",
+        "de": "La Brezza (italienisch)"
+      },
+      "dressCode": {
+        "en": "Smart casual",
+        "ar": "ملابس أنيقة غير رسمية",
+        "it": "Smart casual",
+        "ru": "Смарт-кэжуал",
+        "de": "Smart Casual"
+      },
+      "maxParty": 6,
+      "sittings": [
+        "19:00",
+        "21:00"
+      ],
+      "seats": 24
+    },
+    {
+      "code": "CORAL_GRILL",
+      "names": {
+        "en": "Coral Grill (seafood)",
+        "ar": "كورال جريل (مأكولات بحرية)",
+        "it": "Coral Grill (pesce)",
+        "ru": "Coral Grill (морепродукты)",
+        "de": "Coral Grill (Fisch und Meeresfrüchte)"
+      },
+      "dressCode": {
+        "en": "Smart casual",
+        "ar": "ملابس أنيقة غير رسمية",
+        "it": "Smart casual",
+        "ru": "Смарт-кэжуал",
+        "de": "Smart Casual"
+      },
+      "maxParty": 8,
+      "sittings": [
+        "18:30",
+        "20:30"
+      ],
+      "seats": 30
+    }
+  ],
+  "knowledge": [
+    {
+      "title": "Hotel information (demo)",
+      "kind": "FAQ",
+      "versions": [
+        {
+          "language": "en",
+          "body": "Sea Beach Edge (demo information).\n\nCheck-in from 14:00, check-out until 12:00. Late check-out on request, subject to availability.\nBreakfast: 07:00-10:30 in the main restaurant.\nPool: 08:00-19:00. Towels at the pool bar.\nBeach: private beach with free sun loungers, 08:00-sunset.\nSpa: 10:00-21:00, booking at the spa reception.\nÀ la carte restaurants: La Brezza (Italian) and Coral Grill (seafood), booking in the guest app; one booking per restaurant per 7 nights of stay.\nWi-Fi: free in all rooms and public areas.\nPets are not allowed. Smoking only in marked outdoor areas."
+        },
+        {
+          "language": "ar",
+          "body": "Sea Beach Edge (معلومات تجريبية).\n\nتسجيل الوصول من الساعة 14:00، والمغادرة حتى 12:00. المغادرة المتأخرة عند الطلب وحسب التوفر.\nالإفطار: 07:00-10:30 في المطعم الرئيسي.\nحمام السباحة: 08:00-19:00. المناشف في بار حمام السباحة.\nالشاطئ: شاطئ خاص مع كراسي مجانية، من 08:00 حتى الغروب.\nالسبا: 10:00-21:00، الحجز في استقبال السبا.\nمطاعم الطلب من القائمة: لا بريزا (إيطالي) وكورال جريل (مأكولات بحرية)، الحجز من تطبيق النزيل؛ حجز واحد لكل مطعم لكل 7 ليالٍ من الإقامة.\nالواي فاي: مجاني في جميع الغرف والأماكن العامة.\nلا يُسمح بالحيوانات الأليفة. التدخين في الأماكن الخارجية المحددة فقط."
+        }
+      ]
+    }
+  ],
+  "pms": {
+    "name": "Demo PMS (simulator)",
+    "guests": [
+      {
+        "id": "DEMO-1",
+        "first": "Laila",
+        "last": "Hassan",
+        "language": "ar",
+        "room": "104",
+        "arrival": -2,
+        "nights": 5,
+        "state": "IN_HOUSE"
+      },
+      {
+        "id": "DEMO-2",
+        "first": "Marco",
+        "last": "Rossi",
+        "language": "it",
+        "room": "112",
+        "arrival": -1,
+        "nights": 7,
+        "state": "IN_HOUSE"
+      },
+      {
+        "id": "DEMO-3",
+        "first": "Anna",
+        "last": "Ivanova",
+        "language": "ru",
+        "room": "205",
+        "arrival": -3,
+        "nights": 10,
+        "state": "IN_HOUSE"
+      },
+      {
+        "id": "DEMO-4",
+        "first": "Lukas",
+        "last": "Becker",
+        "language": "de",
+        "room": "210",
+        "arrival": -4,
+        "nights": 4,
+        "state": "IN_HOUSE"
+      },
+      {
+        "id": "DEMO-5",
+        "first": "Emily",
+        "last": "Clark",
+        "language": "en",
+        "room": "217",
+        "arrival": -1,
+        "nights": 3,
+        "state": "IN_HOUSE"
+      },
+      {
+        "id": "DEMO-6",
+        "first": "Omar",
+        "last": "Farouk",
+        "language": "ar",
+        "room": "302",
+        "arrival": 0,
+        "nights": 4,
+        "state": "ARRIVING"
+      },
+      {
+        "id": "DEMO-7",
+        "first": "Sofia",
+        "last": "Bianchi",
+        "language": "it",
+        "room": "V03",
+        "arrival": -6,
+        "nights": 6,
+        "state": "CHECKED_OUT"
+      },
+      {
+        "id": "DEMO-8",
+        "first": "Hannah",
+        "last": "Weber",
+        "language": "de",
+        "room": "V06",
+        "arrival": -2,
+        "nights": 8,
+        "state": "IN_HOUSE"
+      }
+    ]
+  }
+}

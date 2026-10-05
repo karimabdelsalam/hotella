@@ -17,6 +17,9 @@ export default function LoginPage() {
   const [challenge, setChallenge] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // An accepted invitation brings the hotel code along (`/login?hotel=CODE`).
+  const [hotel, setHotel] = useState('');
+  useEffect(() => setHotel(new URLSearchParams(window.location.search).get('hotel') ?? ''), []);
 
   useEffect(() => {
     if (session.state === 'signed-in') router.replace('/inbox');
@@ -69,7 +72,14 @@ export default function LoginPage() {
             <>
               <label className="block text-sm">
                 {t('hotel_code')}
-                <input name="tenantCode" autoComplete="organization" className={field} dir="ltr" />
+                <input
+                  name="tenantCode"
+                  autoComplete="organization"
+                  className={field}
+                  dir="ltr"
+                  defaultValue={hotel}
+                  key={hotel}
+                />
               </label>
               <label className="block text-sm">
                 {t('email')}

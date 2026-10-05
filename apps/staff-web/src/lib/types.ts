@@ -730,3 +730,92 @@ export interface RoomStay {
   readonly room: { readonly id: string; readonly roomNumber: string };
   readonly primaryGuest: { readonly givenName: string; readonly familyName: string | null } | null;
 }
+
+// ---- hotel administration (identity users and roles; the catalog's services) ----
+
+export type UserStatus = 'INVITED' | 'ACTIVE' | 'DISABLED';
+
+export interface StaffUser {
+  readonly id: string;
+  readonly email: string;
+  readonly status: UserStatus;
+  readonly mfaEnabled: boolean;
+  readonly lastLoginAt: string | null;
+  readonly givenName: string;
+  readonly familyName: string | null;
+  readonly localePref: string | null;
+}
+
+export interface StaffMembership {
+  readonly id: string;
+  readonly propertyId: string | null;
+  readonly status: 'ACTIVE' | 'INACTIVE';
+  readonly roles: ReadonlyArray<{
+    readonly id: string;
+    readonly code: string;
+    readonly name: string;
+  }>;
+}
+
+export interface StaffUserDetail extends StaffUser {
+  readonly memberships: readonly StaffMembership[];
+}
+
+export interface RoleSummary {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly description: string | null;
+}
+
+export interface Invitation {
+  readonly user: StaffUser;
+  readonly invitation: {
+    readonly token: string;
+    readonly expiresAt: string;
+    readonly tenantCode: string | null;
+  };
+}
+
+export interface ServiceTranslation {
+  readonly locale: string;
+  readonly name: string;
+  readonly shortDescription?: string | null;
+  readonly description?: string | null;
+  readonly [field: string]: unknown;
+}
+
+export interface ServiceVersionView {
+  readonly id: string;
+  readonly versionNo: number;
+  readonly status: 'DRAFT' | 'PUBLISHED' | 'SUPERSEDED';
+  readonly departmentCode: string;
+  readonly priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  readonly guestVisible: boolean;
+  readonly version: number;
+  readonly translations: readonly ServiceTranslation[];
+}
+
+export interface CatalogService {
+  readonly id: string;
+  readonly propertyId: string | null;
+  readonly code: string;
+  readonly categoryId: string;
+  readonly status: 'ACTIVE' | 'RETIRED';
+  readonly version: number;
+  readonly published: ServiceVersionView | null;
+  readonly draft: ServiceVersionView | null;
+}
+
+export interface CatalogCategory {
+  readonly id: string;
+  readonly code: string;
+  readonly name?: string;
+  readonly translations?: ReadonlyArray<{ readonly locale: string; readonly name: string }>;
+}
+
+export interface DepartmentSummary {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+}

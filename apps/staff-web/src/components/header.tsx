@@ -22,6 +22,8 @@ const SECTIONS = [
   ['restaurant', 'restaurant.restaurant.read', 'RESTAURANT'],
   ['arrivals', 'hk.arrivals.read', 'HOUSEKEEPING'],
   ['intelligence', 'ai.insight.read', 'AI_INTELLIGENCE'],
+  ['services', 'catalog.manage', 'GUEST_EXPERIENCE'],
+  ['staff', 'iam.user.read', 'CORE'],
   ['branding', 'branding.manage', 'CORE'],
 ] as const;
 

@@ -71,6 +71,7 @@ export function validateProfile(profile) {
       need(LOCALES.includes(l), `${where}: unsupported locale ${l}`);
   };
   need(profile?.profileVersion === 1, 'profileVersion must be 1');
+  need(profile?.demo === undefined || typeof profile.demo === 'boolean', 'demo: true or false');
   const placeholders = [];
   const walk = (v, path) => {
     if (typeof v === 'string' && PLACEHOLDER.test(v)) placeholders.push(path);
@@ -207,6 +208,7 @@ export async function provision(
     defaultCurrency: profile.property.currency,
   });
   log(`tenant ${tenant.code} (${tenant.id})`);
+  if (profile.demo) log('DEMO DATA: this profile holds demo values, not the hotel’s own');
   if (tenantOnly) return { tenantId: tenant.id, propertyId: null, counts };
   const licence = await call('GET', `/control/tenants/${tenant.id}/entitlements`);
   if (!(licence?.entitlements ?? []).some((e) => e.code === 'CORE'))

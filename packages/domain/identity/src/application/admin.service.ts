@@ -108,7 +108,7 @@ export class IdentityAdminService {
   ): Promise<{
     user: UserView;
     memberships: MembershipView[];
-    invitation: { token: string; expiresAt: string };
+    invitation: { token: string; expiresAt: string; tenantCode: string | null };
   }> {
     return this.gate.execute({ action: 'iam.user.manage', tenantId: scope.tenantId }, () =>
       this.tx.run(async () => {
@@ -170,10 +170,16 @@ export class IdentityAdminService {
         for (const grant of input.memberships)
           memberships.push(await this.applyGrant(scope, user.id, grant, actor));
         // The invitation link is shown once to the inviting admin; e-mail/WhatsApp delivery arrives with comms (Phase 5).
+        // The hotel code goes with it: staff sign in with it.
+        const tenant = await this.org.getTenant(scope.tenantId);
         return {
           user: toUserView(user, person),
           memberships,
-          invitation: { token, expiresAt: expiresAt.toISOString() },
+          invitation: {
+            token,
+            expiresAt: expiresAt.toISOString(),
+            tenantCode: tenant?.code ?? null,
+          },
         };
       }),
     );
