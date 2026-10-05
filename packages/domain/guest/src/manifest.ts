@@ -3,6 +3,7 @@ import {
   GuestGrantChanged,
   GuestGrantIssued,
   GuestGrantRevoked,
+  StayChargeRecorded,
   GuestMerged,
   GuestStayRoomChanged,
   StayCreated,
@@ -37,6 +38,7 @@ export const GUEST_MANIFEST = defineManifest({
     GuestGrantIssued.name,
     GuestGrantChanged.name,
     GuestGrantRevoked.name,
+    StayChargeRecorded.name,
   ],
   localeNamespaces: ['guest'],
   integrationCapabilities: [
@@ -44,5 +46,6 @@ export const GUEST_MANIFEST = defineManifest({
     'CHECKOUT_EVENT',
     'ROOM_MOVE_EVENT',
     'RESERVATION_READ',
+    'CHECK_READ',
   ],
 });

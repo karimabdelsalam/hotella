@@ -5,6 +5,7 @@ import type { PropertyScope } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import { GuestAccessAdminService, revokeGrantSchema } from '../application/access.service';
+import { StaySpendService } from '../application/spend.service';
 import { issueRoomAccessSchema, RoomAccessService } from '../application/room-access.service';
 import {
   dataRequestSchema,
@@ -43,6 +44,7 @@ export class StaysController {
   constructor(
     private readonly stays: StayQueryService,
     private readonly guests: GuestQueryService,
+    private readonly spend: StaySpendService,
     private readonly ctx: RequestContext,
     private readonly actors: ActorStore,
   ) {}
@@ -57,6 +59,13 @@ export class StaysController {
   @RequirePermission('stay.read')
   get(@Param('propertyId') propertyId: string, @Param('stayId') stayId: string) {
     return this.stays.get(propertyScope(this.ctx, this.actors, propertyId), stayId);
+  }
+
+  /** POS spend of the stay (BUILD_PLAN 13.5): checks and totals per outlet category and settlement. */
+  @Get('stays/:stayId/spend')
+  @RequirePermission('stay.read')
+  staySpend(@Param('propertyId') propertyId: string, @Param('stayId') stayId: string) {
+    return this.spend.get(propertyScope(this.ctx, this.actors, propertyId), stayId);
   }
 
   @Get('rooms/:roomId/current-stay')

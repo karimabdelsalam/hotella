@@ -1,0 +1,171 @@
+{
+  "connector": "POS_STANDARD",
+  "version": 1,
+  "cases": [
+    {
+      "name": "a room-charged check becomes one POS_CHECK_CLOSED record, totals verbatim",
+      "message": {
+        "message_type": "POS_CHECK",
+        "source_message_id": "CHK-1001",
+        "payload": {
+          "check_id": "CHK-1001",
+          "outlet": "OUT-REST",
+          "room": "214",
+          "reservation": {
+            "external_id": "R100",
+            "confirmation_number": "C100"
+          },
+          "closed_at": "2026-10-05T21:15:00+02:00",
+          "total_minor": 184500,
+          "currency": "EGP",
+          "covers": 2,
+          "settlement": "ROOM_CHARGE"
+        }
+      },
+      "expect": {
+        "ok": true,
+        "records": [
+          {
+            "kind": "POS_CHECK_CLOSED",
+            "check": {
+              "external_id": "CHK-1001"
+            },
+            "outlet_code": "OUT-REST",
+            "room_code": "214",
+            "reservation": {
+              "external_id": "R100",
+              "confirmation_number": "C100"
+            },
+            "total_minor": 184500,
+            "currency": "EGP",
+            "covers": 2,
+            "settlement": "ROOM_CHARGE",
+            "occurred_at": "2026-10-05T21:15:00+02:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a walk-in cash check has no room, reservation or covers",
+      "message": {
+        "message_type": "POS_CHECK",
+        "source_message_id": "CHK-1002",
+        "payload": {
+          "check_id": "CHK-1002",
+          "outlet": "OUT-BAR",
+          "closed_at": "2026-10-05T22:00:00Z",
+          "total_minor": 9000,
+          "currency": "EGP",
+          "settlement": "CASH"
+        }
+      },
+      "expect": {
+        "ok": true,
+        "records": [
+          {
+            "kind": "POS_CHECK_CLOSED",
+            "check": {
+              "external_id": "CHK-1002"
+            },
+            "outlet_code": "OUT-BAR",
+            "room_code": null,
+            "reservation": null,
+            "total_minor": 9000,
+            "currency": "EGP",
+            "covers": null,
+            "settlement": "CASH",
+            "occurred_at": "2026-10-05T22:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a negative total is refused",
+      "message": {
+        "message_type": "POS_CHECK",
+        "source_message_id": "CHK-1003",
+        "payload": {
+          "check_id": "CHK-1003",
+          "outlet": "OUT-BAR",
+          "closed_at": "2026-10-05T22:00:00Z",
+          "total_minor": -1,
+          "currency": "EGP",
+          "settlement": "CASH"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "total_minor"
+      }
+    },
+    {
+      "name": "card data has no place: an unknown settlement is refused",
+      "message": {
+        "message_type": "POS_CHECK",
+        "source_message_id": "CHK-1004",
+        "payload": {
+          "check_id": "CHK-1004",
+          "outlet": "OUT-BAR",
+          "closed_at": "2026-10-05T22:00:00Z",
+          "total_minor": 100,
+          "currency": "EGP",
+          "settlement": "VISA"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "settlement"
+      }
+    },
+    {
+      "name": "a closing time without an offset is refused",
+      "message": {
+        "message_type": "POS_CHECK",
+        "source_message_id": "CHK-1005",
+        "payload": {
+          "check_id": "CHK-1005",
+          "outlet": "OUT-BAR",
+          "closed_at": "2026-10-05T22:00:00",
+          "total_minor": 100,
+          "currency": "EGP",
+          "settlement": "CASH"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "closed_at"
+      }
+    },
+    {
+      "name": "a message id other than the check id is refused",
+      "message": {
+        "message_type": "POS_CHECK",
+        "source_message_id": "pos-7",
+        "payload": {
+          "check_id": "CHK-1007",
+          "outlet": "OUT-BAR",
+          "closed_at": "2026-10-05T22:00:00Z",
+          "total_minor": 100,
+          "currency": "EGP",
+          "settlement": "CASH"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "source_message_id must be the check id"
+      }
+    },
+    {
+      "name": "another message type is refused",
+      "message": {
+        "message_type": "ORDER",
+        "source_message_id": "pos-6",
+        "payload": {}
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "unsupported message type ORDER"
+      }
+    }
+  ]
+}

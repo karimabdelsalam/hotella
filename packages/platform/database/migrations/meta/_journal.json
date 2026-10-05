@@ -414,6 +414,13 @@
       "when": 1791232359517,
       "tag": "0058_comms_calls",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791233708021,
+      "tag": "0059_guest_stay_charges",
+      "breakpoints": true
     }
   ]
 }

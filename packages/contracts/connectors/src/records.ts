@@ -65,6 +65,29 @@ export const telemetryBatchPayloadSchema = z.object({
 });
 export type TelemetryBatchPayload = z.infer<typeof telemetryBatchPayloadSchema>;
 
+/** How a POS check was settled (Planova POS Profile v1); card data never leaves the POS. */
+export const POS_SETTLEMENTS = ['ROOM_CHARGE', 'CASH', 'CARD', 'OTHER'] as const;
+const currency = z.string().regex(/^[A-Z]{3}$/);
+
+/**
+ * Planova POS Profile v1: the raw message a POS bridge sends when a check closes — totals only (no item lines, no card
+ * data, no guest names). The outlet code is mapped (OUTLET), the room code too (ROOM); a vendor POS adapter is a
+ * connector that produces exactly this.
+ */
+export const POS_CHECK_MESSAGE = 'POS_CHECK';
+export const posCheckPayloadSchema = z.object({
+  check_id: z.string().min(1).max(128),
+  outlet: code,
+  room: code.nullable().default(null),
+  reservation: inboundReservationSchema.nullable().default(null),
+  closed_at: instant,
+  total_minor: z.number().int().min(0).max(2_000_000_000),
+  currency,
+  covers: z.number().int().min(0).max(500).nullable().default(null),
+  settlement: z.enum(POS_SETTLEMENTS),
+});
+export type PosCheckPayload = z.infer<typeof posCheckPayloadSchema>;
+
 export const inboundRecordSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('CHECK_IN'),
@@ -133,6 +156,21 @@ export const inboundRecordSchema = z.discriminatedUnion('kind', [
     kind: z.literal('TELEMETRY_SAMPLES'),
     samples: z.array(telemetrySampleSchema).min(1).max(MAX_TELEMETRY_SAMPLES),
   }),
+  /** A closed POS check (Planova POS Profile v1, BUILD_PLAN 13.5): spend facts for the stay it belongs to. */
+  z.object({
+    kind: z.literal('POS_CHECK_CLOSED'),
+    check: z.object({ external_id: z.string().min(1).max(128) }),
+    /** External outlet code; mapped (OUTLET, required) to an outlet category. */
+    outlet_code: code,
+    /** External room code the check was charged to or served in; mapped (ROOM). */
+    room_code: code.nullable().default(null),
+    reservation: inboundReservationSchema.nullable().default(null),
+    total_minor: z.number().int().min(0).max(2_000_000_000),
+    currency,
+    covers: z.number().int().min(0).max(500).nullable().default(null),
+    settlement: z.enum(POS_SETTLEMENTS),
+    occurred_at: instant,
+  }),
 ]);
 export type InboundRecord = z.infer<typeof inboundRecordSchema>;
 export type InboundRecordInput = z.input<typeof inboundRecordSchema>;
@@ -151,6 +189,7 @@ export const RECORD_CAPABILITY = {
   IN_HOUSE_ENTRY: 'RECONCILIATION_READ',
   SYNC_END: 'RECONCILIATION_READ',
   TELEMETRY_SAMPLES: 'TELEMETRY_READ',
+  POS_CHECK_CLOSED: 'CHECK_READ',
 } as const satisfies Record<InboundRecordKind, ConnectorCapability>;
 
 /**
@@ -168,6 +207,9 @@ export function orderingKeyOf(record: InboundRecord): string {
     // Aggregates are order-independent and telemetry never waits for a mapping.
     case 'TELEMETRY_SAMPLES':
       return 'telemetry';
+    // Checks are independent facts; a check waiting for an outlet mapping holds back only itself.
+    case 'POS_CHECK_CLOSED':
+      return `pos:${record.check.external_id}`;
     case 'PROFILE_UPDATE':
       return record.reservation
         ? `reservation:${record.reservation.external_id}`

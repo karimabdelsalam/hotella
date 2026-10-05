@@ -8,6 +8,7 @@ import { AgentLinkClient } from './agent/link-client';
 import { DurableQueue } from './agent/queue';
 import { type Face, SimulatedPms } from './pms/hotel';
 import { CHILLER_SCENARIO, inboundBody, postInbound, samplesBetween } from './bms/building';
+import { SimulatedPos } from './pos/outlets';
 import { loadScenario, runScenario } from './scenario';
 
 const AGENT_VERSION = 'hotella-sim/1';
@@ -35,6 +36,7 @@ const out = (line: string) => process.stdout.write(`${line}\n`);
  * hotella-sim enroll --gateway <url> --ca <ca.pem> --token <token> --state <dir>
  * hotella-sim run    --gateway <url> --state <dir> --scenario <file.yml> [--faces FIAS,OWS] [--keep-running]
  * hotella-sim bms    --api <url> --endpoint <id> --secret-file <file> [--minutes 20]
+ * hotella-sim pos    --api <url> --endpoint <id> --secret-file <file> [--rooms 214,215] [--checks 12]
  */
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
@@ -52,6 +54,8 @@ async function main(): Promise<void> {
       endpoint: { type: 'string' },
       'secret-file': { type: 'string' },
       minutes: { type: 'string', default: '20' },
+      rooms: { type: 'string', default: '' },
+      checks: { type: 'string', default: '12' },
     },
   });
   const state = values.state!;
@@ -67,6 +71,21 @@ async function main(): Promise<void> {
       `sim-bms-${start.getTime()}`,
     );
     out(JSON.stringify(await postInbound(values.api, values.endpoint, secret, body)));
+    return;
+  }
+  if (command === 'pos') {
+    // An evening of closed checks through the signed webhook ingress (BUILD_PLAN 13.5).
+    if (!values.api || !values.endpoint || !values['secret-file'])
+      throw new Error('pos needs --api, --endpoint and --secret-file');
+    const rooms = values.rooms!.split(',').filter(Boolean);
+    const count = Math.max(1, Math.min(200, Number(values.checks)));
+    const secret = readFileSync(values['secret-file'], 'utf8').trim();
+    const messages = new SimulatedPos(undefined, Date.now() % 100_000 || 1).evening(rooms, count);
+    out(
+      JSON.stringify(
+        await postInbound(values.api, values.endpoint, secret, JSON.stringify({ messages })),
+      ),
+    );
     return;
   }
   if (command === 'enroll') {

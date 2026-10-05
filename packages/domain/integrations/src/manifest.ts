@@ -3,6 +3,7 @@ import {
   AccessIssued,
   AccessRevoked,
   HOTEL_EVENTS,
+  PosCheckClosed,
   IntegrationCapabilityChanged,
   IntegrationExceptionOpened,
   IntegrationHealthChanged,
@@ -74,6 +75,7 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
   // The Integration Platform is the only producer of canonical hotel.* events (Spec §51).
   events: [
     ...HOTEL_EVENTS.map((e) => e.name),
+    PosCheckClosed.name,
     IntegrationExceptionOpened.name,
     IntegrationHealthChanged.name,
     IntegrationCapabilityChanged.name,

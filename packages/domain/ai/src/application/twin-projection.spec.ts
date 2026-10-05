@@ -2,6 +2,7 @@ import {
   type EventDefinition,
   GuestStayRoomChanged,
   MessageReceived,
+  StayChargeRecorded,
   TaskAssigned,
   WorkOrderCreated,
 } from '@hotella/contracts-events';
@@ -55,6 +56,33 @@ describe('twin projection (BUILD_PLAN 12.3)', () => {
         }),
       ),
     ).toEqual([{ op: 'unlink', from: { kind: 'STAY', id: id(1) }, relation: 'IN_ROOM' }]);
+  });
+
+  it('hangs a POS check on its stay with amounts and outlet only (BUILD_PLAN 13.5)', () => {
+    const ops = projectEvent(
+      envelope(StayChargeRecorded, {
+        charge_id: id(7),
+        stay_id: id(1),
+        room_id: id(3),
+        outlet_category: 'BAR',
+        settlement: 'ROOM_CHARGE',
+        total_minor: 4500,
+        currency: 'EGP',
+        covers: null,
+        closed_at: '2026-10-05T21:00:00Z',
+      }),
+    );
+    expect(ops[0]).toMatchObject({
+      op: 'node',
+      ref: { kind: 'POS_CHECK', id: id(7) },
+      attributes: { outlet: 'BAR', total_minor: 4500, currency: 'EGP' },
+    });
+    expect(ops.at(-1)).toEqual({
+      op: 'link',
+      from: { kind: 'STAY', id: id(1) },
+      relation: 'HAS_CHARGE',
+      to: { kind: 'POS_CHECK', id: id(7) },
+    });
   });
 
   it('reassigns work from one person to the next, and ties a work order to its asset, place and work', () => {

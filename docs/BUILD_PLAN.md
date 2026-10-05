@@ -3364,6 +3364,27 @@ Simulator: `SimulatedVoiceGateway` (signs events, serves `/say` and `/transfer`,
 call → towels request → spoken answer → minutes metered; untrusted callers, egress refusal and hand-off go to the
 operator; tenant leak), `voice/gateway.spec.ts` (simulator).
 
+**13.5 design (refined before coding).** Two parts, both behind neutral Planova profiles (vendors are Q26).
+- *POS (part 1):* connector `POS_STANDARD` (agent or webhook), message `POS_CHECK` (capability `CHECK_READ`) →
+  record `POS_CHECK_CLOSED {check.external_id, reservation?, room_code?, outlet_code, closed_at, total_minor, currency,
+  covers?, settlement ROOM_CHARGE|CASH|CARD|OTHER}` — no card data, no item lines, no names. New mapping type `OUTLET`
+  (required; internal value one of `RESTAURANT|BAR|ROOM_SERVICE|SPA|MINIBAR|SHOP|OTHER`, confirmed by staff, never
+  guessed). Canonical `hotel.pos.check_closed.v1` (opaque check and reservation refs, mapped room, outlet category,
+  amounts). The guest context owns spend facts: consumer `guest.pos-spend` finds the stay (reservation reference first,
+  else the in-house stay whose room assignment covers `closed_at`; none ⇒ ignored, a walk-in), stores
+  `guest.stay_charges` once per event and publishes `guest.stay_charge.recorded.v1` (internal ids only); the twin adds a
+  `POS_CHECK` node linked `STAY -HAS_CHARGE-> POS_CHECK`. Staff read `/properties/:id/stays/:stayId/spend`
+  (`stay.read`): totals per outlet category and settlement. Simulator: POS face posting checks.
+- *ERP (part 2):* connector `ERP_STANDARD` — query `ERP_STOCK` (`STOCK_READ`, rows `{item_code, on_hand, unit,
+  warehouse}`) and command `REQUISITION_CREATE` (`{requisition_ref, lines[{item_code, quantity, unit}], needed_by?}`).
+  The ERP item code of a part is an external reference (`eng.part` ↔ `ERP_ITEM`, rule 3), linked by staff;
+  `ERP_API` (integrations) reads stock by part ids and sends requisitions, and publishes
+  `integration.requisition.settled.v1` on the command result. Engineering: `eng.requisitions` (status
+  `PENDING_APPROVAL|APPROVED|SENT|CONFIRMED|FAILED|REJECTED`, timestamps per step), approval kind `ENG_REQUISITION`
+  (always a person, never automatic), the approved requisition is sent when an ERP connector serves
+  `REQUISITION_CREATE` (otherwise it stays APPROVED for a manual purchase); APIs `/eng/parts/:id/erp-item`,
+  `/eng/parts/:id/stock`, `/eng/requisitions`; permission `eng.requisition.request`. Simulator: ERP face.
+
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,
   access state machine, voice profile parsing, connector registry and contract vectors.

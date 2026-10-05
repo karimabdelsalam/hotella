@@ -57,6 +57,37 @@ export const GuestStayRoomChanged = defineEvent({
   }),
 });
 
+/**
+ * A POS check was tied to a stay (BUILD_PLAN 13.5): the stay's spend facts grew. Internal ids and amounts only — the
+ * POS's check and reservation ids stay in the integration context.
+ */
+export const StayChargeRecorded = defineEvent({
+  type: 'guest.stay_charge.recorded',
+  version: 1,
+  delivery: 'normal',
+  description:
+    'A closed POS check was recorded against a stay (outlet category, total, settlement).',
+  payload: z.object({
+    charge_id: z.uuid(),
+    stay_id: z.uuid(),
+    room_id: z.uuid().nullable(),
+    outlet_category: z.enum([
+      'RESTAURANT',
+      'BAR',
+      'ROOM_SERVICE',
+      'SPA',
+      'MINIBAR',
+      'SHOP',
+      'OTHER',
+    ]),
+    settlement: z.enum(['ROOM_CHARGE', 'CASH', 'CARD', 'OTHER']),
+    total_minor: z.number().int().min(0),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    covers: z.number().int().min(0).nullable(),
+    closed_at: z.iso.datetime({ offset: true }),
+  }),
+});
+
 export const GuestMerged = defineEvent({
   type: 'guest.guest.merged',
   version: 1,

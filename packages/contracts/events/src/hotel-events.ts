@@ -185,6 +185,37 @@ export const RoomStatusChanged = defineEvent({
   }),
 });
 
+/**
+ * A POS check closed (Planova POS Profile v1, BUILD_PLAN 13.5). Totals only — no item lines, card data or names. The
+ * guest context ties it to a stay (reservation reference, else the room at `closed_at`); walk-in checks have none.
+ */
+export const PosCheckClosed = defineEvent({
+  type: 'hotel.pos.check_closed',
+  version: 1,
+  canonical: true,
+  description:
+    'A POS check closed: outlet category, total, covers and settlement, with the room or reservation it was charged to.',
+  payload: z.object({
+    check: z.object({ integration_instance_id: z.uuid(), external_id: z.string().min(1).max(128) }),
+    reservation: reservationRefSchema.nullable(),
+    room: roomRefSchema.nullable(),
+    outlet_category: z.enum([
+      'RESTAURANT',
+      'BAR',
+      'ROOM_SERVICE',
+      'SPA',
+      'MINIBAR',
+      'SHOP',
+      'OTHER',
+    ]),
+    total_minor: z.number().int().min(0),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    covers: z.number().int().min(0).nullable(),
+    settlement: z.enum(['ROOM_CHARGE', 'CASH', 'CARD', 'OTHER']),
+    closed_at: instant,
+  }),
+});
+
 /** Every canonical PMS event, for consumers that subscribe to the whole family. */
 export const HOTEL_EVENTS = [
   ReservationCreated,

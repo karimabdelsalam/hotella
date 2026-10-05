@@ -573,3 +573,54 @@ export const guestSessions = classify(
 export type GuestAccessGrantRow = typeof guestAccessGrants.$inferSelect;
 export type GuestAccessGrantEventRow = typeof guestAccessGrantEvents.$inferSelect;
 export type GuestSessionRow = typeof guestSessions.$inferSelect;
+
+// ---- spend facts (BUILD_PLAN 13.5) ----
+
+/**
+ * Closed POS checks tied to a stay: totals per outlet category and settlement, once per canonical event. No item lines,
+ * card data or POS ids (those stay in the integration context). Spend is CONFIDENTIAL; the rows outlive anonymization
+ * of the guest because they carry nothing that identifies a person.
+ */
+export const stayCharges = classify(
+  guest.table(
+    'stay_charges',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      stayId: uuid('stay_id')
+        .notNull()
+        .references(() => stays.id, { onDelete: 'restrict' }),
+      roomId: uuid('room_id'),
+      /** The canonical `hotel.pos.check_closed` event this fact came from (idempotency). */
+      sourceEventId: uuid('source_event_id').notNull(),
+      outletCategory: varchar('outlet_category', { length: 16 }).notNull(),
+      settlement: varchar('settlement', { length: 16 }).notNull(),
+      totalMinor: integer('total_minor').notNull(),
+      currency: varchar('currency', { length: 3 }).notNull(),
+      covers: integer('covers'),
+      closedAt: tz('closed_at').notNull(),
+    },
+    (t) => [
+      unique('stay_charges_source_uq').on(t.tenantId, t.sourceEventId),
+      index('stay_charges_stay_idx').on(t.tenantId, t.stayId, t.closedAt),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    stayId: 'INTERNAL',
+    roomId: 'INTERNAL',
+    sourceEventId: 'INTERNAL',
+    outletCategory: 'INTERNAL',
+    settlement: 'CONFIDENTIAL',
+    totalMinor: 'CONFIDENTIAL',
+    currency: 'INTERNAL',
+    covers: 'CONFIDENTIAL',
+    closedAt: 'INTERNAL',
+  },
+);
+export type StayChargeRow = typeof stayCharges.$inferSelect;

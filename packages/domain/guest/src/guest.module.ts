@@ -18,6 +18,8 @@ import { StayProjector } from './application/stay-projector';
 import { StayReconciler } from './application/stay-reconciler';
 import { GuestDataService } from './application/guest-data.service';
 import { GuestRepositories } from './infrastructure/repositories';
+import { SpendRepositories } from './infrastructure/spend-repositories';
+import { StaySpendService } from './application/spend.service';
 import { GUEST_MANIFEST } from './manifest';
 import { GUEST_API } from './public';
 import { GuestPublicApiService } from './public-api.service';
@@ -25,6 +27,8 @@ import { GuestPublicApiService } from './public-api.service';
 /** Consumer name in the inbox: one exactly-once effect per canonical event for the stay projection. */
 export const STAY_PROJECTOR_CONSUMER = 'guest.stay-projector';
 export const STAY_RECONCILER_CONSUMER = 'guest.stay-reconciler';
+/** POS checks become spend facts of stays (BUILD_PLAN 13.5). */
+export const STAY_SPEND_CONSUMER = 'guest.pos-spend';
 
 /**
  * The guest context without HTTP routes: repositories, the stay projector and GUEST_API. Global so other contexts
@@ -38,11 +42,14 @@ export const STAY_RECONCILER_CONSUMER = 'guest.stay-reconciler';
     GuestAccessService,
     StayProjector,
     StayReconciler,
+    SpendRepositories,
+    StaySpendService,
     GuestPublicApiService,
     { provide: GUEST_API, useExisting: GuestPublicApiService },
   ],
   exports: [
     GUEST_API,
+    StaySpendService,
     StayProjector,
     StayReconciler,
     GuestRepositories,
@@ -87,6 +94,7 @@ export class GuestEventsModule implements OnModuleInit {
     private readonly consumers: EventConsumerRegistry,
     private readonly projector: StayProjector,
     private readonly reconciler: StayReconciler,
+    private readonly spend: StaySpendService,
   ) {}
   onModuleInit(): void {
     for (const def of StayProjector.consumes)
@@ -97,6 +105,8 @@ export class GuestEventsModule implements OnModuleInit {
       this.consumers.on(def.name, STAY_RECONCILER_CONSUMER, (envelope) =>
         this.reconciler.apply(envelope),
       );
+    for (const def of StaySpendService.consumes)
+      this.consumers.on(def.name, STAY_SPEND_CONSUMER, (envelope) => this.spend.apply(envelope));
   }
 }
 
@@ -110,4 +120,10 @@ export function reconcileOnce(idempotency: IdempotentConsumer, reconciler: StayR
 export function projectOnce(idempotency: IdempotentConsumer, projector: StayProjector) {
   return (envelope: Parameters<StayProjector['apply']>[0]) =>
     idempotency.once(STAY_PROJECTOR_CONSUMER, envelope, (e) => projector.apply(e));
+}
+
+/** Test and tooling helper: record one POS check exactly once, as the worker does. */
+export function recordSpendOnce(idempotency: IdempotentConsumer, spend: StaySpendService) {
+  return (envelope: Parameters<StaySpendService['apply']>[0]) =>
+    idempotency.once(STAY_SPEND_CONSUMER, envelope, (e) => spend.apply(e));
 }

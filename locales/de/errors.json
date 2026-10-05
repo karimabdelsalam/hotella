@@ -82,6 +82,7 @@
   "errors.integration.message.not_replayable": "Diese Nachricht kann in ihrem aktuellen Zustand nicht erneut verarbeitet werden.",
   "errors.integration.mapping.room_not_found": "Das ausgewählte Zimmer existiert in diesem Haus nicht.",
   "errors.integration.mapping.invalid_code": "Verwenden Sie einen Code in Großbuchstaben mit bis zu 32 Buchstaben, Ziffern oder Unterstrichen.",
+  "errors.integration.mapping.invalid_outlet": "Wählen Sie eine Outlet-Kategorie: Restaurant, Bar, Zimmerservice, Spa, Minibar, Shop oder Sonstiges.",
   "errors.integration.mapping.point_in_engineering": "Telemetrie-Messpunkte werden unter Technik → Telemetrie zugeordnet, nicht hier.",
   "errors.integration.exception.not_found": "Integrationsausnahme nicht gefunden.",
   "errors.integration.capability_unavailable": "Diese Aktion erfordert ein angebundenes System, das {capability} unterstützt.",

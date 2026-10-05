@@ -17,6 +17,8 @@ export const TWIN_KINDS = [
   'INSPECTION',
   'LOST_ITEM',
   'STAFF',
+  // A closed POS check tied to a stay (BUILD_PLAN 13.5): spend, never items or names.
+  'POS_CHECK',
 ] as const;
 export type TwinKind = (typeof TWIN_KINDS)[number];
 
@@ -31,6 +33,7 @@ export const TWIN_RELATIONS = [
   'TRACKS', // WORK_ORDER / SERVICE_REQUEST → WORK_ITEM (the operational work behind it)
   'ON_ASSET', // WORK_ORDER / INSPECTION → ASSET
   'RAISED', // INSPECTION → WORK_ITEM (a finding's urgent work)
+  'HAS_CHARGE', // STAY → POS_CHECK
 ] as const;
 export type TwinRelation = (typeof TWIN_RELATIONS)[number];
 

@@ -751,6 +751,7 @@ export const twinKind = ai.enum('twin_kind', [
   'INSPECTION',
   'LOST_ITEM',
   'STAFF',
+  'POS_CHECK',
 ]);
 
 /**

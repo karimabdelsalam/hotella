@@ -62,6 +62,7 @@ export const mappingType = integration.enum('mapping_type', [
   'VIP',
   'ROOM_STATUS',
   'POINT',
+  'OUTLET',
 ]);
 export const exceptionKind = integration.enum('exception_kind', [
   'UNKNOWN_MAPPING',

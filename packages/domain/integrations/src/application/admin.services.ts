@@ -6,7 +6,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { z } from 'zod';
-import type { ConnectorManifest } from '@hotella/contracts-connectors';
+import { type ConnectorManifest, OUTLET_CATEGORIES } from '@hotella/contracts-connectors';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
 import { AuditWriter } from '@hotella/platform-audit';
 import { ActionGate, ActorStore } from '@hotella/platform-auth';
@@ -431,6 +431,12 @@ export class MappingService {
         throw new AppError('integration.mapping.room_not_found', HttpStatus.UNPROCESSABLE_ENTITY);
       return;
     }
+    // A POS outlet is one of a fixed set of categories (BUILD_PLAN 13.5).
+    if (
+      input.mappingType === 'OUTLET' &&
+      !(OUTLET_CATEGORIES as readonly string[]).includes(input.internalValue)
+    )
+      throw new AppError('integration.mapping.invalid_outlet', HttpStatus.UNPROCESSABLE_ENTITY);
     if (!CANONICAL_CODE_RE.test(input.internalValue))
       throw new AppError('integration.mapping.invalid_code', HttpStatus.UNPROCESSABLE_ENTITY);
   }

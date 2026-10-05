@@ -82,6 +82,7 @@
   "errors.integration.message.not_replayable": "لا يمكن إعادة معالجة هذه الرسالة في حالتها الحالية.",
   "errors.integration.mapping.room_not_found": "الغرفة المختارة غير موجودة في هذا الفندق.",
   "errors.integration.mapping.invalid_code": "استخدم رمزًا بأحرف لاتينية كبيرة أو أرقام أو شرطة سفلية بحد أقصى 32 حرفًا.",
+  "errors.integration.mapping.invalid_outlet": "اختر فئة المنفذ: مطعم أو بار أو خدمة الغرف أو سبا أو ميني بار أو متجر أو أخرى.",
   "errors.integration.mapping.point_in_engineering": "تُربط نقاط القياس من الهندسة ← الحساسات، وليس من هنا.",
   "errors.integration.exception.not_found": "لم يتم العثور على استثناء الربط.",
   "errors.integration.capability_unavailable": "يتطلب هذا الإجراء نظامًا مربوطًا يدعم {capability}.",

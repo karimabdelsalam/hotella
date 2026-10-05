@@ -114,9 +114,27 @@ export const MAPPING_TYPES = [
   'ROOM_STATUS',
   // A telemetry point; engineering's point registry is the mapping (BUILD_PLAN 13.2), so it never blocks a message.
   'POINT',
+  // A POS outlet (BUILD_PLAN 13.5): mapped by staff to one of OUTLET_CATEGORIES.
+  'OUTLET',
 ] as const;
 export type MappingType = (typeof MAPPING_TYPES)[number];
-export const REQUIRED_MAPPING_TYPES: ReadonlySet<MappingType> = new Set(['ROOM', 'ROOM_STATUS']);
+export const REQUIRED_MAPPING_TYPES: ReadonlySet<MappingType> = new Set([
+  'ROOM',
+  'ROOM_STATUS',
+  'OUTLET',
+]);
+
+/** What a POS outlet is, as far as the platform cares (the internal value of an OUTLET mapping). */
+export const OUTLET_CATEGORIES = [
+  'RESTAURANT',
+  'BAR',
+  'ROOM_SERVICE',
+  'SPA',
+  'MINIBAR',
+  'SHOP',
+  'OTHER',
+] as const;
+export type OutletCategory = (typeof OUTLET_CATEGORIES)[number];
 
 /** Integration health states (Spec §57). */
 export const INTEGRATION_HEALTH_STATES = [

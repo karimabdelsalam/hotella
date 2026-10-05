@@ -14,6 +14,7 @@ import {
   RoomRestrictionChanged,
   ServiceRequestCreated,
   ServiceRequestStatusChanged,
+  StayChargeRecorded,
   StayCreated,
   StayStatusChanged,
   TaskAssigned,
@@ -65,6 +66,26 @@ const PROJECTIONS: Record<string, (envelope: EventEnvelope) => TwinOp[]> = {
           },
         ]
       : [{ op: 'unlink', from: stay, relation: 'IN_ROOM' }];
+  },
+  [StayChargeRecorded.name]: (envelope) => {
+    const p = StayChargeRecorded.parse(envelope).payload;
+    const check = ref('POS_CHECK', p.charge_id);
+    return [
+      {
+        op: 'node',
+        ref: check,
+        state: 'CLOSED',
+        attributes: {
+          outlet: p.outlet_category,
+          settlement: p.settlement,
+          total_minor: p.total_minor,
+          currency: p.currency,
+          covers: p.covers,
+        },
+      },
+      { op: 'node', ref: ref('STAY', p.stay_id) },
+      { op: 'link', from: ref('STAY', p.stay_id), relation: 'HAS_CHARGE', to: check },
+    ];
   },
   [GuestAnonymized.name]: (envelope) => {
     const p = GuestAnonymized.parse(envelope).payload;

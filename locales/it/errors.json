@@ -82,6 +82,7 @@
   "errors.integration.message.not_replayable": "Questo messaggio non può essere rieseguito nel suo stato attuale.",
   "errors.integration.mapping.room_not_found": "La camera selezionata non esiste in questa struttura.",
   "errors.integration.mapping.invalid_code": "Utilizzi un codice in maiuscolo di massimo 32 lettere, cifre o trattini bassi.",
+  "errors.integration.mapping.invalid_outlet": "Scelga una categoria di punto vendita: ristorante, bar, servizio in camera, spa, minibar, negozio o altro.",
   "errors.integration.mapping.point_in_engineering": "I punti di telemetria si associano in Manutenzione → Telemetria, non qui.",
   "errors.integration.exception.not_found": "Eccezione di integrazione non trovata.",
   "errors.integration.capability_unavailable": "Questa azione richiede un sistema collegato che supporti {capability}.",

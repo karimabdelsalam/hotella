@@ -10,6 +10,7 @@ import {
   GuestCheckedOut,
   type GuestProfile,
   GuestProfileUpdated,
+  PosCheckClosed,
   ReservationCancelled,
   ReservationCreated,
   ReservationUpdated,
@@ -67,6 +68,10 @@ export function codesOf(record: InboundRecord): CodeNeed[] {
       break;
     case 'TELEMETRY_SAMPLES':
       // Points are resolved by engineering's registry, which reports unknown ones (never blocking).
+      break;
+    case 'POS_CHECK_CLOSED':
+      add('OUTLET', record.outlet_code);
+      add('ROOM', record.room_code);
       break;
   }
   return out;
@@ -215,6 +220,25 @@ export function toCanonical(
           updated_at: record.occurred_at,
         },
       };
+    case 'POS_CHECK_CLOSED': {
+      const category = codes.get('OUTLET', record.outlet_code);
+      if (!category) throw new Error('unresolved required OUTLET code'); // guarded by the caller
+      return {
+        definition: PosCheckClosed,
+        occurredAt: record.occurred_at,
+        payload: {
+          check: { integration_instance_id: instanceId, external_id: record.check.external_id },
+          reservation: record.reservation ? reservation(record.reservation) : null,
+          room: record.room_code ? room(record.room_code) : null,
+          outlet_category: category,
+          total_minor: record.total_minor,
+          currency: record.currency,
+          covers: record.covers,
+          settlement: record.settlement,
+          closed_at: record.occurred_at,
+        },
+      };
+    }
     case 'ROOM_STATUS':
       return {
         definition: RoomStatusChanged,

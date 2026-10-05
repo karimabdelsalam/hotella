@@ -90,6 +90,7 @@ export {
   GuestGrantRevoked,
   GuestMerged,
   GuestStayRoomChanged,
+  StayChargeRecorded,
   StayCreated,
   StayStatusChanged,
 } from './guest-events';
@@ -127,6 +128,7 @@ export {
   GuestProfileUpdated,
   guestProfileSchema,
   HOTEL_EVENTS,
+  PosCheckClosed,
   ReservationCancelled,
   ReservationCreated,
   reservationRefSchema,

@@ -5,6 +5,7 @@ export {
   isConnectorCapability,
   isWriteCapability,
   MAPPING_TYPES,
+  OUTLET_CATEGORIES,
   REQUIRED_MAPPING_TYPES,
   WRITE_CAPABILITIES,
 } from './capabilities';
@@ -13,6 +14,7 @@ export type {
   ConnectorCategory,
   IntegrationHealthState,
   MappingType,
+  OutletCategory,
 } from './capabilities';
 export {
   CONNECTOR_CODE_RE,
@@ -53,6 +55,9 @@ export {
   MAX_TELEMETRY_SAMPLES,
   orderingKeyOf,
   RECORD_CAPABILITY,
+  POS_CHECK_MESSAGE,
+  POS_SETTLEMENTS,
+  posCheckPayloadSchema,
   TELEMETRY_BATCH_MESSAGE,
   telemetryBatchPayloadSchema,
   telemetrySampleSchema,
@@ -62,6 +67,7 @@ export type {
   InboundRecord,
   InboundRecordInput,
   InboundRecordKind,
+  PosCheckPayload,
   TelemetryBatchPayload,
   TelemetrySample,
 } from './records';

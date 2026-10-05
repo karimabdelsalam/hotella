@@ -3103,7 +3103,8 @@
                 "MARKET",
                 "VIP",
                 "ROOM_STATUS",
-                "POINT"
+                "POINT",
+                "OUTLET"
               ]
             }
           },
@@ -4483,6 +4484,45 @@
     "/api/v1/properties/{propertyId}/stays/{stayId}": {
       "get": {
         "operationId": "StaysController_get",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stayId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stays"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/stays/{stayId}/spend": {
+      "get": {
+        "operationId": "StaysController_staySpend",
         "parameters": [
           {
             "name": "propertyId",
@@ -19139,7 +19179,8 @@
               "MARKET",
               "VIP",
               "ROOM_STATUS",
-              "POINT"
+              "POINT",
+              "OUTLET"
             ]
           },
           "externalCode": {

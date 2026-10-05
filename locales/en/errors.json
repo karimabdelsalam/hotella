@@ -82,6 +82,7 @@
   "errors.integration.message.not_replayable": "This message cannot be replayed in its current state.",
   "errors.integration.mapping.room_not_found": "The selected room does not exist at this property.",
   "errors.integration.mapping.invalid_code": "Use an upper-case code of up to 32 letters, digits or underscores.",
+  "errors.integration.mapping.invalid_outlet": "Choose an outlet category: restaurant, bar, room service, spa, minibar, shop or other.",
   "errors.integration.mapping.point_in_engineering": "Telemetry points are mapped in Engineering → Telemetry, not here.",
   "errors.integration.exception.not_found": "Integration exception not found.",
   "errors.integration.capability_unavailable": "This action needs a connected system that supports {capability}.",

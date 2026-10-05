@@ -22,6 +22,7 @@ export type { IngestResult } from './application/ingest.service';
 export { CONNECTOR_ADAPTERS, ConnectorRegistry } from './connectors/registry';
 export { SIM_PMS_MANIFEST, simPmsAdapter } from './connectors/sim-pms';
 export { BMS_STANDARD_MANIFEST, bmsStandardAdapter } from './connectors/bms';
+export { POS_STANDARD_MANIFEST, posStandardAdapter } from './connectors/pos';
 export {
   LOCK_STANDARD_MANIFEST,
   lockStandardAdapter,
