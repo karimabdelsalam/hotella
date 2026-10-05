@@ -19,8 +19,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonLanguage => 'Language';
 
   @override
-  String get commonOffline =>
-      'No connection. Try again when you are back online.';
+  String get commonOffline => 'No connection. Try again when you are back online.';
 
   @override
   String get homeNoSections => 'Nothing is assigned to you in this hotel yet.';
@@ -75,8 +74,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hotelIntro => 'Enter the hotel code your manager gave you.';
 
   @override
-  String get hotelNotFound =>
-      'No hotel uses this code. Check it with your manager.';
+  String get hotelNotFound => 'No hotel uses this code. Check it with your manager.';
 
   @override
   String get hotelTitle => 'Your hotel';
@@ -88,8 +86,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signinFailed => 'The e-mail or password is not right.';
 
   @override
-  String get signinMfaHint =>
-      'Enter the 6-digit code from your authenticator app.';
+  String get signinMfaHint => 'Enter the 6-digit code from your authenticator app.';
 
   @override
   String get signinMfaTitle => 'Verification code';

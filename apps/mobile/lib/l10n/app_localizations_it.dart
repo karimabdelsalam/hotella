@@ -19,12 +19,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get commonLanguage => 'Lingua';
 
   @override
-  String get commonOffline =>
-      'Nessuna connessione. Riprova quando sei di nuovo online.';
+  String get commonOffline => 'Nessuna connessione. Riprova quando sei di nuovo online.';
 
   @override
-  String get homeNoSections =>
-      'Non ti è ancora assegnato nulla in questo hotel.';
+  String get homeNoSections => 'Non ti è ancora assegnato nulla in questo hotel.';
 
   @override
   String get homeProperty => 'Hotel';
@@ -74,12 +72,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get hotelContinue => 'Continua';
 
   @override
-  String get hotelIntro =>
-      'Inserisci il codice hotel ricevuto dal tuo responsabile.';
+  String get hotelIntro => 'Inserisci il codice hotel ricevuto dal tuo responsabile.';
 
   @override
-  String get hotelNotFound =>
-      'Nessun hotel usa questo codice. Verificalo con il tuo responsabile.';
+  String get hotelNotFound => 'Nessun hotel usa questo codice. Verificalo con il tuo responsabile.';
 
   @override
   String get hotelTitle => 'Il tuo hotel';
@@ -91,8 +87,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get signinFailed => 'E-mail o password non corrette.';
 
   @override
-  String get signinMfaHint =>
-      'Inserisci il codice di 6 cifre dell’app di autenticazione.';
+  String get signinMfaHint => 'Inserisci il codice di 6 cifre dell’app di autenticazione.';
 
   @override
   String get signinMfaTitle => 'Codice di verifica';

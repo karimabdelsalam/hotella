@@ -90,8 +90,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get signinFailed => 'البريد أو كلمة المرور غير صحيحة.';
 
   @override
-  String get signinMfaHint =>
-      'أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة.';
+  String get signinMfaHint => 'أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة.';
 
   @override
   String get signinMfaTitle => 'رمز التحقق';

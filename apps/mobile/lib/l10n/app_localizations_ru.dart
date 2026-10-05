@@ -19,8 +19,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commonLanguage => 'Язык';
 
   @override
-  String get commonOffline =>
-      'Нет подключения. Повторите, когда связь появится.';
+  String get commonOffline => 'Нет подключения. Повторите, когда связь появится.';
 
   @override
   String get homeNoSections => 'В этом отеле вам пока ничего не назначено.';
@@ -77,8 +76,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hotelIntro => 'Введите код отеля, который вам дал руководитель.';
 
   @override
-  String get hotelNotFound =>
-      'Отель с таким кодом не найден. Уточните код у руководителя.';
+  String get hotelNotFound => 'Отель с таким кодом не найден. Уточните код у руководителя.';
 
   @override
   String get hotelTitle => 'Ваш отель';
@@ -90,8 +88,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get signinFailed => 'Неверная почта или пароль.';
 
   @override
-  String get signinMfaHint =>
-      'Введите 6-значный код из приложения-аутентификатора.';
+  String get signinMfaHint => 'Введите 6-значный код из приложения-аутентификатора.';
 
   @override
   String get signinMfaTitle => 'Код подтверждения';

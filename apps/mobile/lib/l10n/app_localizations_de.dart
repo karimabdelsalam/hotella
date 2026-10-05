@@ -19,12 +19,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get commonLanguage => 'Sprache';
 
   @override
-  String get commonOffline =>
-      'Keine Verbindung. Versuchen Sie es erneut, wenn Sie wieder online sind.';
+  String get commonOffline => 'Keine Verbindung. Versuchen Sie es erneut, wenn Sie wieder online sind.';
 
   @override
-  String get homeNoSections =>
-      'In diesem Hotel ist Ihnen noch nichts zugewiesen.';
+  String get homeNoSections => 'In diesem Hotel ist Ihnen noch nichts zugewiesen.';
 
   @override
   String get homeProperty => 'Hotel';
@@ -73,12 +71,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get hotelContinue => 'Weiter';
 
   @override
-  String get hotelIntro =>
-      'Geben Sie den Hotelcode ein, den Sie von Ihrer Leitung erhalten haben.';
+  String get hotelIntro => 'Geben Sie den Hotelcode ein, den Sie von Ihrer Leitung erhalten haben.';
 
   @override
-  String get hotelNotFound =>
-      'Kein Hotel verwendet diesen Code. Bitte prüfen Sie ihn mit Ihrer Leitung.';
+  String get hotelNotFound => 'Kein Hotel verwendet diesen Code. Bitte prüfen Sie ihn mit Ihrer Leitung.';
 
   @override
   String get hotelTitle => 'Ihr Hotel';
@@ -90,8 +86,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get signinFailed => 'E-Mail oder Passwort ist nicht richtig.';
 
   @override
-  String get signinMfaHint =>
-      'Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.';
+  String get signinMfaHint => 'Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.';
 
   @override
   String get signinMfaTitle => 'Bestätigungscode';
