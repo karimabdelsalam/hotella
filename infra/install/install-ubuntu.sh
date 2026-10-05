@@ -129,7 +129,12 @@ printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgr
   >/etc/apt/apt.conf.d/20auto-upgrades
 
 # ---------------------------------------------------------------- 3. the code
-src="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
+# Run from a checkout (infra/install/ two levels below the root)? Found without git: as root, git refuses a checkout
+# that another user owns ("dubious ownership"). Through `curl | bash` there is no script file, so nothing is found.
+src=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+  src="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+fi
 if [ -n "$src" ] && [ -x "$src/infra/docker/pilot/pilot.sh" ]; then
   if [ "$src" != "$DIR" ]; then
     say "copying this checkout ($src) to $DIR"
