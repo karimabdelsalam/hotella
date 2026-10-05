@@ -27,3 +27,5 @@ Format: Context → Decision → Consequences. Status is one of `Proposed`, `Acc
 | [0019](0019-unified-opera-integration-layer.md) | Unified OPERA Integration Layer: read-only OPERA DB, IFC8/FIAS (Planova Standard Profile) and optional OWS connectors behind one capability-routed adapter; per-property capability registry; never write the OPERA DB | Accepted |
 | [0020](0020-windows-installer-wix-v5.md) | Windows installer: MSI built with WiX v5 as a thin shell over `hotella-agent setup`; PowerShell secondary | Accepted |
 | [0021](0021-offline-resilient-entitlements.md) | Offline-resilient entitlements: last-known-good facts, signed cached entitlement bundle for hotel-site installations, grace and revocation | Accepted |
+| [0022](0022-five-locales.md) | Five user-facing languages: English, Arabic (RTL), Italian, Russian, German; parity across all locales | Accepted |
+| [0023](0023-hotella-staff-mobile-app-flutter.md) | One staff mobile app "Hotella" in Flutter: sign-in per hotel, generated API client, shared catalog, push via the notification pipeline | Accepted |

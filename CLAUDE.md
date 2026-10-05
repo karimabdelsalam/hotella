@@ -11,7 +11,7 @@ TypeScript 6 strict (ESM-style source, CommonJS output until the planned NestJS 
 · pnpm 10 (11 from 28 Oct 2026) + Turborepo · PostgreSQL 18 (+pgvector) · Drizzle ORM 0.45 (core query builder) with reviewed SQL migrations · Valkey 9 + ioredis 5 + BullMQ 5
 · S3-compatible storage · Zod 4 contracts (+ nestjs-zod) · pino 10 + OpenTelemetry SDK 2 · Vitest 4 + Testcontainers
 · ESLint 10 (type-aware, `no-restricted-imports` per layer) + Prettier 3 + dependency-cruiser + package `exports` maps · ICU MessageFormat catalog shared with the frontend
-· Next.js 16 LTS + next-intl + Tailwind 4 · .NET 10 LTS for the on-prem hotel agent (Phase 10)
+· Next.js 16 LTS + next-intl + Tailwind 4 · Flutter (stable, Dart 3) for the one staff mobile app "Hotella" with FCM/APNs push through the notification pipeline — ADR-0023 · .NET 10 LTS for the on-prem hotel agent (Phase 10)
 · Version policy: **Maturity Gate** (GA ≥ 6 months, ecosystem + tooling ready, exit path, no node-gyp); HOLD list with dates for NestJS 12 / TS 7 / Node 26 / Drizzle 1.0 / oxlint — ADR-0016
 · Hosted on **Planova-operated internet-reachable servers** (Compose → k3s/RKE2, OpenBao secret store (Vault API), SeaweedFS, Valkey, Grafana stack) — ADR-0013; hotels run only the thin agent, which connects **outbound-only** (enrollment → mTLS, WSS/HTTPS, durable ordered idempotent link, signed commands) — ADR-0017 · OPERA 5 via three connectors — read-only OPERA DB (never written), IFC8/FIAS (Planova Standard Profile), optional OWS — behind the Unified OPERA Adapter (`PMS_API`) and a per-property capability registry; standards in `docs/integrations/opera/OPERA_INTEGRATION_GUIDE.md` — ADR-0014, ADR-0019 · WhatsApp via Meta Cloud API or BSP adapters with SMS OTP fallback — ADR-0015.
 
@@ -19,7 +19,7 @@ TypeScript 6 strict (ESM-style source, CommonJS output until the planned NestJS 
 
 - `apps/*` compose; `packages/platform/*` are infrastructure; `packages/domain/*` are bounded contexts; `packages/contracts/*` are zod schemas (events, api, connectors, ai-tools).
 - A domain package exposes other domains **only** `src/public`. Never import another domain's `infrastructure`, `schema` or repositories. ESLint `no-restricted-imports` and the package `exports` maps enforce this; dependency-cruiser forbids cycles. `pnpm lint:selftest` must keep passing.
-- Each bounded context owns its PostgreSQL schema (`org`, `iam`, `guest`, `catalog`, `ops`, `hk`, `eng`, `inspection`, `relations`, `lostfound`, `logbook`, `comms`, `knowledge`, `ai`, `integration`, `license`, `audit`, `platform`). No domain writes another domain's tables; use its application service or an event.
+- Each bounded context owns its PostgreSQL schema (`org`, `iam`, `guest`, `catalog`, `ops`, `hk`, `eng`, `inspection`, `relations`, `lostfound`, `logbook`, `comms`, `knowledge`, `ai`, `integration`, `license`, `audit`, `platform`, `restaurant`). No domain writes another domain's tables; use its application service or an event.
 
 ## Hard rules (from Spec §82–§84; violating any of these is a bug)
 
@@ -29,8 +29,8 @@ TypeScript 6 strict (ESM-style source, CommonJS output until the planned NestJS 
 4. Every mutating endpoint declares a permission and goes through `ActionGate` (authorization → entitlement → feature → configuration → connector capability → AI policy → execute).
 5. Important mutations write `audit.audit_log` with actor type (USER/GUEST/AI_AGENT/SYSTEM/INTEGRATION/SUPPORT), reason, approval/policy refs and `correlation_id`.
 6. Cross-domain events go through the transactional outbox using the Spec §51 envelope; consumers are idempotent (`@Idempotent`). Raw vendor messages are not domain events.
-7. No hardcoded user-facing strings. Use `/locales/{en,ar}/*.json` with stable keys; `en`/`ar` key parity is CI-checked. Localized business data uses `<entity>_translations(entity_id, locale, …)` tables, **never** `name_en`/`name_ar` columns.
-8. Arabic is first-class RTL; any UI work uses logical CSS properties and is verified in both directions.
+7. No hardcoded user-facing strings. Use `/locales/{en,ar,it,ru,de}/*.json` with stable keys; key parity across every supported locale (and each locale's CLDR plural categories) is CI-checked (ADR-0022). Localized business data uses `<entity>_translations(entity_id, locale, …)` tables, **never** `name_en`/`name_ar` columns.
+8. Arabic is first-class RTL (the only RTL locale); any UI work uses logical CSS properties and is verified in both directions.
 9. Published definitions (service versions, workflow versions, inspection versions, prompt/agent versions, PM procedures, plan versions) are immutable once published.
 10. Operational history is preserved (room assignments, task assignments, transitions); never overwrite a single "current" field without also recording history.
 11. SLA, security and business calculations are deterministic code, never delegated to an LLM.

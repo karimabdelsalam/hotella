@@ -86,7 +86,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 68 | Audit actor types; who/approved/policy/changed/integration ack/AI involved; append-only tamper-resistant | BP §5.2 `audit.audit_log` → `@hotella/platform-audit` (migration 0004 triggers, `AuditWriter`, redaction by data class); CM 5 | P1 ✔ (1.3) |
 | 69 | Consent history, export, correction, retention, anonymization, deletion; integrity preserved; configurable retention | BP §5.2 `platform.retention_policies` → `RetentionPolicyService` (framework ✔ 1.3); Sprint 2.4 `guest_data_requests` (export once + SHA-256, anonymize = identifiers/preferences removed, PMS profile unlinked, raw vendor payloads scrubbed, audit carries no guest values; stays/room history/audit kept); retention purge jobs per module (DoD §12.15) from Phase 3; CM 21 | P1 (framework ✔), P2 ✔ |
 | 70 | Logs/metrics/traces; correlation by correlation_id/trace_id/tenant/property; no PII in logs | ADR-0006; BP §4 0.2.4–0.2.5; CM 17 | P0 |
-| 71 | Deployables; isolated worker pools; five queue priorities; guest realtime isolation; stateless | ADR-0004/0013; BP §3 worker mapping; §4 0.3.5 Amended 2026-10-04: Windows MSI with WiX v5 (ADR-0020, Sprint 10.10 planned); Pilot Readiness Checklist with server sizing (`docs/pilot/PILOT_READINESS_CHECKLIST.md`). | P0, P1  |
+| 71 | Deployables; isolated worker pools; five queue priorities; guest realtime isolation; stateless | ADR-0004/0013; BP §3 worker mapping; §4 0.3.5 Amended 2026-10-04: Windows MSI with WiX v5 (ADR-0020, Sprint 10.10 ✔: `packaging/windows/msi`, CI `agent-msi`); Pilot Readiness Checklist with server sizing (`docs/pilot/PILOT_READINESS_CHECKLIST.md`). | P0, P1  |
 | 72 | Backups, PITR, replicas, restore tests, RPO/RTO, DR; expand/contract migrations | ADR-0013 pgBackRest → `infra/docker/postgres` (WAL archiving, retention, `restore-drill`), `docs/runbooks/backup-restore.md`, CI pilot job (backup + drill); ADR-0002; BP §5.8 | P1 ✔ (1.4) |
 | 73 | Config inheritance; audited/versioned critical config; flags ≠ licensing | BP §5.2 `platform.configuration(+history)` → `@hotella/platform-settings` (typed keys, property → tenant → platform → default, history, event, audit); §4 0.3.11 | P0, P1 ✔ (1.3) |
 | 74 | Versioned APIs; idempotency keys; signed webhooks with retry/DLQ/replay; rate limiting dimensions | ADR-0012; BP §4 0.3.9; §10 P11 11.5 (`integration.webhook_endpoints/deliveries`, `WebhookDispatcher`: HMAC `t.body` signature, 30 s·2^n back-off, DEAD after 8, replay) | P0, P11 |
@@ -94,7 +94,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 76 | Module manifest concept | BP §4 0.3.12 `ModuleManifest` (brought forward as enforcement); DoD §12.16; CM 22 | P0 |
 | 77 | Repository structure; `/domain` not a blob | BP §3; ADR-0001 (mapping of extra contexts) | P0 |
 | 78 | Schema ownership `org.* … audit.*` | BP §0.8 schema list (+ catalog, lostfound, logbook, knowledge, platform); ADR-0002 | P0+ |
-| 79.1 | No hardcoded UI strings; `/locales/{en,ar}` namespaces; stable keys | BP §4 0.3.7–0.3.8; CM 7 | P0 |
+| 79.1 | No hardcoded UI strings; `/locales/{en,ar}` namespaces; stable keys. Amended 2026-10-05: five locales `en, ar, it, ru, de` with parity and CLDR plural checks (ADR-0022) | BP §4 0.3.7–0.3.8; §10 P14 14.1; CM 7 | P0, P14 |
 | 79.2 | No `*_en/*_ar` columns; normalized translation tables | BP §4 0.3.7 `translationColumns()`/`translationUnique()` (`org.location_translations`, `org.room_type_translations`, `org.brand_profile_translations`); every `*_translations` table in §5–§9; CM 7 | P0+ |
 | 79.3 | Locale resolution order | BP §4 0.3.7 `LocaleResolver` | P0 |
 | 79.4 | True RTL across staff/guest/admin UIs | ADR-0009 logical properties; DoD §12.8; CM 8 | P4+ |
@@ -116,3 +116,5 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | OWS as secondary OPERA interface; optional read-only DB views | FIAS alone cannot serve Spec §17/§22 | ADR-0014; `OPERA5_OWS` and the agent's OWS poller (10.3, `opera5-ows.e2e-spec.ts`); DB views deferred to the pilot's answer on a read-only account |
 | OTP fallback chain beyond WhatsApp | Spec §19.2 defines WhatsApp OTP only; availability requirement from product owner | ADR-0015 |
 | On-premises hosting | Spec says "cloud platform" generically; product owner decision | ADR-0013 |
+| Restaurant context (schema `restaurant`): à la carte reservations with a per-stay allowance | Owner decision 2026-10-05 (Spec Appendix B.1); not in the original module list | BP §10 Phase 14 (14.2–14.3); CLAUDE.md schema list |
+| Staff mobile app "Hotella" in Flutter with push notifications | Owner decision 2026-10-05; the spec names web apps only | ADR-0023; BP §10 Phase 14 (14.4–14.6) |

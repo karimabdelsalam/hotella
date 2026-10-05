@@ -2931,6 +2931,90 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 ### Phase 13 — Voice / IoT / Additional Connectors
 Voice channel via PBX gateway → conversation engine → same tools; IoT/BMS telemetry path (high-volume ingest → rules/anomaly → meaningful events); POS/ERP/Wi-Fi/lock connectors through the Connector SDK. No core redesign allowed; if one seems needed, stop and write an ADR.
 
+### Phase 14 — Languages, Restaurant reservations, the Hotella staff app (owner decisions of 2026-10-05)
+Spec Appendix B; ADR-0022 (five locales), ADR-0023 (Flutter staff app). **Order (owner may reorder):** after 11.7 —
+14.1 → 14.2 → 14.3 (pilot value: tourists' languages and à la carte dinners) → 14.4 → 14.5 → 14.6 → 9.5 → Phase 12 →
+Phase 13.
+
+#### 14.A Languages (ADR-0022)
+- `SUPPORTED_LOCALES` default `en,ar,it,ru,de`; one `LOCALES`/`RTL_LOCALES` constant in `platform-i18n` (and a
+  web-safe export) used by staff-web, guest-web, the catalog check and the ARB converter.
+- `tools/locales-check` → every locale has exactly the `en` keys, valid ICU, same arguments, the CLDR plural
+  categories of that locale (`Intl.PluralRules(locale).resolvedOptions().pluralCategories`).
+- Catalogs `locales/{it,ru,de}/*.json` (all namespaces); staff-web/guest-web routing and language switchers; property
+  `enabledLocales` accepts the five; translation tables accept them; FIAS/OPERA language codes mapped through the
+  integration mapping (unknown → exception); WhatsApp template locales; concierge language list.
+- Tests: catalog check unit tests (plural categories per locale), i18n service resolution for `it`/`ru`/`de`,
+  Playwright smoke per new locale (guest home, staff inbox), translation fallback (property default → `en`).
+- Owner item: native-speaker review of the drafted it/ru/de texts before the first hotel uses them.
+
+#### 14.B Restaurant context (schema `restaurant`, Spec B.1)
+*Domain model (data class INTERNAL unless stated):*
+- `restaurants` (tenant, property, code, status DRAFT|ACTIVE|INACTIVE, `min_party`, `max_party`,
+  `book_days_ahead`, `guest_cutoff_minutes`, `cancel_cutoff_minutes`, `allowance_applies` bool, version).
+- `restaurant_translations` (restaurant_id, locale, name, description, dress_code_note) — PUBLIC.
+- `sittings` (restaurant, weekday 0–6, `starts_at` local time, `seats`, `valid_from`, `valid_to` null, active) —
+  rows are never deleted once booked against; a schedule change closes the old row (`valid_to`) and adds a new one.
+- `closures` (restaurant, `on_date`, sitting null = whole day, reason).
+- `sitting_loads` (tenant, property, sitting, `service_date`, `covers`) — the atomic capacity counter:
+  `INSERT … ON CONFLICT DO UPDATE SET covers = covers + n WHERE covers + n <= seats RETURNING` (override skips the
+  `WHERE`), decremented on cancel/no-capacity transitions.
+- `reservations` (tenant, property, restaurant, sitting, `service_date`, `starts_at` snapshot, `party_size`,
+  `stay_id`, `guest_id` (CONFIDENTIAL), `room_number` snapshot (CONFIDENTIAL), status
+  CONFIRMED|SEATED|COMPLETED|CANCELLED|NO_SHOW, `channel` GUEST_APP|STAFF|AI, `notes` (SENSITIVE: allergies),
+  `override_reason`, `cancel_reason`, version) and `reservation_transitions` (append-only: from, to, actor type/id,
+  reason, at; trigger `platform.reject_history_mutation()`).
+- Allowance (pure function, `domain/allowance.ts`): `nights = departure − arrival (≥ 1)`;
+  `allowed = ceil(nights / blockNights) × perBlock` (settings `restaurant.allowance.block_nights` = 7,
+  `restaurant.allowance.per_block` = 1); used = reservations of the stay at that restaurant not CANCELLED.
+- Stay facts come from `GUEST_API` (public): status, dates, adults/children, room; the context never reads guest
+  tables. Checkout/cancellation of a stay (canonical `hotel.*` → guest events) cancels its future reservations
+  (consumer `@Idempotent`).
+*Migrations:* `00xx_restaurant` with tenant/property FKs, RLS `tenant_isolation`, unique
+`(tenant_id, property_id, code)`, `sitting_loads` PK `(sitting_id, service_date)`, check `covers >= 0`.
+*APIs (staff, `/api/v1`):* `GET|POST /properties/:p/restaurants`, `PATCH /properties/:p/restaurants/:id`,
+`PUT …/:id/translations/:locale`, `GET|PUT …/:id/sittings` (replace the weekly schedule from a date),
+`POST|DELETE …/:id/closures`, `GET /properties/:p/restaurants/availability?from&to`,
+`GET /properties/:p/restaurant-reservations?date&restaurantId&status`, `POST /properties/:p/restaurant-reservations`
+(by `stayId`; optional `override: { reason }`), `POST …/restaurant-reservations/:id/{seat,complete,no-show,cancel}`.
+*Guest:* `GET /guest/restaurants` (open dates/sittings within the stay + remaining allowance),
+`GET|POST /guest/restaurant-reservations`, `POST /guest/restaurant-reservations/:id/cancel` — guest scope
+`RESTAURANT_BOOKING`. Errors: `restaurant.reservation.allowance_used`, `.sitting_full`, `.outside_stay`,
+`.cutoff_passed`, `.party_size`, `.closed`.
+*Events:* `restaurant.reservation.created.v1`, `restaurant.reservation.cancelled.v1`,
+`restaurant.reservation.status_changed.v1`. *Permissions:* `restaurant.restaurant.read|manage`,
+`restaurant.reservation.read|manage|override`. *Entitlement:* `restaurant.alacarte`. *Manifest:* complete (rule 22).
+*AI tools (14.3):* `restaurant.availability` (LOW), `restaurant.book` (MEDIUM, own stay only).
+*Tests:* allowance unit table (1, 7, 8, 14, 15, 21 nights; config 7/1 and 5/2), capacity race (two concurrent
+bookings for the last seats → exactly one), override with reason audited, checkout cancels future bookings, outside
+stay / cutoff / closure / party size refusals, tenant-leak test, manifest test, e2e scenario (guest books, staff
+books by phone, allowance refuses a second booking at the same restaurant for a 6-night stay but allows one for a
+9-night stay, checkout cancels), Playwright staff board and guest booking in en/ar (+ it/ru/de smoke).
+
+#### 14.C The Hotella staff app (ADR-0023)
+- `apps/mobile` (Flutter): hotel code / QR → branding → sign-in (IAM, MFA) → home with My tasks, Requests inbox,
+  Alerts, Restaurant bookings (with permission); five locales from the catalog (ARB generated), RTL for Arabic.
+- Platform: `POST /me/devices` (register/refresh push token), `DELETE /me/devices/:id`; `iam.staff_devices`;
+  `PUSH` delivery adapter (FCM, APNs) in the notification pipeline with credentials as SecretRefs; payloads without
+  guest PII; device revoked on sign-out/user deactivation; `GET /public/properties/by-code/:code` (branding only).
+- CI: Flutter job (`flutter analyze`, `flutter test`, golden tests LTR/RTL), generated Dart client and ARB freshness.
+
+#### 14.D Sprints
+| Sprint | Scope | Status |
+|---|---|---|
+| 14.1 | Five locales: config, catalog check with CLDR plurals, it/ru/de catalogs, web apps, translation tables, PMS language mapping | planned |
+| 14.2 | Restaurant context: model, migration, allowance and capacity rules, staff and guest APIs, events, checkout consumer, manifest, tests | planned |
+| 14.3 | Restaurant UI: staff board, phone booking, configuration screens; guest booking; concierge tools; e2e; acceptance | planned |
+| 14.4 | Staff app skeleton: Flutter project, generated client, ARB from the catalog, hotel code → branding → sign-in, CI job | planned |
+| 14.5 | Push notifications: devices, PUSH adapter (FCM/APNs) with OpenBao credentials, notification routing to devices | planned |
+| 14.6 | Staff app screens: tasks, requests, alerts, restaurant bookings; offline read cache; acceptance on devices | planned |
+
+#### 14.E Acceptance
+A guest of a 9-night stay books two dinners at the same à la carte restaurant and one at each other restaurant from the
+guest app in Italian; a third booking at the first restaurant is refused; the restaurant manager sees the board,
+books a phone guest into a full sitting only with the override and a reason, marks seat/no-show; checkout cancels the
+remaining bookings; a waiter receives a push on the Hotella app (no guest data in the push) and opens the booking.
+
 ---
 
 ## 11. Milestones & sequencing
@@ -2947,7 +3031,11 @@ Phase 0 ──> Phase 1 ──> Phase 2 ──> Phase 3 ──> Phase 4 ──> 
 ```
 
 **M4 completion (owner decisions 2026-10-04):** before the first pilot hotel also Sprints 10.10 (WiX v5 MSI) and 11.7
-(offline-resilient entitlements); Sprint 9.5 (Lost & Found vision) is optional per property and may follow. Every hotel
+(offline-resilient entitlements); Sprint 9.5 (Lost & Found vision) is optional per property and may follow.
+
+**Owner additions (2026-10-05):** Phase 14 — five languages (14.1), Restaurant à la carte reservations (14.2–14.3),
+the Hotella staff app in Flutter with push notifications (14.4–14.6) — runs after 11.7 and before 9.5, Phase 12 and
+Phase 13. Every hotel
 is prepared with `docs/pilot/PILOT_READINESS_CHECKLIST.md`.
 
 Phases 7 and 8 may run in parallel after Phase 6 (they share only the Operations Engine). Phase 10 may start its .NET agent skeleton in parallel with Phase 7 since it depends only on the Connector SDK from Phase 2.
@@ -2999,6 +3087,10 @@ A module/phase is accepted only when all of the following are true:
 | Q14 | Offline behaviour of licensing | Phase 11 | **Answered 2026-10-04:** offline-resilient entitlements (ADR-0021, Sprint 11.7) |
 | Q15 | Server requirements and the hotel checklist | before M4 | **Answered:** `docs/pilot/PILOT_READINESS_CHECKLIST.md` (§1 sizing, §2–§19 checks) |
 | Q16 | Authenticode certificate for signing the MSI and agent executable (a purchase) | before go-live | open — owner |
+| Q17 | Native-speaker review of the Italian, Russian and German texts | before a hotel uses them | open — owner (drafted by engineering, ADR-0022) |
+| Q18 | Restaurant allowance counted per stay (room reservation) or per person; 7-night block configurable | 14.2 | per stay, block 7 nights, 1 booking per block (Spec B.1); owner may change |
+| Q19 | Apple Developer Program and Google Play accounts, Firebase project, store name "Hotella" (purchases) | 14.4 | open — owner |
+| Q20 | Staff app technology | — | **Answered 2026-10-05:** Flutter, one app "Hotella", sign-in per hotel (ADR-0023) |
 
 ---
 

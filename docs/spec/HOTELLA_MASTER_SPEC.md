@@ -3414,3 +3414,57 @@ This architecture must remain capable of evolving for years without forcing hote
 11. **Secrets:** OpenBao with a defined lifecycle (§65 amendment).
 12. **Pilot Readiness Checklist** is formal and reusable for every hotel.
 13. The pilot hotel validates the standards; it does not define them.
+
+# Appendix B. Owner decisions recorded 2026-10-05 (third set)
+
+1. **Languages:** the system supports English, Arabic, Italian, Russian and German for guests and staff; Arabic is the
+   only RTL language; §79 applies to all five (ADR-0022). The rule "en/ar key parity" becomes "parity across every
+   supported locale".
+2. **Restaurant module (à la carte reservations)** — a new bounded context, `restaurant` (§B.1).
+3. **Staff mobile app:** one app named **Hotella** for hotel staff only, sign-in with the staff member's own hotel
+   details, push notifications; built with **Flutter** (ADR-0023).
+
+## B.1 Restaurant — à la carte reservations
+**Purpose.** Many resorts include à la carte dinners in the stay: each hotel defines its restaurants, the days and
+times they serve and how many covers each sitting takes; guests book from the guest app; restaurant and guest
+relations staff follow the bookings and book for guests who call.
+
+**Hotel configuration (managers with permission).**
+- Restaurants: code, name/description/dress-code note per language (`restaurant_translations`), status
+  (DRAFT/ACTIVE/INACTIVE), party size limits, how many days ahead guests may book, the cut-off before a sitting for
+  guest booking and cancelling, and whether the stay allowance applies.
+- Sittings: per weekday, a start time and the number of covers (seats), with an effective date range so a seasonal
+  change never rewrites past bookings. Closures for a date (whole day or one sitting).
+
+**The stay allowance (deterministic code, rule 11).** A stay may hold **one** reservation per restaurant while it
+lasts up to 7 nights; each further started block of 7 nights adds one: allowance = ⌈nights ÷ 7⌉ per restaurant
+(8 nights → 2, 15 nights → 3), however many restaurants there are. Counted per stay (the PMS reservation/room), not per
+person. Cancelled reservations do not count; no-shows do. The block length (7) and the bookings per block (1) are
+property configuration. Staff with the override permission may exceed the allowance or a full sitting, with a
+mandatory reason, audited.
+
+**Capacity.** The covers of active reservations (confirmed or seated) for a sitting on a date never exceed its seats;
+two guests racing for the last seats cannot both succeed (atomic check in the database).
+
+**Guest booking.** From the guest app (stay-bound guest session): restaurants with their open dates/sittings within
+the stay, the remaining allowance, party size up to the stay's guests; a booking is only for a date of the stay
+(arrival ≤ date < departure). Guests see and cancel their own bookings until the cut-off. Confirmation in the guest's
+language (and over WhatsApp when the guest uses it).
+
+**Staff screens.** A reservations board per date and restaurant (sittings, covers booked/free, guests, party size,
+notes such as allergies — SENSITIVE, shown only with permission); a new-reservation form to book for a guest found by
+room number or name (a phone booking); seat, no-show, cancel with reason; configuration screens for restaurants and
+sittings.
+
+**Lifecycle.** CONFIRMED → SEATED → COMPLETED, or CANCELLED (guest, staff, or automatically when the PMS checks the stay
+out or cancels it — rule 19), or NO_SHOW; every transition is kept (rule 10). Events
+`restaurant.reservation.created.v1`, `.cancelled.v1`, `.status_changed.v1` through the outbox; notifications to the
+restaurant team through the notification pipeline.
+
+**Permissions.** `restaurant.restaurant.read`, `restaurant.restaurant.manage`, `restaurant.reservation.read`,
+`restaurant.reservation.manage`, `restaurant.reservation.override`; guest scope `RESTAURANT_BOOKING`. Entitlement
+capability `restaurant.alacarte` (a plan module, never a plan-name check — rule 14).
+
+**AI.** Read tool `restaurant.availability` and booking tool `restaurant.book` for the concierge (MEDIUM risk, only
+for the guest's own stay, same rules as the app); availability and allowance answers always come from these tools,
+never from RAG (rule 12).
