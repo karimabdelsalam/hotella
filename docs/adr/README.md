@@ -29,3 +29,4 @@ Format: Context → Decision → Consequences. Status is one of `Proposed`, `Acc
 | [0021](0021-offline-resilient-entitlements.md) | Offline-resilient entitlements: last-known-good facts, signed cached entitlement bundle for hotel-site installations, grace and revocation | Accepted |
 | [0022](0022-five-locales.md) | Five user-facing languages: English, Arabic (RTL), Italian, Russian, German; parity across all locales | Accepted |
 | [0023](0023-hotella-staff-mobile-app-flutter.md) | One staff mobile app "Hotella" in Flutter: sign-in per hotel, generated API client, shared catalog, push via the notification pipeline | Accepted |
+| [0024](0024-phase-13-voice-telemetry-connectors.md) | Phase 13 on existing abstractions: vendor-neutral Planova Standard Profiles, Connector SDK v2 (link protocol 3, signed webhook ingress), voice as a channel with on-prem speech, telemetry in engineering, stay-bound locks and Wi-Fi under rule 19 | Accepted |

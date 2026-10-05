@@ -3132,6 +3132,99 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 ### Phase 13 — Voice / IoT / Additional Connectors
 Voice channel via PBX gateway → conversation engine → same tools; IoT/BMS telemetry path (high-volume ingest → rules/anomaly → meaningful events); POS/ERP/Wi-Fi/lock connectors through the Connector SDK. No core redesign allowed; if one seems needed, stop and write an ADR.
 
+Decisions: ADR-0024 (vendor-neutral Planova Standard Profiles, Connector SDK v2, voice as a channel, telemetry in
+engineering, stay-bound access by rule 19). Vendor choices are owner questions Q21–Q26; until answered every sprint
+ships the neutral connector, its simulator face and contract vectors, so a vendor adapter later is a connector only.
+
+#### 13.A Domain model
+```text
+integration (SDK v2 and access)
+  connector_definitions        + health hook, record kinds TELEMETRY_SAMPLE, ALARM, CALL_EVENT, KEY_RESULT,
+                                 WIFI_SESSION_RESULT, POS_CHECK_CLOSED (contract only, no new table)
+  inbound_endpoints(id, tenant, instance_id, secret_ref, status, last_used_at)   — signed webhook ingress per instance
+  access_grants(id, tenant, property, stay_id, kind KEY|MOBILE_KEY|WIFI, room_id, instance_id, external_ref null,
+                status REQUESTED|ISSUED|FAILED|REVOKED, requested_by, issued_at, revoked_at, reason, version)
+                                              — CONFIDENTIAL; key material never stored; history append-only
+comms (voice)
+  calls(id, tenant, property, channel_id, conversation_id, direction IN|OUT, from_identity_id, extension,
+        status RINGING|ANSWERED|TRANSFERRED|ENDED|MISSED, started_at, answered_at, ended_at, duration_s,
+        recording_ref null)   — recording off by default (Q23); transcripts are conversation messages (SENSITIVE)
+eng (telemetry)
+  telemetry_points(id, tenant, property, instance_id, external_code, asset_id null, location_id null, quantity
+                   TEMPERATURE|HUMIDITY|POWER|ENERGY|WATER_FLOW|PRESSURE|CO2|OCCUPANCY|DOOR|LEAK|ALARM|OTHER,
+                   unit, status ACTIVE|IGNORED, version)          — mapped via integration mappings (type POINT)
+  telemetry_minutes(point_id, minute, min, max, avg, last, samples) — monthly partitions; 400-day retention
+  telemetry_rules(id, tenant, property?, point_id? | quantity+asset_type?, kind THRESHOLD|RATE|STUCK|MISSING,
+                  params, severity, action RAISE_ALARM|OPEN_WORK_ORDER|ROOM_SIGNAL, status, version) — published
+                  rule versions immutable (rule 9)
+  telemetry_alarms(id, tenant, property, point_id, rule_id, status OPEN|CLEARED|ACKNOWLEDGED, raised_at,
+                   cleared_at, peak, work_item_id null)            — history kept (rule 10)
+```
+
+#### 13.B Design decisions taken before coding
+- **SDK v2:** `IConnectorAdapter` in the .NET agent (start/stop, `Publish`, command and query handlers, health) and a
+  registry keyed by connector code; link protocol 3 (`hello.connectors[]`, frames carry `connector_code`); TS
+  reference agent and conformance tests updated; protocol 2 stays accepted. Webhook ingress
+  `POST /integrations/inbound/:endpointId` (HMAC-SHA256 over `t.body`, 5-minute window, idempotent on
+  `source_message_id`) feeds the same `IngestService`.
+- **Voice (Planova Voice Profile v1):** the PBX/gateway posts `call.started|answered|transfer|ended` and utterance
+  audio (or text when the PBX does its own STT); the `VOICE` adapter turns an utterance into a conversation message;
+  STT/TTS through `ModelGateway` `AUDIO` (on-prem model by default; an external provider only when the egress policy
+  and Q22 allow); the reply is synthesized and returned in the webhook answer; hand-off = `CALL_TRANSFER` command to
+  the department extension (mapping). Caller identity: phone number → `comms.identities` (hashed lookup) → stay only
+  when verified (same rules as WhatsApp). No recording unless the property enables it (Q23); audio buffers are
+  dropped after STT.
+- **Telemetry:** samples arrive through the agent (BACnet/Modbus/MQTT bridges in the agent, Q24) or webhook; the
+  ingest stores only the minute aggregate per point (upsert), evaluates rules on the aggregate, raises/clears alarms
+  with hysteresis, and publishes `eng.telemetry.alarm_raised.v1` / `cleared.v1`. Reactions: an alert (ops), a
+  corrective work order when the rule says so (through the engineering service), a room signal for comfort
+  (housekeeping consumer), and the insight engine counts alarms (new signal). Points without a mapping are held and
+  raise an `integration_exception` (UNKNOWN_MAPPING).
+- **Access (locks, Wi-Fi):** `ACCESS_API` (integrations public API, like `PMS_API`) — `issueKey(stay, room, kind)`,
+  `revokeKey`, `createWifiSession(stay)`, `revokeWifi` — routed by capability (`KEY_ENCODE`, `KEY_REVOKE`,
+  `MOBILE_KEY_ISSUE`, `WIFI_SESSION_CREATE`, `WIFI_SESSION_REVOKE`); only for an IN_HOUSE stay; check-out and room
+  moves revoke automatically (consumer of `guest.stay.status_changed` / `room_changed`); staff permission
+  `access.key.issue`; the AI tool, if any, is HIGH (approval). New capability codes and `CONNECTOR_LOCK` entitlement.
+- **POS / ERP:** POS `CHECK_READ` → canonical `hotel.pos.check_closed.v1` (stay, outlet, total, covers, no card or
+  item text) → twin node `POS_CHECK` and guest spend facts; ERP `STOCK_READ` / `REQUISITION_CREATE` used by the
+  engineering parts flow (a requisition is a command with approval, never automatic).
+
+#### 13.C APIs, events, permissions
+- APIs: `/integrations/inbound/:endpointId` (public, signed); `/properties/:id/integrations/:instanceId/inbound-endpoints`
+  (`integration.manage`); voice webhooks under the comms webhook controller (`VOICE` provider); `/properties/:id/calls`
+  (`inbox.read`); `/properties/:id/eng/telemetry/points|rules|alarms` (`eng.telemetry.read|manage`);
+  `/properties/:id/stays/:stayId/access` (`access.read`, `access.key.issue`, `access.wifi.issue`).
+- Events: `comms.call.started|ended.v1`, `eng.telemetry.alarm_raised|alarm_cleared.v1`,
+  `integration.access.issued|revoked|failed.v1`, `hotel.pos.check_closed.v1`.
+- Permissions: `eng.telemetry.read`, `eng.telemetry.manage`, `access.read`, `access.key.issue`, `access.wifi.issue`.
+- Entitlements: `VOICE_AI`/`AI_VOICE` (existing), `CONNECTOR_PBX`, `CONNECTOR_BMS`, new `CONNECTOR_LOCK`,
+  `CONNECTOR_WIFI`, `CONNECTOR_POS`, `CONNECTOR_ERP`; metric `VOICE_MINUTES` produced.
+- Locale namespaces: `comms.call.*`, `eng.telemetry.*`, `integration.access.*`, `staff.telemetry.*`.
+
+#### 13.D Sprints
+| Sprint | Scope | Status |
+|---|---|---|
+| 13.1 | Connector SDK v2: .NET `IConnectorAdapter` + registry, link protocol 3 (multi-connector), signed webhook ingress, health hook, contract-test kit | planned |
+| 13.2 | IoT/BMS telemetry: points, mappings, minute aggregates, deterministic rules, alarms → alerts/work orders/room signals/insights; simulator face; staff screen | planned |
+| 13.3 | Stay-bound access: `ACCESS_API`, lock and Wi-Fi neutral connectors, auto-revoke on check-out and moves, staff UI; simulator | planned |
+| 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | planned |
+| 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | planned |
+| 13.6 | Phase 13 acceptance (`docs/acceptance/phase-13.md`) | planned |
+
+Order rationale: the SDK first (everything else plugs into it); telemetry and access next (deterministic, high
+operational value, no vendor needed to prove them); voice after (depends on an AUDIO model on-prem and Q22/Q23).
+
+#### 13.E Tests and acceptance
+- Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,
+  access state machine, voice profile parsing, link protocol 3 frames.
+- Integration (real Postgres): unknown point → exception, alarm raised once and cleared, work order opened by rule;
+  key issued only for an in-house stay and revoked at check-out; signed ingress refuses bad signatures and replays;
+  a voice utterance becomes a conversation message answered by the concierge and transferred on hand-off; tenant-leak
+  tests for every new table.
+- E2E: simulator scenarios — a chiller's temperature climbs → alarm → work order; check-in → key and Wi-Fi issued →
+  check-out → both revoked; a guest calls, asks for towels by voice → request created → spoken answer; the .NET agent
+  runs two connectors under one service (conformance).
+
 ### Phase 14 — Languages, Restaurant reservations, the Hotella staff app (owner decisions of 2026-10-05)
 Spec Appendix B; ADR-0022 (five locales), ADR-0023 (Flutter staff app). **Order (owner may reorder):** after 11.7 —
 14.1 → 14.2 → 14.3 (pilot value: tourists' languages and à la carte dinners) → 14.4 → 14.5 → 14.6 → 9.5 → Phase 12 →
@@ -3416,6 +3509,12 @@ A module/phase is accepted only when all of the following are true:
 | Q18 | Restaurant allowance counted per stay (room reservation) or per person; 7-night block configurable | 14.2 | per stay, block 7 nights, 1 booking per block (Spec B.1); owner may change |
 | Q19 | Apple Developer Program and Google Play accounts, Firebase project, store name "Hotella" (purchases) | 14.4 | open — owner |
 | Q20 | Staff app technology | — | **Answered 2026-10-05:** Flutter, one app "Hotella", sign-in per hotel (ADR-0023) |
+| Q21 | Voice: which PBX / voice gateway or CPaaS (on-prem SIP gateway vs cloud telephony) | 13.4 | open — owner (neutral Planova Voice Profile + simulator until then) |
+| Q22 | Voice: may guest audio go to an external speech model, or on-prem only | 13.4 | open — owner (default on-prem only, ADR-0024) |
+| Q23 | Voice: record calls (consent wording, retention) or never | 13.4 | open — owner (default never) |
+| Q24 | BMS/IoT: which protocols and vendors to support first (BACnet/IP, Modbus TCP, MQTT, a vendor cloud) | 13.2 | open — owner (neutral profile via agent/webhook until then) |
+| Q25 | Door locks and Wi-Fi: which vendors (e.g. physical keys vs mobile keys) and partnership terms | 13.3 | open — owner (commercial) |
+| Q26 | POS and ERP: which systems at the pilot hotel | 13.5 | open — owner |
 
 ---
 
