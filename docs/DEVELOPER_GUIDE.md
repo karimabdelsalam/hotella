@@ -44,6 +44,20 @@ pnpm --filter @hotella/guest-web dev   # http://localhost:3200/en (or /ar)
 pnpm --filter @hotella/guest-web e2e   # Playwright, English (LTR) and Arabic (RTL), API mocked in the browser
 ```
 
+The staff mobile app "Hotella" (`apps/mobile`, Flutter 3.47.6 stable / Dart 3.13, ADR-0023) is not a pnpm package;
+install the Flutter SDK, then:
+
+```bash
+cd apps/mobile
+node tool/gen_client.mjs && node tool/sync_arb.mjs   # Dart client from the OpenAPI snapshot, ARB from /locales/*/mobile.json
+flutter pub get && flutter analyze && flutter test   # widget tests against a fake API (en, ar RTL, it/ru/de)
+flutter run --dart-define=HOTELLA_API=http://10.0.2.2:3000   # Android emulator → the API on your machine
+```
+
+Staff open it with their hotel code (the tenant code they sign in with; `GET /api/v1/public/hotels/:code` returns only
+the brand), then their own account. Regenerate the client after `pnpm --filter @hotella/api exec vitest run -u
+test/app.e2e-spec.ts` changes the OpenAPI snapshot; CI fails when either generated file is stale.
+
 The guest session token lives only in the httpOnly cookie `hotella_gs` (set by `/bff/verify` and `/bff/complete`); the
 same-origin proxy `/hotella/*` turns it into `X-Guest-Session` and forwards `guest/*` and `public/*` routes only.
 
@@ -86,7 +100,8 @@ Everything above is a `package.json` script; if a script name changes, this sect
 apps/          things you run        → api (:3000), worker (:3001), agent-gateway (:8443, TLS + client certificates),
                                        pms-simulator (reference hotel agent + simulated PMS), staff-web (:3100, Next.js
                                        inbox with a BFF for sign-in), guest-web (:3200, guest PWA); hotel-agent
-                                       (.NET 10 on-prem agent, `dotnet`, not pnpm). The realtime
+                                       (.NET 10 on-prem agent, `dotnet`, not pnpm); mobile (the Flutter staff app
+                                       "Hotella", `flutter`, not pnpm). The realtime
                                        WebSocket gateway runs inside api for now.
 packages/
   platform/    infrastructure        → config, secrets, pki (agent CA, device certificates, command signatures), observability (logs, request context, tracing), database, events (outbox/inbox),
@@ -253,6 +268,12 @@ Renovate opens grouped PRs weekly. Patch/minor: merge when CI is green. Major: m
 ## 11. Deploying (pilot)
 
 The pilot runs on one Linux host with `infra/docker/compose.pilot.yml`, driven by `infra/docker/pilot/pilot.sh` (`init → up → vault-init → migrate → start → admin`, plus `backup`, `restore-drill`, `status`). Images come from `infra/docker/Dockerfile` (targets `api`, `worker`); credentials live in OpenBao and reach the services through AppRole; the application uses the ordinary database role `hotella_app`. CI's "pilot deployment smoke" job runs exactly these commands on every push. Operations procedures: `docs/runbooks/`.
+
+On a fresh Ubuntu 22.04/24.04 server the whole sequence is one command,
+`sudo bash infra/install/install-ubuntu.sh --domain <domain> --email <admin e-mail>` (Docker, Caddy with automatic
+HTTPS for `api.`/`staff.`/`guest.<domain>`, ufw, the pilot stack, the first administrator, the first backup and the
+backup schedule, and a `hotella` command for operations; `--local` tries it without a domain). CI's "Ubuntu one-command
+install" job runs it on a clean runner twice (the second run must change nothing that works).
 
 Before any hotel installation: `docs/pilot/PILOT_READINESS_CHECKLIST.md` (server sizing, network, MSI, OpenBao,
 OPERA, licensing, backup, rollback, acceptance). Secrets follow `docs/security/SECRETS_LIFECYCLE.md`.

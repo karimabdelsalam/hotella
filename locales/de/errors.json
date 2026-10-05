@@ -26,6 +26,7 @@
   "errors.org.tenant.code_taken": "Ein Mandant mit diesem Code existiert bereits.",
   "errors.org.organization.not_found": "Organisation nicht gefunden.",
   "errors.org.property.not_found": "Haus nicht gefunden.",
+  "errors.org.hotel.not_found": "Kein Hotel verwendet diesen Code. Bitte prüfen Sie ihn mit Ihrer Leitung.",
   "errors.org.property.code_taken": "In diesem Mandanten existiert bereits ein Haus mit diesem Code.",
   "errors.org.location.not_found": "Standort nicht gefunden.",
   "errors.org.location.code_taken": "Unter demselben übergeordneten Standort existiert bereits ein Standort mit diesem Code.",

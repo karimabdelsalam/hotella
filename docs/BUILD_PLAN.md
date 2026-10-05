@@ -3069,13 +3069,32 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
   guest PII; device revoked on sign-out/user deactivation; `GET /public/properties/by-code/:code` (branding only).
 - CI: Flutter job (`flutter analyze`, `flutter test`, golden tests LTR/RTL), generated Dart client and ARB freshness.
 
+- *As built (14.4):* `apps/mobile` (Flutter 3.47.6 stable, Dart 3.13; Android `eg.planova.hotella` and iOS, display
+  name "Hotella"; dependencies `http`, `flutter_secure_storage`, `intl`, `flutter_localizations` only). Platform:
+  `GET /public/hotels/:code` (public, 20/min per IP; the tenant code → brand of its first live property on channel
+  `APP`: name, colours, whether it has a logo, locale/direction, attribution; unknown, suspended or empty → 404
+  `org.hotel.not_found`). Strings: namespace `mobile` in `/locales` (five locales, parity-checked) →
+  `tool/sync_arb.mjs` → `lib/l10n/app_*.arb` (keys `homeWelcomePlain`; a plural branch's ICU `#` becomes the plural
+  argument because gen-l10n does not read `#`) → `flutter gen-l10n`. Client: `tool/gen_client.mjs` reads the OpenAPI
+  snapshot and writes `lib/api/hotella_api.g.dart` — one method per operation the app uses and a Dart class per
+  request body (the OpenAPI document has no response schemas yet, so responses are read by small hand-written view
+  models in `session.dart`). Flow: hotel code → brand → e-mail/password (`tenantCode` from the hotel) → MFA code
+  when enrolled → home (greeting, property switcher when there are several, the sections the person's permissions
+  open: tasks `task.read`, requests `request.read`, alerts `alert.read`, restaurant `restaurant.reservation.read`;
+  the screens behind them are 14.6) and the Planova attribution on every screen. Only the refresh token is kept, in
+  the Keychain/Keystore; the access token lives in memory, is renewed once on a 401, and a returning person is signed
+  in again from the refresh token. CI job `mobile`: generated client and ARB `--check`, `flutter gen-l10n` committed,
+  `flutter analyze`, `flutter test` (sign-in with a wrong password, MFA, sign-out clears the kept token, a returning
+  person, Arabic RTL and API calls in Arabic, it/ru/de LTR). Golden screenshots are left out: font rendering differs
+  between machines, so direction is asserted on the widget tree instead.
+
 #### 14.D Sprints
 | Sprint | Scope | Status |
 |---|---|---|
 | 14.1 | Five locales: config, catalog check with CLDR plurals, it/ru/de catalogs, web apps, translation tables, PMS language mapping | done |
 | 14.2 | Restaurant context: model, migration, allowance and capacity rules, staff and guest APIs, events, checkout consumer, manifest, tests | done |
 | 14.3 | Restaurant UI: staff board, phone booking, configuration screens; guest booking; concierge tools; e2e; acceptance | done |
-| 14.4 | Staff app skeleton: Flutter project, generated client, ARB from the catalog, hotel code → branding → sign-in, CI job | planned |
+| 14.4 | Staff app skeleton: Flutter project, generated client, ARB from the catalog, hotel code → branding → sign-in, CI job | done |
 | 14.5 | Push notifications: devices, PUSH adapter (FCM/APNs) with OpenBao credentials, notification routing to devices | planned |
 | 14.6 | Staff app screens: tasks, requests, alerts, restaurant bookings; offline read cache; acceptance on devices | planned |
 

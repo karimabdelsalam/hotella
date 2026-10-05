@@ -92,6 +92,7 @@ export default tseslint.config(
     files: [
       'tooling/**/*.mjs',
       '**/bin/*.mjs',
+      'apps/mobile/tool/*.mjs',
       'scripts/**/*.{mjs,js}',
       '*.mjs',
       '*.cjs',

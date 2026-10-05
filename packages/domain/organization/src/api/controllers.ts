@@ -24,6 +24,7 @@ import {
   RequirePermission,
   TenantScoped,
 } from '@hotella/platform-auth';
+import { RateLimit } from '@hotella/platform-http';
 import { AppError, CurrentLocale } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import {
@@ -263,6 +264,15 @@ export class BrandingController {
   list(@Query() query: TenantQueryDto) {
     return this.branding.list({ tenantId: resolveTenantId(this.actors.require(), query.tenantId) });
   }
+  /** The Hotella staff app's first screen: the hotel behind a code, and its brand (no staff or guest data). */
+  @Public()
+  @Get('public/hotels/:code')
+  @RateLimit({ limit: 20, windowSeconds: 60, keyBy: 'ip', name: 'org-hotel-lookup' })
+  hotel(@Param('code') code: string) {
+    if (!/^[A-Za-z0-9_-]{2,32}$/.test(code)) throw AppError.notFound('org.hotel.not_found');
+    return this.branding.hotel(code, this.locale.requested());
+  }
+
   /** Guest-facing: QR pages, guest web and the WhatsApp context call this before anything else. */
   @Public()
   @Get('public/branding')

@@ -1,0 +1,130 @@
+{
+  "@@locale": "en",
+  "appTitle": "Hotella",
+  "@appTitle": {
+    "description": "mobile.app.title"
+  },
+  "commonError": "Something went wrong. Please try again.",
+  "@commonError": {
+    "description": "mobile.common.error"
+  },
+  "commonLanguage": "Language",
+  "@commonLanguage": {
+    "description": "mobile.common.language"
+  },
+  "commonOffline": "No connection. Try again when you are back online.",
+  "@commonOffline": {
+    "description": "mobile.common.offline"
+  },
+  "homeNoSections": "Nothing is assigned to you in this hotel yet.",
+  "@homeNoSections": {
+    "description": "mobile.home.no_sections"
+  },
+  "homeProperty": "Hotel",
+  "@homeProperty": {
+    "description": "mobile.home.property"
+  },
+  "homeSectionAlerts": "Alerts",
+  "@homeSectionAlerts": {
+    "description": "mobile.home.section.alerts"
+  },
+  "homeSectionRequests": "Guest requests",
+  "@homeSectionRequests": {
+    "description": "mobile.home.section.requests"
+  },
+  "homeSectionRestaurant": "Restaurant bookings",
+  "@homeSectionRestaurant": {
+    "description": "mobile.home.section.restaurant"
+  },
+  "homeSectionTasks": "My tasks",
+  "@homeSectionTasks": {
+    "description": "mobile.home.section.tasks"
+  },
+  "homeSections": "{count, plural, one {{count} thing you can do here} other {{count} things you can do here}}",
+  "@homeSections": {
+    "description": "mobile.home.sections",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "homeSignOut": "Sign out",
+  "@homeSignOut": {
+    "description": "mobile.home.sign_out"
+  },
+  "homeWelcome": "Hello, {name}",
+  "@homeWelcome": {
+    "description": "mobile.home.welcome",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeWelcomePlain": "Hello",
+  "@homeWelcomePlain": {
+    "description": "mobile.home.welcome_plain"
+  },
+  "hotelChange": "Change hotel",
+  "@hotelChange": {
+    "description": "mobile.hotel.change"
+  },
+  "hotelCode": "Hotel code",
+  "@hotelCode": {
+    "description": "mobile.hotel.code"
+  },
+  "hotelContinue": "Continue",
+  "@hotelContinue": {
+    "description": "mobile.hotel.continue"
+  },
+  "hotelIntro": "Enter the hotel code your manager gave you.",
+  "@hotelIntro": {
+    "description": "mobile.hotel.intro"
+  },
+  "hotelNotFound": "No hotel uses this code. Check it with your manager.",
+  "@hotelNotFound": {
+    "description": "mobile.hotel.not_found"
+  },
+  "hotelTitle": "Your hotel",
+  "@hotelTitle": {
+    "description": "mobile.hotel.title"
+  },
+  "signinEmail": "Work e-mail",
+  "@signinEmail": {
+    "description": "mobile.signin.email"
+  },
+  "signinFailed": "The e-mail or password is not right.",
+  "@signinFailed": {
+    "description": "mobile.signin.failed"
+  },
+  "signinMfaHint": "Enter the 6-digit code from your authenticator app.",
+  "@signinMfaHint": {
+    "description": "mobile.signin.mfa_hint"
+  },
+  "signinMfaTitle": "Verification code",
+  "@signinMfaTitle": {
+    "description": "mobile.signin.mfa_title"
+  },
+  "signinPassword": "Password",
+  "@signinPassword": {
+    "description": "mobile.signin.password"
+  },
+  "signinSubmit": "Sign in",
+  "@signinSubmit": {
+    "description": "mobile.signin.submit"
+  },
+  "signinTitle": "Sign in to {hotel}",
+  "@signinTitle": {
+    "description": "mobile.signin.title",
+    "placeholders": {
+      "hotel": {
+        "type": "String"
+      }
+    }
+  },
+  "signinVerify": "Verify",
+  "@signinVerify": {
+    "description": "mobile.signin.verify"
+  }
+}

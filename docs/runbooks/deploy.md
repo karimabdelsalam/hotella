@@ -7,6 +7,20 @@
 - A TLS reverse proxy on the host (Caddy or NGINX) for the public names, e.g. `https://api.<customer>.hotella.app` → `http://127.0.0.1:3000`, the staff portal → `http://127.0.0.1:3100` and the guest web app (`{property}.guest.hotella.app`, BUILD_PLAN Q4; set `HOTELLA_PUBLIC_BASE_URL` to it so activation links and room QR codes open it) → `http://127.0.0.1:3200`, all with HSTS. Certificates from the internal CA or a public CA depending on exposure.
 - Disk: separate volume for Docker data with room for the PostgreSQL data, the pgBackRest repository (≈ 4 full backups + WAL) and object storage.
 
+## One-command installation (Ubuntu 22.04 / 24.04)
+Point the DNS A records `api.`, `staff.`, `guest.` and `agent.<domain>` at the server, then:
+```bash
+git clone https://github.com/karimabdelsalam/hotella.git /opt/hotella      # private repo: use a read-only token
+sudo bash /opt/hotella/infra/install/install-ubuntu.sh --domain hotel.example.com --email you@planova.example
+```
+It checks the host, installs Docker, Caddy (Let's Encrypt certificates, HSTS), ufw (SSH, 80, 443, 8443 only) and
+unattended upgrades, runs every step of "First installation" below, creates the first administrator (password from
+`$HOTELLA_ADMIN_PASSWORD`, or generated and shown once), takes the first full backup, schedules nightly backups
+(`/etc/cron.d/hotella`) and installs the `hotella` command (`sudo hotella status|unseal|start|backup full|…`, the same
+as `pilot.sh`). It is safe to run again. `--local` installs on localhost without a domain (a laptop or a VM). Then do
+"Immediately after the first installation" below — the installer leaves the OpenBao unseal keys on the host for you
+to move.
+
 ## First installation
 ```bash
 git clone <repo> /opt/hotella && cd /opt/hotella        # or unpack the release bundle

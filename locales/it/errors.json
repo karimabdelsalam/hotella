@@ -26,6 +26,7 @@
   "errors.org.tenant.code_taken": "Esiste già un tenant con questo codice.",
   "errors.org.organization.not_found": "Organizzazione non trovata.",
   "errors.org.property.not_found": "Struttura non trovata.",
+  "errors.org.hotel.not_found": "Nessun hotel usa questo codice. Verificalo con il tuo responsabile.",
   "errors.org.property.code_taken": "In questo tenant esiste già una struttura con questo codice.",
   "errors.org.location.not_found": "Ubicazione non trovata.",
   "errors.org.location.code_taken": "Esiste già un'ubicazione con questo codice sotto lo stesso elemento padre.",

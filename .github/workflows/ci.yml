@@ -131,6 +131,70 @@ jobs:
           path: ${{ runner.temp }}/msi/
           retention-days: 14
 
+  mobile:
+    # ADR-0023: the Hotella staff app (Flutter). The Dart API client and the ARB strings are generated from the
+    # OpenAPI document and /locales — CI fails when either is stale — then analyze and the widget tests (en, ar RTL,
+    # it/ru/de).
+    name: staff app (Flutter)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    env:
+      FLUTTER_VERSION: 3.47.6
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Generated client and strings are up to date
+        run: |
+          node tool/gen_client.mjs --check
+          node tool/sync_arb.mjs --check
+      - name: Flutter SDK (stable, pinned)
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -sSfL "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" | tar -xJ
+          echo "${{ runner.temp }}/flutter/bin" >> "$GITHUB_PATH"
+      - run: flutter --disable-analytics && flutter pub get
+      - name: Localizations generated from the ARB files are committed
+        run: flutter gen-l10n && git diff --exit-code -- lib/l10n
+      - run: flutter analyze
+      - run: flutter test
+
+  install:
+    # The one-command Ubuntu installer (infra/install/install-ubuntu.sh) on a clean runner, in --local mode (no domain):
+    # packages, the whole pilot stack, the first administrator and backup; then the API, both web apps and a sign-in.
+    name: Ubuntu one-command install
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs: verify
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install
+        env:
+          HOTELLA_ADMIN_PASSWORD: install smoke passphrase 2026
+        run: sudo -E bash infra/install/install-ubuntu.sh --local --email ci-admin@example.com --skip-checks
+      - name: The installation answers
+        run: |
+          curl -fsS http://127.0.0.1:3000/api/v1/ready
+          curl -fsS -o /dev/null http://127.0.0.1:3100/en/login
+          curl -fsS -o /dev/null http://127.0.0.1:3200/en
+          curl -fsS http://127.0.0.1:3000/api/v1/auth/login -H 'content-type: application/json' \
+            -d '{"email":"ci-admin@example.com","password":"install smoke passphrase 2026"}' | grep -q accessToken
+          sudo hotella status
+          test -f /etc/cron.d/hotella
+      - name: Running it again changes nothing that works
+        env:
+          HOTELLA_ADMIN_PASSWORD: install smoke passphrase 2026
+        run: |
+          sudo -E bash infra/install/install-ubuntu.sh --local --email ci-admin@example.com --skip-checks
+          curl -fsS http://127.0.0.1:3000/api/v1/ready
+      - name: Logs on failure
+        if: failure()
+        run: sudo docker compose -p hotella-pilot -f /opt/hotella/infra/docker/compose.pilot.yml logs --tail=150
+
   pilot:
     # BUILD_PLAN §5.8 evidence: the on-prem pilot stack builds, boots with secrets from OpenBao, serves a signed-in
     # request as an ordinary (RLS-bound) database role, backs up with pgBackRest and passes a restore drill.

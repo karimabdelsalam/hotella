@@ -742,6 +742,34 @@ export class BrandingService {
   }
 
   /** Guest-facing resolution (public): platform → tenant → organization → property → channel, plus attribution. */
+  /**
+   * The staff app's first screen (ADR-0023): a hotel code (the tenant code staff sign in with) → the hotel's brand as
+   * the app shows it (channel `APP` of its first live property) and that property's id for the logo. Unknown,
+   * suspended or empty hotels all read as not found.
+   */
+  async hotel(code: string, locale: string | null) {
+    const tenant = await this.repo.tenantByCode(code.trim().toUpperCase());
+    if (!tenant || tenant.status !== 'ACTIVE') throw AppError.notFound('org.hotel.not_found');
+    // Live properties first, then those still being set up (staff use the app before go-live).
+    const rank = (status: string) => (status === 'ACTIVE' ? 0 : 1);
+    const property = (await this.repo.listProperties({ tenantId: tenant.id }))
+      .filter((p) => p.status !== 'INACTIVE')
+      .sort((a, b) => rank(a.status) - rank(b.status) || a.code.localeCompare(b.code))[0];
+    if (!property) throw AppError.notFound('org.hotel.not_found');
+    const brand = await this.resolve(property.id, 'APP', locale);
+    return {
+      code: tenant.code,
+      propertyId: property.id,
+      displayName: brand.displayName,
+      primaryColor: brand.primaryColor,
+      secondaryColor: brand.secondaryColor,
+      hasLogo: brand.logoAssetKey !== null,
+      locale: brand.locale,
+      direction: brand.direction,
+      attribution: brand.attribution,
+    };
+  }
+
   async resolve(
     propertyId: string,
     channel: string | null,

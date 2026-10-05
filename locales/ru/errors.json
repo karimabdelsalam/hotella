@@ -26,6 +26,7 @@
   "errors.org.tenant.code_taken": "Арендатор с таким кодом уже существует.",
   "errors.org.organization.not_found": "Организация не найдена.",
   "errors.org.property.not_found": "Объект не найден.",
+  "errors.org.hotel.not_found": "Отель с таким кодом не найден. Уточните код у руководителя.",
   "errors.org.property.code_taken": "Объект с таким кодом уже существует у этого арендатора.",
   "errors.org.location.not_found": "Помещение не найдено.",
   "errors.org.location.code_taken": "Помещение с таким кодом уже существует у того же родителя.",

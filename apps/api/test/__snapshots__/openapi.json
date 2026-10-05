@@ -1137,6 +1137,37 @@
         ]
       }
     },
+    "/api/v1/public/hotels/{code}": {
+      "get": {
+        "operationId": "BrandingController_hotel",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Branding"
+        ]
+      }
+    },
     "/api/v1/public/branding": {
       "get": {
         "operationId": "BrandingController_resolve",

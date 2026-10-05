@@ -1,0 +1,6 @@
+# Strings come from /locales (mobile.*) through tool/sync_arb.mjs; never edit the ARB files by hand.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false

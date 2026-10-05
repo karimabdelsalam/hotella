@@ -15,3 +15,8 @@ apps/guest-web/src/messages
 apps/guest-web/next-env.d.ts
 # WiX sources (Prettier reads .wxs as WeChat script)
 *.wxs
+# Flutter staff app: generated platform projects and build output (Dart has its own formatter)
+apps/mobile/android
+apps/mobile/ios
+apps/mobile/build
+apps/mobile/.dart_tool

@@ -382,6 +382,29 @@ describe.skipIf(needsInfra())(
       expect(b.body.primaryColor).not.toBe('#0B3D91');
     });
 
+    it('the staff app finds a hotel by its code: its brand, nothing else', async () => {
+      const hotel = await request(app.getHttpServer())
+        .get(`/public/hotels/nile_${stamp.toLowerCase()}`)
+        .set('Accept-Language', 'ar')
+        .expect(200);
+      expect(hotel.body).toEqual({
+        code: `NILE_${stamp}`,
+        propertyId: propertyA,
+        displayName: 'Nile Palace',
+        primaryColor: '#0B3D91',
+        secondaryColor: expect.any(String),
+        hasLogo: false,
+        locale: 'ar',
+        direction: 'rtl',
+        attribution: expect.objectContaining({ href: 'https://planova.com.eg' }),
+      });
+      const unknown = await request(app.getHttpServer())
+        .get('/public/hotels/NO_SUCH_HOTEL')
+        .expect(404);
+      expect(unknown.body.code).toBe('org.hotel.not_found');
+      await request(app.getHttpServer()).get('/public/hotels/x%27%3B').expect(404);
+    });
+
     it('a hotel manager sets the hotel name, colour and logo; the logo is served publicly and nowhere else', async () => {
       const ua = user('ua', tenantA);
       const http = () => request(app.getHttpServer());
