@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using Hotella.Agent.Core.Connectors;
 using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Json;
 using Hotella.Agent.Core.Link;
@@ -18,7 +19,7 @@ namespace Hotella.Agent.Ows;
 /// <c>OWS_RESERVATION</c> messages (NEW, CHANGE, CANCEL, NOSHOW) through the durable link. Nothing is ever written to
 /// OPERA. The message id is derived from the reservation and its fingerprint, so a repeat is a no-op on the platform.
 /// </summary>
-public sealed class OwsAdapter : IAdapterHealth, IDisposable
+public sealed class OwsAdapter : IConnectorAdapter
 {
     public const string ConnectorCode = "OPERA5_OWS";
     public const string MessageType = "OWS_RESERVATION";

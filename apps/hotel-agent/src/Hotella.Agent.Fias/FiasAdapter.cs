@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using Hotella.Agent.Core.Connectors;
 using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Link;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,7 @@ namespace Hotella.Agent.Fias;
 /// no-op on the platform. Commands: <c>RESYNC_IN_HOUSE</c> asks IFC8 for a database sync (DR); <c>SET_ROOM_STATUS</c>
 /// writes a room status (RE) and is advertised only when the hotel enabled it.
 /// </summary>
-public sealed class FiasAdapter : IAdapterHealth, IDisposable
+public sealed class FiasAdapter : IConnectorAdapter
 {
     public const string ConnectorCode = "OPERA5_FIAS";
     public const string MessageType = "FIAS_RECORD";
@@ -63,7 +64,10 @@ public sealed class FiasAdapter : IAdapterHealth, IDisposable
     public IReadOnlyList<(string Record, string Fields)> LinkRecords => FiasProfile.LinkRecords(_settings.OptionalRecords);
 
     /// <summary>The adapter's command handlers, given to the link client.</summary>
-    public IEnumerable<ICommandHandler> Commands() => [new ResyncHandler(this), new RoomStatusHandler(this)];
+    public IReadOnlyList<ICommandHandler> Commands() => [new ResyncHandler(this), new RoomStatusHandler(this)];
+
+    /// <summary>FIAS is an event stream: reads go to OWS or the OPERA database connector.</summary>
+    public IReadOnlyList<IQueryHandler> Queries() => [];
 
     /// <summary>Connects (or listens), serves the session and reconnects until cancelled.</summary>
     public async Task RunAsync(IMessagePublisher publisher, CancellationToken ct)

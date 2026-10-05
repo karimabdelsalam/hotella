@@ -3162,9 +3162,10 @@ eng (telemetry)
 ```
 
 #### 13.B Design decisions taken before coding
-- **SDK v2:** `IConnectorAdapter` in the .NET agent (start/stop, `Publish`, command and query handlers, health) and a
-  registry keyed by connector code; link protocol 3 (`hello.connectors[]`, frames carry `connector_code`); TS
-  reference agent and conformance tests updated; protocol 2 stays accepted. Webhook ingress
+- **SDK v2:** `IConnectorAdapter` in the .NET agent (`RunAsync` publishing into the link, command and query
+  handlers, health) and a registry keyed by connector code. ~~Link protocol 3 (multi-connector)~~ — dropped in 13.1
+  (ADR-0024 amendment): several connectors on one host are ADR-0020 instances, each with its own identity and link.
+  Webhook ingress
   `POST /integrations/inbound/:endpointId` (HMAC-SHA256 over `t.body`, 5-minute window, idempotent on
   `source_message_id`) feeds the same `IngestService`.
 - **Voice (Planova Voice Profile v1):** the PBX/gateway posts `call.started|answered|transfer|ended` and utterance
@@ -3204,7 +3205,7 @@ eng (telemetry)
 #### 13.D Sprints
 | Sprint | Scope | Status |
 |---|---|---|
-| 13.1 | Connector SDK v2: .NET `IConnectorAdapter` + registry, link protocol 3 (multi-connector), signed webhook ingress, health hook, contract-test kit | planned |
+| 13.1 | Connector SDK v2: .NET `IConnectorAdapter` + registry, ~~link protocol 3~~ (ADR-0024 amendment), signed webhook ingress, health hook, contract-test kit | done |
 | 13.2 | IoT/BMS telemetry: points, mappings, minute aggregates, deterministic rules, alarms → alerts/work orders/room signals/insights; simulator face; staff screen | planned |
 | 13.3 | Stay-bound access: `ACCESS_API`, lock and Wi-Fi neutral connectors, auto-revoke on check-out and moves, staff UI; simulator | planned |
 | 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | planned |
@@ -3214,16 +3215,30 @@ eng (telemetry)
 Order rationale: the SDK first (everything else plugs into it); telemetry and access next (deterministic, high
 operational value, no vendor needed to prove them); voice after (depends on an AUDIO model on-prem and Q22/Q23).
 
+**13.1 as built.** Contracts: manifest `transports` (`AGENT` default, `WEBHOOK`; a webhook-only connector declares no
+commands or queries), `inboundBatchSchema` (1–100 raw messages, no link sequence), `checkConnectorVectors` +
+`connectorVectorsSchema`. Integration: `integration.inbound_endpoints` (migration 0055, tenant FK + RLS; secret derived
+from the platform webhook key, endpoint id and `secret_version`, never stored, shown once on create and rotate),
+`InboundEndpointService` (list/create/rotate/revoke under `integration.read`/`integration.configure`, audited
+`integration.inbound.*`), public `POST /integrations/inbound/:endpointId` (rate-limited, raw-body HMAC, 300 s window;
+404 for unknown/revoked, 401 `integration.inbound.bad_signature` for every signature problem) feeding `IngestService`;
+`SIM_PMS` accepts both transports; `test-vectors/sim-pms-v1.json`. Agent: `IConnectorAdapter`, `IConnectorFactory`,
+`ConnectorAdapterRegistry` (`Hotella.Agent.Core/Connectors`), `FiasConnector`/`OwsConnector`/`OperaDbConnector`;
+`AgentWorker`, `status` and the conformance driver use the registry; a code without an adapter runs the link alone.
+Tests: `inbound.integration.spec.ts` (signed ingest → `hotel.guest.checked_in`, duplicate retry, missing/stale/
+tampered/foreign signatures, rotation, revocation, tenant isolation), webhook unit tests, `vectors.spec.ts`,
+`ConnectorRegistryTests` (.NET), the OPERA conformance suites unchanged and green.
+
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,
-  access state machine, voice profile parsing, link protocol 3 frames.
+  access state machine, voice profile parsing, connector registry and contract vectors.
 - Integration (real Postgres): unknown point → exception, alarm raised once and cleared, work order opened by rule;
   key issued only for an in-house stay and revoked at check-out; signed ingress refuses bad signatures and replays;
   a voice utterance becomes a conversation message answered by the concierge and transferred on hand-off; tenant-leak
   tests for every new table.
 - E2E: simulator scenarios — a chiller's temperature climbs → alarm → work order; check-in → key and Wi-Fi issued →
   check-out → both revoked; a guest calls, asks for towels by voice → request created → spoken answer; the .NET agent
-  runs two connectors under one service (conformance).
+  runs every OPERA connector through the adapter registry (conformance).
 
 ### Phase 14 — Languages, Restaurant reservations, the Hotella staff app (owner decisions of 2026-10-05)
 Spec Appendix B; ADR-0022 (five locales), ADR-0023 (Flutter staff app). **Order (owner may reorder):** after 11.7 —

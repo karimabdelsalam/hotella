@@ -3,9 +3,7 @@ using System.Reflection;
 using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Queue;
 using Hotella.Agent.Core.Security;
-using Hotella.Agent.Fias;
 using Hotella.Agent.OperaDb;
-using Hotella.Agent.Ows;
 using Hotella.Agent.Updater;
 using Microsoft.Extensions.Configuration;
 
@@ -105,8 +103,7 @@ internal static class Cli
                 var config = Config(instance is null ? host : ["--instance", instance, .. host]);
                 var settings = AgentHost.Settings(config);
                 return new IdentityStore(settings.DataDirectory).Exists
-                    && AgentHost.Problems(settings, AgentHost.FiasSettings(config), AgentHost.OwsSettings(config),
-                        AgentHost.OperaDbSettings(config)).Count == 0;
+                    && AgentHost.Problems(settings, config).Count == 0;
             });
         switch (args.FirstOrDefault())
         {
@@ -131,28 +128,16 @@ internal static class Cli
     {
         var config = Config(args);
         var settings = AgentHost.Settings(config);
-        var fias = AgentHost.FiasSettings(config);
-        var ows = AgentHost.OwsSettings(config);
-        var db = AgentHost.OperaDbSettings(config);
-        var problems = AgentHost.Problems(settings, fias, ows, db);
+        var problems = AgentHost.Problems(settings, config);
         Console.WriteLine($"version:      {AgentVersion}");
         Console.WriteLine($"gateway:      {settings.Gateway}");
         Console.WriteLine($"connector:    {settings.ConnectorCode} [{string.Join(", ", settings.Capabilities)}]");
         Console.WriteLine($"data:         {settings.DataDirectory}");
-        if (settings.ConnectorCode == FiasAdapter.ConnectorCode)
-            Console.WriteLine($"ifc8:         {fias.Mode} {fias.Host}:{fias.Port} ({fias.Encoding})");
         var secrets = new SecretStore(settings.DataDirectory);
-        if (settings.ConnectorCode == OwsAdapter.ConnectorCode)
-        {
-            Console.WriteLine($"ows:          {ows.Url} as {ows.Username}, every {ows.PollSeconds} s, {ows.WindowDays} days ahead");
-            if (secrets.Get(ows.PasswordSecret) is null) problems.Add($"secret {ows.PasswordSecret} is not set");
-        }
-        if (settings.ConnectorCode == OperaDbAdapter.ConnectorCode)
-        {
-            Console.WriteLine($"opera-db:     {db.Provider} {db.Host}:{db.Port}/{db.ServiceName} as {db.Username}, owner {db.SchemaOwner}, resort {db.ResortCode}"
-                + (db.ChangePolling ? $", change polling every {db.PollSeconds} s" : ""));
-            if (db.Provider == "oracle" && secrets.Get(db.PasswordSecret) is null) problems.Add($"secret {db.PasswordSecret} is not set");
-        }
+        if (AgentHost.Connectors.Find(settings.ConnectorCode) is { } connector)
+            foreach (var line in connector.Describe(config, secrets, problems)) Console.WriteLine(line);
+        else if (!string.IsNullOrWhiteSpace(settings.ConnectorCode))
+            Console.WriteLine("adapter:      none in this agent (link only)");
         Console.WriteLine($"secrets:      {string.Join(", ", secrets.Names())}");
         var identity = new IdentityStore(settings.DataDirectory).Load();
         if (identity is null) problems.Add("not enrolled");
@@ -199,14 +184,14 @@ internal static class Cli
         if (args.FirstOrDefault() != "probe") return Usage();
         var config = Config(args.Skip(1).ToArray());
         var settings = AgentHost.Settings(config);
-        var db = AgentHost.OperaDbSettings(config);
+        var db = OperaDbConnector.Settings(config);
         var problems = db.Problems().ToList();
         if (problems.Count > 0)
         {
             foreach (var p in problems) Console.WriteLine($"problem:      {p}");
             return ExitCodes.NotConfigured;
         }
-        using var source = AgentHost.OperaDataSource(db, new SecretStore(settings.DataDirectory));
+        using var source = OperaDbConnector.DataSource(db, new SecretStore(settings.DataDirectory));
         Console.WriteLine($"contract:     data contract v{DataContract.Version}, owner {db.SchemaOwner}, resort {db.ResortCode}");
         var privileges = PrivilegeCheck.Problems(await source.PrivilegesAsync(CancellationToken.None).ConfigureAwait(false), db.SchemaOwner);
         Console.WriteLine(privileges.Count == 0 ? "privileges:   read-only (CREATE SESSION + SELECT on the contract)" : "privileges:   NOT read-only");

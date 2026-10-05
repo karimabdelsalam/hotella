@@ -1,0 +1,101 @@
+{
+  "connector": "SIM_PMS",
+  "version": 1,
+  "timezone": "Africa/Cairo",
+  "received_at": "2026-10-03T12:00:00Z",
+  "cases": [
+    {
+      "name": "a FIAS check-in in Cairo wall-clock time becomes a CHECK_IN in UTC",
+      "message": {
+        "message_type": "FIAS_RECORD",
+        "source_message_id": "v-gi",
+        "payload": {
+          "record": "GI|RN301|G#R100|GNNile|GFAmira|GLar|GA261003|GD261006|DA261003|TI143000|"
+        }
+      },
+      "expect": {
+        "ok": true,
+        "records": [
+          {
+            "kind": "CHECK_IN",
+            "reservation": {
+              "external_id": "R100",
+              "confirmation_number": null
+            },
+            "primary_guest": {
+              "external_id": null,
+              "given_name": "Amira",
+              "family_name": "Nile",
+              "title": null,
+              "locale": "ar",
+              "vip_code": null,
+              "email": null,
+              "phone": null,
+              "loyalty_number": null
+            },
+            "accompanying_guests": [],
+            "arrival_date": "2026-10-03",
+            "departure_date": "2026-10-06",
+            "adults": 1,
+            "children": 0,
+            "rate_code": null,
+            "market_code": null,
+            "room_code": "301",
+            "occurred_at": "2026-10-03T11:30:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a FIAS check-out becomes a CHECK_OUT",
+      "message": {
+        "message_type": "FIAS_RECORD",
+        "source_message_id": "v-go",
+        "payload": {
+          "record": "GO|RN301|G#R100|DA261006|TI110000|"
+        }
+      },
+      "expect": {
+        "ok": true,
+        "records": [
+          {
+            "kind": "CHECK_OUT",
+            "reservation": {
+              "external_id": "R100",
+              "confirmation_number": null
+            },
+            "room_code": "301",
+            "occurred_at": "2026-10-06T08:00:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "an unknown record is refused, never guessed (rule 16)",
+      "message": {
+        "message_type": "FIAS_RECORD",
+        "source_message_id": "v-zz",
+        "payload": {
+          "record": "ZZ|RN301|"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "error_contains": "unsupported record ZZ"
+      }
+    },
+    {
+      "name": "a payload without a record is refused",
+      "message": {
+        "message_type": "FIAS_RECORD",
+        "source_message_id": "v-bad",
+        "payload": {
+          "nope": 1
+        }
+      },
+      "expect": {
+        "ok": false
+      }
+    }
+  ]
+}

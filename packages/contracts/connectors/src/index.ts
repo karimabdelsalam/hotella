@@ -108,3 +108,5 @@ export type {
   PlatformFrame,
   QueryFrameBody,
 } from './link';
+export { checkConnectorVectors, connectorVectorsSchema } from './vectors';
+export type { ConnectorVectors, ConnectorVectorsInput } from './vectors';

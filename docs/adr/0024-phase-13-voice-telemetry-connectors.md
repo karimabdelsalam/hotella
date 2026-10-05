@@ -1,6 +1,7 @@
 # ADR-0024: Phase 13 — voice, building telemetry and more connectors on the existing abstractions
 
-**Status:** Accepted — 2026-10-05 (engineering; vendor choices remain owner decisions Q21–Q26 in `docs/BUILD_PLAN.md`)
+**Status:** Accepted — 2026-10-05 (engineering; vendor choices remain owner decisions Q21–Q26 in `docs/BUILD_PLAN.md`);
+amended 2026-10-05 in Sprint 13.1 (decision 2: no link protocol 3, see *Amendment*)
 
 ## Context
 Spec §44 (future channels), §45–§47 (integration platform, capabilities), §56 (Connector SDK) and Phase 13 ask for a
@@ -47,3 +48,17 @@ adapter by hard-coded connector code and runs one connector per service. No vend
 - Link protocol 3 is additive; the platform keeps accepting protocol 1 and 2 agents.
 - Audio, door access and spend are privacy- and security-sensitive: data classes SENSITIVE (audio, transcripts quoting
   guests), RESTRICTED for key material (never stored), CONFIDENTIAL for spend; retention per class (rule 21).
+
+## Amendment (Sprint 13.1): several connectors on one host without link protocol 3
+Building SDK v2 showed that multiplexing several connectors over one link would undo what ADR-0017 relies on: the
+client certificate, the strictly ordered sequence, the licence and revocation all belong to **one integration
+instance**. One agent identity serving several instances would need a new authorization model on the gateway and
+would let one compromised certificate speak for several systems. ADR-0020 already runs several agent *instances* on
+one host (one service, identity, queue and link each, installed together from several enrollment codes). So:
+- **Decision 2 is narrowed:** the .NET agent gets `IConnectorAdapter` and a registry (`AgentHost.Connectors`) and no
+  longer selects adapters by hard-coded code; a hotel with several on-prem systems runs one ADR-0020 instance per
+  connector on the same host. Link protocol 3 is not built; protocol 2 stays current.
+- The manifest's health hook is realized as the adapter's health in the agent (`IAdapterHealth`, reported in
+  `health.json` and the platform's agent health) and, for webhook connectors, the endpoint's `last_used_at`.
+- The contract-test kit is `checkConnectorVectors` (contracts-connectors) over JSON vectors shipped with each connector.
+- Revisit only if a vendor requires one process to speak for several instances; that would be a new ADR.

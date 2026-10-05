@@ -1,5 +1,5 @@
+using Hotella.Agent.Core.Connectors;
 using Hotella.Agent.Core.Hosting;
-using Hotella.Agent.Core.Security;
 using Hotella.Agent.Fias;
 using Hotella.Agent.OperaDb;
 using Hotella.Agent.Ows;
@@ -80,44 +80,19 @@ internal static class AgentHost
         return settings;
     }
 
-    public static FiasSettings FiasSettings(IConfiguration config)
-    {
-        var settings = new FiasSettings();
-        config.GetSection(Fias.FiasSettings.Section).Bind(settings);
-        return settings;
-    }
+    /// <summary>
+    /// The connectors compiled into this agent (Connector SDK v2, ADR-0024). A new connector is a project with an
+    /// <see cref="IConnectorFactory"/> added here; nothing else in the host names a connector.
+    /// </summary>
+    public static readonly ConnectorAdapterRegistry Connectors =
+        new([new FiasConnector(), new OwsConnector(), new OperaDbConnector()]);
 
-    public static OwsSettings OwsSettings(IConfiguration config)
+    /// <summary>Settings problems of the agent and of the connector it runs.</summary>
+    public static List<string> Problems(AgentSettings agent, IConfiguration config)
     {
-        var settings = new OwsSettings();
-        config.GetSection(Ows.OwsSettings.Section).Bind(settings);
-        return settings;
+        ArgumentNullException.ThrowIfNull(agent);
+        return [.. agent.Problems(), .. Connectors.Problems(agent.ConnectorCode, config)];
     }
-
-    public static OperaDbSettings OperaDbSettings(IConfiguration config)
-    {
-        var settings = new OperaDbSettings();
-        config.GetSection(OperaDb.OperaDbSettings.Section).Bind(settings);
-        return settings;
-    }
-
-    /// <summary>Settings problems of the agent and of the adapter its connector needs.</summary>
-    public static List<string> Problems(AgentSettings agent, FiasSettings fias, OwsSettings ows, OperaDbSettings db)
-    {
-        var problems = agent.Problems().ToList();
-        if (agent.ConnectorCode == FiasAdapter.ConnectorCode) problems.AddRange(fias.Problems());
-        if (agent.ConnectorCode == OwsAdapter.ConnectorCode) problems.AddRange(ows.Problems());
-        if (agent.ConnectorCode == OperaDbAdapter.ConnectorCode) problems.AddRange(db.Problems());
-        return problems;
-    }
-
-    /// <summary>The OPERA database the settings name: the hotel's Oracle, or the fixture file (development and CI).</summary>
-    public static IOperaDataSource OperaDataSource(OperaDbSettings db, SecretStore secrets) =>
-        db.Provider == "fixture"
-            ? new FixtureDataSource(db.FixturePath!, db.ResortCode)
-            : new OracleDataSource(db, secrets.Get(db.PasswordSecret)
-                ?? throw new InvalidOperationException(
-                    $"the OPERA database password is not set (hotella-agent secret set {db.PasswordSecret})"));
 
     public static async Task<int> RunAsync(string[] args)
     {
@@ -138,9 +113,7 @@ internal static class AgentHost
         builder.Services.AddWindowsService(o => o.ServiceName = ServiceNameOf(Instance(args)));
         builder.Services.AddSystemd();
         builder.Services.AddSingleton(Settings(builder.Configuration));
-        builder.Services.AddSingleton(FiasSettings(builder.Configuration));
-        builder.Services.AddSingleton(OwsSettings(builder.Configuration));
-        builder.Services.AddSingleton(OperaDbSettings(builder.Configuration));
+        builder.Services.AddSingleton(Connectors);
         builder.Services.AddSingleton(UpdateSettings.From(builder.Configuration));
         builder.Services.AddHostedService<AgentWorker>();
         using var host = builder.Build();

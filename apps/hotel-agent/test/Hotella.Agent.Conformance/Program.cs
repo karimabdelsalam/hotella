@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Hotella.Agent.Core.Connectors;
 using Hotella.Agent.Core.Licensing;
 using Hotella.Agent.Core.Link;
 using Hotella.Agent.Core.Queue;
@@ -123,12 +124,14 @@ while (Console.ReadLine() is { } text)
                         new FixtureDataSource(settings.FixturePath, settings.ResortCode), ":memory:", log);
                     await operaDb.CheckPrivilegesAsync(CancellationToken.None);
                 }
+                // Connector SDK v2: whichever adapter was asked for, the link sees only IConnectorAdapter.
+                IConnectorAdapter? adapter = (IConnectorAdapter?)fias ?? (IConnectorAdapter?)ows ?? operaDb;
                 client ??= new LinkClient(identity!, queue,
                     new LinkOptions(gateway!, request["connector"]!.GetValue<string>(),
                         request["capabilities"]!.AsArray().Select(c => c!.GetValue<string>()).ToList(), "conformance"),
-                    fias?.Commands() ?? ows?.Commands() ?? request["commands"]!.AsArray()
+                    adapter?.Commands() ?? request["commands"]!.AsArray()
                         .Select(c => (ICommandHandler)new ReportingHandler(c!.GetValue<string>(), Write)),
-                    log, operaDb?.Queries() ?? ows?.Queries());
+                    log, adapter?.Queries());
                 if (licences is null)
                 {
                     licences = new LicenceStore(licenceDir, new CommandSignature(identity!.CommandPublicKeyPem),
@@ -137,20 +140,10 @@ while (Console.ReadLine() is { } text)
                     client.LicenceOffered += token => store.Offer(token);
                     client.CommandGate = () => store.CommandRefusal(DateTimeOffset.UtcNow.AddDays(licenceClockDays));
                 }
-                if (fias is not null && adapterRun is null)
+                if (adapter is not null && adapterRun is null)
                 {
                     var link = client;
-                    adapterRun = Task.Run(() => fias.RunAsync(link, adapterStop.Token));
-                }
-                if (operaDb is not null && adapterRun is null)
-                {
-                    var link = client;
-                    adapterRun = Task.Run(() => operaDb.RunAsync(link, adapterStop.Token));
-                }
-                if (ows is not null && adapterRun is null)
-                {
-                    var link = client;
-                    adapterRun = Task.Run(() => ows.RunAsync(link, adapterStop.Token));
+                    adapterRun = Task.Run(() => adapter.RunAsync(link, adapterStop.Token));
                 }
                 if (running is null)
                 {

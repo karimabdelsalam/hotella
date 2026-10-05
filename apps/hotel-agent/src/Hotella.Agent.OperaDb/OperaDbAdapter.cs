@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using Hotella.Agent.Core.Connectors;
 using Hotella.Agent.Core.Hosting;
 using Hotella.Agent.Core.Json;
 using Hotella.Agent.Core.Link;
@@ -17,7 +18,7 @@ namespace Hotella.Agent.OperaDb;
 /// reservations as <c>OPERA_DB_RESERVATION</c> messages in the OWS reservation shape. It never writes to OPERA: no
 /// statement can, the session is read-only, and a writable account is refused.
 /// </summary>
-public sealed class OperaDbAdapter : IAdapterHealth, IDisposable
+public sealed class OperaDbAdapter : IConnectorAdapter
 {
     public const string ConnectorCode = "OPERA5_DB";
     public const string MessageType = "OPERA_DB_RESERVATION";
@@ -63,6 +64,9 @@ public sealed class OperaDbAdapter : IAdapterHealth, IDisposable
 
     public bool Up => _refusal is null && _lastError is null;
     public string? Problem => _refusal ?? _lastError;
+
+    /// <summary>None, ever: the OPERA database is read-only for Hotella (ADR-0019).</summary>
+    public IReadOnlyList<ICommandHandler> Commands() => [];
 
     /// <summary>The predefined reads this connector serves (the manifest's queries).</summary>
     public IReadOnlyList<IQueryHandler> Queries() =>
