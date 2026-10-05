@@ -2954,7 +2954,7 @@ quality_daily(tenant_id, property_id, agent_code, agent_version_id, day, metric,
 | 12.4 | Insight engine v1: detector registry, five detectors, lifecycle, feedback, events | done |
 | 12.5 | Manager assistant, `agents.consult` (controlled collaboration), cross-property comparison | done |
 | 12.6 | Quality and cost metrics job; staff-web Intelligence screens (insights, pulse, quality) in English and Arabic | done |
-| 12.7 | Phase 12 acceptance (`docs/acceptance/phase-12.md`) | planned |
+| 12.7 | Phase 12 acceptance (`docs/acceptance/phase-12.md`) | done |
 
 - *As built (12.1):* migration `0049_ai_evaluation`: `ai.evaluation_sets` (platform when `tenant_id` is null, else the
   hotel's own; RLS shows platform rows to every tenant), `evaluation_cases` (input, tool fixtures, expectations, data

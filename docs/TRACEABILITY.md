@@ -53,12 +53,12 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 35 | Context engine with per-agent policies; minimum necessary data | BP §10 P6; Sprint 6.3 (`ContextEngine`: providers named by the agent version's context policy, each part data-classed and framed as data) | P6 (6.3 ✔) |
 | 36 | Short-term vs durable memory; candidate → policy → accept/reject/expire; stay facts not permanent prefs | BP §10 P6 `memory_candidates/memories`; `guest_preferences.source/expires_at` (BP §6.1) | P2, P6 |
 | 37 | Knowledge sources & scoping; hybrid retrieval; structured live data via tools not RAG | BP §10 P6 knowledge module (Sprint 6.4: `@hotella/domain-knowledge`, scope tenant/property/audience/classification/effective dates/language, normalized keyword + pgvector cosine fused by reciprocal rank, `knowledge.integration.spec.ts`), P8 engineering manuals; CM 12 | P6 (6.4 ✔), P8 |
-| 38 | Evidence & explainability; traceable to document versions | BP §10 P6 (6.4: passages carry document id, version id and number; published versions immutable by trigger), P12 insights | P6 (6.4 ✔), P12 |
-| 39 | Rules/statistics first, LLM only when valuable | BP §10 P7/P8 notes, P13 IoT path; CM 11 | P7+ |
-| 40 | Feedback, evaluation sets/cases/runs/results; implicit signals; regression/shadow/canary before publish | BP §10 P6 `feedback` (6.3: `ai.feedback` DRAFT_EDIT from staff edits), P12 evaluation & canary | P6 (6.3 ✔), P12 |
-| 41 | Cost & quality observability metrics | BP §10 P6 cost/token metrics (6.1: `ai.model_calls` tokens/latency/cost/fallback/outcome, `/ai/usage`); ADR-0006 meter; P12 dashboards | P6, P12 |
+| 38 | Evidence & explainability; traceable to document versions | BP §10 P6 (6.4: passages carry document id, version id and number; published versions immutable by trigger), P12 insights (12.4: `ai.insights` with evidence ids/counts/windows, reason keys, confidence formula, append-only history) | P6 (6.4 ✔), P12 (12.4 ✔) |
+| 39 | Rules/statistics first, LLM only when valuable | BP §10 P7/P8 notes, P12 deterministic detectors, pulse and quality formulas (no model call), P13 IoT path; CM 11 | P7+ (P12 ✔) |
+| 40 | Feedback, evaluation sets/cases/runs/results; implicit signals; regression/shadow/canary before publish | BP §10 P6 `feedback` (6.3: `ai.feedback` DRAFT_EDIT from staff edits), P12 evaluation (12.1: sets, cases, dry-run regression runs, release gate) and releases (12.2: shadow, canary, rollback), insight feedback (12.4) | P6 (6.3 ✔), P12 (12.1, 12.2, 12.4 ✔) |
+| 41 | Cost & quality observability metrics | BP §10 P6 cost/token metrics (6.1: `ai.model_calls` tokens/latency/cost/fallback/outcome, `/ai/usage`); ADR-0006 meter; P12 `ai.quality_daily` and the staff Intelligence screen (12.6) | P6, P12 (12.6 ✔) |
 | 42 | Safety pipeline; retrieved docs untrusted; schema → business → authz validation; classification/redaction; kill switches | BP §10 P6; BP §4 0.3.13 classification registry; ADR-0018 egress policy (6.1: data-class filter, identifier masking, RESTRICTED never sent, provider/model kill switches, budget; 6.4: retrieved excerpts returned as reference data, guest tool limited to PUBLIC guest-audience documents); CM 12 | P0, P6 |
-| 43 | Controlled agent collaboration; no swarms | BP §10 P12 | P12 |
+| 43 | Controlled agent collaboration; no swarms | BP §10 P12 (12.5: `agents.consult` — Manager assistant → Engineering Copilot only, depth 1, child execution linked by `parent_execution_id`) | P12 (12.5 ✔) |
 | 44 | Voice, vision, IoT, robots via same engine | BP §10 P13; `ops.task_assignments.assignee_type` includes AI/ROBOT (BP §7.1) | P13 |
 | 45 | Core knows canonical concepts; connector adapters → integration platform → normalized events | BP §6.2 pipeline, §6.7 Sprint 2.1 (`IngestService`, `toCanonical`); `contracts-events/hotel-events.ts`; ADR-0014 | P2 ✔ (2.1) |
 | 46 | Connector definition vs instance; categories; capabilities | BP §6.1 `connector_definitions/integration_instances`; `contracts-connectors` (`defineConnector`, `CONNECTOR_CAPABILITIES`); catalog synced at boot | P2 ✔ (2.1) |
@@ -99,7 +99,7 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | 79.3 | Locale resolution order | BP §4 0.3.7 `LocaleResolver` | P0 |
 | 79.4 | True RTL across staff/guest/admin UIs | ADR-0009 logical properties; DoD §12.8; CM 8 | P4+ |
 | 79.5 | AI detects/responds in user language; ar/en documents; cross-language retrieval | BP §10 P6 language detection; P8 manuals cross-language | P6, P8 |
-| 80 | Operational digital twin/graph over time | BP §10 P12 twin read model | P12 |
+| 80 | Operational digital twin/graph over time | BP §10 P12 twin read model (12.3: `ai.twin_nodes`/`twin_edges` from events, edges end never change, neighbourhood now or at a moment) | P12 (12.3 ✔) |
 | 81 | Intelligence flywheel; no uncontrolled self-modification | BP §10 P6 feedback → P12 evaluation; versions immutable (CM 9) | P6, P12 |
 | 82.1–82.34 | Non-negotiable invariants | `CLAUDE.md` rules 1–24 (each invariant maps to at least one rule); DoD §12 | all |
 | 83 | Anti-patterns | CM rules; lint rules in BP §4 (boundaries, env, console, uuid); §9.2 single entrypoint for requests | all |
