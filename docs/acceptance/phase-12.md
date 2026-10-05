@@ -44,5 +44,8 @@ Legend: ✅ verified by automation · 🟡 needs a human.
 - Carried from earlier phases: see `docs/acceptance/phase-11.md` and `docs/acceptance/phase-10.md`.
 
 ## Evidence of the run
-CI on this commit (lint · typecheck · build · test, staff app, MSI, install, and the pilot deployment smoke with its
-Phase 12 intelligence checks) — run recorded in the follow-up commit.
+- GitHub Actions run `37359811730` on `615f7dc` (this acceptance): lint · typecheck · build · test ✅, staff app
+  (Flutter) ✅, hotel agent MSI (WiX v5) ✅, pilot deployment smoke with the Phase 12 intelligence checks ✅. The Ubuntu
+  one-command install job got no runner within 15 minutes and was cancelled before starting (no code ran); the same
+  job passed on the Phase 12 code in run `37356922969` (`c94cde7`), and 615f7dc changed documentation only.
+- Run `37356922969` on `c94cde7` (Sprints 12.2–12.5): every job ✅, including the Ubuntu one-command install.
