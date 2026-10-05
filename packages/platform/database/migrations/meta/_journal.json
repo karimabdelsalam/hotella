@@ -400,6 +400,13 @@
       "when": 1791229303388,
       "tag": "0056_eng_telemetry",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1791230890529,
+      "tag": "0057_integration_access",
+      "breakpoints": true
     }
   ]
 }

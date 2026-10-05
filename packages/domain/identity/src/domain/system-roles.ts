@@ -20,6 +20,10 @@ const GUEST_DESK = [
   'guest.manage',
   'stay.read',
   'guest.grant.revoke',
+  // Room keys and Wi-Fi of in-house stays (BUILD_PLAN 13.3).
+  'access.read',
+  'access.key.issue',
+  'access.wifi.issue',
   'guest.activation.issue',
   'guest.activation.assist',
   'inbox.read',

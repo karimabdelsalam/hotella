@@ -49,7 +49,9 @@ import { LinkRepositories } from './infrastructure/link-repositories';
 import { ReconciliationRepositories } from './infrastructure/reconciliation-repositories';
 import { IntegrationRepositories } from './infrastructure/repositories';
 import { INTEGRATIONS_MANIFEST } from './manifest';
-import { INTEGRATIONS_API, type IntegrationsPublicApi, PMS_API } from './public';
+import { ACCESS_API, INTEGRATIONS_API, type IntegrationsPublicApi, PMS_API } from './public';
+import { AccessService } from './application/access.service';
+import { AccessRepositories } from './infrastructure/access-repositories';
 import { IntegrationsPublicApiService } from './public-api.service';
 
 /**
@@ -74,10 +76,15 @@ import { IntegrationsPublicApiService } from './public-api.service';
     { provide: INTEGRATIONS_API, useExisting: IntegrationsPublicApiService },
     PmsService,
     { provide: PMS_API, useExisting: PmsService },
+    AccessRepositories,
+    AccessService,
+    { provide: ACCESS_API, useExisting: AccessService },
   ],
   exports: [
     INTEGRATIONS_API,
     PMS_API,
+    ACCESS_API,
+    AccessService,
     CapabilityRepositories,
     CapabilityRegistry,
     QueryRepositories,
@@ -159,6 +166,8 @@ export const CAPABILITY_LICENCE_CONSUMER = 'integration.capabilities-licence';
 export const QUERY_SWEEP_JOB = 'integration.queries.sweep';
 /** Answers wait at most this long for their asker; requests past their deadline are closed. */
 const QUERY_RESULT_KEEP_MS = 2 * 60_000;
+/** Inbox consumer of the worker: stay changes revoke stay-bound access (BUILD_PLAN 13.3). */
+export const ACCESS_CONSUMER = 'integration.access';
 
 /**
  * Worker side of the Integration Platform. Outbound webhooks (BUILD_PLAN 11.5): every offered event becomes deliveries
@@ -179,9 +188,13 @@ export class IntegrationsWorkerModule implements OnModuleInit {
     private readonly capabilities: CapabilityRegistry,
     private readonly tx: TransactionRunner,
     private readonly queries: QueryRepositories,
+    private readonly access: AccessService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
   async onModuleInit(): Promise<void> {
+    // Stay-bound access follows the stay (rule 19): leaving the house or the room revokes it.
+    for (const def of AccessService.consumes)
+      this.consumers.on(def.name, ACCESS_CONSUMER, (envelope) => this.access.apply(envelope));
     this.consumers.onJob(QUERY_SWEEP_JOB, async () => {
       const n = await this.tx.run(() => this.queries.sweep(new Date(), QUERY_RESULT_KEEP_MS));
       if (n.cleared + n.expired > 0) this.logger.info(n, 'agent query answers cleared');

@@ -2,7 +2,7 @@
   "name": "@hotella/domain-guest",
   "version": "0.0.0",
   "private": true,
-  "description": "Guest & Stay bounded context (Spec §6): guests and identifiers, stays driven exclusively by canonical PMS events, stay party, room-assignment history, reservation references; read APIs for staff.",
+  "description": "Guest & Stay bounded context (Spec \u00a76): guests and identifiers, stays driven exclusively by canonical PMS events, stay party, room-assignment history, reservation references; read APIs for staff.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@hotella/contracts-api": "workspace:*",
+    "@hotella/contracts-connectors": "workspace:*",
     "@hotella/contracts-events": "workspace:*",
     "@hotella/domain-integrations": "workspace:*",
     "@hotella/domain-organization": "workspace:*",

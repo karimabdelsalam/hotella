@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ConnectorAdapter, ConnectorManifest } from '@hotella/contracts-connectors';
+import { lockStandardAdapter, wifiStandardAdapter } from './access';
 import { bmsStandardAdapter } from './bms';
 import { opera5DbAdapter, opera5FiasAdapter, opera5OwsAdapter } from './opera5';
 import { simPmsAdapter } from './sim-pms';
@@ -14,6 +15,8 @@ export const CONNECTOR_ADAPTERS: readonly ConnectorAdapter[] = [
   opera5OwsAdapter,
   opera5DbAdapter,
   bmsStandardAdapter,
+  lockStandardAdapter,
+  wifiStandardAdapter,
 ];
 
 export class ConnectorRegistry {

@@ -55,6 +55,7 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
   { code: 'CONNECTOR_PBX', kind: 'CONNECTOR' },
   { code: 'CONNECTOR_ERP', kind: 'CONNECTOR' },
   { code: 'CONNECTOR_WIFI', kind: 'CONNECTOR' },
+  { code: 'CONNECTOR_LOCK', kind: 'CONNECTOR' },
   // Add-ons
   { code: 'API_ACCESS', kind: 'ADDON' },
   { code: 'WHITE_LABEL', kind: 'ADDON' },

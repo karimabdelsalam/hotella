@@ -5091,6 +5091,139 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/stays/{stayId}/access": {
+      "get": {
+        "operationId": "RoomAccessController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stayId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "RoomAccess"
+        ]
+      },
+      "post": {
+        "operationId": "RoomAccessController_issue",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stayId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueRoomAccessDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "RoomAccess"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/stays/{stayId}/access/{grantId}/revoke": {
+      "post": {
+        "operationId": "RoomAccessController_revoke",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stayId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "grantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "RoomAccess"
+        ]
+      }
+    },
     "/api/v1/properties/{propertyId}/work-items": {
       "get": {
         "operationId": "OperationsController_listWorkItems",
@@ -18793,6 +18926,9 @@
                 "CALL_HOLD",
                 "CALL_END",
                 "EXTENSION_DIRECTORY",
+                "KEY_ENCODE",
+                "KEY_REVOKE",
+                "MOBILE_KEY_ISSUE",
                 "WIFI_SESSION_CREATE",
                 "WIFI_SESSION_REVOKE",
                 "DEVICE_READ",
@@ -18880,6 +19016,9 @@
                 "CALL_HOLD",
                 "CALL_END",
                 "EXTENSION_DIRECTORY",
+                "KEY_ENCODE",
+                "KEY_REVOKE",
+                "MOBILE_KEY_ISSUE",
                 "WIFI_SESSION_CREATE",
                 "WIFI_SESSION_REVOKE",
                 "DEVICE_READ",
@@ -19389,6 +19528,22 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "IssueRoomAccessDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "KEY",
+              "MOBILE_KEY",
+              "WIFI"
+            ]
+          }
+        },
+        "required": [
+          "kind"
         ]
       },
       "AssignTaskDto": {

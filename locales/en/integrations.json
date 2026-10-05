@@ -6,5 +6,8 @@
   "integration.permission.reconcile": "Run and review reconciliation with external systems",
   "integration.permission.webhook_manage": "Manage outbound webhooks and replay their deliveries",
   "integration.permission.capability_manage": "Choose which connector serves each PMS operation at a hotel",
-  "integration.permission.capability_verify": "Verify PMS capabilities and sign off an integration at commissioning"
+  "integration.permission.capability_verify": "Verify PMS capabilities and sign off an integration at commissioning",
+  "integration.permission.access_read": "View room keys and Wi-Fi of a stay",
+  "integration.permission.access_key_issue": "Issue and revoke room keys and mobile keys",
+  "integration.permission.access_wifi_issue": "Issue and revoke guest Wi-Fi"
 }

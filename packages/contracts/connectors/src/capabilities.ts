@@ -56,6 +56,10 @@ export const CONNECTOR_CAPABILITIES = [
   'CALL_HOLD',
   'CALL_END',
   'EXTENSION_DIRECTORY',
+  // Door locks (Planova Lock Profile v1, ADR-0024)
+  'KEY_ENCODE',
+  'KEY_REVOKE',
+  'MOBILE_KEY_ISSUE',
   // Wi-Fi
   'WIFI_SESSION_CREATE',
   'WIFI_SESSION_REVOKE',
@@ -85,6 +89,9 @@ export const WRITE_CAPABILITIES: ReadonlySet<ConnectorCapability> = new Set<Conn
   'CALL_TRANSFER',
   'CALL_HOLD',
   'CALL_END',
+  'KEY_ENCODE',
+  'KEY_REVOKE',
+  'MOBILE_KEY_ISSUE',
   'WIFI_SESSION_CREATE',
   'WIFI_SESSION_REVOKE',
 ]);

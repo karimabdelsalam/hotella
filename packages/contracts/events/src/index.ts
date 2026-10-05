@@ -92,6 +92,10 @@ export {
   StayStatusChanged,
 } from './guest-events';
 export {
+  ACCESS_KINDS,
+  AccessFailed,
+  AccessIssued,
+  AccessRevoked,
   IntegrationExceptionOpened,
   IntegrationCapabilityChanged,
   IntegrationHealthChanged,

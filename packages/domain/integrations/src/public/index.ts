@@ -302,3 +302,53 @@ export const INTEGRATIONS_API = Symbol.for('hotella.domain.integrations.api');
 export const EXTERNAL_ENTITY = { RESERVATION: 'RESERVATION', PROFILE: 'PROFILE' } as const;
 
 export { INTEGRATIONS_MANIFEST } from '../manifest';
+
+/** Stay-bound access (BUILD_PLAN 13.3, rule 19): keys and Wi-Fi asked of the lock and Wi-Fi systems. */
+export const ACCESS_API = Symbol.for('hotella.domain.integrations.access');
+export type AccessKind = 'KEY' | 'MOBILE_KEY' | 'WIFI';
+export type AccessGrantStatus = 'REQUESTED' | 'ISSUED' | 'FAILED' | 'REVOKE_REQUESTED' | 'REVOKED';
+export type AccessRevokeReason = 'CHECKED_OUT' | 'STAY_ENDED' | 'ROOM_MOVED' | 'STAFF' | 'REPLACED';
+
+export interface AccessGrantSummary {
+  readonly id: string;
+  readonly stayId: string;
+  readonly kind: AccessKind;
+  readonly roomId: string | null;
+  readonly roomNumber: string | null;
+  readonly status: AccessGrantStatus;
+  readonly validUntil: Date;
+  readonly issuedAt: Date | null;
+  readonly revokedAt: Date | null;
+  readonly revokeReason: string | null;
+  readonly connectorCode: string;
+  readonly version: number;
+}
+
+export interface AccessIssueInput {
+  readonly tenantId: string;
+  readonly propertyId: string;
+  readonly stayId: string;
+  readonly kind: AccessKind;
+  readonly roomId: string;
+  readonly roomNumber: string;
+  readonly validUntil: Date;
+  readonly requestedBy: { readonly type: string; readonly id: string | null };
+}
+
+/**
+ * The stay's owner (guest context) checks the stay is in house and the person may ask; this API only routes to the
+ * property's lock or Wi-Fi connector, records the grant and its history, and revokes. Calls join the caller's
+ * transaction. No key material ever passes here.
+ */
+export interface AccessPublicApi {
+  /** Whether the property can serve this kind now (an active connector with the capability). */
+  available(tenantId: string, propertyId: string, kind: AccessKind): Promise<boolean>;
+  issue(input: AccessIssueInput): Promise<AccessGrantSummary>;
+  revoke(
+    tenantId: string,
+    grantId: string,
+    reason: AccessRevokeReason,
+    requestedBy: { readonly type: string; readonly id: string | null },
+  ): Promise<AccessGrantSummary | null>;
+  listForStay(tenantId: string, stayId: string): Promise<readonly AccessGrantSummary[]>;
+}

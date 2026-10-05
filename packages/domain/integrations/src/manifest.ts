@@ -1,4 +1,7 @@
 import {
+  AccessFailed,
+  AccessIssued,
+  AccessRevoked,
   HOTEL_EVENTS,
   IntegrationCapabilityChanged,
   IntegrationExceptionOpened,
@@ -55,6 +58,18 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
       descriptionKey: 'integration.permission.webhook_manage',
       risk: 'HIGH',
     },
+    // Stay-bound access (BUILD_PLAN 13.3): asked through the stay, served by the lock and Wi-Fi connectors.
+    { code: 'access.read', descriptionKey: 'integration.permission.access_read', risk: 'READ' },
+    {
+      code: 'access.key.issue',
+      descriptionKey: 'integration.permission.access_key_issue',
+      risk: 'HIGH',
+    },
+    {
+      code: 'access.wifi.issue',
+      descriptionKey: 'integration.permission.access_wifi_issue',
+      risk: 'MEDIUM',
+    },
   ],
   // The Integration Platform is the only producer of canonical hotel.* events (Spec §51).
   events: [
@@ -63,6 +78,9 @@ export const INTEGRATIONS_MANIFEST = defineManifest({
     IntegrationHealthChanged.name,
     IntegrationCapabilityChanged.name,
     IntegrationTelemetryReceived.name,
+    AccessIssued.name,
+    AccessRevoked.name,
+    AccessFailed.name,
     ReconciliationSnapshotCompleted.name,
     ReconciliationCompleted.name,
   ],

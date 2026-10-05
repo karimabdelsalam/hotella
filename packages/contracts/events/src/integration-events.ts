@@ -90,3 +90,36 @@ export const IntegrationTelemetryReceived = defineEvent({
       .max(500),
   }),
 });
+
+/** Stay-bound access (BUILD_PLAN 13.3, rule 19): a key or Wi-Fi session. Ids and codes only — never key material. */
+export const ACCESS_KINDS = ['KEY', 'MOBILE_KEY', 'WIFI'] as const;
+const accessPayload = z.object({
+  grant_id: z.uuid(),
+  stay_id: z.uuid(),
+  kind: z.enum(ACCESS_KINDS),
+  room_id: z.uuid().nullable(),
+});
+
+export const AccessIssued = defineEvent({
+  type: 'integration.access.issued',
+  version: 1,
+  description: 'The lock or Wi-Fi system confirmed a key or session for an in-house stay.',
+  payload: accessPayload,
+});
+
+export const AccessRevoked = defineEvent({
+  type: 'integration.access.revoked',
+  version: 1,
+  description:
+    'A key or Wi-Fi session of a stay was revoked (check-out, room move, or staff), with the reason code.',
+  payload: accessPayload.extend({
+    reason: z.enum(['CHECKED_OUT', 'STAY_ENDED', 'ROOM_MOVED', 'STAFF', 'REPLACED']),
+  }),
+});
+
+export const AccessFailed = defineEvent({
+  type: 'integration.access.failed',
+  version: 1,
+  description: 'The lock or Wi-Fi system refused or could not issue a key or session.',
+  payload: accessPayload,
+});

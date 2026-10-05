@@ -5,6 +5,7 @@ import type { PropertyScope } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import { GuestAccessAdminService, revokeGrantSchema } from '../application/access.service';
+import { issueRoomAccessSchema, RoomAccessService } from '../application/room-access.service';
 import {
   dataRequestSchema,
   GuestDataService,
@@ -204,5 +205,48 @@ export class GuestAccessController {
         id: actor.id,
       },
     );
+  }
+}
+
+class IssueRoomAccessDto extends createZodDto(issueRoomAccessSchema) {}
+
+/**
+ * Room keys and Wi-Fi of an in-house stay (BUILD_PLAN 13.3, rule 19), served by the property's lock and Wi-Fi
+ * connectors. The gate checks the kind's permission (`access.key.issue` or `access.wifi.issue`).
+ */
+@Controller('properties/:propertyId/stays/:stayId/access')
+@PropertyScoped({ from: 'param' })
+export class RoomAccessController {
+  constructor(
+    private readonly access: RoomAccessService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get()
+  @RequirePermission('access.read', { checkedBy: 'gate' })
+  list(@Param('propertyId') propertyId: string, @Param('stayId') stayId: string) {
+    return this.access.list(propertyScope(this.ctx, this.actors, propertyId), stayId);
+  }
+
+  @Post()
+  @RequirePermission('access.key.issue', { checkedBy: 'gate' })
+  issue(
+    @Param('propertyId') propertyId: string,
+    @Param('stayId') stayId: string,
+    @Body() body: IssueRoomAccessDto,
+  ) {
+    return this.access.issue(propertyScope(this.ctx, this.actors, propertyId), stayId, body.kind);
+  }
+
+  @Post(':grantId/revoke')
+  @HttpCode(200)
+  @RequirePermission('access.key.issue', { checkedBy: 'gate' })
+  revoke(
+    @Param('propertyId') propertyId: string,
+    @Param('stayId') stayId: string,
+    @Param('grantId') grantId: string,
+  ) {
+    return this.access.revoke(propertyScope(this.ctx, this.actors, propertyId), stayId, grantId);
   }
 }

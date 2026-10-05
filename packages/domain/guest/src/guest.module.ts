@@ -2,7 +2,13 @@ import { Global, Module, type OnModuleInit } from '@nestjs/common';
 import { IdempotentConsumer } from '@hotella/platform-events';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { EventConsumerRegistry } from '@hotella/platform-queue';
-import { GuestAccessController, GuestProfilesController, StaysController } from './api/controllers';
+import {
+  GuestAccessController,
+  GuestProfilesController,
+  RoomAccessController,
+  StaysController,
+} from './api/controllers';
+import { RoomAccessService } from './application/room-access.service';
 import { GuestAccessAdminService, GuestAccessService } from './application/access.service';
 import { GUEST_SETTINGS } from './domain/settings';
 import { AccessRepositories } from './infrastructure/access-repositories';
@@ -49,8 +55,19 @@ export class GuestCoreModule {}
 /** Staff read API and manifest, for the API process. */
 @Module({
   imports: [GuestCoreModule],
-  controllers: [StaysController, GuestProfilesController, GuestAccessController],
-  providers: [StayQueryService, GuestQueryService, GuestDataService, GuestAccessAdminService],
+  controllers: [
+    StaysController,
+    GuestProfilesController,
+    GuestAccessController,
+    RoomAccessController,
+  ],
+  providers: [
+    StayQueryService,
+    GuestQueryService,
+    GuestDataService,
+    GuestAccessAdminService,
+    RoomAccessService,
+  ],
 })
 export class GuestModule implements OnModuleInit {
   constructor(

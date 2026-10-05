@@ -6,5 +6,8 @@
   "integration.permission.reconcile": "Запуск и просмотр сверки с внешними системами",
   "integration.permission.webhook_manage": "Управление исходящими вебхуками и повторная отправка их доставок",
   "integration.permission.capability_manage": "Выбор коннектора для каждой операции PMS в отеле",
-  "integration.permission.capability_verify": "Проверка возможностей PMS и приёмка интеграции при вводе в эксплуатацию"
+  "integration.permission.capability_verify": "Проверка возможностей PMS и приёмка интеграции при вводе в эксплуатацию",
+  "integration.permission.access_read": "Просмотр ключей номера и Wi-Fi проживания",
+  "integration.permission.access_key_issue": "Выдача и отзыв ключей номера и мобильных ключей",
+  "integration.permission.access_wifi_issue": "Выдача и отзыв гостевого Wi-Fi"
 }

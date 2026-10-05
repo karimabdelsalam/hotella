@@ -6,5 +6,8 @@
   "integration.permission.reconcile": "Eseguire e verificare la riconciliazione con i sistemi esterni",
   "integration.permission.webhook_manage": "Gestire i webhook in uscita e rieseguirne le consegne",
   "integration.permission.capability_manage": "Scegliere quale connettore serve ciascuna operazione PMS in un hotel",
-  "integration.permission.capability_verify": "Verificare le capacità PMS e approvare un'integrazione al collaudo"
+  "integration.permission.capability_verify": "Verificare le capacità PMS e approvare un'integrazione al collaudo",
+  "integration.permission.access_read": "Vedere le chiavi della camera e il Wi-Fi di un soggiorno",
+  "integration.permission.access_key_issue": "Emettere e revocare chiavi della camera e chiavi mobili",
+  "integration.permission.access_wifi_issue": "Emettere e revocare il Wi-Fi dell’ospite"
 }

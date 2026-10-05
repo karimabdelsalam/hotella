@@ -1202,3 +1202,112 @@ export const inboundEndpoints = classify(
   },
 );
 export type InboundEndpointRow = typeof inboundEndpoints.$inferSelect;
+
+// ---- stay-bound access (ADR-0024 §5, BUILD_PLAN 13.3, rule 19) ----
+
+export const accessKind = integration.enum('access_kind', ['KEY', 'MOBILE_KEY', 'WIFI']);
+export const accessGrantStatus = integration.enum('access_grant_status', [
+  'REQUESTED',
+  'ISSUED',
+  'FAILED',
+  'REVOKE_REQUESTED',
+  'REVOKED',
+]);
+
+/**
+ * A key or Wi-Fi session for an in-house stay, asked of the lock or Wi-Fi system through a command. No key material
+ * is ever here: the vendor system holds it and gives it to the guest. Every transition is in `access_grant_events`.
+ */
+export const accessGrants = classify(
+  integration.table(
+    'access_grants',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      stayId: uuid('stay_id').notNull(),
+      kind: accessKind('kind').notNull(),
+      roomId: uuid('room_id'),
+      roomNumber: varchar('room_number', { length: 16 }),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => integrationInstances.id, { onDelete: 'restrict' }),
+      status: accessGrantStatus('status').notNull().default('REQUESTED'),
+      validUntil: timestamp('valid_until', { withTimezone: true, mode: 'date' }).notNull(),
+      issueCommandId: uuid('issue_command_id'),
+      revokeCommandId: uuid('revoke_command_id'),
+      requestedByType: varchar('requested_by_type', { length: 16 }).notNull(),
+      requestedById: uuid('requested_by_id'),
+      issuedAt: timestamp('issued_at', { withTimezone: true, mode: 'date' }),
+      revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+      revokeReason: varchar('revoke_reason', { length: 32 }),
+      failure: varchar('failure', { length: 500 }),
+      ...versioned(),
+    },
+    (t) => [
+      index('access_grants_stay_idx').on(t.tenantId, t.stayId),
+      index('access_grants_issue_cmd_idx').on(t.issueCommandId),
+      index('access_grants_revoke_cmd_idx').on(t.revokeCommandId),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    stayId: 'INTERNAL',
+    kind: 'INTERNAL',
+    roomId: 'INTERNAL',
+    roomNumber: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    status: 'INTERNAL',
+    validUntil: 'CONFIDENTIAL',
+    issueCommandId: 'INTERNAL',
+    revokeCommandId: 'INTERNAL',
+    requestedByType: 'INTERNAL',
+    requestedById: 'INTERNAL',
+    issuedAt: 'CONFIDENTIAL',
+    revokedAt: 'CONFIDENTIAL',
+    revokeReason: 'INTERNAL',
+    failure: 'CONFIDENTIAL',
+    version: 'INTERNAL',
+  },
+);
+
+/** Append-only history of every grant (rule 10); a trigger refuses updates and deletes. */
+export const accessGrantEvents = classify(
+  integration.table(
+    'access_grant_events',
+    {
+      id: uuid('id').primaryKey(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      grantId: uuid('grant_id')
+        .notNull()
+        .references(() => accessGrants.id, { onDelete: 'restrict' }),
+      fromStatus: accessGrantStatus('from_status'),
+      toStatus: accessGrantStatus('to_status').notNull(),
+      actorType: varchar('actor_type', { length: 16 }).notNull(),
+      actorId: uuid('actor_id'),
+      reason: varchar('reason', { length: 32 }),
+      at: timestamp('at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    },
+    (t) => [index('access_grant_events_grant_idx').on(t.grantId, t.at)],
+  ),
+  {
+    id: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    grantId: 'INTERNAL',
+    fromStatus: 'INTERNAL',
+    toStatus: 'INTERNAL',
+    actorType: 'INTERNAL',
+    actorId: 'INTERNAL',
+    reason: 'INTERNAL',
+    at: 'CONFIDENTIAL',
+  },
+);
+
+export type AccessGrantRow = typeof accessGrants.$inferSelect;
+export type AccessGrantEventRow = typeof accessGrantEvents.$inferSelect;

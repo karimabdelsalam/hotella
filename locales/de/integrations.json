@@ -6,5 +6,8 @@
   "integration.permission.reconcile": "Abgleich mit externen Systemen ausführen und prüfen",
   "integration.permission.webhook_manage": "Ausgehende Webhooks verwalten und ihre Zustellungen erneut senden",
   "integration.permission.capability_manage": "Festlegen, welcher Connector jede PMS-Operation in einem Hotel bedient",
-  "integration.permission.capability_verify": "PMS-Fähigkeiten verifizieren und eine Integration bei der Inbetriebnahme abnehmen"
+  "integration.permission.capability_verify": "PMS-Fähigkeiten verifizieren und eine Integration bei der Inbetriebnahme abnehmen",
+  "integration.permission.access_read": "Zimmerschlüssel und WLAN eines Aufenthalts ansehen",
+  "integration.permission.access_key_issue": "Zimmerschlüssel und mobile Schlüssel ausstellen und sperren",
+  "integration.permission.access_wifi_issue": "Gäste-WLAN ausstellen und sperren"
 }
