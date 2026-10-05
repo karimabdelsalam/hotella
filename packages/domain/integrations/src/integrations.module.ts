@@ -6,6 +6,7 @@ import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { WebhookDispatcher } from './application/webhook-delivery';
 import { WebhookKeys, WebhookService } from './application/webhook.service';
+import { InboundEndpointService } from './application/inbound.service';
 import { WEBHOOK_EVENTS } from './domain/webhooks';
 import { WebhookRepositories } from './infrastructure/webhook-repositories';
 import { CONNECTOR_CAPABILITY_STAGE } from '@hotella/platform-auth';
@@ -15,6 +16,8 @@ import {
   IntegrationQueueController,
   PropertyCapabilitiesController,
   CommissioningController,
+  InboundEndpointsController,
+  InboundIngressController,
   WebhooksController,
 } from './api/controllers';
 import { CapabilityAdminService } from './application/capability-admin.service';
@@ -99,6 +102,8 @@ export class IntegrationsCoreModule {}
     PropertyCapabilitiesController,
     CommissioningController,
     WebhooksController,
+    InboundEndpointsController,
+    InboundIngressController,
   ],
   providers: [
     ConnectorCatalogService,
@@ -112,6 +117,7 @@ export class IntegrationsCoreModule {}
     AgentKeys,
     EnrollmentService,
     WebhookService,
+    InboundEndpointService,
     CapabilityAdminService,
     CommissioningService,
     CommissioningRepositories,

@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 
 /**
@@ -73,6 +73,45 @@ export function signatureHeader(secret: string, body: string, at: Date): string 
   const t = Math.floor(at.getTime() / 1000);
   const v1 = createHmac('sha256', secret).update(`${t}.${body}`).digest('hex');
   return `t=${t},v1=${v1}`;
+}
+
+/** An inbound endpoint's secret (ADR-0024): derived like an outbound one, in its own namespace so the two never match. */
+export function deriveInboundSecret(
+  signingKey: string,
+  endpointId: string,
+  secretVersion: number,
+): string {
+  const mac = createHmac('sha256', signingKey)
+    .update(`hotella-inbound:${endpointId}:${secretVersion}`)
+    .digest('base64url');
+  return `whin_${mac}`;
+}
+
+/** How long a signed inbound request stays acceptable (replay window). */
+export const INBOUND_TOLERANCE_SECONDS = 300;
+
+/**
+ * Checks `X-Hotella-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>` on an inbound request:
+ * the timestamp must be within the window either way and the MAC must match in constant time.
+ */
+export function verifySignature(
+  secret: string,
+  header: string | undefined,
+  body: Buffer,
+  now: Date,
+  toleranceSeconds = INBOUND_TOLERANCE_SECONDS,
+): 'OK' | 'MISSING' | 'STALE' | 'MISMATCH' {
+  const parts = Object.fromEntries(
+    (header ?? '')
+      .split(',')
+      .map((p) => p.trim().split('=', 2))
+      .filter((p): p is [string, string] => p.length === 2),
+  );
+  const t = Number(parts.t);
+  if (!header || !Number.isInteger(t) || !/^[0-9a-f]{64}$/.test(parts.v1 ?? '')) return 'MISSING';
+  if (Math.abs(Math.floor(now.getTime() / 1000) - t) > toleranceSeconds) return 'STALE';
+  const expected = createHmac('sha256', secret).update(`${t}.`).update(body).digest();
+  return timingSafeEqual(expected, Buffer.from(parts.v1!, 'hex')) ? 'OK' : 'MISMATCH';
 }
 
 export type TargetProblem = 'invalid' | 'insecure' | 'private';

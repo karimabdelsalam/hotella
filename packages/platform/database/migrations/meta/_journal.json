@@ -386,6 +386,13 @@
       "when": 1791224338618,
       "tag": "0054_ai_quality",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1791227561965,
+      "tag": "0055_integration_inbound",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,8 @@ import {
   tenantWhere,
 } from '@hotella/platform-database';
 import {
+  type InboundEndpointRow,
+  inboundEndpoints,
   webhookDeliveries,
   webhookEndpoints,
   type WebhookDeliveryRow,
@@ -205,5 +207,53 @@ export class WebhookRepositories {
       .update(webhookDeliveries)
       .set({ ...set, updatedAt: new Date() })
       .where(and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.attempts, attempts)));
+  }
+
+  // ---- inbound endpoints (ADR-0024) ----
+  async insertInbound(values: typeof inboundEndpoints.$inferInsert): Promise<InboundEndpointRow> {
+    const [row] = await this.x.insert(inboundEndpoints).values(values).returning();
+    return row!;
+  }
+  inboundOfInstance(scope: TenantScope, instanceId: string): Promise<InboundEndpointRow[]> {
+    return this.x
+      .select()
+      .from(inboundEndpoints)
+      .where(
+        and(
+          eq(inboundEndpoints.tenantId, scope.tenantId),
+          eq(inboundEndpoints.instanceId, instanceId),
+        ),
+      )
+      .orderBy(asc(inboundEndpoints.createdAt));
+  }
+  async inbound(scope: TenantScope, id: string): Promise<InboundEndpointRow | undefined> {
+    const [row] = await this.x
+      .select()
+      .from(inboundEndpoints)
+      .where(and(eq(inboundEndpoints.tenantId, scope.tenantId), eq(inboundEndpoints.id, id)));
+    return row;
+  }
+  /** For the public ingress, before any tenant is known (the signature then proves the caller). */
+  async inboundUnscoped(id: string): Promise<InboundEndpointRow | undefined> {
+    const [row] = await this.x.select().from(inboundEndpoints).where(eq(inboundEndpoints.id, id));
+    return row;
+  }
+  async updateInbound(
+    id: string,
+    version: number,
+    values: Partial<Pick<InboundEndpointRow, 'status' | 'secretVersion'>>,
+  ): Promise<InboundEndpointRow | undefined> {
+    const [row] = await this.x
+      .update(inboundEndpoints)
+      .set({ ...values, version: version + 1, updatedAt: new Date() })
+      .where(and(eq(inboundEndpoints.id, id), eq(inboundEndpoints.version, version)))
+      .returning();
+    return row;
+  }
+  async touchInbound(id: string, at: Date): Promise<void> {
+    await this.x
+      .update(inboundEndpoints)
+      .set({ lastUsedAt: at })
+      .where(eq(inboundEndpoints.id, id));
   }
 }

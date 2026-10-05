@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Headers,
   HttpCode,
   Inject,
   Param,
@@ -9,16 +11,20 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { MAPPING_TYPES } from '@hotella/contracts-connectors';
 import {
   ActorStore,
   PropertyScoped,
+  Public,
   RequirePermission,
   TenantScoped,
 } from '@hotella/platform-auth';
+import { RateLimit } from '@hotella/platform-http';
 import { type PropertyScope, TransactionRunner } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
@@ -59,6 +65,7 @@ import {
   commissioningRunSchema,
   sheetEntrySchema,
 } from '../application/commissioning.service';
+import { InboundEndpointService, rotateInboundSchema } from '../application/inbound.service';
 import { EnrollmentService } from '../link/enrollment.service';
 import { INTEGRATIONS_API, type IntegrationsPublicApi } from '../public';
 
@@ -82,6 +89,10 @@ class CommissioningRunDto extends createZodDto(commissioningRunSchema) {}
 class CreateWebhookDto extends createZodDto(createWebhookSchema) {}
 class UpdateWebhookDto extends createZodDto(updateWebhookSchema) {}
 class WebhookDeliveriesQueryDto extends createZodDto(webhookDeliveriesQuerySchema) {}
+class InboundVersionDto extends createZodDto(rotateInboundSchema) {}
+class InboundRevokeQueryDto extends createZodDto(
+  z.object({ version: z.coerce.number().int().min(1) }),
+) {}
 class ExternalReferenceQueryDto extends createZodDto(
   z.object({ entityType: z.string().regex(/^[a-z]+\.[a-z_]+$/), entityId: z.uuid() }),
 ) {}
@@ -563,5 +574,83 @@ export class CommissioningController {
   @RequirePermission('integration.capability.verify', { checkedBy: 'gate' })
   run(@Param('propertyId') propertyId: string, @Body() body: CommissioningRunDto) {
     return this.commissioning.run(propertyScope(this.ctx, this.actors, propertyId), body);
+  }
+}
+
+/** Signed inbound endpoints of an integration instance (ADR-0024): the secret is shown at creation and rotation only. */
+@Controller('properties/:propertyId/integrations/:instanceId/inbound-endpoints')
+@PropertyScoped({ from: 'param' })
+export class InboundEndpointsController {
+  constructor(
+    private readonly inbound: InboundEndpointService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get()
+  @RequirePermission('integration.read')
+  list(@Param('propertyId') propertyId: string, @Param('instanceId') instanceId: string) {
+    return this.inbound.list(propertyScope(this.ctx, this.actors, propertyId), instanceId);
+  }
+
+  @Post()
+  @RequirePermission('integration.configure')
+  create(@Param('propertyId') propertyId: string, @Param('instanceId') instanceId: string) {
+    return this.inbound.create(propertyScope(this.ctx, this.actors, propertyId), instanceId);
+  }
+
+  @Post(':endpointId/rotate')
+  @HttpCode(200)
+  @RequirePermission('integration.configure')
+  rotate(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+    @Param('endpointId') endpointId: string,
+    @Body() body: InboundVersionDto,
+  ) {
+    return this.inbound.rotate(
+      propertyScope(this.ctx, this.actors, propertyId),
+      instanceId,
+      endpointId,
+      body.version,
+    );
+  }
+
+  @Delete(':endpointId')
+  @RequirePermission('integration.configure')
+  revoke(
+    @Param('propertyId') propertyId: string,
+    @Param('instanceId') instanceId: string,
+    @Param('endpointId') endpointId: string,
+    @Query() query: InboundRevokeQueryDto,
+  ) {
+    return this.inbound.revoke(
+      propertyScope(this.ctx, this.actors, propertyId),
+      instanceId,
+      endpointId,
+      query.version,
+    );
+  }
+}
+
+/** Where cloud-hosted vendor systems post signed batches of raw messages (public; the signature authenticates). */
+@Controller('integrations/inbound')
+@Public()
+export class InboundIngressController {
+  constructor(private readonly inbound: InboundEndpointService) {}
+
+  @Post(':endpointId')
+  @HttpCode(200)
+  @RateLimit({ name: 'integration-inbound', limit: 3000, windowSeconds: 60, keyBy: 'ip' })
+  receive(
+    @Param('endpointId') endpointId: string,
+    @Headers('x-hotella-signature') signature: string | undefined,
+    @Req() req: Request,
+  ) {
+    return this.inbound.receive(
+      endpointId,
+      (req as Request & { rawBody?: Buffer }).rawBody,
+      signature,
+    );
   }
 }

@@ -16,10 +16,13 @@ export type {
 } from './capabilities';
 export {
   CONNECTOR_CODE_RE,
+  CONNECTOR_TRANSPORTS,
   ConnectorDefinitionError,
   defineConnector,
+  inboundBatchSchema,
   parsedRecords,
   rawInboundMessageSchema,
+  transportsOf,
 } from './manifest';
 export {
   PMS_RESERVATION_STATUSES,
@@ -36,6 +39,8 @@ export type {
   ConnectorQuery,
   ConnectorManifest,
   ConnectorMessageType,
+  ConnectorTransport,
+  InboundBatch,
   ParseContext,
   ParseResult,
   RawInboundMessage,

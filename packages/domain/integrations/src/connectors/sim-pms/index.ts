@@ -21,6 +21,8 @@ export const SIM_PMS_MANIFEST = defineConnector({
   version: 1,
   category: 'PMS',
   entitlement: 'CONNECTOR_PMS',
+  // The agent link for on-prem use; the signed webhook ingress exercises Connector SDK v2 (ADR-0024).
+  transports: ['AGENT', 'WEBHOOK'],
   description:
     'PMS simulator (FIAS-shaped event stream and OWS-shaped query face) for development and CI.',
   capabilities: [

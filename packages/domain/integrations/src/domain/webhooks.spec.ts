@@ -2,10 +2,13 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   afterFailure,
+  deriveInboundSecret,
   deriveSecret,
+  INBOUND_TOLERANCE_SECONDS,
   retryDelayMs,
   signatureHeader,
   targetProblem,
+  verifySignature,
   WEBHOOK_EVENTS,
   WEBHOOK_MAX_ATTEMPTS,
 } from './webhooks';
@@ -68,5 +71,49 @@ describe('webhook rules', () => {
       expect(targetProblem(`https://${host}/x`, false), host).toBe('private');
     expect(targetProblem('https://172.32.0.1/x', false)).toBeNull();
     expect(targetProblem('http://127.0.0.1:8080/x', true)).toBeNull();
+  });
+});
+
+describe('signed inbound requests', () => {
+  const key = 'k'.repeat(32);
+  const body = Buffer.from('{"messages":[]}');
+  const now = new Date('2026-10-05T12:00:00Z');
+  const t = Math.floor(now.getTime() / 1000);
+  const sign = (secret: string, at: number, raw = body) =>
+    `t=${at},v1=${createHmac('sha256', secret).update(`${at}.`).update(raw).digest('hex')}`;
+
+  it('derives a distinct secret per endpoint and per rotation', () => {
+    const a1 = deriveInboundSecret(key, 'a', 1);
+    expect(a1).toMatch(/^whin_[A-Za-z0-9_-]{43}$/);
+    expect(deriveInboundSecret(key, 'a', 1)).toBe(a1);
+    expect(deriveInboundSecret(key, 'a', 2)).not.toBe(a1);
+    expect(deriveInboundSecret(key, 'b', 1)).not.toBe(a1);
+    // Outbound and inbound secrets never coincide for the same id.
+    expect(deriveSecret(key, 'a', 1)).not.toBe(a1);
+  });
+
+  it('accepts a fresh, correctly signed body', () => {
+    const secret = deriveInboundSecret(key, 'a', 1);
+    expect(verifySignature(secret, sign(secret, t), body, now)).toBe('OK');
+    expect(verifySignature(secret, sign(secret, t - INBOUND_TOLERANCE_SECONDS), body, now)).toBe(
+      'OK',
+    );
+  });
+
+  it('refuses a missing, malformed, stale, tampered or foreign signature', () => {
+    const secret = deriveInboundSecret(key, 'a', 1);
+    expect(verifySignature(secret, undefined, body, now)).toBe('MISSING');
+    expect(verifySignature(secret, 'v1=abc', body, now)).toBe('MISSING');
+    expect(verifySignature(secret, `t=${t},v1=zz`, body, now)).toBe('MISSING');
+    expect(
+      verifySignature(secret, sign(secret, t - INBOUND_TOLERANCE_SECONDS - 1), body, now),
+    ).toBe('STALE');
+    expect(verifySignature(secret, sign(secret, t + 3600), body, now)).toBe('STALE');
+    expect(verifySignature(secret, sign(secret, t), Buffer.from('{"messages":[{}]}'), now)).toBe(
+      'MISMATCH',
+    );
+    expect(verifySignature(secret, sign(deriveInboundSecret(key, 'a', 2), t), body, now)).toBe(
+      'MISMATCH',
+    );
   });
 });

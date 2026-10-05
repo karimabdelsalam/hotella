@@ -79,6 +79,21 @@ export interface ConnectorManifest {
    * is one stay. Absent = the connector is its own namespace.
    */
   readonly family?: string;
+  /**
+   * How the connector's messages reach the platform (ADR-0024): through the hotel agent's outbound link, and/or a
+   * signed webhook a cloud-hosted vendor system calls. Absent = `['AGENT']`.
+   */
+  readonly transports?: readonly ConnectorTransport[];
+}
+
+export const CONNECTOR_TRANSPORTS = ['AGENT', 'WEBHOOK'] as const;
+export type ConnectorTransport = (typeof CONNECTOR_TRANSPORTS)[number];
+
+/** The transports a connector accepts (the agent link unless it says otherwise). */
+export function transportsOf(
+  manifest: Pick<ConnectorManifest, 'transports'>,
+): readonly ConnectorTransport[] {
+  return manifest.transports ?? ['AGENT'];
 }
 
 export class ConnectorDefinitionError extends Error {
@@ -108,6 +123,15 @@ export function defineConnector(manifest: ConnectorManifest): ConnectorManifest 
   }
   if (manifest.readOnly && manifest.commands.length > 0)
     fail('is read-only and cannot declare commands');
+  const transports = manifest.transports ?? ['AGENT'];
+  if (transports.length === 0) fail('declares no transport');
+  for (const t of transports) if (!CONNECTOR_TRANSPORTS.includes(t)) fail(`unknown transport ${t}`);
+  // Commands and queries travel over the agent link; a webhook-only connector can only send.
+  if (
+    !transports.includes('AGENT') &&
+    (manifest.commands.length > 0 || (manifest.queries ?? []).length > 0)
+  )
+    fail('is webhook-only and cannot declare commands or queries');
   for (const [id, r] of Object.entries(manifest.profile?.records ?? {})) {
     if (!/^[A-Z0-9]{2}$/.test(id)) fail(`profile record ${id} must be a two-character id`);
     if (new Set(r.fields).size !== r.fields.length) fail(`profile record ${id} repeats a field`);
@@ -188,3 +212,17 @@ export function parsedRecords(records: readonly unknown[]): ParseResult {
   }
   return { ok: true, records: out };
 }
+
+/** A batch a cloud-hosted vendor system posts to its signed inbound endpoint (ADR-0024; Spec §50 raw messages). */
+export const inboundBatchSchema = z.object({
+  messages: z
+    .array(
+      rawInboundMessageSchema.extend({
+        // Webhooks have no link sequence.
+        sequence_no: z.null().default(null),
+      }),
+    )
+    .min(1)
+    .max(100),
+});
+export type InboundBatch = z.infer<typeof inboundBatchSchema>;

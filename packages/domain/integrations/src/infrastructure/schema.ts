@@ -1158,3 +1158,46 @@ export const commissioningRuns = classify(
 );
 
 export type CommissioningRunRow = typeof commissioningRuns.$inferSelect;
+
+export const inboundEndpointStatus = integration.enum('inbound_endpoint_status', [
+  'ACTIVE',
+  'REVOKED',
+]);
+
+/**
+ * Where a cloud-hosted vendor system posts its messages for one integration instance (ADR-0024): signed with a secret
+ * that is never stored — derived from the platform signing key, the endpoint id and `secret_version`, shown once.
+ */
+export const inboundEndpoints = classify(
+  integration.table(
+    'inbound_endpoints',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      instanceId: uuid('instance_id')
+        .notNull()
+        .references(() => integrationInstances.id, { onDelete: 'restrict' }),
+      status: inboundEndpointStatus('status').notNull().default('ACTIVE'),
+      secretVersion: integer('secret_version').notNull().default(1),
+      lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+      createdBy: uuid('created_by'),
+      ...versioned(),
+    },
+    (t) => [index('inbound_endpoints_instance_idx').on(t.tenantId, t.instanceId)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    instanceId: 'INTERNAL',
+    status: 'INTERNAL',
+    secretVersion: 'INTERNAL',
+    lastUsedAt: 'INTERNAL',
+    createdBy: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+export type InboundEndpointRow = typeof inboundEndpoints.$inferSelect;

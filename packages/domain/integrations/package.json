@@ -2,7 +2,7 @@
   "name": "@hotella/domain-integrations",
   "version": "0.0.0",
   "private": true,
-  "description": "Integration Platform (Spec \u00a745\u2013\u00a757): connector catalog, integration instances with capability negotiation, raw message inbox, parser/mapper pipeline to canonical hotel.* events, mappings and exceptions, external references, durable commands and health.",
+  "description": "Integration Platform (Spec §45–§57): connector catalog, integration instances with capability negotiation, raw message inbox, parser/mapper pipeline to canonical hotel.* events, mappings and exceptions, external references, durable commands and health.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -36,6 +36,7 @@
     "@hotella/platform-config": "workspace:*",
     "@hotella/platform-database": "workspace:*",
     "@hotella/platform-events": "workspace:*",
+    "@hotella/platform-http": "workspace:*",
     "@hotella/platform-i18n": "workspace:*",
     "@hotella/platform-manifest": "workspace:*",
     "@hotella/platform-observability": "workspace:*",
@@ -51,7 +52,6 @@
   },
   "devDependencies": {
     "@hotella/platform-flags": "workspace:*",
-    "@hotella/platform-http": "workspace:*",
     "@hotella/platform-testing": "workspace:*",
     "@hotella/tooling": "workspace:*",
     "@nestjs/core": "11.2.7",
