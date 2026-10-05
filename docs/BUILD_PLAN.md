@@ -3012,7 +3012,7 @@ Phase 13.
 *Events:* `restaurant.reservation.created.v1`, `restaurant.reservation.cancelled.v1`,
 `restaurant.reservation.status_changed.v1`. *Permissions:* `restaurant.restaurant.read|manage`,
 `restaurant.reservation.read|manage|override`. *Entitlement:* module `RESTAURANT` (catalog convention). *Manifest:* complete (rule 22).
-*AI tools (14.3):* `restaurant.availability` (LOW), `restaurant.book` (MEDIUM, own stay only).
+*AI tools (14.3):* `restaurant.find_tables` (READ), `restaurant.book_table` (MEDIUM, own stay only).
 *Tests:* allowance unit table (1, 7, 8, 14, 15, 21 nights; config 7/1 and 5/2), capacity race (two concurrent
 bookings for the last seats → exactly one), override with reason audited, checkout cancels future bookings, outside
 stay / cutoff / closure / party size refusals, tenant-leak test, manifest test, e2e scenario (guest books, staff
@@ -3039,6 +3039,28 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
   needs the override permission with an audited reason, two concurrent bookings for the last seats → one wins,
   board + seat/complete history, PMS checkout cancels and frees seats, tenant leak), manifest and role catalog.
 
+- *As built (14.3):* staff web `/restaurant` (section shown with `restaurant.restaurant.read` and the `RESTAURANT`
+  licence): **Reservations** — the board of a day per restaurant and sitting (seats booked/total, room, guest, party,
+  channel, override, notes) with seat / no-show / cancel / done; **New booking** — find the room
+  (`GET …/restaurant-reservations/stays?room=` → the stays in the room or arriving there today, the primary guest and
+  each restaurant's bookings left; needs `restaurant.reservation.manage`), pick restaurant, night and sitting, book;
+  past the allowance or a full sitting only with `restaurant.reservation.override` and a reason; **Setup** — create
+  (draft), open/close for bookings, rules, names/descriptions/dress code in the five languages, the weekly sittings
+  (repeat a sitting every day; a new schedule applies from a chosen date) and closed days or sittings
+  (`DELETE …/restaurants/:id/closures/:closureId` reopens; `GET …/restaurants/:id` returns all translations, the
+  latest schedule and the closures ahead). Guest web `/restaurants` (link on the home screen only when the guest has
+  `DINING` and the hotel has bookable restaurants): bookings left per restaurant, date → time → guests → optional
+  allergies/wishes, the guest's reservations with cancel (until the cut-off). Guest Concierge v5:
+  `restaurant.find_tables` (READ, permission `restaurant.offer.read`) and `restaurant.book_table` (MEDIUM, autonomous
+  like a service request, permission `restaurant.reservation.book_own`); both act only for the execution's guest with
+  the scopes of that guest's live grant (no grant for the stay → refused) and through the same rules as the guest app;
+  bookings are recorded with channel `AI` and actor `AI_AGENT`. Tests: integration (room lookup, closures, the two
+  tools including a stranger's stay refused, and the Phase 14 restaurant acceptance end to end: a 9-night guest books
+  in Italian, a third booking at one restaurant is refused, a full sitting is booked only with the override, seat and
+  no-show on the board, checkout cancels the rest), Playwright staff (en: seat + phone booking with override; ar RTL
+  without the override permission; setup of the week; it/ru/de board) and guest (en: book and cancel from home; ar
+  RTL with the allowance used; it/ru/de).
+
 #### 14.C The Hotella staff app (ADR-0023)
 - `apps/mobile` (Flutter): hotel code / QR → branding → sign-in (IAM, MFA) → home with My tasks, Requests inbox,
   Alerts, Restaurant bookings (with permission); five locales from the catalog (ARB generated), RTL for Arabic.
@@ -3052,7 +3074,7 @@ books by phone, allowance refuses a second booking at the same restaurant for a 
 |---|---|---|
 | 14.1 | Five locales: config, catalog check with CLDR plurals, it/ru/de catalogs, web apps, translation tables, PMS language mapping | done |
 | 14.2 | Restaurant context: model, migration, allowance and capacity rules, staff and guest APIs, events, checkout consumer, manifest, tests | done |
-| 14.3 | Restaurant UI: staff board, phone booking, configuration screens; guest booking; concierge tools; e2e; acceptance | planned |
+| 14.3 | Restaurant UI: staff board, phone booking, configuration screens; guest booking; concierge tools; e2e; acceptance | done |
 | 14.4 | Staff app skeleton: Flutter project, generated client, ARB from the catalog, hotel code → branding → sign-in, CI job | planned |
 | 14.5 | Push notifications: devices, PUSH adapter (FCM/APNs) with OpenBao credentials, notification routing to devices | planned |
 | 14.6 | Staff app screens: tasks, requests, alerts, restaurant bookings; offline read cache; acceptance on devices | planned |

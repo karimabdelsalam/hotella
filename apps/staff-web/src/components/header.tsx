@@ -17,6 +17,7 @@ const SECTIONS = [
   ['relations', 'complaint.read', 'GUEST_RELATIONS'],
   ['lostfound', 'lostfound.register', 'LOST_FOUND'],
   ['logbook', 'logbook.read', 'LOGBOOK'],
+  ['restaurant', 'restaurant.restaurant.read', 'RESTAURANT'],
   ['arrivals', 'hk.arrivals.read', 'HOUSEKEEPING'],
   ['branding', 'branding.manage', 'CORE'],
 ] as const;

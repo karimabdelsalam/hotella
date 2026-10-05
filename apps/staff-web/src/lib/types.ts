@@ -481,3 +481,100 @@ export interface ShiftView {
   }>;
   readonly handover: Handover | null;
 }
+
+// ---- restaurant (Spec Appendix B.1) ----
+
+export type RestaurantStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+export type TableStatus = 'CONFIRMED' | 'SEATED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+
+export interface RestaurantView {
+  readonly id: string;
+  readonly code: string;
+  readonly status: RestaurantStatus;
+  readonly name: string;
+  readonly description: string | null;
+  readonly dressCode: string | null;
+  readonly minParty: number;
+  readonly maxParty: number;
+  readonly bookDaysAhead: number;
+  readonly guestCutoffMinutes: number;
+  readonly allowanceApplies: boolean;
+  readonly version: number;
+}
+
+export interface RestaurantDetail extends RestaurantView {
+  readonly translations: ReadonlyArray<{
+    readonly locale: string;
+    readonly name: string;
+    readonly description: string | null;
+    readonly dressCode: string | null;
+  }>;
+  readonly sittings: ReadonlyArray<{
+    readonly id: string;
+    readonly weekday: number;
+    readonly startsAt: string;
+    readonly seats: number;
+    readonly validFrom: string;
+  }>;
+  readonly closures: ReadonlyArray<{
+    readonly id: string;
+    readonly onDate: string;
+    readonly sittingId: string | null;
+    readonly reason: string;
+  }>;
+}
+
+export interface SittingLoad {
+  readonly sittingId: string;
+  readonly startsAt: string;
+  readonly seats: number;
+  readonly booked: number;
+  readonly free: number;
+}
+
+export interface TableReservation {
+  readonly id: string;
+  readonly restaurantId: string;
+  readonly sittingId: string;
+  readonly serviceDate: string;
+  readonly startsAt: string;
+  readonly partySize: number;
+  readonly roomNumber: string | null;
+  readonly guestName: string | null;
+  readonly status: TableStatus;
+  readonly channel: 'GUEST_APP' | 'STAFF' | 'AI';
+  readonly notes: string | null;
+  readonly overridden: boolean;
+  readonly version: number;
+}
+
+export interface RestaurantBoard extends RestaurantView {
+  readonly sittings: ReadonlyArray<
+    SittingLoad & { readonly reservations: readonly TableReservation[] }
+  >;
+}
+
+export interface RestaurantAvailability extends RestaurantView {
+  readonly days: ReadonlyArray<{
+    readonly date: string;
+    readonly sittings: readonly SittingLoad[];
+  }>;
+}
+
+export interface StayForBooking {
+  readonly stayId: string;
+  readonly status: string;
+  readonly roomNumber: string;
+  readonly guestName: string | null;
+  readonly partySize: number;
+  readonly arrival: string;
+  readonly departure: string;
+  readonly nights: number;
+  readonly allowance: ReadonlyArray<{
+    readonly restaurantId: string;
+    readonly name: string;
+    readonly allowed: number | null;
+    readonly used: number;
+    readonly remaining: number | null;
+  }>;
+}

@@ -382,6 +382,7 @@
   "errors.restaurant.party_limits_invalid": "لا يمكن أن يكون أكبر عدد للمجموعة أقل من أصغر عدد.",
   "errors.restaurant.sitting_duplicate": "الجدول يكرر نفس الموعد مرتين (اليوم {weekday}، {startsAt}).",
   "errors.restaurant.sitting.not_found": "الموعد غير موجود.",
+  "errors.restaurant.closure.not_found": "لم يتم العثور على الإغلاق.",
   "errors.restaurant.locale_invalid": "لغة غير معروفة.",
   "errors.restaurant.range_too_long": "اطلب {days} يومًا كحد أقصى في المرة الواحدة.",
   "errors.restaurant.stay.not_found": "لم يتم العثور على إقامة نشطة لهذا الحجز.",

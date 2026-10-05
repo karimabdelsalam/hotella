@@ -4,5 +4,7 @@
   "restaurant.permission.reservation_read": "Vedere prenotazioni, ospiti e note",
   "restaurant.permission.reservation_manage": "Prenotare per gli ospiti, far accomodare, segnare mancate presentazioni e annullare",
   "restaurant.permission.reservation_override": "Prenotare oltre il limite del soggiorno o un turno completo, con motivazione",
+  "restaurant.permission.offer_read": "Vedere i ristoranti e i turni liberi per l'ospite servito",
+  "restaurant.permission.reservation_book_own": "Prenotare un tavolo per l'ospite servito, entro il limite del soggiorno",
   "restaurant.setting.reservation_allowance": "Prenotazioni per ristorante per blocco di notti del soggiorno"
 }

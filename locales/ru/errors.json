@@ -382,6 +382,7 @@
   "errors.restaurant.party_limits_invalid": "Максимальный размер группы не может быть меньше минимального.",
   "errors.restaurant.sitting_duplicate": "В расписании дважды указано одно и то же время (день {weekday}, {startsAt}).",
   "errors.restaurant.sitting.not_found": "Время посадки не найдено.",
+  "errors.restaurant.closure.not_found": "Закрытие не найдено.",
   "errors.restaurant.locale_invalid": "Неизвестный язык.",
   "errors.restaurant.range_too_long": "Запрашивайте не более {days} дней за раз.",
   "errors.restaurant.stay.not_found": "Для этого бронирования не найдено активное проживание.",

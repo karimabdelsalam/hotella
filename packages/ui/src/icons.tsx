@@ -63,3 +63,9 @@ export const GlobeIcon = (p: IconProps) => (
     <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
   </Svg>
 );
+/** Fork and knife (restaurants). */
+export const DiningIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 21V3c-2 1.5-3 4-3 7v3h3" />
+  </Svg>
+);

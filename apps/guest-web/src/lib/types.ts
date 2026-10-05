@@ -81,3 +81,44 @@ export interface Conversation {
     readonly createdAt: string;
   }>;
 }
+
+export interface GuestSitting {
+  readonly sittingId: string;
+  readonly startsAt: string;
+  readonly seats: number;
+  readonly booked: number;
+  readonly free: number;
+  /** Open for guests now (cut-off, days ahead) and enough seats for the smallest party. */
+  readonly bookable: boolean;
+}
+
+export interface GuestRestaurant {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly dressCode: string | null;
+  readonly minParty: number;
+  readonly maxParty: number;
+  /** Bookings this stay may make here (null: not limited). */
+  readonly allowance: {
+    readonly allowed: number | null;
+    readonly used: number;
+    readonly remaining: number | null;
+  };
+  readonly days: ReadonlyArray<{
+    readonly date: string;
+    readonly sittings: readonly GuestSitting[];
+  }>;
+}
+
+export type ReservationStatus = 'CONFIRMED' | 'SEATED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+
+export interface GuestReservation {
+  readonly id: string;
+  readonly restaurantId: string;
+  readonly serviceDate: string;
+  readonly startsAt: string;
+  readonly partySize: number;
+  readonly status: ReservationStatus;
+  readonly restaurant: { readonly name: string } | null;
+}

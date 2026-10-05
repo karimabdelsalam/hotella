@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -31,6 +32,7 @@ import {
   rangeSchema,
   scheduleSchema,
   staffBookSchema,
+  stayLookupSchema,
   transitionSchema,
   translationSchema,
   updateRestaurantSchema,
@@ -46,6 +48,7 @@ class StaffBookDto extends createZodDto(staffBookSchema) {}
 class GuestBookDto extends createZodDto(guestBookSchema) {}
 class TransitionDto extends createZodDto(transitionSchema) {}
 class ReservationBoardQueryDto extends createZodDto(boardQuerySchema) {}
+class RestaurantStayLookupDto extends createZodDto(stayLookupSchema) {}
 
 abstract class PropertyController {
   constructor(
@@ -139,6 +142,16 @@ export class RestaurantsController extends PropertyController {
   ) {
     return this.restaurants.addClosure(this.scope(propertyId), id, body);
   }
+
+  @Delete(':restaurantId/closures/:closureId')
+  @RequirePermission('restaurant.restaurant.manage', { checkedBy: 'gate' })
+  reopen(
+    @Param('propertyId') propertyId: string,
+    @Param('restaurantId') id: string,
+    @Param('closureId') closureId: string,
+  ) {
+    return this.restaurants.removeClosure(this.scope(propertyId), id, closureId);
+  }
 }
 
 /** The reservations board and bookings on a guest's behalf (restaurant team, guest relations, phone bookings). */
@@ -163,6 +176,13 @@ export class ReservationsController extends PropertyController {
       q.restaurantId,
       this.locale.get(),
     );
+  }
+
+  /** Who is in a room (for a phone booking), with each restaurant's bookings left. */
+  @Get('stays')
+  @RequirePermission('restaurant.reservation.manage', { checkedBy: 'gate' })
+  stays(@Param('propertyId') propertyId: string, @Query() q: RestaurantStayLookupDto) {
+    return this.reservations.findStays(this.scope(propertyId), q.room, this.locale.get());
   }
 
   @Post()

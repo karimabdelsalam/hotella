@@ -89,6 +89,7 @@ export const staffBookSchema = z.object({
   /** Beyond the stay allowance or a full sitting — needs `restaurant.reservation.override` and a reason. */
   override: z.object({ reason: z.string().trim().min(3).max(500) }).optional(),
 });
+export const stayLookupSchema = z.object({ room: z.string().trim().min(1).max(10) });
 export const transitionSchema = z.object({
   version: z.number().int().min(1),
   reason: z.string().trim().max(500).optional(),

@@ -5,7 +5,7 @@ import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-or
 import { isUuid, newId, type PropertyScope, TransactionRunner } from '@hotella/platform-database';
 import { AppError } from '@hotella/platform-i18n';
 import { addDays, isoDate } from '@hotella/platform-time';
-import { sittingsOn } from '../domain/rules';
+import { localDate, sittingsOn } from '../domain/rules';
 import { RestaurantRepositories } from '../infrastructure/repositories';
 import type { RestaurantRow, RestaurantTranslationRow, SittingRow } from '../infrastructure/schema';
 import type {
@@ -81,9 +81,26 @@ export class RestaurantService {
     return this.act(scope, READ, 'read', async () => {
       const restaurant = await this.require(scope, id);
       const [view] = await this.views(scope, [restaurant], locale);
+      const today = localDate(new Date(), await this.timeZone(scope));
+      const [translations, sittings, closures] = await Promise.all([
+        this.repo.translations([id]),
+        this.repo.sittings(scope, [id]),
+        this.repo.closures(scope, [id], today, '9999-12-31'),
+      ]);
       return {
         ...view!,
-        sittings: (await this.repo.sittings(scope, [id])).filter((s) => s.active).map(sittingView),
+        // Every language, for the configuration screen.
+        translations: translations.map((t) => ({
+          locale: t.locale,
+          name: t.name,
+          description: t.description,
+          dressCode: t.dressCode,
+        })),
+        // The latest weekly schedule (an older one only runs until the day before it starts).
+        sittings: sittings.filter((s) => s.active && s.validTo === null).map(sittingView),
+        closures: closures
+          .sort((a, b) => a.onDate.localeCompare(b.onDate))
+          .map((c) => ({ id: c.id, onDate: c.onDate, sittingId: c.sittingId, reason: c.reason })),
       };
     });
   }
@@ -240,6 +257,26 @@ export class RestaurantService {
         after: { on: row.onDate, sitting: row.sittingId },
       });
       return row;
+    });
+  }
+
+  /** Reopens a closed day or sitting (the closure was configuration; the audit log keeps the change). */
+  removeClosure(scope: PropertyScope, id: string, closureId: string) {
+    return this.act(scope, MANAGE, 'write', async () => {
+      await this.require(scope, id);
+      const row = isUuid(closureId)
+        ? await this.repo.deleteClosure(scope, id, closureId)
+        : undefined;
+      if (!row) throw AppError.notFound('restaurant.closure.not_found');
+      await this.audit.record({
+        action: 'restaurant.closure.remove',
+        entityType: 'restaurant',
+        entityId: id,
+        tenantId: scope.tenantId,
+        propertyId: scope.propertyId,
+        before: { on: row.onDate, sitting: row.sittingId, reason: row.reason },
+      });
+      return { removed: true };
     });
   }
 

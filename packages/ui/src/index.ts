@@ -4,6 +4,7 @@ export {
   BellIcon,
   ChatIcon,
   ChevronIcon,
+  DiningIcon,
   GlobeIcon,
   ImageIcon,
   ListIcon,

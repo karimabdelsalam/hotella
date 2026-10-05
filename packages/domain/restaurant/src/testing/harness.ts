@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { Global, type INestApplication, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
+import { AI_TOOL_REGISTRY, type AiToolDefinition } from '@hotella/domain-ai/public';
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { GuestModule } from '@hotella/domain-guest';
 import { IDENTITY_API } from '@hotella/domain-identity/public';
@@ -64,6 +65,20 @@ export const staff = (id: string, tenantId: string): string =>
 })
 class FakeIdentityModule {}
 
+/** The AI tool registry as the AI context would hold it: the tools the restaurant context registers. */
+export const TOOLS = new Map<string, AiToolDefinition>();
+@Global()
+@Module({
+  providers: [
+    {
+      provide: AI_TOOL_REGISTRY,
+      useValue: { register: (t: AiToolDefinition) => TOOLS.set(t.code, t) },
+    },
+  ],
+  exports: [AI_TOOL_REGISTRY],
+})
+class FakeAiToolsModule {}
+
 export interface Harness {
   readonly app: INestApplication;
   readonly db: Database;
@@ -105,6 +120,7 @@ export async function startRestaurantApp(
       IntegrationsModule,
       GuestModule,
       FakeIdentityModule,
+      FakeAiToolsModule,
       RestaurantModule,
     ],
   }).compile();

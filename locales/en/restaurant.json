@@ -4,5 +4,7 @@
   "restaurant.permission.reservation_read": "See restaurant reservations, guests and notes",
   "restaurant.permission.reservation_manage": "Book for guests, seat, mark no-shows and cancel",
   "restaurant.permission.reservation_override": "Book beyond a stay's allowance or a full sitting, with a reason",
+  "restaurant.permission.offer_read": "See the restaurants and free sittings for the guest being served",
+  "restaurant.permission.reservation_book_own": "Book a table for the guest being served, within the stay's allowance",
   "restaurant.setting.reservation_allowance": "Bookings per restaurant per block of nights of a stay"
 }

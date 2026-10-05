@@ -1,4 +1,5 @@
-import { Global, Module, type OnModuleInit } from '@nestjs/common';
+import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
+import { AI_TOOL_REGISTRY, type AiToolRegistrar } from '@hotella/domain-ai/public';
 import { ManifestRegistry } from '@hotella/platform-manifest';
 import { EventConsumerRegistry } from '@hotella/platform-queue';
 import { SettingsRegistry } from '@hotella/platform-settings';
@@ -7,6 +8,7 @@ import {
   ReservationsController,
   RestaurantsController,
 } from './api/controllers';
+import { RestaurantAiTools } from './application/ai-tools';
 import { ReservationService } from './application/reservation.service';
 import { RestaurantService } from './application/restaurant.service';
 import { RESTAURANT_SETTINGS } from './domain/settings';
@@ -15,13 +17,21 @@ import { RESTAURANT_MANIFEST } from './manifest';
 
 export const RESTAURANT_STAY_CONSUMER = 'restaurant.stay-ended';
 
-/** Restaurant without HTTP routes (API and worker). */
+/** Restaurant without HTTP routes (API and worker); the concierge's tools when the AI tools are composed. */
 @Global()
 @Module({
-  providers: [RestaurantRepositories, RestaurantService, ReservationService],
+  providers: [RestaurantRepositories, RestaurantService, ReservationService, RestaurantAiTools],
   exports: [RestaurantRepositories, RestaurantService, ReservationService],
 })
-export class RestaurantCoreModule {}
+export class RestaurantCoreModule implements OnModuleInit {
+  constructor(
+    private readonly aiTools: RestaurantAiTools,
+    @Optional() @Inject(AI_TOOL_REGISTRY) private readonly tools?: AiToolRegistrar,
+  ) {}
+  onModuleInit(): void {
+    if (this.tools) this.aiTools.registerInto(this.tools);
+  }
+}
 
 /** Staff and guest API, settings and manifest, for the API process. */
 @Module({

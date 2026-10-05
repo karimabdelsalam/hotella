@@ -4,5 +4,7 @@
   "restaurant.permission.reservation_read": "Reservierungen, Gäste und Notizen ansehen",
   "restaurant.permission.reservation_manage": "Für Gäste reservieren, platzieren, Nichterscheinen markieren und stornieren",
   "restaurant.permission.reservation_override": "Über das Kontingent des Aufenthalts oder eine volle Sitzung hinaus reservieren, mit Begründung",
+  "restaurant.permission.offer_read": "Restaurants und freie Zeiten für den betreuten Gast sehen",
+  "restaurant.permission.reservation_book_own": "Einen Tisch für den betreuten Gast im Rahmen des Aufenthaltskontingents reservieren",
   "restaurant.setting.reservation_allowance": "Reservierungen pro Restaurant und Block von Nächten eines Aufenthalts"
 }

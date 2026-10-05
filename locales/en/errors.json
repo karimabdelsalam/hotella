@@ -382,6 +382,7 @@
   "errors.restaurant.party_limits_invalid": "The largest party cannot be smaller than the smallest.",
   "errors.restaurant.sitting_duplicate": "The schedule lists the same sitting twice (day {weekday}, {startsAt}).",
   "errors.restaurant.sitting.not_found": "Sitting not found.",
+  "errors.restaurant.closure.not_found": "Closure not found.",
   "errors.restaurant.locale_invalid": "Unknown language.",
   "errors.restaurant.range_too_long": "Ask for at most {days} days at a time.",
   "errors.restaurant.stay.not_found": "No active stay was found for this booking.",

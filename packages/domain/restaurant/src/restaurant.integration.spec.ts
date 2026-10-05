@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { createEnvelope, StayStatusChanged } from '@hotella/contracts-events';
 import { GUEST_SESSION_HEADER } from '@hotella/domain-guest/public';
+import { ActorStore } from '@hotella/platform-auth';
 import { newId } from '@hotella/platform-database';
+import { RequestContext } from '@hotella/platform-observability';
 import { infraSkipReason, needsInfra, readTestInfra } from '@hotella/platform-testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ReservationService } from './application/reservation.service';
@@ -14,6 +16,7 @@ import {
   seedStay,
   staff,
   startRestaurantApp,
+  TOOLS,
 } from './testing/harness';
 
 const stamp = Date.now().toString(36).toUpperCase();
@@ -80,7 +83,16 @@ describe.skipIf(needsInfra())(`Restaurant — à la carte reservations (${infraS
         'restaurant.reservation.manage',
       ],
     });
-    hotel = await createHotel(h, `RST${stamp}`, managerId, ['101', '102', '103', '104']);
+    hotel = await createHotel(h, `RST${stamp}`, managerId, [
+      '101',
+      '102',
+      '103',
+      '104',
+      '105',
+      '106',
+      '107',
+      '108',
+    ]);
     other = await createHotel(h, `OTH${stamp}`, otherId, ['201']);
     const created = await h
       .http()
@@ -360,6 +372,335 @@ describe.skipIf(needsInfra())(`Restaurant — à la carte reservations (${infraS
       booked: 3,
       free: 1,
     });
+  });
+
+  it('a phone booking starts from the room: the guest, the stay and the bookings left', async () => {
+    const stay = await seedStay(h.db, hotel, '105', today, 10);
+    const found = await h
+      .http()
+      .get(`${base()}/restaurant-reservations/stays?room=105`)
+      .set('X-Test-Actor', host())
+      .expect(200);
+    expect(found.body).toEqual([
+      expect.objectContaining({
+        stayId: stay.stayId,
+        roomNumber: '105',
+        guestName: 'Giulia Rossi',
+        nights: 10,
+        allowance: [
+          expect.objectContaining({
+            restaurantId: restaurant.id,
+            allowed: 2,
+            used: 0,
+            remaining: 2,
+          }),
+        ],
+      }),
+    ]);
+    const empty = await h
+      .http()
+      .get(`${base()}/restaurant-reservations/stays?room=999`)
+      .set('X-Test-Actor', host())
+      .expect(200);
+    expect(empty.body).toEqual([]);
+    // Reading the board is not enough to look guests up for a booking.
+    await h
+      .http()
+      .get(`${base()}/restaurant-reservations/stays?room=105`)
+      .set('X-Test-Actor', manager())
+      .expect(403);
+  });
+
+  it('a closed day is not offered; reopening it brings its sittings back', async () => {
+    const day = addDays(today, 4);
+    const sittingsOn = async () =>
+      (
+        await h
+          .http()
+          .get(`${base()}/restaurants/availability?from=${day}&to=${day}`)
+          .set('X-Test-Actor', host())
+          .expect(200)
+      ).body[0].days[0].sittings as unknown[];
+    expect(await sittingsOn()).toHaveLength(2);
+    const closure = await h
+      .http()
+      .post(`${base()}/restaurants/${restaurant.id}/closures`)
+      .set('X-Test-Actor', manager())
+      .send({ onDate: day, reason: 'Private event' })
+      .expect(201);
+    expect(await sittingsOn()).toHaveLength(0);
+    const detail = await h
+      .http()
+      .get(`${base()}/restaurants/${restaurant.id}`)
+      .set('X-Test-Actor', manager())
+      .expect(200);
+    expect(detail.body.closures).toEqual([
+      { id: closure.body.id, onDate: day, sittingId: null, reason: 'Private event' },
+    ]);
+    expect(detail.body.translations.map((t: { locale: string }) => t.locale).sort()).toEqual([
+      'ar',
+      'en',
+      'it',
+    ]);
+    await h
+      .http()
+      .delete(`${base()}/restaurants/${restaurant.id}/closures/${closure.body.id}`)
+      .set('X-Test-Actor', host())
+      .expect(403);
+    await h
+      .http()
+      .delete(`${base()}/restaurants/${restaurant.id}/closures/${closure.body.id}`)
+      .set('X-Test-Actor', manager())
+      .expect(200);
+    expect(await sittingsOn()).toHaveLength(2);
+    await h
+      .http()
+      .delete(`${base()}/restaurants/${restaurant.id}/closures/${closure.body.id}`)
+      .set('X-Test-Actor', manager())
+      .expect(404);
+  });
+
+  it('the concierge finds tables and books one for its own guest, under the same allowance', async () => {
+    const stay = await seedStay(h.db, hotel, '106', today, 3);
+    await guestSession(h, hotel, stay.stayId, stay.primary);
+    const find = TOOLS.get('restaurant.find_tables')!;
+    const book = TOOLS.get('restaurant.book_table')!;
+    expect(find).toMatchObject({ risk: 'READ', requiredPermission: 'restaurant.offer.read' });
+    expect(book).toMatchObject({
+      risk: 'MEDIUM',
+      requiredPermission: 'restaurant.reservation.book_own',
+    });
+    const executionId = newId();
+    const ctx = {
+      tenantId: hotel.tenantId,
+      propertyId: hotel.propertyId,
+      executionId,
+      agentCode: 'GUEST_CONCIERGE',
+      locale: 'it',
+      guest: { guestId: stay.primary, stayId: stay.stayId },
+      conversationId: null,
+    };
+    // As the tool executor runs them: in a request context whose actor is the agent.
+    const asAgent = <T>(fn: () => Promise<T>) =>
+      h.app.get(RequestContext).run(
+        {
+          tenant_id: hotel.tenantId,
+          property_id: hotel.propertyId,
+          actor_type: 'AI_AGENT',
+          actor_id: executionId,
+        },
+        async () => {
+          h.app.get(ActorStore).set({
+            type: 'AI_AGENT',
+            id: executionId,
+            tenantId: hotel.tenantId,
+            isPlatformAdmin: false,
+          });
+          return fn();
+        },
+      );
+    const offer = (await asAgent(() => find.handle(find.input.parse({}), ctx))) as {
+      restaurants: Array<{
+        restaurant_id: string;
+        name: string;
+        bookings_left: number;
+        dates: Array<{ date: string; sittings: Array<{ sitting_id: string; starts_at: string }> }>;
+      }>;
+    };
+    expect(offer.restaurants[0]).toMatchObject({ name: 'La Terrazza', bookings_left: 1 });
+    const night = offer.restaurants[0]!.dates.find((d) => d.date === tomorrow)!;
+    const at21 = night.sittings.find((s) => s.starts_at === '21:00')!;
+    const args = {
+      restaurant_id: restaurant.id,
+      sitting_id: at21.sitting_id,
+      date: tomorrow,
+      party_size: 2,
+    };
+    expect(await asAgent(() => book.handle(book.input.parse(args), ctx))).toMatchObject({
+      status: 'CONFIRMED',
+      starts_at: '21:00',
+    });
+    await expect(asAgent(() => book.handle(book.input.parse(args), ctx))).rejects.toMatchObject({
+      code: 'restaurant.reservation.allowance_used',
+    });
+    const [row] = (
+      await h.db.execute(
+        sql`select channel, created_by_type from restaurant.reservations where stay_id = ${stay.stayId}`,
+      )
+    ).rows;
+    expect(row).toEqual({ channel: 'AI', created_by_type: 'AI_AGENT' });
+    // Another guest's stay is out of reach: the execution fixes the guest, the model cannot choose one.
+    const stranger = { ...ctx, guest: { guestId: newId(), stayId: stay.stayId } };
+    await expect(
+      asAgent(() => book.handle(book.input.parse(args), stranger)),
+    ).rejects.toMatchObject({ code: 'guest.session.scope_missing' });
+  });
+
+  it('Phase 14 acceptance (restaurant): a 9-night guest books in Italian, the manager books a full sitting only with an override, checkout cancels the rest', async () => {
+    // A second restaurant, open every day at 20:00.
+    const sushi = (
+      await h
+        .http()
+        .post(`${base()}/restaurants`)
+        .set('X-Test-Actor', manager())
+        .send({
+          code: `SUSHI_${stamp}`.slice(0, 40),
+          translations: [{ locale: 'en', name: 'Sakura' }],
+        })
+        .expect(201)
+    ).body as { id: string; version: number };
+    const sushiSittings = (
+      await h
+        .http()
+        .put(`${base()}/restaurants/${sushi.id}/sittings`)
+        .set('X-Test-Actor', manager())
+        .send({
+          fromDate: today,
+          sittings: ALL_DAYS.map((weekday) => ({ weekday, startsAt: '20:00', seats: 30 })),
+        })
+        .expect(200)
+    ).body as Array<{ id: string; weekday: number }>;
+    await h
+      .http()
+      .patch(`${base()}/restaurants/${sushi.id}`)
+      .set('X-Test-Actor', manager())
+      .send({ version: sushi.version, status: 'ACTIVE' })
+      .expect(200);
+
+    // The guest app, in Italian: 9 nights = 2 started weeks, so two dinners per restaurant; two at La Terrazza,
+    // one at Sakura.
+    const guest = await seedStay(h.db, hotel, '107', today, 9);
+    const token = await guestSession(h, hotel, guest.stayId, guest.primary);
+    const offer = await h
+      .http()
+      .get('/guest/restaurants')
+      .set(GUEST_SESSION_HEADER, token)
+      .set('Accept-Language', 'it')
+      .expect(200);
+    expect(
+      offer.body.restaurants.map((r: { name: string; allowance: { remaining: number } }) => [
+        r.name,
+        r.allowance.remaining,
+      ]),
+    ).toEqual(
+      expect.arrayContaining([
+        ['La Terrazza', 2],
+        ['Sakura', 2],
+      ]),
+    );
+    const guestBook = (body: object) =>
+      h.http().post('/guest/restaurant-reservations').set(GUEST_SESSION_HEADER, token).send(body);
+    const d1 = addDays(today, 2);
+    const d2 = addDays(today, 3);
+    await guestBook({
+      restaurantId: restaurant.id,
+      sittingId: late(d1),
+      serviceDate: d1,
+      partySize: 2,
+    }).expect(201);
+    await guestBook({
+      restaurantId: restaurant.id,
+      sittingId: late(d2),
+      serviceDate: d2,
+      partySize: 2,
+    }).expect(201);
+    const sakuraOn = (date: string) => sushiSittings.find((x) => x.weekday === weekdayOf(date))!.id;
+    await guestBook({
+      restaurantId: sushi.id,
+      sittingId: sakuraOn(d1),
+      serviceDate: d1,
+      partySize: 2,
+    }).expect(201);
+    const d3 = addDays(today, 4);
+    const third = await guestBook({
+      restaurantId: restaurant.id,
+      sittingId: late(d3),
+      serviceDate: d3,
+      partySize: 2,
+    }).expect(409);
+    expect(third.body.code).toBe('restaurant.reservation.allowance_used');
+
+    // On the phone: the 19:00 sitting (4 seats) fills, then a full sitting needs the override and a reason.
+    const day = addDays(today, 5);
+    const caller = await seedStay(h.db, hotel, '108', today, 7);
+    const phone = (
+      actor: string,
+      stayId: string,
+      partySize: number,
+      override?: { reason: string },
+    ) =>
+      h
+        .http()
+        .post(`${base()}/restaurant-reservations`)
+        .set('X-Test-Actor', actor)
+        .send({
+          restaurantId: restaurant.id,
+          sittingId: early(day),
+          serviceDate: day,
+          partySize,
+          stayId,
+          override,
+        });
+    await phone(host(), guest.stayId, 4, { reason: 'Guest asked at the desk' }).expect(403);
+    const filled = await phone(supervisor(), guest.stayId, 4, {
+      reason: 'Birthday dinner, GM approved',
+    }).expect(201);
+    expect((await phone(host(), caller.stayId, 2).expect(409)).body.code).toBe(
+      'restaurant.reservation.sitting_full',
+    );
+    const squeezed = await phone(supervisor(), caller.stayId, 2, {
+      reason: 'Regular guest, extra table',
+    }).expect(201);
+    expect(squeezed.body.overridden).toBe(true);
+
+    // The board of that day: both bookings at 19:00, 6 covers for 4 seats; one is seated, the other does not come.
+    const board = await h
+      .http()
+      .get(`${base()}/restaurant-reservations?date=${day}&restaurantId=${restaurant.id}`)
+      .set('X-Test-Actor', host())
+      .expect(200);
+    const sitting = board.body[0].sittings.find(
+      (x: { startsAt: string }) => x.startsAt === '19:00',
+    );
+    expect(sitting).toMatchObject({ seats: 4, booked: 6, free: 0 });
+    await h
+      .http()
+      .post(`${base()}/restaurant-reservations/${squeezed.body.id}/seat`)
+      .set('X-Test-Actor', host())
+      .send({ version: squeezed.body.version })
+      .expect(200);
+    await h
+      .http()
+      .post(`${base()}/restaurant-reservations/${filled.body.id}/no-show`)
+      .set('X-Test-Actor', host())
+      .send({ version: filled.body.version })
+      .expect(200);
+
+    // Checkout: the guest's confirmed bookings are cancelled; the no-show stays as it was.
+    await h.app.get(ReservationService).onStayEvent(
+      createEnvelope(StayStatusChanged, {
+        eventId: newId(),
+        tenantId: hotel.tenantId,
+        propertyId: hotel.propertyId,
+        source: 'guest',
+        correlationId: null,
+        payload: {
+          stay_id: guest.stayId,
+          primary_guest_id: guest.primary,
+          from: 'IN_HOUSE',
+          to: 'CHECKED_OUT',
+          at: new Date().toISOString(),
+          room_id: hotel.rooms['107']!,
+        },
+      }),
+    );
+    const left = await h.db.execute(
+      sql`select status, count(*)::int as n from restaurant.reservations where stay_id = ${guest.stayId} group by status order by status`,
+    );
+    expect(left.rows).toEqual([
+      { status: 'CANCELLED', n: 3 },
+      { status: 'NO_SHOW', n: 1 },
+    ]);
   });
 
   it('another hotel sees nothing of these restaurants or reservations', async () => {

@@ -2577,6 +2577,9 @@ importers:
       '@hotella/contracts-events':
         specifier: workspace:*
         version: link:../../contracts/events
+      '@hotella/domain-ai':
+        specifier: workspace:*
+        version: link:../ai
       '@hotella/domain-guest':
         specifier: workspace:*
         version: link:../guest

@@ -382,6 +382,7 @@
   "errors.restaurant.party_limits_invalid": "Die größte Gruppe darf nicht kleiner als die kleinste sein.",
   "errors.restaurant.sitting_duplicate": "Der Plan enthält dieselbe Sitzung zweimal (Tag {weekday}, {startsAt}).",
   "errors.restaurant.sitting.not_found": "Sitzung nicht gefunden.",
+  "errors.restaurant.closure.not_found": "Schließung nicht gefunden.",
   "errors.restaurant.locale_invalid": "Unbekannte Sprache.",
   "errors.restaurant.range_too_long": "Bitte höchstens {days} Tage auf einmal abfragen.",
   "errors.restaurant.stay.not_found": "Für diese Reservierung wurde kein aktiver Aufenthalt gefunden.",

@@ -36,11 +36,30 @@ export const RESTAURANT_MANIFEST = defineManifest({
       descriptionKey: 'restaurant.permission.reservation_override',
       risk: 'HIGH',
     },
+    // Held by the Guest Concierge for its own guest only (through its tools, never by staff roles).
+    {
+      code: 'restaurant.offer.read',
+      descriptionKey: 'restaurant.permission.offer_read',
+      risk: 'READ',
+    },
+    {
+      code: 'restaurant.reservation.book_own',
+      descriptionKey: 'restaurant.permission.reservation_book_own',
+      risk: 'MEDIUM',
+    },
   ],
   events: [
     RestaurantReservationCreated.name,
     RestaurantReservationCancelled.name,
     RestaurantReservationStatusChanged.name,
+  ],
+  aiTools: [
+    { code: 'restaurant.find_tables', risk: 'READ', requiredPermission: 'restaurant.offer.read' },
+    {
+      code: 'restaurant.book_table',
+      risk: 'MEDIUM',
+      requiredPermission: 'restaurant.reservation.book_own',
+    },
   ],
   entitlements: ['RESTAURANT'],
   entitlement: 'RESTAURANT',

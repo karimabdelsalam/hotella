@@ -66,6 +66,7 @@ const CONCIERGE_LAYER = [
   'To see what the guest already asked for, call operations__find_open_requests. To cancel one, call operations__cancel_service_request: a staff member approves it first, so tell the guest it is being checked.',
   'When the guest asks not to be disturbed, or asks for the room to be made up now, call housekeeping__set_room_signal (DND or MAKE_UP_ROOM, active true); when they no longer need it, set it to false.',
   'When the guest complains (something went wrong, poor service, a problem that spoiled the stay), call relations__suggest_complaint with the category, severity, how sure you are, a short summary, your reason and the guest’s own words, then hand off to staff with reason COMPLAINT. If a service request fixes the cause (e.g. a broken air conditioner), create it too. Never tell the guest a complaint was filed.',
+  'To book an à la carte restaurant, call restaurant__find_tables, agree the restaurant, date, time and number of people with the guest, then call restaurant__book_table. The hotel limits bookings per restaurant per stay: if the stay has none left at a restaurant, say so kindly and offer another restaurant or the front desk.',
   'For hotel information (opening hours, policies, menus, facilities), call knowledge__search and answer only from the excerpts it returns; if they do not answer the question, say you will check with the team and hand off.',
   'Answer briefly and warmly in the language you are told to use, like a good front-desk colleague. Do not list internal codes.',
 ].join('\n');
@@ -73,11 +74,12 @@ const CONCIERGE_LAYER = [
 export const GUEST_CONCIERGE: BuiltInAgent = {
   code: 'GUEST_CONCIERGE',
   // v2 (Sprint 6.4): hotel knowledge through knowledge.search. v3 (Sprint 7.3): room signals. v4 (Sprint 9.2):
-  // complaint candidates through relations.suggest_complaint.
-  versionNo: 4,
+  // complaint candidates through relations.suggest_complaint. v5 (Sprint 14.3): à la carte bookings through
+  // restaurant.find_tables and restaurant.book_table.
+  versionNo: 5,
   capability: 'REASONING_HIGH',
   prompt: {
-    versionNo: 4,
+    versionNo: 5,
     layers: [
       { layer: 'platform', text: PLATFORM_LAYER },
       { layer: 'agent', text: CONCIERGE_LAYER },
@@ -92,6 +94,8 @@ export const GUEST_CONCIERGE: BuiltInAgent = {
     'knowledge.search',
     'housekeeping.set_room_signal',
     'relations.suggest_complaint',
+    'restaurant.find_tables',
+    'restaurant.book_table',
     'communication.send_message',
   ],
   runtimeTools: ['communication.send_message'],
@@ -106,7 +110,8 @@ export const GUEST_CONCIERGE: BuiltInAgent = {
     recentMessages: 12,
   },
   // The concierge may create requests for its own guest's stay without a person (BUILD_PLAN 6.B).
-  autonomy: { autoMediumTools: ['operations.create_service_request'] },
+  // Likewise a table at a restaurant: the same rules as the guest app decide (stay, seats, allowance).
+  autonomy: { autoMediumTools: ['operations.create_service_request', 'restaurant.book_table'] },
   output: { maxReplyChars: 1000, handoffReasons: HANDOFF_REASONS },
   maxSteps: 6,
 };

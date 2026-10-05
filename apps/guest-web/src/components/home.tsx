@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Button, ChatIcon, ChevronIcon, cx, ListIcon, MoonIcon, SparkleIcon } from '@hotella/ui';
+import {
+  Button,
+  ChatIcon,
+  ChevronIcon,
+  cx,
+  DiningIcon,
+  ListIcon,
+  MoonIcon,
+  SparkleIcon,
+} from '@hotella/ui';
 import { Link, useRouter } from '../i18n/navigation';
 import { api, ApiError, call } from '../lib/api';
 import { useBrand } from '../lib/brand';
@@ -139,12 +148,21 @@ export function Home() {
   const router = useRouter();
   const me = useGuest();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [dining, setDining] = useState(false);
 
   useEffect(() => {
     if (!me || me === 'signed-out' || !me.scopes.includes('SERVICE_REQUEST')) return;
     api<Catalog>('guest/services', locale)
       .then(setCatalog)
       .catch(() => setCatalog({ categories: [] }));
+  }, [me, locale]);
+
+  // Restaurants show only where the hotel has some the guest can book (module licensed, restaurants active).
+  useEffect(() => {
+    if (!me || me === 'signed-out' || !me.scopes.includes('DINING')) return;
+    api<{ restaurants: unknown[] }>('guest/restaurants', locale)
+      .then((r) => setDining(r.restaurants.length > 0))
+      .catch(() => setDining(false));
   }, [me, locale]);
 
   if (me === 'signed-out') return <SignedOut />;
@@ -206,6 +224,15 @@ export function Home() {
                   >
                     <ChatIcon className="text-brand size-5" />
                     {t('chat')}
+                  </Link>
+                )}
+                {dining && (
+                  <Link
+                    href="/restaurants"
+                    className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm font-semibold ring-1 ring-slate-900/5 hover:bg-slate-100"
+                  >
+                    <DiningIcon className="text-brand size-5" />
+                    {t('restaurants')}
                   </Link>
                 )}
               </nav>

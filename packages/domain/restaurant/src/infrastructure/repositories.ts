@@ -201,6 +201,28 @@ export class RestaurantRepositories {
     const [row] = await this.x.insert(closures).values(values).returning();
     return row!;
   }
+  /** A closure is configuration, not history: reopening a day removes it (the audit log keeps who and why). */
+  async deleteClosure(
+    scope: PropertyScope,
+    restaurantId: string,
+    id: string,
+  ): Promise<ClosureRow | undefined> {
+    const [row] = await this.x
+      .delete(closures)
+      .where(
+        tenantWhere(
+          closures,
+          scope,
+          and(
+            eq(closures.propertyId, scope.propertyId),
+            eq(closures.restaurantId, restaurantId),
+            eq(closures.id, id),
+          ),
+        ),
+      )
+      .returning();
+    return row;
+  }
 
   // ---- seats ----
   /**

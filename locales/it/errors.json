@@ -382,6 +382,7 @@
   "errors.restaurant.party_limits_invalid": "Il gruppo più numeroso non può essere inferiore al più piccolo.",
   "errors.restaurant.sitting_duplicate": "Il programma contiene due volte lo stesso turno (giorno {weekday}, {startsAt}).",
   "errors.restaurant.sitting.not_found": "Turno non trovato.",
+  "errors.restaurant.closure.not_found": "Chiusura non trovata.",
   "errors.restaurant.locale_invalid": "Lingua sconosciuta.",
   "errors.restaurant.range_too_long": "Richieda al massimo {days} giorni alla volta.",
   "errors.restaurant.stay.not_found": "Nessun soggiorno attivo trovato per questa prenotazione.",

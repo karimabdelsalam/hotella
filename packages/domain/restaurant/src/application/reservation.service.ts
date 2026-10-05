@@ -43,6 +43,10 @@ import type { GuestBookInput, StaffBookInput, TransitionInput } from './schemas'
 
 type Actor = { readonly type: string; readonly id: string | null };
 type Channel = 'GUEST_APP' | 'STAFF' | 'AI';
+/** The guest a booking is for: a guest-app session, or the guest a concierge execution serves. */
+export type GuestRef = Pick<GuestPrincipal, 'tenantId' | 'propertyId' | 'guestId' | 'stayId'> & {
+  readonly scopes: readonly string[];
+};
 const ACTIVE_STAY = ['EXPECTED', 'IN_HOUSE'];
 
 /**
@@ -93,6 +97,60 @@ export class ReservationService {
     });
   }
 
+  /**
+   * A phone booking starts from the room: the stays in it now (or arriving there today), their primary guest, the
+   * dates and, per restaurant, how many bookings the stay has left.
+   */
+  findStays(scope: PropertyScope, roomNumber: string, locale: string) {
+    return this.act(scope, 'restaurant.reservation.manage', 'read', async () => {
+      const room = await this.org.getRoomByNumber(scope.tenantId, scope.propertyId, roomNumber);
+      if (!room) return [];
+      const today = localDate(new Date(), await this.restaurants.timeZone(scope));
+      const [inHouse, arriving] = await Promise.all([
+        this.guests.inHouseStaysInRoom(scope.tenantId, scope.propertyId, room.id),
+        this.guests.expectedArrivals(scope.tenantId, scope.propertyId, today),
+      ]);
+      const stays = [...inHouse, ...arriving.filter((s) => s.currentRoomId === room.id)];
+      const restaurants = (await this.repo.listRestaurants(scope)).filter(
+        (r) => r.status === 'ACTIVE',
+      );
+      const views = await this.restaurants.views(scope, restaurants, locale);
+      const policy = await this.settings.value(ALLOWANCE, scope);
+      const out = [];
+      for (const stay of stays) {
+        const party = await this.guests.stayParty(scope.tenantId, stay.id);
+        const primary = party.find((m) => m.role === 'PRIMARY');
+        const nights = stayNights(stay.expectedArrival, stay.expectedDeparture);
+        const allowance = [];
+        for (const r of restaurants) {
+          const used = await this.repo.usedAllowance(scope, stay.id, r.id);
+          const allowed = r.allowanceApplies ? stayAllowance(nights, policy) : null;
+          allowance.push({
+            restaurantId: r.id,
+            name: views.find((v) => v.id === r.id)?.name ?? r.code,
+            allowed,
+            used,
+            remaining: allowed === null ? null : Math.max(0, allowed - used),
+          });
+        }
+        out.push({
+          stayId: stay.id,
+          status: stay.status,
+          roomNumber: room.roomNumber,
+          guestName: primary
+            ? [primary.givenName, primary.familyName].filter(Boolean).join(' ')
+            : null,
+          partySize: party.length,
+          arrival: stay.expectedArrival,
+          departure: stay.expectedDeparture,
+          nights,
+          allowance,
+        });
+      }
+      return out;
+    });
+  }
+
   bookForGuest(scope: PropertyScope, input: StaffBookInput) {
     const run = () =>
       this.act(scope, 'restaurant.reservation.manage', 'write', () =>
@@ -123,7 +181,7 @@ export class ReservationService {
   // ---- guests ----
 
   /** What a guest can book: open restaurants and sittings within the stay, their seats, and allowance left. */
-  async guestOffer(guest: GuestPrincipal, locale: string) {
+  async guestOffer(guest: GuestRef, locale: string) {
     const { scope, stay } = await this.guestContext(guest);
     return this.tx.read(async () => {
       const timeZone = await this.restaurants.timeZone(scope);
@@ -178,12 +236,34 @@ export class ReservationService {
     });
   }
 
-  async guestBook(guest: GuestPrincipal, input: GuestBookInput) {
+  async guestBook(
+    guest: GuestRef,
+    input: GuestBookInput,
+    channel: 'GUEST_APP' | 'AI' = 'GUEST_APP',
+  ) {
     const { scope, stay } = await this.guestContext(guest);
-    return this.tx.run(() => this.book(scope, input, stay.id, 'GUEST_APP', null, guest.guestId));
+    return this.tx.run(() => this.book(scope, input, stay.id, channel, null, guest.guestId));
   }
 
-  async guestReservations(guest: GuestPrincipal, locale: string) {
+  /**
+   * The guest a concierge execution serves, with the scopes of their live grant at this property — the same access
+   * the guest app would have (no grant for this stay, no scopes).
+   */
+  async conciergeGuest(input: {
+    tenantId: string;
+    propertyId: string;
+    guestId: string;
+    stayId: string;
+  }): Promise<GuestRef> {
+    const grant = await this.guests.liveGrantAtProperty(
+      input.tenantId,
+      input.propertyId,
+      input.guestId,
+    );
+    return { ...input, scopes: grant?.stayId === input.stayId ? grant.effectiveScopes : [] };
+  }
+
+  async guestReservations(guest: GuestRef, locale: string) {
     const { scope, stay } = await this.guestContext(guest);
     return this.tx.read(async () => {
       const rows = await this.repo.ofStay(scope, stay.id);
@@ -449,7 +529,7 @@ export class ReservationService {
     return after;
   }
 
-  private async guestContext(guest: GuestPrincipal) {
+  private async guestContext(guest: GuestRef) {
     if (!guest.scopes.includes('DINING'))
       throw AppError.forbidden('guest.session.scope_missing', { scope: 'DINING' });
     if (!guest.stayId) throw AppError.forbidden('restaurant.stay_required');
