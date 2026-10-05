@@ -20,6 +20,7 @@ import {
   replySchema,
   takeoverSchema,
 } from '../application/inbox.service';
+import { callsQuerySchema, VoiceService } from '../application/voice.service';
 import {
   ChannelAdminService,
   createChannelSchema,
@@ -37,6 +38,7 @@ class ReplyDto extends createZodDto(replySchema) {}
 class AssignConversationDto extends createZodDto(assignConversationSchema) {}
 class TakeoverDto extends createZodDto(takeoverSchema) {}
 class AiModeDto extends createZodDto(aiModeSchema) {}
+class CallsQueryDto extends createZodDto(callsQuerySchema) {}
 
 function propertyScope(ctx: RequestContext, actors: ActorStore, propertyId: string): PropertyScope {
   const tenantId = ctx.tenantId ?? actors.require().tenantId;
@@ -275,5 +277,22 @@ export class InboxController {
   @RequirePermission('inbox.reply')
   close(@Param('propertyId') propertyId: string, @Param('conversationId') id: string) {
     return this.inbox.close(this.scope(propertyId), id);
+  }
+}
+
+/** Voice calls of a property (BUILD_PLAN 13.4): who was answered, who was transferred and why. No caller numbers. */
+@Controller('properties/:propertyId/calls')
+@PropertyScoped({ from: 'param' })
+export class CallsController {
+  constructor(
+    private readonly voice: VoiceService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get()
+  @RequirePermission('inbox.read')
+  list(@Param('propertyId') propertyId: string, @Query() query: CallsQueryDto) {
+    return this.voice.list(propertyScope(this.ctx, this.actors, propertyId), query);
   }
 }

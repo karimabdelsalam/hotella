@@ -3208,7 +3208,7 @@ eng (telemetry)
 | 13.1 | Connector SDK v2: .NET `IConnectorAdapter` + registry, ~~link protocol 3~~ (ADR-0024 amendment), signed webhook ingress, health hook, contract-test kit | done |
 | 13.2 | IoT/BMS telemetry: points, mappings, minute aggregates, deterministic rules, alarms → alerts/work orders/insights; simulator face; staff screen | done |
 | 13.3 | Stay-bound access: `ACCESS_API`, lock and Wi-Fi neutral connectors, auto-revoke on check-out and moves, staff UI; simulator | done |
-| 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | planned |
+| 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | done |
 | 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | planned |
 | 13.6 | Phase 13 acceptance (`docs/acceptance/phase-13.md`) | planned |
 
@@ -3338,6 +3338,31 @@ Simulator: `SimulatedAccessSystems` (lock and Wi-Fi faces, failing rooms). Tests
   status RINGING|ANSWERED|TRANSFERRED|ENDED, started_at, answered_at, transferred_at, ended_at, duration_s,
   transfer_extension)` — no recording column until Q23; events `comms.call.started|ended.v1`; `VOICE_MINUTES`
   (ceil of duration) metered once per call; staff read calls at `/properties/:id/calls` (`inbox.read`).
+
+**13.4 as built.** AI: `ModelGatewayApi.transcribe|synthesize` (capability `AUDIO`; a provider whose egress policy may
+not receive the data class is never called — audio cannot be masked; model calls recorded; fallback as for
+completions), provider methods on `FAKE` and `OPENAI_COMPATIBLE` (`/audio/transcriptions`, `/audio/speech`); the AI
+tools module registers the gateway into comms' `SPEECH_SERVICES` with data class SENSITIVE for both directions.
+Comms: adapter kind `VOICE` (`VoiceProvider`: `parseVoiceWebhook`, `say`, `transfer`) and `VOICE_GATEWAY_STANDARD`
+(config `baseUrl`, `operatorExtension`, `roomExtensionPrefix`; credential JSON `signingSecret`, `apiToken`; events up to
+50 per post, audio ≤ 2 MiB), `POST /webhooks/voice/:channelId`, migration 0058 (`comms.calls`, status
+`ANSWERED|TRANSFERRED|ENDED`, `transfer_reason`, `resume_reply`, one live call per conversation; tenant FK + RLS),
+`VoiceService` and events `comms.call.started|ended.v1`. **Who is answered (decided here, owner question Q27):** caller
+ids can be spoofed, so only a call from a room phone (`<prefix><room number>` of a known room with exactly one in-house
+stay) can stand for a stay, and only where the property setting `comms.voice.room_phone_trusted` is on (default
+**off**). Such a call joins the stay's conversation (opened on `VOICE` when there is none); every other call — unknown
+or outside caller, AI mode not `AUTO`, conversation handed off, a second call, speech unavailable or refused by the
+egress policy — is transferred to the operator extension at once and the reason stored. An utterance's audio is
+transcribed in the request and dropped; only the words become an inbound `VOICE` message (no media ref; the WhatsApp
+window is not touched). The send loop speaks queued replies into the conversation's live call (synthesized audio when
+a speech service exists, text always) and fails them with `CALL_ENDED` otherwise. A hand-off during a call transfers it
+(worker consumer `comms.voice-handoff`); when the call ends the conversation's previous reply channel is restored and
+the platform's answered time (answer → transfer or end) is metered once as `VOICE_MINUTES` (ceil of minutes).
+Staff read `GET /properties/:id/calls` (`inbox.read`, no caller numbers); the inbox shows the voice turns as messages.
+Simulator: `SimulatedVoiceGateway` (signs events, serves `/say` and `/transfer`, `dial(room).say(words)`). Tests:
+`voice-gateway.spec.ts` (signature window, parsing, requests), `voice.integration.spec.ts` in the AI package (room-phone
+call → towels request → spoken answer → minutes metered; untrusted callers, egress refusal and hand-off go to the
+operator; tenant leak), `voice/gateway.spec.ts` (simulator).
 
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,
@@ -3637,6 +3662,7 @@ A module/phase is accepted only when all of the following are true:
 | Q21 | Voice: which PBX / voice gateway or CPaaS (on-prem SIP gateway vs cloud telephony) | 13.4 | open — owner (neutral Planova Voice Profile + simulator until then) |
 | Q22 | Voice: may guest audio go to an external speech model, or on-prem only | 13.4 | open — owner (default on-prem only, ADR-0024) |
 | Q23 | Voice: record calls (consent wording, retention) or never | 13.4 | open — owner (default never) |
+| Q27 | Voice: may a call from a room's phone stand for that room's in-house stay (the concierge answers and acts for the stay), or must every call go to the operator | 13.4 | open — owner (security trade-off; default off: setting `comms.voice.room_phone_trusted`) |
 | Q24 | BMS/IoT: which protocols and vendors to support first (BACnet/IP, Modbus TCP, MQTT, a vendor cloud) | 13.2 | open — owner (neutral profile via agent/webhook until then) |
 | Q25 | Door locks and Wi-Fi: which vendors (e.g. physical keys vs mobile keys) and partnership terms | 13.3 | open — owner (commercial) |
 | Q26 | POS and ERP: which systems at the pilot hotel | 13.5 | open — owner |

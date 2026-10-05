@@ -27,6 +27,7 @@ import type {
   MessageRow,
 } from '../infrastructure/schema';
 import { CommsRepositories } from '../infrastructure/repositories';
+import { CallRepositories } from '../infrastructure/call-repositories';
 import { ActivationService } from './activation.service';
 import { ChannelRuntime } from './channel.service';
 import { ChannelIdentityService } from './identity.service';
@@ -37,7 +38,8 @@ import type {
   ConversationForAi,
   ConversationMessage,
 } from '../public';
-import { type InboundItem, ProviderError } from './providers';
+import { type InboundItem, ProviderError, type SendResult } from './providers';
+import { SpeechRegistry } from './speech';
 
 const COMMS = 'comms';
 /** WhatsApp customer-service window: free-form replies only within 24 h of the guest's last message. */
@@ -69,6 +71,8 @@ export class ConversationService implements CommunicationsPublicApi {
     private readonly settings: SettingsReader,
     @Inject(GUEST_API) private readonly guests: GuestPublicApi,
     @Inject(ORGANIZATION_API) private readonly org: OrganizationPublicApi,
+    private readonly calls: CallRepositories,
+    private readonly speech: SpeechRegistry,
     @InjectLogger() private readonly logger: Logger,
     @Optional() @Inject(USAGE_API) private readonly usage?: UsagePublicApi,
   ) {}
@@ -203,6 +207,79 @@ export class ConversationService implements CommunicationsPublicApi {
     if (!stayId) await this.promptActivation(conversation, item.at);
   }
 
+  // ---- voice (BUILD_PLAN 13.4) ----
+
+  /** The stay's open conversation for a trusted room-phone call; opened (on the VOICE channel) when there is none. */
+  async conversationForCall(
+    channel: ChannelRow,
+    stay: { readonly id: string; readonly primaryGuestId: string },
+    identityId: string,
+  ): Promise<ConversationRow> {
+    return (
+      (await this.repo.openConversationOfStay({ tenantId: channel.tenantId }, stay.id)) ??
+      (await this.open(channel, {
+        guestId: stay.primaryGuestId,
+        stayId: stay.id,
+        identityId,
+        replyChannelType: 'VOICE',
+      }))
+    );
+  }
+
+  /**
+   * One transcribed utterance of a live call: a guest message on the VOICE channel (who of the party spoke is unknown,
+   * so no sender guest). The WhatsApp window is not touched: a call does not open it.
+   */
+  async receiveUtterance(
+    conversation: ConversationRow,
+    channel: ChannelRow,
+    input: { readonly providerMessageId: string; readonly text: string; readonly at: Date },
+  ): Promise<boolean> {
+    const scope = { tenantId: conversation.tenantId };
+    const guest = await this.repo.participant(scope, conversation.id, 'GUEST', null, input.at);
+    const message = await this.repo.insertMessage({
+      id: newId(),
+      tenantId: conversation.tenantId,
+      conversationId: conversation.id,
+      channelId: channel.id,
+      channelType: 'VOICE',
+      direction: 'INBOUND',
+      senderParticipantId: guest.id,
+      senderType: 'GUEST',
+      senderRef: null,
+      type: 'TEXT',
+      body: input.text,
+      mediaRef: null,
+      providerMessageId: input.providerMessageId,
+      deliveryStatus: 'DELIVERED',
+    });
+    if (!message) return false; // the same utterance twice
+    const updated = await this.repo.updateConversation(scope, conversation.id, {
+      lastMessageAt: input.at,
+      ...(conversation.status === 'HANDED_OFF' ? {} : { status: 'WAITING_STAFF' as const }),
+    });
+    await this.announceReceived(updated, message);
+    return true;
+  }
+
+  /** Speech for a voice reply when a speech service is registered; the gateway speaks the text itself otherwise. */
+  private async voiceAudio(conversation: ConversationRow, text: string) {
+    const port = this.speech.current();
+    if (!port) return null;
+    try {
+      const spoken = await port.synthesize({
+        tenantId: conversation.tenantId,
+        propertyId: conversation.propertyId,
+        text,
+        language: null,
+      });
+      return { data: spoken.audio, mimeType: spoken.mimeType };
+    } catch (err) {
+      this.logger.warn({ conversation_id: conversation.id, err }, 'voice reply not synthesized');
+      return null;
+    }
+  }
+
   /** "Verify first": one message per day to a contact without access, pointing to the link or the room QR. */
   private async promptActivation(conversation: ConversationRow, at: Date) {
     if (
@@ -333,30 +410,48 @@ export class ConversationService implements CommunicationsPublicApi {
           return false;
         };
         if (!channel || channel.status !== 'ACTIVE') return fail('CHANNEL_UNAVAILABLE');
+        // A voice reply is spoken into the conversation's live call on that channel, or not at all.
+        const call =
+          channel.type === 'VOICE'
+            ? await this.calls.liveOfConversation(scope, conversation.id)
+            : undefined;
+        if (channel.type === 'VOICE' && call?.channelId !== channel.id) return fail('CALL_ENDED');
         // Free-form text only inside the customer-service window of the contact who wrote last; a notification to
         // someone else, or after the window, goes out as its approved template (ADR-0015).
         const inWindow =
-          !message.recipientIdentityId ||
+          channel.type === 'VOICE' ||
+          (!message.recipientIdentityId ||
           message.recipientIdentityId === conversation.channelIdentityId
             ? conversation.lastInboundAt !== null &&
               now.getTime() - conversation.lastInboundAt.getTime() <= REPLY_WINDOW_MS
-            : false;
+            : false);
         if (!inWindow && !message.template) return fail('OUTSIDE_WINDOW');
-        const to = await this.recipient(conversation, message.recipientIdentityId);
+        const to = call
+          ? call.providerCallId
+          : await this.recipient(conversation, message.recipientIdentityId);
         if (!to) return fail('NO_RECIPIENT');
         try {
           const adapter = this.runtime.adapterFor(channel);
-          if (adapter.kind !== 'MESSAGING') return fail('NOT_MESSAGING');
           const ctx = this.runtime.context(channel);
-          const result =
-            inWindow || !message.template
-              ? await adapter.sendText(ctx, { to, body: message.body ?? '' })
-              : await adapter.sendTemplate(ctx, {
-                  to,
-                  template: message.template.code,
-                  locale: message.template.locale,
-                  parameters: message.template.parameters,
-                });
+          let result: SendResult;
+          if (adapter.kind === 'VOICE') {
+            const text = message.body ?? '';
+            result = await adapter.say(ctx, {
+              callId: to,
+              text,
+              audio: await this.voiceAudio(conversation, text),
+            });
+          } else if (adapter.kind !== 'MESSAGING') return fail('NOT_MESSAGING');
+          else
+            result =
+              inWindow || !message.template
+                ? await adapter.sendText(ctx, { to, body: message.body ?? '' })
+                : await adapter.sendTemplate(ctx, {
+                    to,
+                    template: message.template.code,
+                    locale: message.template.locale,
+                    parameters: message.template.parameters,
+                  });
           const updated = await this.repo.updateMessage(scope, message.id, {
             deliveryStatus: 'SENT',
             providerMessageId: result.providerMessageId,
@@ -747,7 +842,7 @@ export class ConversationService implements CommunicationsPublicApi {
       guestId: string | null;
       stayId: string | null;
       identityId: string | null;
-      replyChannelType: 'WHATSAPP' | 'GUEST_WEB';
+      replyChannelType: 'WHATSAPP' | 'GUEST_WEB' | 'VOICE';
     },
   ): Promise<ConversationRow> {
     const now = new Date();

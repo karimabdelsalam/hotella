@@ -692,3 +692,75 @@ export const replyDrafts = classify(
   },
 );
 export type ReplyDraftRow = typeof replyDrafts.$inferSelect;
+
+// ---- voice calls (BUILD_PLAN 13.4) ----
+
+export const callStatus = comms.enum('call_status', ['ANSWERED', 'TRANSFERRED', 'ENDED']);
+
+/**
+ * A call the property's voice gateway reported. Only room phones of a property that trusts them reach a stay's
+ * conversation; every other caller is transferred to the operator at once. No recording column: audio is never stored
+ * (Q23). While a call is live its conversation replies by voice; `resumeReply` restores the previous reply channel.
+ */
+export const calls = classify(
+  comms.table(
+    'calls',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      channelId: uuid('channel_id')
+        .notNull()
+        .references(() => channels.id),
+      providerCallId: varchar('provider_call_id', { length: 64 }).notNull(),
+      fromIdentityId: uuid('from_identity_id').references(() => channelIdentities.id),
+      conversationId: uuid('conversation_id').references(() => conversations.id),
+      stayId: uuid('stay_id'),
+      status: callStatus('status').notNull(),
+      /** Why the platform did not (or no longer) answers: UNTRUSTED_CALLER, AI_OFF, HANDOFF, SPEECH_UNAVAILABLE… */
+      transferReason: varchar('transfer_reason', { length: 32 }),
+      transferExtension: varchar('transfer_extension', { length: 16 }),
+      startedAt: tz('started_at').notNull(),
+      answeredAt: tz('answered_at'),
+      transferredAt: tz('transferred_at'),
+      endedAt: tz('ended_at'),
+      durationSeconds: integer('duration_s'),
+      resumeReply: jsonb('resume_reply').$type<{
+        channelId: string | null;
+        channelType: (typeof channelType.enumValues)[number];
+        identityId: string | null;
+      } | null>(),
+      ...versioned(),
+    },
+    (t) => [
+      unique('calls_provider_uq').on(t.channelId, t.providerCallId),
+      index('calls_property_idx').on(t.tenantId, t.propertyId, t.startedAt),
+      uniqueIndex('calls_live_conversation_uq')
+        .on(t.conversationId)
+        .where(sql`${t.status} = 'ANSWERED' AND ${t.conversationId} IS NOT NULL`),
+    ],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    channelId: 'INTERNAL',
+    providerCallId: 'INTERNAL',
+    fromIdentityId: 'INTERNAL',
+    conversationId: 'INTERNAL',
+    stayId: 'INTERNAL',
+    status: 'INTERNAL',
+    transferReason: 'INTERNAL',
+    transferExtension: 'INTERNAL',
+    startedAt: 'INTERNAL',
+    answeredAt: 'INTERNAL',
+    transferredAt: 'INTERNAL',
+    endedAt: 'INTERNAL',
+    durationSeconds: 'INTERNAL',
+    resumeReply: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+export type CallRow = typeof calls.$inferSelect;

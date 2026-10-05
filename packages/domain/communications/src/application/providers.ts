@@ -93,7 +93,35 @@ export interface WebhookRequest {
   readonly headers: Readonly<Record<string, string | undefined>>;
 }
 
-interface AdapterBase {
+/**
+ * Normalized voice gateway events (Planova Voice Profile v1, BUILD_PLAN 13.4). An utterance carries text or audio; the
+ * audio is transcribed at the webhook and dropped, never stored (Q23).
+ */
+export type VoiceEvent =
+  | {
+      readonly kind: 'CALL_STARTED';
+      readonly callId: string;
+      readonly from: string;
+      readonly to: string;
+      readonly at: Date;
+    }
+  | {
+      readonly kind: 'UTTERANCE';
+      readonly callId: string;
+      readonly utteranceId: string;
+      readonly at: Date;
+      readonly text: string | null;
+      readonly audio: { readonly data: Uint8Array; readonly mimeType: string } | null;
+      readonly language: string | null;
+    }
+  | {
+      readonly kind: 'CALL_ENDED';
+      readonly callId: string;
+      readonly at: Date;
+      readonly durationSeconds: number;
+    };
+
+interface AdapterCore {
   /** `WHATSAPP_META_CLOUD`, `WHATSAPP_BSP_360DIALOG`, `SMS_HTTP_GENERIC`, … */
   readonly code: string;
   readonly channelType: ChannelType;
@@ -102,6 +130,9 @@ interface AdapterBase {
   verifyWebhook(ctx: ProviderContext, req: WebhookRequest): Promise<boolean>;
   /** Subscription handshake some providers perform before sending webhooks (Meta's `hub.verify_token`). */
   verifySubscription?(ctx: ProviderContext, token: string | undefined): Promise<boolean>;
+}
+
+interface AdapterBase extends AdapterCore {
   parseWebhook(ctx: ProviderContext, body: unknown): readonly InboundItem[];
 }
 
@@ -121,7 +152,29 @@ export interface SmsProvider extends AdapterBase {
   ): Promise<SendResult>;
 }
 
-export type ChannelAdapter = MessagingProvider | SmsProvider;
+/**
+ * A voice gateway (a PBX bridge or SIP service, owner decision Q21): it reports calls and utterances, speaks into a live
+ * call and transfers it to an extension. Stateless like the messaging adapters.
+ */
+export interface VoiceProvider extends AdapterCore {
+  readonly kind: 'VOICE';
+  parseVoiceWebhook(ctx: ProviderContext, body: unknown): readonly VoiceEvent[];
+  /** Speaks into the live call: text always, audio when a speech service synthesized it. */
+  say(
+    ctx: ProviderContext,
+    message: {
+      readonly callId: string;
+      readonly text: string;
+      readonly audio: { readonly data: Uint8Array; readonly mimeType: string } | null;
+    },
+  ): Promise<SendResult>;
+  transfer(
+    ctx: ProviderContext,
+    call: { readonly callId: string; readonly extension: string },
+  ): Promise<void>;
+}
+
+export type ChannelAdapter = MessagingProvider | SmsProvider | VoiceProvider;
 
 /** Every adapter the running process knows; channels can only bind to registered codes. */
 @Injectable()

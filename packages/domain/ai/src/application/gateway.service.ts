@@ -22,6 +22,10 @@ import type {
   GatewayCompletion,
   GatewayCompletionInput,
   GatewayMessage,
+  GatewaySpeech,
+  GatewaySpeechInput,
+  GatewayTranscription,
+  GatewayTranscriptionInput,
   ModelGatewayApi,
 } from '../public';
 import { ModelProviderRegistry } from './provider-registry';
@@ -172,6 +176,94 @@ export class ModelGatewayService implements ModelGatewayApi {
     }
     throw new AppError('ai.gateway.unavailable', HttpStatus.SERVICE_UNAVAILABLE, {
       reason: 'NO_ROUTE',
+    });
+  }
+
+  async transcribe(input: GatewayTranscriptionInput): Promise<GatewayTranscription> {
+    const out = await this.audio(input, async (c, adapter, ctx) => {
+      if (!adapter.transcribe) return undefined;
+      const r = await adapter.transcribe(ctx, {
+        model: c.model.code,
+        audio: input.audio,
+        mimeType: input.mimeType,
+        language: input.language ?? null,
+      });
+      return { value: { text: r.text, language: r.language }, usage: r.usage };
+    });
+    return { ...out.value, model: out.model, modelCallId: out.modelCallId };
+  }
+
+  async synthesize(input: GatewaySpeechInput): Promise<GatewaySpeech> {
+    const out = await this.audio(input, async (c, adapter, ctx) => {
+      if (!adapter.synthesize) return undefined;
+      const r = await adapter.synthesize(ctx, {
+        model: c.model.code,
+        text: input.text,
+        language: input.language ?? null,
+        voice: input.voice ?? null,
+      });
+      return { value: { audio: r.audio, mimeType: r.mimeType }, usage: r.usage };
+    });
+    return { ...out.value, model: out.model, modelCallId: out.modelCallId };
+  }
+
+  /**
+   * Speech calls (`AUDIO`): routed and fallen back like completions, but audio cannot be masked or partly withheld,
+   * so a provider that may not receive the data class is not called at all (on-prem only by default, Q22).
+   */
+  private async audio<T>(
+    input: {
+      tenantId: string;
+      propertyId?: string | null;
+      dataClass: GatewayTranscriptionInput['dataClass'];
+    },
+    call: (
+      c: Candidate,
+      adapter: NonNullable<ReturnType<ModelProviderRegistry['get']>>,
+      ctx: ProviderContext,
+    ) => Promise<
+      { value: T; usage: { input: number; output: number; cached: number } } | undefined
+    >,
+  ): Promise<{ value: T; model: string; modelCallId: string }> {
+    await this.requireLicenceRoom(input.tenantId, input.propertyId ?? null);
+    const at = {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      capability: 'AUDIO' as const,
+    };
+    let previous: string | null = null;
+    let lastError: string = 'NO_ROUTE';
+    for (const c of await this.candidates(input.tenantId, input.propertyId ?? null, 'AUDIO')) {
+      const adapter = this.providers.get(c.provider.kind);
+      if (!adapter || !mayReceive(c.policy, input.dataClass)) {
+        if (adapter) lastError = 'EGRESS_POLICY';
+        continue;
+      }
+      const started = Date.now();
+      try {
+        const result = await call(c, adapter, this.context(c.provider));
+        if (!result) continue;
+        const modelCallId = await this.record(
+          at,
+          c,
+          { content: null, toolCalls: [], finishReason: 'stop', usage: result.usage },
+          Date.now() - started,
+          'OK',
+          previous,
+          0,
+        );
+        return { value: result.value, model: c.model.code, modelCallId };
+      } catch (e) {
+        const err =
+          e instanceof ModelProviderError ? e : new ModelProviderError('UNAVAILABLE', true);
+        await this.record(at, c, null, Date.now() - started, err.code, previous, 0);
+        lastError = err.code;
+        previous = c.model.code;
+        if (!err.retryable && err.code !== 'AUTH_FAILED') break;
+      }
+    }
+    throw new AppError('ai.gateway.unavailable', HttpStatus.SERVICE_UNAVAILABLE, {
+      reason: lastError,
     });
   }
 

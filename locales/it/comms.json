@@ -18,5 +18,6 @@
   "comms.qr.sheet_title": "{property} — codici delle camere",
   "comms.qr.room": "Camera",
   "comms.qr.instruction": "Scansioni per contattarci, richiedere servizi e chattare con l'hotel.",
-  "comms.setting.ai_mode_default": "Come l'assistente IA partecipa a una nuova conversazione di un ospite verificato"
+  "comms.setting.ai_mode_default": "Come l'assistente IA partecipa a una nuova conversazione di un ospite verificato",
+  "comms.setting.voice_room_phone_trusted": "Le chiamate dal telefono di una camera valgono per il soggiorno in corso in quella camera (l’assistente IA può rispondere); altrimenti ogni chiamata passa al centralino"
 }

@@ -92,6 +92,39 @@ export interface ModelGatewayApi {
     readonly propertyId?: string | null;
     readonly texts: readonly ClassifiedText[];
   }): Promise<{ readonly vectors: readonly (readonly number[])[]; readonly model: string }>;
+  /** Speech to text (`AUDIO`, BUILD_PLAN 13.4): audio is SENSITIVE, so the egress policy keeps it on-prem by default. */
+  transcribe(input: GatewayTranscriptionInput): Promise<GatewayTranscription>;
+  /** Text to speech (`AUDIO`). */
+  synthesize(input: GatewaySpeechInput): Promise<GatewaySpeech>;
+}
+
+export interface GatewayTranscriptionInput {
+  readonly tenantId: string;
+  readonly propertyId?: string | null;
+  readonly audio: Uint8Array;
+  readonly mimeType: string;
+  readonly language?: string | null;
+  readonly dataClass: DataClass;
+}
+export interface GatewayTranscription {
+  readonly text: string;
+  readonly language: string | null;
+  readonly model: string;
+  readonly modelCallId: string;
+}
+export interface GatewaySpeechInput {
+  readonly tenantId: string;
+  readonly propertyId?: string | null;
+  readonly text: string;
+  readonly language?: string | null;
+  readonly voice?: string | null;
+  readonly dataClass: DataClass;
+}
+export interface GatewaySpeech {
+  readonly audio: Uint8Array;
+  readonly mimeType: string;
+  readonly model: string;
+  readonly modelCallId: string;
 }
 
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */

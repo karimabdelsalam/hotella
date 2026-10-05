@@ -26,3 +26,5 @@ export {
 } from './bms/building';
 export type { SimPoint } from './bms/building';
 export { SimulatedAccessSystems } from './access/systems';
+export { SimulatedVoiceGateway } from './voice/gateway';
+export type { SimCall, SimVoiceOptions } from './voice/gateway';

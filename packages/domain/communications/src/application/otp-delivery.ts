@@ -121,6 +121,8 @@ export class OtpSender {
       const now = new Date();
       try {
         const adapter = this.runtime.adapterFor(channel);
+        // A voice gateway speaks only into live calls; it cannot deliver a code to a number.
+        if (adapter.kind === 'VOICE') throw new ProviderError('REJECTED', false);
         const ctx = this.runtime.context(channel);
         const result =
           adapter.kind === 'MESSAGING'

@@ -16,11 +16,13 @@ import { AppError } from '@hotella/platform-i18n';
 import { RequestContext } from '@hotella/platform-observability';
 import { ChannelRuntime } from '../application/channel.service';
 import { ConversationService } from '../application/conversation.service';
+import { VoiceService } from '../application/voice.service';
 import { CommsRepositories } from '../infrastructure/repositories';
 import type { ChannelRow } from '../infrastructure/schema';
 
 /**
- * Provider webhooks (ADR-0015): `POST /webhooks/whatsapp/:channelId` and `/webhooks/sms/:channelId`. The channel id in
+ * Provider webhooks (ADR-0015): `POST /webhooks/whatsapp/:channelId`, `/webhooks/sms/:channelId` and
+ * `/webhooks/voice/:channelId` (BUILD_PLAN 13.4). The channel id in
  * the URL selects the adapter; the adapter's signature check over the raw body decides whether anything is stored.
  * Unknown or disabled channels and bad signatures get a bare 404/401 (nothing is stored, nothing is explained).
  */
@@ -31,6 +33,7 @@ export class WebhooksController {
     private readonly comms: CommsRepositories,
     private readonly runtime: ChannelRuntime,
     private readonly engine: ConversationService,
+    private readonly voiceCalls: VoiceService,
     private readonly ctx: RequestContext,
   ) {}
 
@@ -69,17 +72,39 @@ export class WebhooksController {
     return this.receive(channelId, 'SMS', req);
   }
 
+  /** Planova Voice Profile v1 (BUILD_PLAN 13.4): signed call events of the property's voice gateway. */
+  @Post('voice/:channelId')
+  @HttpCode(200)
+  @RateLimit({ name: 'webhook-voice', limit: 3000, windowSeconds: 60, keyBy: 'ip' })
+  async voice(@Param('channelId') channelId: string, @Req() req: Request) {
+    const channel = await this.channel(channelId, 'VOICE');
+    const raw = (req as Request & { rawBody?: Buffer }).rawBody;
+    if (!raw)
+      throw new AppError('platform.validation_failed', HttpStatus.BAD_REQUEST, { count: 1 });
+    const adapter = this.runtime.adapterFor(channel);
+    if (adapter.kind !== 'VOICE') throw AppError.notFound();
+    const ctx = this.runtime.context(channel);
+    if (!(await adapter.verifyWebhook(ctx, { rawBody: raw, headers: lowerHeaders(req) })))
+      throw new AppError('platform.unauthorized', HttpStatus.UNAUTHORIZED);
+    this.ctx.setScope({
+      tenantId: channel.tenantId,
+      propertyId: channel.propertyId,
+      actor: { type: 'INTEGRATION', id: channel.id },
+    });
+    const events = adapter.parseVoiceWebhook(ctx, req.body as unknown);
+    const { applied } = await this.voiceCalls.receive(channel, events);
+    return { received: events.length, applied };
+  }
+
   private async receive(channelId: string, type: ChannelRow['type'], req: Request) {
     const channel = await this.channel(channelId, type);
     const raw = (req as Request & { rawBody?: Buffer }).rawBody;
     if (!raw)
       throw new AppError('platform.validation_failed', HttpStatus.BAD_REQUEST, { count: 1 });
     const adapter = this.runtime.adapterFor(channel);
+    if (adapter.kind === 'VOICE') throw AppError.notFound();
     const ctx = this.runtime.context(channel);
-    const headers: Record<string, string | undefined> = {};
-    for (const [k, v] of Object.entries(req.headers))
-      headers[k.toLowerCase()] = Array.isArray(v) ? v[0] : v;
-    if (!(await adapter.verifyWebhook(ctx, { rawBody: raw, headers })))
+    if (!(await adapter.verifyWebhook(ctx, { rawBody: raw, headers: lowerHeaders(req) })))
       throw new AppError('platform.unauthorized', HttpStatus.UNAUTHORIZED);
     this.ctx.setScope({
       tenantId: channel.tenantId,
@@ -97,4 +122,11 @@ export class WebhooksController {
     if (!channel || channel.type !== type || channel.status !== 'ACTIVE') throw AppError.notFound();
     return channel;
   }
+}
+
+function lowerHeaders(req: Request): Record<string, string | undefined> {
+  const headers: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(req.headers))
+    headers[k.toLowerCase()] = Array.isArray(v) ? v[0] : v;
+  return headers;
 }

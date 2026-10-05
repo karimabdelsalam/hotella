@@ -85,6 +85,34 @@ export interface CommunicationsPublicApi {
   }): Promise<void>;
 }
 
+/**
+ * Speech for the voice channel (BUILD_PLAN 13.4). Communications cannot depend on the AI context (AI depends on it), so
+ * it declares this port and the AI context registers its Model Gateway implementation (`AUDIO` capability, audio is
+ * SENSITIVE and stays on-prem unless the egress policy is opened, Q22). Without one, voice gateways must send text.
+ */
+export interface SpeechPort {
+  transcribe(input: {
+    readonly tenantId: string;
+    readonly propertyId: string;
+    readonly audio: Uint8Array;
+    readonly mimeType: string;
+    readonly language: string | null;
+  }): Promise<{ readonly text: string; readonly language: string | null }>;
+  synthesize(input: {
+    readonly tenantId: string;
+    readonly propertyId: string;
+    readonly text: string;
+    readonly language: string | null;
+  }): Promise<{ readonly audio: Uint8Array; readonly mimeType: string }>;
+}
+
+export interface SpeechServices {
+  /** One implementation per process; registering a second is a wiring error. */
+  register(port: SpeechPort): void;
+}
+
+export const SPEECH_SERVICES = Symbol.for('hotella.domain.communications.speech');
+
 /** Registered symbol: stays identical even if a bundler or test runner loads this entry twice. */
 export const COMMUNICATIONS_API = Symbol.for('hotella.domain.communications.api');
 

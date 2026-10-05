@@ -4,10 +4,13 @@ import {
   type CompletionResult,
   type EmbeddingResult,
   type FetchLike,
+  MODEL_TIMEOUT_MS,
   type ModelProvider,
   ModelProviderError,
   parseArguments,
   type ProviderContext,
+  type SpeechResult,
+  type TranscriptionResult,
 } from './types';
 
 const DEFAULT_BASE = 'https://api.openai.com/v1';
@@ -150,6 +153,71 @@ export class OpenAiCompatibleProvider implements ModelProvider {
     if (!res?.data) throw new ModelProviderError('BAD_RESPONSE', true);
     const vectors = [...res.data].sort((a, b) => a.index - b.index).map((d) => d.embedding);
     return { vectors, usage: { input: res.usage?.prompt_tokens ?? 0, output: 0, cached: 0 } };
+  }
+
+  /** `/audio/transcriptions` (what local Whisper servers expose): multipart, the audio never touches disk here. */
+  async transcribe(
+    ctx: ProviderContext,
+    req: { model: string; audio: Uint8Array; mimeType: string; language: string | null },
+  ): Promise<TranscriptionResult> {
+    const form = new FormData();
+    form.append('model', req.model);
+    form.append('file', new Blob([req.audio], { type: req.mimeType }), 'utterance');
+    if (req.language) form.append('language', req.language.slice(0, 2));
+    const key = await ctx.credential();
+    const res = (await callModelApi(this.fetchFn, `${base(ctx)}/audio/transcriptions`, {
+      method: 'POST',
+      headers: key ? { authorization: `Bearer ${key}` } : {},
+      body: form,
+    })) as { text?: string; language?: string };
+    if (typeof res?.text !== 'string') throw new ModelProviderError('BAD_RESPONSE', true);
+    return {
+      text: res.text.trim(),
+      language: res.language ?? req.language,
+      usage: { input: 0, output: 0, cached: 0 },
+    };
+  }
+
+  /** `/audio/speech`: the answer is the audio itself. */
+  async synthesize(
+    ctx: ProviderContext,
+    req: { model: string; text: string; language: string | null; voice: string | null },
+  ): Promise<SpeechResult> {
+    const res = await fetchWithTimeout(this.fetchFn, `${base(ctx)}/audio/speech`, {
+      method: 'POST',
+      headers: await this.headers(ctx),
+      body: JSON.stringify({
+        model: req.model,
+        input: req.text,
+        voice: req.voice ?? 'alloy',
+        response_format: 'mp3',
+      }),
+    });
+    if (res.status === 401 || res.status === 403)
+      throw new ModelProviderError('AUTH_FAILED', false);
+    if (res.status === 429) throw new ModelProviderError('RATE_LIMITED', true);
+    if (!res.ok)
+      throw new ModelProviderError(
+        res.status >= 500 ? 'UNAVAILABLE' : 'REJECTED',
+        res.status >= 500,
+      );
+    return {
+      audio: new Uint8Array(await res.arrayBuffer()),
+      mimeType: res.headers.get('content-type') ?? 'audio/mpeg',
+      usage: { input: req.text.length, output: 0, cached: 0 },
+    };
+  }
+}
+
+async function fetchWithTimeout(fetchFn: FetchLike, url: string, init: RequestInit) {
+  try {
+    return await fetchFn(url, { ...init, signal: AbortSignal.timeout(MODEL_TIMEOUT_MS) });
+  } catch (e) {
+    const name = (e as { name?: string }).name;
+    throw new ModelProviderError(
+      name === 'TimeoutError' || name === 'AbortError' ? 'TIMEOUT' : 'UNAVAILABLE',
+      true,
+    );
   }
 }
 

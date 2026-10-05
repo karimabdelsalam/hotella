@@ -139,6 +139,8 @@ export async function startAiApp(
     readonly definitions?: readonly BuiltInAgent[];
     /** The agent the concierge runtime runs (default GUEST_CONCIERGE). */
     readonly conciergeAgent?: string;
+    /** Extra `env://` secrets (channel credentials). */
+    readonly secrets?: Readonly<Record<string, string>>;
   } = {},
 ): Promise<AiHarness> {
   await runMigrations(url);
@@ -156,7 +158,13 @@ export async function startAiApp(
       ObservabilityModule.forRoot(),
       I18nModule.forRoot(),
       SecretsModule.forRoot({
-        providers: [new EnvSecretProvider({ CLOUD_KEY: 'k', COMMS_OTP_HMAC_KEY: 'test-otp-key' })],
+        providers: [
+          new EnvSecretProvider({
+            CLOUD_KEY: 'k',
+            COMMS_OTP_HMAC_KEY: 'test-otp-key',
+            ...options.secrets,
+          }),
+        ],
       }),
       HttpConventionsModule.forRoot({ store: 'memory' }),
       DatabaseModule.forRoot(),

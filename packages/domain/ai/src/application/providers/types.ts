@@ -59,6 +59,20 @@ export interface CompletionResult {
   readonly usage: Usage;
 }
 
+/** Speech to text (the `AUDIO` capability, BUILD_PLAN 13.4). */
+export interface TranscriptionResult {
+  readonly text: string;
+  readonly language: string | null;
+  readonly usage: Usage;
+}
+
+/** Text to speech (the `AUDIO` capability). */
+export interface SpeechResult {
+  readonly audio: Uint8Array;
+  readonly mimeType: string;
+  readonly usage: Usage;
+}
+
 export interface EmbeddingResult {
   readonly vectors: readonly (readonly number[])[];
   readonly usage: Usage;
@@ -96,6 +110,14 @@ export interface ModelProvider {
     ctx: ProviderContext,
     request: { model: string; inputs: readonly string[] },
   ): Promise<EmbeddingResult>;
+  transcribe?(
+    ctx: ProviderContext,
+    request: { model: string; audio: Uint8Array; mimeType: string; language: string | null },
+  ): Promise<TranscriptionResult>;
+  synthesize?(
+    ctx: ProviderContext,
+    request: { model: string; text: string; language: string | null; voice: string | null },
+  ): Promise<SpeechResult>;
 }
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;

@@ -4,6 +4,8 @@ import type {
   EmbeddingResult,
   ModelProvider,
   ProviderContext,
+  SpeechResult,
+  TranscriptionResult,
 } from './types';
 import { ModelProviderError } from './types';
 
@@ -56,6 +58,33 @@ export class FakeModelProvider implements ModelProvider {
     return {
       vectors: req.inputs.map((t) => hashVector(t)),
       usage: { input: req.inputs.join(' ').length, output: 0, cached: 0 },
+    };
+  }
+
+  /** Fake audio is UTF-8 text: what was "said" is what is heard. */
+  async transcribe(
+    ctx: ProviderContext,
+    req: { model: string; audio: Uint8Array; mimeType: string; language: string | null },
+  ): Promise<TranscriptionResult> {
+    if (this.failWith && (!this.failFor || this.failFor === ctx.providerCode)) throw this.failWith;
+    const text = new TextDecoder().decode(req.audio).trim();
+    return {
+      text,
+      language: req.language,
+      usage: { input: req.audio.length, output: 0, cached: 0 },
+    };
+  }
+
+  /** Speaks by wrapping the text, so a test can read what would have been said. */
+  async synthesize(
+    ctx: ProviderContext,
+    req: { model: string; text: string; language: string | null; voice: string | null },
+  ): Promise<SpeechResult> {
+    if (this.failWith && (!this.failFor || this.failFor === ctx.providerCode)) throw this.failWith;
+    return {
+      audio: new TextEncoder().encode(`[${req.language ?? 'auto'}] ${req.text}`),
+      mimeType: 'audio/x-fake',
+      usage: { input: req.text.length, output: 0, cached: 0 },
     };
   }
 }

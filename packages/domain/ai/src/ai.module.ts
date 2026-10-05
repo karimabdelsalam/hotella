@@ -1,4 +1,5 @@
-import { Global, Inject, Module, type OnModuleInit, type Provider } from '@nestjs/common';
+import { Global, Inject, Module, type OnModuleInit, Optional, type Provider } from '@nestjs/common';
+import { SPEECH_SERVICES, type SpeechServices } from '@hotella/domain-communications/public';
 import { ApprovalDecided, MessageReceived, ReplyDraftUsed } from '@hotella/contracts-events';
 import { OPERATIONS_API, type OperationsPublicApi } from '@hotella/domain-operations/public';
 import { AI_AGENT_AUTHORIZER, AI_POLICY_STAGE } from '@hotella/platform-auth';
@@ -165,9 +166,23 @@ export class AiToolsModule implements OnModuleInit {
     private readonly v1: ToolsV1,
     private readonly intelligence: IntelligenceTools,
     private readonly executor: ToolExecutor,
+    private readonly gateway: ModelGatewayService,
     @Inject(OPERATIONS_API) private readonly ops: OperationsPublicApi,
+    @Optional() @Inject(SPEECH_SERVICES) private readonly speech?: SpeechServices,
   ) {}
   onModuleInit(): void {
+    // Speech for the voice channel (BUILD_PLAN 13.4): through the Model Gateway only (rule 12). Callers' audio and the
+    // words spoken back are SENSITIVE, so the egress policy keeps both on on-prem providers unless opened (Q22).
+    this.speech?.register({
+      transcribe: async (i) => {
+        const heard = await this.gateway.transcribe({ ...i, dataClass: 'SENSITIVE' });
+        return { text: heard.text, language: heard.language };
+      },
+      synthesize: async (i) => {
+        const spoken = await this.gateway.synthesize({ ...i, dataClass: 'SENSITIVE' });
+        return { audio: spoken.audio, mimeType: spoken.mimeType };
+      },
+    });
     this.v1.registerInto(this.registry);
     this.intelligence.registerInto(this.registry);
     this.ops.registerApprovalKind({

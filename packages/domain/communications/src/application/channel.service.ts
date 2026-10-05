@@ -16,7 +16,7 @@ const secretRef = z
 
 export const createChannelSchema = z.object({
   /** Adapter-backed channel types; web and QR entry points need no channel row. */
-  type: z.enum(['WHATSAPP', 'SMS']),
+  type: z.enum(['WHATSAPP', 'SMS', 'VOICE']),
   name: z.string().trim().min(1).max(80),
   providerCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/),
   config: z.record(z.string(), z.unknown()).default({}),

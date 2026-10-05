@@ -5,6 +5,7 @@ export {
   CommunicationsRealtimeModule,
   CommunicationsWorkerModule,
   REALTIME_RELAY_CONSUMER,
+  VOICE_HANDOFF_CONSUMER,
   GUEST_LIFECYCLE_CONSUMER,
   CONVERSATION_LIFECYCLE_CONSUMER,
   INBOUND_RETRY_JOB,
@@ -15,6 +16,14 @@ export { ConversationService } from './application/conversation.service';
 export { MetaCloudWhatsAppAdapter } from './application/adapters/meta-cloud';
 export { CloudCompatibleBspAdapter, Dialog360WhatsAppAdapter } from './application/adapters/bsp';
 export { JsonHttpSmsAdapter } from './application/adapters/sms-http';
+export {
+  VoiceGatewayAdapter,
+  validVoiceSignature,
+  voiceSignature,
+} from './application/adapters/voice-gateway';
+export { VoiceService } from './application/voice.service';
+export type { TransferReason } from './application/voice.service';
+export { SpeechRegistry } from './application/speech';
 export { ActivationService } from './application/activation.service';
 export { ArrivalActivation } from './application/arrival-activation';
 export { OtpKeyring } from './application/otp-delivery';
@@ -34,6 +43,8 @@ export type {
   SmsProvider,
   TemplateMessage,
   TextMessage,
+  VoiceEvent,
+  VoiceProvider,
   WebhookRequest,
 } from './application/providers';
 export { FakeSmsProvider, FakeWhatsAppProvider } from './application/fake-providers';

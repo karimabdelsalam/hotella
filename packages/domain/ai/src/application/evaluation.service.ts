@@ -481,6 +481,8 @@ export class EvaluationService {
             throw e;
           }),
         embed: (request) => this.gateway.embed(request),
+        transcribe: (request) => this.gateway.transcribe(request),
+        synthesize: (request) => this.gateway.synthesize(request),
       };
       const dry = new DryRunExecutor(this.executor, this.registry, fixtures);
       const answer = await runAgentLoop(

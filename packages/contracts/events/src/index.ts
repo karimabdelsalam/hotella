@@ -74,6 +74,8 @@ export {
   RestaurantReservationStatusChanged,
 } from './restaurant-events';
 export {
+  CallEnded,
+  CallStarted,
   ConversationOpened,
   DeliveryUpdated,
   HandoffRequested,

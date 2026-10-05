@@ -18,5 +18,6 @@
   "comms.qr.sheet_title": "{property} — Zimmercodes",
   "comms.qr.room": "Zimmer",
   "comms.qr.instruction": "Scannen Sie den Code, um uns zu erreichen, Services anzufragen und mit dem Hotel zu chatten.",
-  "comms.setting.ai_mode_default": "Wie der KI-Assistent an einer neuen Unterhaltung eines verifizierten Gastes teilnimmt"
+  "comms.setting.ai_mode_default": "Wie der KI-Assistent an einer neuen Unterhaltung eines verifizierten Gastes teilnimmt",
+  "comms.setting.voice_room_phone_trusted": "Anrufe vom Zimmertelefon gelten für den aktuellen Aufenthalt in diesem Zimmer (der KI-Concierge darf antworten); sonst geht jeder Anruf an die Vermittlung"
 }

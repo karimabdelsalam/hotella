@@ -106,3 +106,35 @@ export const HandoffRequested = defineEvent({
     assigned_user_id: z.uuid().nullable(),
   }),
 });
+
+/** A call reached the platform through a voice gateway (BUILD_PLAN 13.4). No caller numbers in the payload. */
+export const CallStarted = defineEvent({
+  type: 'comms.call.started',
+  version: 1,
+  delivery: 'normal',
+  description:
+    'A voice call arrived: answered for a room phone of an in-house stay, otherwise transferred to the operator.',
+  payload: z.object({
+    call_id: z.uuid(),
+    conversation_id: z.uuid().nullable(),
+    stay_id: z.uuid().nullable(),
+    status: z.enum(['ANSWERED', 'TRANSFERRED']),
+    transfer_reason: z.string().max(32).nullable(),
+  }),
+});
+
+export const CallEnded = defineEvent({
+  type: 'comms.call.ended',
+  version: 1,
+  delivery: 'normal',
+  description:
+    'A voice call ended; `answered_seconds` is the time the platform answered it (metered as VOICE_MINUTES).',
+  payload: z.object({
+    call_id: z.uuid(),
+    conversation_id: z.uuid().nullable(),
+    stay_id: z.uuid().nullable(),
+    transferred: z.boolean(),
+    duration_s: z.number().int().min(0),
+    answered_seconds: z.number().int().min(0),
+  }),
+});

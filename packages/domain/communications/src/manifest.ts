@@ -1,4 +1,6 @@
 import {
+  CallEnded,
+  CallStarted,
   ConversationOpened,
   DeliveryUpdated,
   HandoffRequested,
@@ -38,6 +40,8 @@ export const COMMUNICATIONS_MANIFEST = defineManifest({
     DeliveryUpdated.name,
     HandoffRequested.name,
     ReplyDraftUsed.name,
+    CallStarted.name,
+    CallEnded.name,
   ],
   entitlements: ['GUEST_EXPERIENCE'],
   entitlement: 'GUEST_EXPERIENCE',

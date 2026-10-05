@@ -6,6 +6,7 @@ import { EventConsumerRegistry, QueueRegistry } from '@hotella/platform-queue';
 import { SettingsRegistry } from '@hotella/platform-settings';
 import {
   ActivationController,
+  CallsController,
   ChannelsController,
   InboxController,
   RoomQrController,
@@ -21,6 +22,10 @@ import { RealtimeRelay } from './application/realtime-relay';
 import { Dialog360WhatsAppAdapter } from './application/adapters/bsp';
 import { MetaCloudWhatsAppAdapter } from './application/adapters/meta-cloud';
 import { JsonHttpSmsAdapter } from './application/adapters/sms-http';
+import { VoiceGatewayAdapter } from './application/adapters/voice-gateway';
+import { SpeechRegistry } from './application/speech';
+import { VoiceService } from './application/voice.service';
+import { CallRepositories } from './infrastructure/call-repositories';
 import { ConversationService } from './application/conversation.service';
 import { InboxService } from './application/inbox.service';
 import { ConversationRepositories } from './infrastructure/conversation-repositories';
@@ -38,13 +43,15 @@ import { COMMUNICATIONS_SETTINGS } from './domain/settings';
 import { ActivationRepositories } from './infrastructure/activation-repositories';
 import { CommsRepositories } from './infrastructure/repositories';
 import { COMMUNICATIONS_MANIFEST } from './manifest';
-import { COMMUNICATIONS_API } from './public';
+import { COMMUNICATIONS_API, SPEECH_SERVICES } from './public';
 
 /** Inbox consumer names: one exactly-once effect per event. */
 export const GUEST_LIFECYCLE_CONSUMER = 'comms.guest-lifecycle';
 export const ARRIVAL_ACTIVATION_CONSUMER = 'comms.arrival-activation';
 export const CONVERSATION_LIFECYCLE_CONSUMER = 'comms.conversation-lifecycle';
 export const REALTIME_RELAY_CONSUMER = 'comms.realtime-relay';
+/** A hand-off during a live call transfers it to the operator (BUILD_PLAN 13.4). */
+export const VOICE_HANDOFF_CONSUMER = 'comms.voice-handoff';
 /** Repeatable jobs: queued replies leave through their channel; webhook items left unprocessed are retried. */
 export const MESSAGE_SEND_JOB = 'comms.message.send';
 export const INBOUND_RETRY_JOB = 'comms.inbound.retry';
@@ -74,9 +81,17 @@ const OTP_FALLBACK_EVERY_MS = 5_000;
     GuestLifecycleConsumer,
     ConversationService,
     { provide: COMMUNICATIONS_API, useExisting: ConversationService },
+    CallRepositories,
+    SpeechRegistry,
+    { provide: SPEECH_SERVICES, useExisting: SpeechRegistry },
+    VoiceService,
   ],
   exports: [
     COMMUNICATIONS_API,
+    CallRepositories,
+    SpeechRegistry,
+    SPEECH_SERVICES,
+    VoiceService,
     CommsRepositories,
     ActivationRepositories,
     ConversationRepositories,
@@ -99,6 +114,7 @@ export class CommunicationsCoreModule implements OnModuleInit {
       new MetaCloudWhatsAppAdapter(),
       new Dialog360WhatsAppAdapter(),
       new JsonHttpSmsAdapter(),
+      new VoiceGatewayAdapter(),
     );
   }
 }
@@ -111,6 +127,7 @@ export class CommunicationsCoreModule implements OnModuleInit {
     ActivationController,
     RoomQrController,
     InboxController,
+    CallsController,
     GuestActivationController,
     GuestSelfController,
     GuestChatController,
@@ -152,6 +169,7 @@ export class CommunicationsWorkerModule implements OnModuleInit {
     private readonly activation: ActivationService,
     private readonly conversations: ConversationService,
     private readonly relay: RealtimeRelay,
+    private readonly voice: VoiceService,
     @InjectLogger() private readonly logger: Logger,
   ) {}
 
@@ -172,6 +190,8 @@ export class CommunicationsWorkerModule implements OnModuleInit {
       this.consumers.on(def.name, CONVERSATION_LIFECYCLE_CONSUMER, (envelope) =>
         this.conversations.apply(envelope),
       );
+    for (const def of VoiceService.consumes)
+      this.consumers.on(def.name, VOICE_HANDOFF_CONSUMER, (envelope) => this.voice.apply(envelope));
     this.consumers.onJob(OTP_FALLBACK_JOB, async () => {
       await this.activation.sweepFallbacks();
     });
