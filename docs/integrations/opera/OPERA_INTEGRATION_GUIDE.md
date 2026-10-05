@@ -427,13 +427,21 @@ Capability status in the registry follows health (§5.3).
 Prepare the hotel with the Pilot Readiness Checklist (`docs/pilot/PILOT_READINESS_CHECKLIST.md`) first.
 1. Agent host prepared (Windows Server or Linux, outbound 443, LAN access to IFC8/OWS/Oracle as used).
 2. In Hotella: create the property's OPERA integration instances (`OPERA5_FIAS`, optionally `OPERA5_DB`,
-   `OPERA5_OWS`), issue one enrollment token per instance.
-3. **Windows: run the MSI** (WiX v5, ADR-0020). It asks for the platform address and the enrollment tokens; each
-   token becomes its own service instance (`HotellaAgent-<connector>`) with its own data directory; the connector and
-   its capabilities come from the platform at enrollment. Silent installs take the same values as MSI properties.
-   Linux: `install.sh`. PowerShell (`install.ps1`) only for diagnostics or emergencies.
-4. On the agent host: set connector settings (IFC8 address, OWS URL and entities, Oracle listener) and secrets from
-   stdin (`hotella-agent secret set …`); `hotella-agent status` must show no problems.
+   `OPERA5_OWS`), and issue one **enrollment code** per instance (control plane → Integrations → connector →
+   *Enrollment code*; shown once, single use, 24 hours). The code carries the platform's agent gateway address, the
+   token and the fingerprint of the agent CA, so the installer needs nothing else.
+3. **Windows: run the MSI** (WiX v5, ADR-0020). It asks for up to three enrollment codes; each becomes its own
+   service (`HotellaAgent-<connector>`, e.g. `HotellaAgent-opera5-fias`) with its own data directory
+   (`%ProgramData%\Hotella\Agent\instances\<connector>`); the connector and its capabilities come from the platform
+   at enrollment. A connector added later: run the MSI again and choose *Repair*. Silent install:
+   `msiexec /i hotella-agent-<v>-win-x64.msi ENROLLMENT_CODES_FILE=<file with one code per line> /qn` (the file is
+   deleted once read; never put codes on a command line). Uninstall keeps identities and queues unless
+   `REMOVE_DATA=1`. Linux: `install.sh`. PowerShell (`install.ps1 -Package … -CodesFile …`, the same
+   `hotella-agent setup install` underneath) only for development, diagnostics or emergencies.
+4. On the agent host: set connector settings (IFC8 address, OWS URL and entities, Oracle listener) in the instance's
+   `agent.json` and secrets from stdin (`hotella-agent secret set … --instance <connector>`);
+   `hotella-agent status --instance <connector>` must show no problems; the service starts once it has its settings
+   (`sc start HotellaAgent-<connector>`).
 5. Confirm the platform shows the agents connected and licences VALID, then commission (§16).
 
 ## 16. Commissioning — compare the hotel against the standard

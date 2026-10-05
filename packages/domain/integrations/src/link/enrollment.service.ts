@@ -1,6 +1,10 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { createHash, randomBytes } from 'node:crypto';
-import type { EnrollRequest, EnrollResponse } from '@hotella/contracts-connectors';
+import { createHash, randomBytes, X509Certificate } from 'node:crypto';
+import {
+  encodeEnrollmentCode,
+  type EnrollRequest,
+  type EnrollResponse,
+} from '@hotella/contracts-connectors';
 import { AuditWriter } from '@hotella/platform-audit';
 import { ActionGate, ActorStore } from '@hotella/platform-auth';
 import { APP_CONFIG, type AppConfig } from '@hotella/platform-config';
@@ -102,7 +106,15 @@ export class EnrollmentService {
             propertyId: instance.propertyId,
             after: { tokenId: row.id, expiresAt: row.expiresAt },
           });
-          return { token, expiresAt: row.expiresAt };
+          // One value for the installer (ADR-0020): gateway, token and the CA fingerprint it must trust.
+          const enrollmentCode = this.config.agent.publicUrl
+            ? encodeEnrollmentCode({
+                g: this.config.agent.publicUrl,
+                t: token,
+                c: caFingerprint((await this.keys.get()).caCertificatePem),
+              })
+            : null;
+          return { token, enrollmentCode, expiresAt: row.expiresAt };
         }),
     );
   }
@@ -168,6 +180,8 @@ export class EnrollmentService {
           ca_certificate: keys.caCertificatePem,
           not_after: issued.notAfter.toISOString(),
           command_signing_public_key: keys.commandSigningPublicKeyPem,
+          connector_code: instance.connectorCode,
+          capabilities: [...instance.enabledCapabilities],
         };
       },
       { tenantId: token.tenantId },
@@ -234,4 +248,9 @@ export class EnrollmentService {
       throw AppError.notFound('integration.instance.not_found');
     return row;
   }
+}
+
+/** SHA-256 of the certificate's DER bytes, lowercase hex (what an installing agent compares). */
+export function caFingerprint(pem: string): string {
+  return new X509Certificate(pem).fingerprint256.replace(/:/g, '').toLowerCase();
 }

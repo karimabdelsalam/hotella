@@ -21,4 +21,7 @@
   <ItemGroup>
     <None Update="agent.example.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hotella.Agent.Tests" />
+  </ItemGroup>
 </Project>

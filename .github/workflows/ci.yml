@@ -105,6 +105,32 @@ jobs:
           NODE_ENV: test
           LOG_LEVEL: warn
 
+  agent-msi:
+    # ADR-0020: the hotel agent's MSI (WiX v5) is built from the win-x64 publish, installed and uninstalled on a real
+    # Windows runner; an enrollment code given to it must reach neither the MSI log nor the disk.
+    name: hotel agent MSI (WiX v5)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: apps/hotel-agent/global.json
+      - name: Build the MSI
+        shell: pwsh
+        run: apps/hotel-agent/packaging/windows/build-msi.ps1 -Version 0.10.2 -Out "$env:RUNNER_TEMP/msi"
+      - name: Install, check, uninstall (and no enrollment code in the MSI log)
+        shell: pwsh
+        run: apps/hotel-agent/packaging/windows/smoke-msi.ps1 -Msi "$env:RUNNER_TEMP/msi/hotella-agent-0.10.2-win-x64.msi"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hotella-agent-msi
+          path: ${{ runner.temp }}/msi/
+          retention-days: 14
+
   pilot:
     # BUILD_PLAN §5.8 evidence: the on-prem pilot stack builds, boots with secrets from OpenBao, serves a signed-in
     # request as an ordinary (RLS-bound) database role, backs up with pgBackRest and passes a restore drill.

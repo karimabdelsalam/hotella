@@ -1,0 +1,6 @@
+<Project>
+  <!-- The installer pins its own packages (WiX v5 line, owner decision 2026-10-04): no central versions here. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

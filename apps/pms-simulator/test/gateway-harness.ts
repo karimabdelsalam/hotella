@@ -40,6 +40,7 @@ import { ManifestModule } from '@hotella/platform-manifest';
 import { ObservabilityModule } from '@hotella/platform-observability';
 import { SecretsModule } from '@hotella/platform-secrets';
 import { SettingsModule } from '@hotella/platform-settings';
+import { createServer } from 'node:net';
 import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 
@@ -148,12 +149,15 @@ export async function startGatewayHarness(
       'guest.read',
     ],
   };
+  // The gateway's port is chosen first so the platform can put its public address into enrollment codes (ADR-0020).
+  const gatewayPort = await freePort();
   const env = {
     NODE_ENV: 'test',
     LOG_LEVEL: 'silent',
     DATABASE_URL: await applicationRoleUrl(databaseUrl, 'hotella_app_sim'),
     VALKEY_URL: 'redis://127.0.0.1:1',
     AGENT_HEARTBEAT_SECONDS: '5',
+    AGENT_GATEWAY_PUBLIC_URL: `https://localhost:${gatewayPort}`,
   };
   const ref = await Test.createTestingModule({
     imports: [
@@ -187,7 +191,7 @@ export async function startGatewayHarness(
   const db = app.get<Database>(DATABASE);
   const keys = await ephemeralAgentKeys(['localhost']);
   app.get(AgentKeys).use(keys);
-  const port = await app.get(AgentGatewayServer).listen({ host: '127.0.0.1', port: 0 });
+  const port = await app.get(AgentGatewayServer).listen({ host: '127.0.0.1', port: gatewayPort });
   const http = () => request(app.getHttpServer());
 
   const tenant = (
@@ -283,4 +287,15 @@ export async function startGatewayHarness(
       return { instanceId: id, enrollmentToken: () => tokenFor(id) };
     },
   };
+}
+
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      server.close(() => resolve(typeof address === 'object' && address ? address.port : 0));
+    });
+  });
 }

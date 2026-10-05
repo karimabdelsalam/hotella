@@ -29,6 +29,16 @@ Fee; WiX v5 (GA 2024, MS-RL) has no fee. The owner decided not to take on the v6
 - **Code signing** of the MSI (and the executable) needs an Authenticode certificate — a purchase, so the owner's
   decision; until then the MSI is unsigned and SmartScreen warns on first run.
 
+## Amendment — as built (Sprint 10.10, 2026-10-05)
+- The installer asks for **enrollment codes** — one value per connector carrying the gateway address, the token and
+  the agent CA's fingerprint — instead of an address and a token; the platform's answer to enrollment names the
+  connector and its capabilities. One service per code (`HotellaAgent-<connector>`).
+- The codes cross from the dialog to the agent through one small .NET Framework custom action (WiX DTF) that writes
+  them, under a hidden action, into the data directory after making it SYSTEM/Administrators-only; Windows
+  Installer's own INI or registry actions would have printed the values into a verbose log. All other steps run the
+  agent (`setup install | stop | remove`) through `WixQuietExec`. Silent installs use `ENROLLMENT_CODES_FILE`.
+- Repair asks for codes again, which is how a connector is added to an installed host.
+
 ## Consequences
 - A Windows job in CI builds the MSI on every change and checks it with WiX's validation; installing it is part of the
   pilot readiness checklist (no Windows install test runs in CI beyond the build).

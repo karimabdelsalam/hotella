@@ -1,0 +1,8 @@
+<Project>
+  <!-- Stops the agent's Directory.Build.props (net10.0, analyzers as errors) from applying to the installer projects:
+       the MSI is a WiX v5 project and its one custom action targets .NET Framework 4.7.2 (ADR-0020). -->
+  <PropertyGroup>
+    <Company>Planova</Company>
+    <Product>Hotella Hotel Agent</Product>
+  </PropertyGroup>
+</Project>

@@ -2116,7 +2116,7 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 | 10.7 | Link protocol 2 (`query`/`query_result`) and the `OPERA5_DB` read-only connector (10.D) | delivered (see notes; real Oracle verified at the pilot) |
 | 10.8 | Planova Standard IFC8/FIAS Profile v1 alignment and OWS standard connector v1 (reads + supported writes) (10.D) | delivered (see notes; reservation writes held until verified) |
 | 10.9 | Commissioning tooling: Interface Sheet comparison, DB probe, OWS verification, capability sign-off; OPERA integration acceptance (10.D) | delivered (`docs/acceptance/opera-integration.md`; the real hotel at the pilot) |
-| 10.10 | Windows MSI with WiX v5 (ADR-0020): `hotella-agent setup` subcommand shared with `install.ps1`, WiX v5 project, Windows CI job | planned |
+| 10.10 | Windows MSI with WiX v5 (ADR-0020): enrollment codes, multi-instance hosts, `hotella-agent setup` shared with `install.ps1`, WiX v5 MSI, Windows CI job (build, install, uninstall, no code in the log) | done |
 
 **Reality notes for 10.1 (delivered).**
 - Solution `apps/hotel-agent/Hotella.Agent.slnx`: `Hotella.Agent.Core` (identity, durable queue, link, command
@@ -2247,6 +2247,21 @@ packages/domain/integrations           connector family OPERA5_FIAS / OPERA5_OWS
 - *CI:* a `windows-latest` job publishes `win-x64`, builds the MSI with WiX v5 and keeps it as an artefact; Linux tests
   cover the setup subcommand's layout logic.
 - *Open (owner):* an Authenticode certificate to sign the MSI and the executable.
+- *As built:* the installer asks for **enrollment codes**, not an address and a token: `hotella1.` + base64url JSON
+  `{g: gateway URL, t: token, c: SHA-256 of the agent CA}` (`encodeEnrollmentCode` in `contracts-connectors`;
+  `AGENT_GATEWAY_PUBLIC_URL` must be set, otherwise the control plane falls back to the bare token). The agent fetches
+  `GET /agent/v1/ca` and trusts it only when its fingerprint matches the code, then enrolls; the enroll response
+  names the connector and its capabilities, which `setup install` writes into the instance's `agent.json`. Instances
+  are named after the connector (`OPERA5_FIAS` → `opera5-fias`); `--data-root` moves the data root (development,
+  tests). `setup install` without codes on a host that has instances only refreshes their services (an upgrade);
+  with none it keeps the single-instance layout of 10.4. The MSI's one piece of custom code is a .NET Framework
+  custom action (`HotellaSetupActions`) that writes the codes into the ACL-protected data directory under a hidden
+  action — the codes never reach a command line or the MSI log; everything else is `WixQuietExec` of
+  `hotella-agent setup install | stop | remove`. Repair asks for codes again (adding a connector later). The control
+  plane's Integrations tab issues the code (shown once). Tests: setup unit tests (.NET), the cross-language
+  `setup install` from a platform-issued code to a connected instance (`dotnet-agent.e2e-spec.ts`), Playwright
+  en/ar, and the `agent-msi` CI job on `windows-latest` (build, install, uninstall, `REMOVE_DATA`, and the code absent
+  from the verbose MSI log and from disk).
 
 #### 10.D Unified OPERA Integration Layer (ADR-0019; owner decisions of 2026-10-04)
 The owner confirmed on 2026-10-04: direct **read-only** OPERA database access is an officially supported method (a

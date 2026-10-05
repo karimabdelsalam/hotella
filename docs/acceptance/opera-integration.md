@@ -1,6 +1,6 @@
 # OPERA integration acceptance — standard, reusable OPERA architecture (ADR-0019, BUILD_PLAN 10.D)
 
-**Date:** 2026-10-04 · **Branch:** `claude/hopeful-archimedes-jskowx` · **CI:** CI_EVIDENCE
+**Date:** 2026-10-04 · **Branch:** `claude/hopeful-archimedes-jskowx` · **CI:** [run 37189159016](https://github.com/karimabdelsalam/hotella/actions/runs/37189159016) green on `50a7190`
 
 Goal (ADR-0019; OPERA Integration Guide; BUILD_PLAN §10 Sprints 10.6–10.9): any OPERA 5 hotel is connected by the same
 standard architecture. The read-only OPERA database, IFC8/FIAS with the Planova Standard Profile and optional OWS sit

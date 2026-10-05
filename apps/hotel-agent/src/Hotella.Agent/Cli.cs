@@ -28,6 +28,10 @@ internal static class Cli
                    hotella-agent secret list|remove <name>
                    hotella-agent update status|check|apply|rollback
                    hotella-agent opera-db probe              check the OPERA database account and data contract
+                   hotella-agent setup install [--codes-file <file>]   layout, data directory, services (MSI / install.ps1)
+                   hotella-agent setup remove [--remove-data] | setup stop
+                   hotella-agent <command> --instance <name>   one of several agents on this host
+                   hotella-agent <command> --data-root <dir>   another data root (development, tests)
                    hotella-agent version
             """);
         return ExitCodes.Usage;
@@ -48,7 +52,7 @@ internal static class Cli
         var tokenFile = Option(args, "--token-file");
         var caFile = Option(args, "--ca");
         if (tokenFile is null || caFile is null) return Usage();
-        var settings = SettingsFrom(args.Where(a => a.StartsWith("--Agent:", StringComparison.Ordinal)).ToArray());
+        var settings = SettingsFrom(ConfigArgs(args));
         if (settings.Gateway is null || settings.Gateway.Scheme != Uri.UriSchemeHttps)
         {
             Console.Error.WriteLine("Agent:Gateway must be set to the platform's https:// agent gateway");
@@ -78,6 +82,47 @@ internal static class Cli
         {
             Console.Error.WriteLine($"enrollment refused: {e.Code} (HTTP {e.Status}); ask for a new token");
             return ExitCodes.Refused;
+        }
+    }
+
+    /// <summary>
+    /// The installer's step (ADR-0020): <c>setup install</c> lays out the version, protects the data directory and
+    /// creates one service per enrollment code found in <c>--codes-file</c> (read, then deleted); <c>setup remove</c>
+    /// undoes it, keeping the identities unless <c>--remove-data</c>.
+    /// </summary>
+    public static async Task<int> SetupAsync(string[] args)
+    {
+        IServiceManager services = OperatingSystem.IsWindows() ? new WindowsServiceManager() : new NoServiceManager();
+        var root = Option(args, "--data-root");
+        var program = Environment.ProcessPath!;
+        // Under `dotnet hotella-agent.dll` (development, tests) the program is the assembly, not the dotnet host.
+        if (Path.GetFileNameWithoutExtension(program) == "dotnet") program = Path.Combine(AppContext.BaseDirectory, "hotella-agent");
+        var setup = new Setup(services, AgentHost.DataRoot(args), program, Console.Out,
+            instance =>
+            {
+                // Start only what can run: enrolled, and settings complete for its connector.
+                string[] host = root is null ? [] : ["--data-root", root];
+                var config = Config(instance is null ? host : ["--instance", instance, .. host]);
+                var settings = AgentHost.Settings(config);
+                return new IdentityStore(settings.DataDirectory).Exists
+                    && AgentHost.Problems(settings, AgentHost.FiasSettings(config), AgentHost.OwsSettings(config),
+                        AgentHost.OperaDbSettings(config)).Count == 0;
+            });
+        switch (args.FirstOrDefault())
+        {
+            case "install":
+                return await setup.InstallAsync(Option(args, "--codes-file"), async (code, ct) =>
+                {
+                    var ca = await code.FetchCaAsync(null, ct).ConfigureAwait(false);
+                    return await Enrollment.EnrollWithProfileAsync(code.Gateway, code.Token, ca, AgentVersion, ct)
+                        .ConfigureAwait(false);
+                }, CancellationToken.None).ConfigureAwait(false);
+            case "remove":
+                return setup.Remove(args.Contains("--remove-data"));
+            case "stop":
+                return setup.Stop();
+            default:
+                return Usage();
         }
     }
 
@@ -180,7 +225,7 @@ internal static class Cli
     /// </summary>
     public static async Task<int> SecretAsync(string[] args)
     {
-        var store = new SecretStore(SettingsFrom(args.Where(a => a.StartsWith("--Agent:", StringComparison.Ordinal)).ToArray())
+        var store = new SecretStore(SettingsFrom(ConfigArgs(args))
             .DataDirectory);
         switch (args.FirstOrDefault())
         {
@@ -250,6 +295,16 @@ internal static class Cli
     }
 
     private static AgentSettings SettingsFrom(string[] args) => AgentHost.Settings(Config(args));
+
+    /// <summary>The settings switches of a command line, and its <c>--instance</c>.</summary>
+    private static string[] ConfigArgs(string[] args)
+    {
+        var instance = AgentHost.Instance(args);
+        var root = Option(args, "--data-root");
+        return [.. args.Where(a => a.StartsWith("--Agent:", StringComparison.Ordinal)),
+            .. instance is null ? Array.Empty<string>() : ["--instance", instance],
+            .. root is null ? Array.Empty<string>() : ["--data-root", root]];
+    }
 
     private static IConfiguration Config(string[] args)
     {

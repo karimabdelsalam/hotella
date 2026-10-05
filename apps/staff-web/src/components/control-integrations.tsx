@@ -73,6 +73,8 @@ export function Integrations({
   const [evidence, setEvidence] = useState('');
   const [sample, setSample] = useState({ confirmationNumber: '', profileId: '' });
   const [drafts, setDrafts] = useState<Record<string, { status: string; hotelValue: string }>>({});
+  // Enrollment codes are shown once, right after they are issued, and never fetched again (ADR-0020).
+  const [codes, setCodes] = useState<Record<string, { code: string | null; token: string }>>({});
 
   useEffect(() => {
     session.api<Tenant[]>('/tenants').then(setTenants).catch(fail);
@@ -252,6 +254,27 @@ export function Integrations({
                       >
                         {t('commissioning.run')}
                       </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          act(
+                            () =>
+                              session.api<{ token: string; enrollmentCode: string | null }>(
+                                `/properties/${propertyId}/integrations/${i.id}/enrollment-tokens`,
+                                { method: 'POST' },
+                              ),
+                            t('commissioning.enrollment_issued'),
+                          ).then((r) => {
+                            if (r)
+                              setCodes((c) => ({
+                                ...c,
+                                [i.id]: { code: r.enrollmentCode, token: r.token },
+                              }));
+                          })
+                        }
+                      >
+                        {t('commissioning.enrollment_code')}
+                      </Button>
                       {!i.commissionedAt && (
                         <Button
                           disabled={!hasEvidence}
@@ -271,6 +294,25 @@ export function Integrations({
                       )}
                     </span>
                   </span>
+                  {codes[i.id] && (
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-enrollment-code={i.connectorCode}
+                    >
+                      <span className="text-slate-600">
+                        {codes[i.id]!.code
+                          ? t('commissioning.enrollment_hint')
+                          : t('commissioning.enrollment_no_public_url')}
+                      </span>
+                      <input
+                        readOnly
+                        dir="ltr"
+                        className="rounded-lg border border-slate-300 px-2 py-1 font-mono text-xs"
+                        value={codes[i.id]!.code ?? codes[i.id]!.token}
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                    </label>
+                  )}
                   {i.unverified.length === 0 ? (
                     <span className="text-xs text-slate-500">
                       {t('commissioning.all_verified')}

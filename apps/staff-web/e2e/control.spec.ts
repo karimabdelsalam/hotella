@@ -214,6 +214,18 @@ async function mockBackend(page: Page, admin = true) {
       rollback = (body as { status: string }).status;
       return r.fulfill({ json: { id: 'row1', requirement: 'SITE_ROLLBACK', status: rollback } });
     }
+    if (
+      path === `/properties/${PROPERTY}/integrations/${FIAS}/enrollment-tokens` &&
+      method === 'POST'
+    )
+      return r.fulfill({
+        status: 201,
+        json: {
+          token: 'hagt_x',
+          enrollmentCode: 'hotella1.eyJnIjoiaHR0cHM6Ly9hZ2VudHMifQ',
+          expiresAt: '2026-10-06T00:00:00Z',
+        },
+      });
     if (path === `${integration}/commissioning/runs` && method === 'POST')
       return r.fulfill({ json: { id: 'run1', status: 'PASSED', checks: [] } });
     if (path === `${integration}/capabilities/CHECKIN_EVENT/verify` && method === 'POST') {
@@ -344,6 +356,15 @@ test('an installer commissions a property: checklist, sheet, verification run an
     backend.calls.find((c) => c.path.endsWith('/capabilities/CHECKIN_EVENT/verify'))?.body,
   ).toEqual({ instanceId: FIAS, evidenceRef: 'COMM-12 check-in seen in OPERA' });
   await expect(fias).toContainText('All capabilities verified');
+
+  // An enrollment code for the installer, shown once (ADR-0020).
+  await fias.getByRole('button', { name: 'Enrollment code' }).click();
+  await expect(page.getByRole('status')).toHaveText('Enrollment code issued.');
+  const code = page.locator('[data-enrollment-code="OPERA5_FIAS"] input');
+  await expect(code).toHaveValue('hotella1.eyJnIjoiaHR0cHM6Ly9hZ2VudHMifQ');
+  await expect(page.locator('[data-enrollment-code="OPERA5_FIAS"]')).toContainText(
+    'Shown only now',
+  );
 });
 
 test('in Arabic, commissioning reads right-to-left with Arabic plurals', async ({ page }) => {
@@ -357,6 +378,15 @@ test('in Arabic, commissioning reads right-to-left with Arabic plurals', async (
   await expect(page.locator('[data-item="MAPPINGS_CONFIRMED"]')).toContainText('استثناءان مفتوحان');
   await expect(page.locator('[data-requirement="SITE_ROLLBACK"]')).toContainText(
     'الاتفاق على جهات الاتصال وخطوات التراجع',
+  );
+  // The code itself stays left-to-right inside the right-to-left page.
+  await page
+    .locator('[data-instance="OPERA5_FIAS"]')
+    .getByRole('button', { name: 'رمز التسجيل' })
+    .click();
+  await expect(page.locator('[data-enrollment-code="OPERA5_FIAS"] input')).toHaveAttribute(
+    'dir',
+    'ltr',
   );
 });
 

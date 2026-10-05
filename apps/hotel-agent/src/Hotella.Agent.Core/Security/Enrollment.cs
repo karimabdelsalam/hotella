@@ -19,7 +19,9 @@ public static class Enrollment
         [property: JsonPropertyName("certificate")] string Certificate,
         [property: JsonPropertyName("ca_certificate")] string CaCertificate,
         [property: JsonPropertyName("not_after")] string NotAfter,
-        [property: JsonPropertyName("command_signing_public_key")] string CommandSigningPublicKey);
+        [property: JsonPropertyName("command_signing_public_key")] string CommandSigningPublicKey,
+        [property: JsonPropertyName("connector_code")] string? ConnectorCode = null,
+        [property: JsonPropertyName("capabilities")] IReadOnlyList<string>? Capabilities = null);
 
     private sealed record RenewRequest([property: JsonPropertyName("csr")] string Csr);
 
@@ -28,6 +30,14 @@ public static class Enrollment
         [property: JsonPropertyName("not_after")] string NotAfter);
 
     public static async Task<AgentIdentity> EnrollAsync(
+        Uri gateway, string token, string caCertificatePem, string agentVersion, CancellationToken ct) =>
+        (await EnrollWithProfileAsync(gateway, token, caCertificatePem, agentVersion, ct).ConfigureAwait(false)).Identity;
+
+    /// <summary>
+    /// Enrollment that also returns what the instance is — its connector and enabled capabilities — when the platform
+    /// sends them (ADR-0020), so an installer needs nothing but the enrollment code.
+    /// </summary>
+    public static async Task<EnrollmentResult> EnrollWithProfileAsync(
         Uri gateway, string token, string caCertificatePem, string agentVersion, CancellationToken ct)
     {
         var (privateKeyPem, csrPem) = AgentTls.CreateKeyAndCsr();
@@ -37,8 +47,11 @@ public static class Enrollment
         await LinkHttp.EnsureSuccessAsync(res, ct).ConfigureAwait(false);
         var body = await res.Content.ReadFromJsonAsync<EnrollResponse>(ct).ConfigureAwait(false)
             ?? throw new InvalidDataException("empty enrollment response");
-        return new AgentIdentity(body.InstanceId, privateKeyPem, body.Certificate, body.CaCertificate,
-            body.CommandSigningPublicKey);
+        return new EnrollmentResult(
+            new AgentIdentity(body.InstanceId, privateKeyPem, body.Certificate, body.CaCertificate,
+                body.CommandSigningPublicKey),
+            body.ConnectorCode,
+            body.Capabilities ?? []);
     }
 
     /// <summary>Renews the device certificate with a fresh key, authenticated by the current one.</summary>
@@ -56,6 +69,9 @@ public static class Enrollment
         return identity with { PrivateKeyPem = privateKeyPem, CertificatePem = body.Certificate };
     }
 }
+
+/// <summary>An enrolled identity and, from newer platforms, the instance's connector and enabled capabilities.</summary>
+public sealed record EnrollmentResult(AgentIdentity Identity, string? ConnectorCode, IReadOnlyList<string> Capabilities);
 
 /// <summary>An HTTP refusal from the gateway, with the platform's problem code when it sent one.</summary>
 public sealed class GatewayHttpException(int status, string code)

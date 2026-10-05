@@ -22,10 +22,51 @@ internal static class AgentHost
     public static void AddSources(IConfigurationBuilder config, string[] args)
     {
         config.AddJsonFile(Path.Combine(AppContext.BaseDirectory, "agent.json"), optional: true);
-        config.AddJsonFile(MachineConfigFile(), optional: true);
+        if (Instance(args) is { } instance)
+        {
+            // One of several agents on this host (ADR-0020): its own settings, identity and queue.
+            var dir = InstanceDirectory(instance, DataRoot(args));
+            config.AddInMemoryCollection(new Dictionary<string, string?> { ["Agent:DataDirectory"] = dir });
+            config.AddJsonFile(Path.Combine(dir, "agent.json"), optional: true);
+        }
+        else config.AddJsonFile(MachineConfigFile(), optional: true);
         config.AddEnvironmentVariables("HOTELLA_AGENT_");
-        config.AddCommandLine(args);
+        config.AddCommandLine(WithoutHostOptions(args));
     }
+
+    /// <summary>Host options (with their values) are not settings: <c>--instance</c>, <c>--data-root</c>.</summary>
+    private static string[] WithoutHostOptions(string[] args) =>
+        args.Where((a, i) => a is not ("--instance" or "--data-root")
+            && (i == 0 || args[i - 1] is not ("--instance" or "--data-root"))).ToArray();
+
+    /// <summary>
+    /// The host's data root: <c>%ProgramData%\Hotella\Agent</c> or <c>/var/lib/hotella-agent</c>, or
+    /// <c>--data-root &lt;dir&gt;</c> (development and tests).
+    /// </summary>
+    public static string DataRoot(string[] args)
+    {
+        var i = Array.IndexOf(args, "--data-root");
+        return i >= 0 && i + 1 < args.Length ? Path.GetFullPath(args[i + 1]) : AgentSettings.DefaultDataDirectory();
+    }
+
+    /// <summary>The <c>--instance &lt;name&gt;</c> of a multi-agent host, validated (null when absent).</summary>
+    public static string? Instance(string[] args)
+    {
+        var i = Array.IndexOf(args, "--instance");
+        if (i < 0) return null;
+        var name = i + 1 < args.Length ? args[i + 1] : "";
+        return IsInstanceName(name) ? name : throw new ArgumentException($"invalid instance name '{name}'");
+    }
+
+    public static bool IsInstanceName(string name) =>
+        name.Length is >= 1 and <= 32 && name.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-')
+        && char.IsAsciiLetterOrDigit(name[0]);
+
+    public static string InstanceDirectory(string name, string? dataRoot = null) =>
+        Path.Combine(dataRoot ?? AgentSettings.DefaultDataDirectory(), "instances", name);
+
+    /// <summary>The Windows service / systemd unit of an instance (the single-instance service without one).</summary>
+    public static string ServiceNameOf(string? instance) => instance is null ? ServiceName : $"{ServiceName}-{instance}";
 
     public static string MachineConfigFile() =>
         OperatingSystem.IsWindows()
@@ -94,7 +135,7 @@ internal static class AgentHost
         });
         builder.Configuration.Sources.Clear();
         AddSources(builder.Configuration, args);
-        builder.Services.AddWindowsService(o => o.ServiceName = ServiceName);
+        builder.Services.AddWindowsService(o => o.ServiceName = ServiceNameOf(Instance(args)));
         builder.Services.AddSystemd();
         builder.Services.AddSingleton(Settings(builder.Configuration));
         builder.Services.AddSingleton(FiasSettings(builder.Configuration));

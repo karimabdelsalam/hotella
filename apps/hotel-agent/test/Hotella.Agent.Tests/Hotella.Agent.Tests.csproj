@@ -14,6 +14,7 @@
     <ProjectReference Include="../../src/Hotella.Agent.Ows/Hotella.Agent.Ows.csproj" />
     <ProjectReference Include="../../src/Hotella.Agent.OperaDb/Hotella.Agent.OperaDb.csproj" />
     <ProjectReference Include="../../src/Hotella.Agent.Updater/Hotella.Agent.Updater.csproj" />
+    <ProjectReference Include="../../src/Hotella.Agent/Hotella.Agent.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Vectors produced by the platform's TypeScript code: the two implementations must agree byte for byte. -->

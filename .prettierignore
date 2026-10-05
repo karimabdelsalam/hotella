@@ -13,3 +13,5 @@ apps/staff-web/src/messages
 apps/staff-web/next-env.d.ts
 apps/guest-web/src/messages
 apps/guest-web/next-env.d.ts
+# WiX sources (Prettier reads .wxs as WeChat script)
+*.wxs

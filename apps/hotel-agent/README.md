@@ -11,7 +11,8 @@ src/Hotella.Agent.Core   identity (P-256 key + CSR, DPAPI / 0600), durable queue
 src/Hotella.Agent.Fias   OPERA5_FIAS: the IFC8/FIAS session
 src/Hotella.Agent.Ows    OPERA5_OWS: OWS polling
 src/Hotella.Agent.OperaDb OPERA5_DB: read-only OPERA database connector (data contract v1, privilege self-check)
-src/Hotella.Agent        hotella-agent: run | enroll | status | secret | update | opera-db probe | version
+src/Hotella.Agent        hotella-agent: run | enroll | setup | status | secret | update | opera-db probe | version
+packaging/windows/msi    the Windows MSI (WiX v5, ADR-0020): a thin shell over `hotella-agent setup`
 test/…Tests              xUnit, including the vector shared with packages/platform/pki
 test/…Conformance        JSON-lines driver for the cross-language e2e (never shipped)
 ```
@@ -21,6 +22,8 @@ dotnet test Hotella.Agent.slnx                       # build (analyzers are erro
 hotella-agent enroll --token-file token.txt --ca planova-agent-ca.pem --Agent:Gateway=https://agents.example
 hotella-agent status
 hotella-agent run                                    # what the service runs
+hotella-agent setup install --codes-file codes.txt   # what the MSI runs: one service per enrollment code
+hotella-agent status --instance opera5-fias          # one of several connectors on this host
 ```
 
 Settings (`Agent` section): `Gateway`, `ConnectorCode`, `Capabilities`, `DataDirectory`, `QueueRetentionDays`,

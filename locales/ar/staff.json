@@ -630,5 +630,9 @@
   "staff.control.commissioning.requirement.SITE_VERSIONS": "تسجيل إصدارات OPERA و IFC8 و OWS",
   "staff.control.commissioning.requirement.SITE_AGENT_HOST": "جهاز الوكيل جاهز (نظام التشغيل، المنفذ 443 للخارج، الشبكة المحلية)",
   "staff.control.commissioning.requirement.SITE_ONSITE_TESTS": "نجاح الاختبارات في الموقع (وصول، نقل، تعديل، مغادرة، مزامنة، انقطاع)",
-  "staff.control.commissioning.requirement.SITE_ROLLBACK": "الاتفاق على جهات الاتصال وخطوات التراجع"
+  "staff.control.commissioning.requirement.SITE_ROLLBACK": "الاتفاق على جهات الاتصال وخطوات التراجع",
+  "staff.control.commissioning.enrollment_code": "رمز التسجيل",
+  "staff.control.commissioning.enrollment_issued": "تم إصدار رمز التسجيل.",
+  "staff.control.commissioning.enrollment_hint": "يظهر الآن فقط. الصقه في برنامج تثبيت الوكيل في الفندق؛ يُستخدم مرة واحدة وتنتهي صلاحيته خلال 24 ساعة.",
+  "staff.control.commissioning.enrollment_no_public_url": "عنوان بوابة الوكلاء غير مضبوط في المنصة (AGENT_GATEWAY_PUBLIC_URL)، لذا هذا رمز مجرد: سجّل باستخدام hotella-agent enroll. يظهر الآن فقط."
 }

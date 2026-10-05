@@ -1,0 +1,14 @@
+<WixLocalization Culture="en-US" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="ProductName" Value="Hotella Hotel Agent" />
+  <String Id="ProductDescription" Value="Connects this hotel's PMS (OPERA) to the Hotella platform. Outbound connections only." />
+  <String Id="Downgrade" Value="A newer version of the Hotella Hotel Agent is already installed." />
+  <String Id="EnrollDlg_Title" Value="[ProductName] Setup" />
+  <String Id="EnrollDlgTitle" Value="{\WixUI_Font_Title}Connect to Hotella" />
+  <String Id="EnrollDlgDescription" Value="Enrollment codes from the Hotella control plane." />
+  <String Id="EnrollDlgIntro" Value="Paste the enrollment code of each connector that runs on this machine (Integrations tab → connector → Enrollment code). Each code works once and expires after 24 hours." />
+  <String Id="EnrollDlgCode1" Value="Enrollment code 1:" />
+  <String Id="EnrollDlgCode2" Value="Enrollment code 2 (optional):" />
+  <String Id="EnrollDlgCode3" Value="Enrollment code 3 (optional):" />
+  <String Id="EnrollDlgLater" Value="You can leave these empty: to add a connector later, run this Setup again and choose Repair." />
+  <String Id="ExitText" Value="Each connector appears in the Hotella control plane (Integrations tab) once it has connected. A connector that still needs its settings starts after they are entered." />
+</WixLocalization>

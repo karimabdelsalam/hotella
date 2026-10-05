@@ -1,0 +1,75 @@
+<!--
+  The installer's screens: Welcome → Connect to Hotella (up to three enrollment codes, optional) → Ready → Progress →
+  Finish; on a machine where it is installed, Repair asks for codes again (adding a connector). Built from WiX's standard dialogs; only the enrollment dialog is ours. No install-folder choice: the agent's
+  layout is fixed (versions\<v>, current) so the self-updater and support always find it.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <UI Id="HotellaUI">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="ARPNOMODIFY" Value="1" />
+      <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="!(loc.ExitText)" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+      <DialogRef Id="WelcomeDlg" />
+      <DialogRef Id="VerifyReadyDlg" />
+      <DialogRef Id="MaintenanceWelcomeDlg" />
+      <DialogRef Id="MaintenanceTypeDlg" />
+      <DialogRef Id="ExitDialog" />
+
+      <Dialog Id="EnrollDlg" Width="370" Height="270" Title="!(loc.EnrollDlg_Title)">
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="!(loc.EnrollDlgTitle)" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="!(loc.EnrollDlgDescription)" />
+
+        <Control Id="Intro" Type="Text" X="20" Y="54" Width="330" Height="36" NoPrefix="yes" Text="!(loc.EnrollDlgIntro)" />
+        <Control Id="Code1Label" Type="Text" X="20" Y="94" Width="330" Height="10" NoPrefix="yes" Text="!(loc.EnrollDlgCode1)" />
+        <Control Id="Code1" Type="Edit" X="20" Y="106" Width="330" Height="15" Property="ENROLLMENT_CODE_1" Text="{2048}" />
+        <Control Id="Code2Label" Type="Text" X="20" Y="128" Width="330" Height="10" NoPrefix="yes" Text="!(loc.EnrollDlgCode2)" />
+        <Control Id="Code2" Type="Edit" X="20" Y="140" Width="330" Height="15" Property="ENROLLMENT_CODE_2" Text="{2048}" />
+        <Control Id="Code3Label" Type="Text" X="20" Y="162" Width="330" Height="10" NoPrefix="yes" Text="!(loc.EnrollDlgCode3)" />
+        <Control Id="Code3" Type="Edit" X="20" Y="174" Width="330" Height="15" Property="ENROLLMENT_CODE_3" Text="{2048}" />
+        <Control Id="Later" Type="Text" X="20" Y="198" Width="330" Height="30" NoPrefix="yes" Text="!(loc.EnrollDlgLater)" />
+      </Dialog>
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="EnrollDlg" Condition="NOT Installed" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Condition="Installed AND PATCH" />
+
+      <Publish Dialog="EnrollDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Condition="NOT Installed" />
+      <Publish Dialog="EnrollDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Condition="Installed" />
+      <Publish Dialog="EnrollDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" />
+
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="EnrollDlg" Order="1" Condition="NOT Installed" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="EnrollDlg" Order="2" Condition="Installed AND NOT PATCH AND WixUI_InstallMode = &quot;Repair&quot;" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2" Condition="Installed AND NOT PATCH AND WixUI_InstallMode = &quot;Remove&quot;" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" Condition="Installed AND PATCH" />
+
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
+      <!-- Repair is also how a connector is added later: it asks for codes again. -->
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="EnrollDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
+    </UI>
+
+    <UIRef Id="WixUI_Common" />
+  </Fragment>
+</Wix>

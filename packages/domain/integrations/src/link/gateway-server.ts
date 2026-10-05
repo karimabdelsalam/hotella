@@ -9,6 +9,7 @@ import { z } from 'zod';
 import {
   agentFrameSchema,
   BATCH_PATH,
+  CA_PATH,
   batchRequestSchema,
   ENROLL_PATH,
   enrollRequestSchema,
@@ -109,6 +110,10 @@ export class AgentGatewayServer implements OnApplicationShutdown {
     try {
       if (req.method === 'GET' && path === '/agent/v1/health')
         return send(res, 200, { status: 'ok' });
+      // Public: the agent CA certificate, which an installing agent checks against the fingerprint in its enrollment
+      // code before trusting it (ADR-0020).
+      if (req.method === 'GET' && path === CA_PATH)
+        return send(res, 200, { ca_certificate: (await this.keys.get()).caCertificatePem });
       if (req.method !== 'POST') return send(res, 404, { code: 'platform.not_found' });
       if (path === ENROLL_PATH) {
         const body = enrollRequestSchema.parse(await readJson(req, MAX_JSON_BYTES));

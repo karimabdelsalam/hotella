@@ -41,18 +41,19 @@ yet a measured load test; the pilot's monitoring (§13) confirms or adjusts them
 
 ## 2. Windows installation and MSI
 - [ ] The agent MSI for this release (`hotella-agent-<version>-win-x64.msi`, WiX v5 — ADR-0020) and its SHA-256 from
-      the release notes; the platform address and a single-use enrollment token issued for this hotel's connector.
-- [ ] Installed by the hotel's IT with Planova on the call: the MSI asks for the platform address and the token
-      (silent install: `msiexec /i … PLATFORM_URL=… ENROLLMENT_TOKEN_FILE=<file with one token per line> /qn`); the token is never typed on a command
-      line or kept in logs.
+      the release notes; one enrollment code per connector, issued in the control plane (Integrations → connector →
+      *Enrollment code*; single use, 24 hours).
+- [ ] Installed by the hotel's IT with Planova on the call: the MSI asks for up to three enrollment codes (silent
+      install: `msiexec /i … ENROLLMENT_CODES_FILE=<file with one code per line> /qn`); codes are never typed on a
+      command line and never reach the MSI log (CI proves it on every build).
 - [ ] Code-signing: until the owner buys an Authenticode certificate, SmartScreen warns once — agreed with the hotel.
 - [ ] PowerShell (`install.ps1`) only for diagnostics or emergencies, never as the standard path.
 
 ## 3. Services
-- [ ] Windows service **HotellaAgent** (or systemd unit `hotella-agent`) present, automatic start, recovery actions
-      set (restart on failure).
-- [ ] `hotella-agent status`: enrolled, linked, licence VALID, health HEALTHY, queue depth near 0.
-- [ ] One agent instance per connector instance (DB, FIAS, OWS may share a host).
+- [ ] One Windows service per connector — **HotellaAgent-opera5-fias**, **-opera5-db**, **-opera5-ows** as used (or
+      systemd units) — automatic start, recovery actions set (restart on failure).
+- [ ] `hotella-agent status --instance <connector>`: enrolled, linked, licence VALID, health HEALTHY, queue depth
+      near 0.
 
 ## 4. Database (platform)
 - [ ] PostgreSQL 18 running; migrations applied as the admin role; the application connects as `hotella_app`

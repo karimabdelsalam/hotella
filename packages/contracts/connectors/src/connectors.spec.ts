@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 import {
+  decodeEnrollmentCode,
+  encodeEnrollmentCode,
   ConnectorDefinitionError,
   defineConnector,
   inboundRecordSchema,
@@ -105,5 +107,21 @@ describe('localDateTimeToUtc', () => {
     expect(
       localDateTimeToUtc({ year: 2026, month: 7, day: 1, hour: 9 }, 'Europe/Berlin').toISOString(),
     ).toBe('2026-07-01T07:00:00.000Z');
+  });
+});
+
+describe('enrollment code (ADR-0020)', () => {
+  it('round-trips gateway, token and CA fingerprint, and refuses anything else', () => {
+    const code = {
+      g: 'https://agents.example.com:8443',
+      t: 'hat_0123456789abcdefghij',
+      c: 'a'.repeat(64),
+    };
+    const encoded = encodeEnrollmentCode(code);
+    expect(encoded.startsWith('hotella1.')).toBe(true);
+    expect(encoded).not.toMatch(/[+/=]/);
+    expect(decodeEnrollmentCode(` ${encoded}\n`)).toEqual(code);
+    expect(() => decodeEnrollmentCode('hat_plain_token')).toThrow(/not a Hotella enrollment code/);
+    expect(() => encodeEnrollmentCode({ ...code, g: 'http://agents.example.com' })).toThrow();
   });
 });

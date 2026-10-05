@@ -171,8 +171,51 @@ export const enrollResponseSchema = z.object({
   not_after: instant,
   /** Ed25519 public key (SPKI PEM) the agent pins to verify command signatures. */
   command_signing_public_key: z.string(),
+  /**
+   * What the instance is (ADR-0020): its connector and enabled capabilities, so an installer needs only the platform
+   * address and a token. Optional: older platforms do not send them, older agents ignore them.
+   */
+  connector_code: z.string().optional(),
+  capabilities: z.array(z.string()).optional(),
 });
 export type EnrollResponse = z.infer<typeof enrollResponseSchema>;
+
+/**
+ * One value an installer pastes (ADR-0020): the agent gateway address, the single-use enrollment token and the SHA-256
+ * fingerprint of the platform's agent CA, so the agent can fetch the CA over an untrusted channel and still trust only
+ * the right one. `hotella1.` + base64url(JSON). The token inside is as secret as the token itself.
+ */
+export const ENROLLMENT_CODE_PREFIX = 'hotella1.';
+export const CA_PATH = '/agent/v1/ca';
+export const enrollmentCodeSchema = z.object({
+  g: z.url().refine((u) => u.startsWith('https://'), { message: 'https only' }),
+  t: z.string().min(16).max(200),
+  c: z.string().regex(/^[0-9a-f]{64}$/),
+});
+export type EnrollmentCode = z.infer<typeof enrollmentCodeSchema>;
+
+// Portable base64url (Node and browsers alike: the contracts depend on zod only).
+const toBase64Url = (text: string): string =>
+  btoa(String.fromCharCode(...new TextEncoder().encode(text)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+const fromBase64Url = (value: string): string =>
+  new TextDecoder().decode(
+    Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
+  );
+
+export function encodeEnrollmentCode(code: EnrollmentCode): string {
+  return ENROLLMENT_CODE_PREFIX + toBase64Url(JSON.stringify(enrollmentCodeSchema.parse(code)));
+}
+
+export function decodeEnrollmentCode(value: string): EnrollmentCode {
+  const text = value.trim();
+  if (!text.startsWith(ENROLLMENT_CODE_PREFIX)) throw new Error('not a Hotella enrollment code');
+  return enrollmentCodeSchema.parse(
+    JSON.parse(fromBase64Url(text.slice(ENROLLMENT_CODE_PREFIX.length))),
+  );
+}
 
 export const renewRequestSchema = z.object({ csr: z.string().min(100).max(20_000) });
 

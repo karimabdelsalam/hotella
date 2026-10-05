@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
@@ -295,6 +295,91 @@ describe.skipIf(skip)(`.NET hotel agent ↔ agent gateway (${skip ? reason : 'do
       expect(status.out).not.toContain(token);
 
       const service = spawn('dotnet', [host, 'run', ...settings], { stdio: 'ignore' });
+      try {
+        await until(async () => {
+          const r = await h
+            .http()
+            .get(`${h.base}/integrations/${instance}/agent`)
+            .set('X-Test-Actor', h.gm)
+            .expect(200);
+          return r.body.connected === true;
+        }, 30_000);
+      } finally {
+        const exited = new Promise((r) => service.once('exit', r));
+        service.kill('SIGTERM');
+        await exited;
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it('setup install from an enrollment code: the platform tells the agent its connector, then it runs as an instance', async () => {
+    const instance = (
+      await h
+        .http()
+        .post(`${h.base}/integrations`)
+        .set('X-Test-Actor', h.gm)
+        .send({ connectorCode: 'SIM_PMS', name: 'Installer', capabilities: CAPABILITIES })
+        .expect(201)
+    ).body.id as string;
+    await h
+      .http()
+      .patch(`${h.base}/integrations/${instance}`)
+      .set('X-Test-Actor', h.gm)
+      .send({ version: 1, status: 'ACTIVE' })
+      .expect(200);
+    const issued = (
+      await h
+        .http()
+        .post(`${h.base}/integrations/${instance}/enrollment-tokens`)
+        .set('X-Test-Actor', h.gm)
+        .expect(201)
+    ).body as { token: string; enrollmentCode: string | null };
+    // One value for the installer: gateway, token and the CA fingerprint (ADR-0020).
+    expect(issued.enrollmentCode).toMatch(/^hotella1\.[A-Za-z0-9_-]+$/);
+    const dir = mkdtempSync(join(tmpdir(), 'hotella-setup-'));
+    try {
+      const codes = join(dir, 'enroll.codes');
+      const data = join(dir, 'data');
+      writeFileSync(codes, `${issued.enrollmentCode!}\r\n`);
+      const installed = await exec(host, [
+        'setup',
+        'install',
+        '--codes-file',
+        codes,
+        '--data-root',
+        data,
+      ]);
+      expect(installed).toMatchObject({ code: 0 });
+      expect(installed.out).toContain(`sim-pms: enrolled as instance ${instance}`);
+      expect(installed.out).not.toContain(issued.token);
+      expect(existsSync(codes)).toBe(false); // read once, then gone
+
+      const settings = JSON.parse(
+        readFileSync(join(data, 'instances', 'sim-pms', 'agent.json'), 'utf8'),
+      ) as { Agent: { Gateway: string; ConnectorCode: string; Capabilities: string[] } };
+      expect(settings.Agent.ConnectorCode).toBe('SIM_PMS');
+      expect(new URL(settings.Agent.Gateway).origin).toBe(new URL(h.gatewayUrl).origin);
+      expect([...settings.Agent.Capabilities].sort()).toEqual([...CAPABILITIES].sort());
+
+      // The same code cannot enroll twice.
+      writeFileSync(codes, issued.enrollmentCode!);
+      const again = await exec(host, [
+        'setup',
+        'install',
+        '--codes-file',
+        codes,
+        '--data-root',
+        join(dir, 'other'),
+      ]);
+      expect(again.code).toBe(4);
+      expect(again.out).toContain('integration.agent.enrollment_invalid');
+
+      const hostArgs = ['--instance', 'sim-pms', '--data-root', data];
+      const status = await exec(host, ['status', ...hostArgs]);
+      expect(status).toMatchObject({ code: 0 });
+      expect(status.out).toContain(`instance:     ${instance}`);
+      const service = spawn('dotnet', [host, 'run', ...hostArgs], { stdio: 'ignore' });
       try {
         await until(async () => {
           const r = await h

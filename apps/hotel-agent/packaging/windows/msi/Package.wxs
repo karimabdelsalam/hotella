@@ -1,0 +1,99 @@
+<!--
+  Hotella hotel agent — MSI (WiX v5, ADR-0020). A thin shell: it lays the self-contained agent into
+  %ProgramFiles%\Hotella\Agent\versions\<version>\ and lets the agent do everything with logic
+  (`hotella-agent setup install | stop | remove`): the `current` link, the protected data directory, one Windows
+  service per connector enrolled from the codes, recovery actions, start. Moving to another installer later changes
+  only this shell.
+
+  Silent install:  msiexec /i hotella-agent-<v>-win-x64.msi ENROLLMENT_CODES_FILE=C:\path\codes.txt /qn
+  (one enrollment code per line; the file is deleted once read). Uninstall keeps identities and queues unless
+  REMOVE_DATA=1.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="!(loc.ProductName)" Manufacturer="Planova" Version="$(var.Version)" Language="1033"
+           UpgradeCode="5f0d7a3c-6b2e-4c91-8e47-2a9d1c3b6e58" Scope="perMachine" InstallerVersion="500">
+    <SummaryInformation Description="!(loc.ProductDescription)" />
+    <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="!(loc.Downgrade)" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ARPURLINFOABOUT" Value="https://planova.com.eg" />
+    <Property Id="ARPHELPLINK" Value="https://planova.com.eg" />
+
+    <!-- Enrollment codes from the dialog (one per connector instance). Hidden: never in the MSI log. -->
+    <Property Id="ENROLLMENT_CODE_1" Hidden="yes" Secure="yes" />
+    <Property Id="ENROLLMENT_CODE_2" Hidden="yes" Secure="yes" />
+    <Property Id="ENROLLMENT_CODE_3" Hidden="yes" Secure="yes" />
+    <!-- Silent installs: a file with one code per line (instead of codes on the command line). -->
+    <Property Id="ENROLLMENT_CODES_FILE" Secure="yes" />
+    <Property Id="REMOVE_DATA" Secure="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="HotellaFolder" Name="Hotella">
+        <Directory Id="AGENTFOLDER" Name="Agent">
+          <Directory Id="VersionsFolder" Name="versions">
+            <Directory Id="INSTALLFOLDER" Name="$(var.Version)" />
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Agent" Title="!(loc.ProductName)" AllowAbsent="no">
+      <Component Directory="INSTALLFOLDER">
+        <File Id="AgentExe" Source="$(var.AgentPublishDir)hotella-agent.exe" KeyPath="yes" />
+      </Component>
+      <Component Directory="INSTALLFOLDER">
+        <File Id="AgentExample" Source="$(var.AgentPublishDir)agent.example.json" KeyPath="yes" />
+      </Component>
+    </Feature>
+
+    <!-- 1. Upgrade: stop the running services (from the previous version's `current`) before its files go. -->
+    <CustomAction Id="StopServices" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec" Execute="deferred"
+                  Impersonate="no" Return="ignore" />
+    <SetProperty Id="StopServices" Value="&quot;[AGENTFOLDER]current\hotella-agent.exe&quot; setup stop"
+                 Before="StopServices" Sequence="execute" Condition="WIX_UPGRADE_DETECTED" />
+
+    <!-- 2. Install, upgrade, repair: hand over the codes (hidden), then `setup install`. -->
+    <Binary Id="HotellaSetupActions"
+            SourceFile="$(var.HotellaSetupActions.TargetDir)HotellaSetupActions.CA.dll" />
+    <Property Id="WriteEnrollmentCodes" Hidden="yes" />
+    <CustomAction Id="WriteEnrollmentCodes" BinaryRef="HotellaSetupActions" DllEntry="WriteEnrollmentCodes"
+                  Execute="deferred" Impersonate="no" Return="check" HideTarget="yes" />
+    <SetProperty Id="WriteEnrollmentCodes"
+                 Value="Folder=[CommonAppDataFolder]Hotella\Agent;Code1=[ENROLLMENT_CODE_1];Code2=[ENROLLMENT_CODE_2];Code3=[ENROLLMENT_CODE_3]"
+                 Before="WriteEnrollmentCodes" Sequence="execute"
+                 Condition="NOT REMOVE~=&quot;ALL&quot; AND (ENROLLMENT_CODE_1 OR ENROLLMENT_CODE_2 OR ENROLLMENT_CODE_3)" />
+
+    <CustomAction Id="SetupInstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec" Execute="deferred"
+                  Impersonate="no" Return="ignore" />
+    <SetProperty Id="SetupInstall"
+                 Value="&quot;[INSTALLFOLDER]hotella-agent.exe&quot; setup install --codes-file &quot;[CommonAppDataFolder]Hotella\Agent\enroll.codes&quot;"
+                 Before="SetupInstall" Sequence="execute"
+                 Condition="NOT REMOVE~=&quot;ALL&quot; AND NOT ENROLLMENT_CODES_FILE" />
+    <SetProperty Id="SetupInstall" Action="SetSetupInstallFromFile"
+                 Value="&quot;[INSTALLFOLDER]hotella-agent.exe&quot; setup install --codes-file &quot;[ENROLLMENT_CODES_FILE]&quot;"
+                 Before="SetupInstall" Sequence="execute"
+                 Condition="NOT REMOVE~=&quot;ALL&quot; AND ENROLLMENT_CODES_FILE" />
+
+    <!-- 3. Uninstall (not the removal half of an upgrade): `setup remove` before the files go. -->
+    <CustomAction Id="SetupRemove" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec" Execute="deferred"
+                  Impersonate="no" Return="ignore" />
+    <SetProperty Id="SetupRemove" Value="&quot;[INSTALLFOLDER]hotella-agent.exe&quot; setup remove"
+                 Before="SetupRemove" Sequence="execute"
+                 Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT REMOVE_DATA" />
+    <SetProperty Id="SetupRemove" Action="SetSetupRemoveWithData"
+                 Value="&quot;[INSTALLFOLDER]hotella-agent.exe&quot; setup remove --remove-data"
+                 Before="SetupRemove" Sequence="execute"
+                 Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND REMOVE_DATA" />
+
+    <InstallExecuteSequence>
+      <Custom Action="StopServices" Before="RemoveExistingProducts" Condition="WIX_UPGRADE_DETECTED" />
+      <Custom Action="WriteEnrollmentCodes" After="InstallFiles"
+              Condition="NOT REMOVE~=&quot;ALL&quot; AND (ENROLLMENT_CODE_1 OR ENROLLMENT_CODE_2 OR ENROLLMENT_CODE_3)" />
+      <Custom Action="SetupInstall" After="WriteEnrollmentCodes" Condition="NOT REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="SetupRemove" Before="RemoveFiles"
+              Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+
+    <UIRef Id="HotellaUI" />
+  </Package>
+</Wix>

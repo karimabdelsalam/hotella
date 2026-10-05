@@ -120,6 +120,8 @@ export const envSchema = z.object({
   AGENT_TLS_KEY_REF: secretRef('vault://kv/hotella/agent#tls_key').optional(),
   AGENT_GATEWAY_HOST: z.string().min(1).default('0.0.0.0'),
   AGENT_GATEWAY_PORT: z.coerce.number().int().min(1).max(65535).default(8443),
+  /** How hotels reach the agent gateway (e.g. https://agents.example.com:8443); put into enrollment codes (ADR-0020). */
+  AGENT_GATEWAY_PUBLIC_URL: z.url().optional(),
   AGENT_CERT_VALIDITY_DAYS: z.coerce.number().int().min(1).max(397).default(90),
   AGENT_ENROLLMENT_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   AGENT_HEARTBEAT_SECONDS: z.coerce.number().int().min(5).max(300).default(30),
@@ -235,6 +237,8 @@ export interface AppConfig {
     readonly tlsKeyRef: string | null;
     readonly host: string;
     readonly port: number;
+    /** Public address of the agent gateway for enrollment codes (ADR-0020); null when not configured. */
+    readonly publicUrl: string | null;
     readonly certValidityDays: number;
     readonly enrollmentTtlHours: number;
     readonly heartbeatSeconds: number;
@@ -385,6 +389,7 @@ export function loadConfig(raw: Readonly<Record<string, string | undefined>>): A
       tlsKeyRef: e.AGENT_TLS_KEY_REF ?? null,
       host: e.AGENT_GATEWAY_HOST,
       port: e.AGENT_GATEWAY_PORT,
+      publicUrl: e.AGENT_GATEWAY_PUBLIC_URL ?? null,
       certValidityDays: e.AGENT_CERT_VALIDITY_DAYS,
       enrollmentTtlHours: e.AGENT_ENROLLMENT_TTL_HOURS,
       heartbeatSeconds: e.AGENT_HEARTBEAT_SECONDS,
