@@ -269,7 +269,10 @@ Renovate opens grouped PRs weekly. Patch/minor: merge when CI is green. Major: m
 
 ## 11. Deploying (pilot)
 
-The pilot runs on one Linux host with `infra/docker/compose.pilot.yml`, driven by `infra/docker/pilot/pilot.sh` (`init → up → vault-init → migrate → start → admin`, plus `backup`, `restore-drill`, `status`). Images come from `infra/docker/Dockerfile` (targets `api`, `worker`); credentials live in OpenBao and reach the services through AppRole; the application uses the ordinary database role `hotella_app`. CI's "pilot deployment smoke" job runs exactly these commands on every push. Operations procedures: `docs/runbooks/`.
+The pilot runs on one Linux host with `infra/docker/compose.pilot.yml`, driven by `infra/docker/pilot/pilot.sh` (`init → up → vault-init → migrate → start → admin → provision`, plus `backup`, `restore-drill`, `status`). A hotel is
+created from its profile (`docs/pilot/README.md`) with `pilot.sh provision <profile.json> <admin token>`; the
+provisioner (`infra/docker/pilot/provision.mjs`, dependency-free Node) has a unit suite run by CI with
+`node --test infra/docker/pilot/provision.test.mjs`. Images come from `infra/docker/Dockerfile` (targets `api`, `worker`); credentials live in OpenBao and reach the services through AppRole; the application uses the ordinary database role `hotella_app`. CI's "pilot deployment smoke" job runs exactly these commands on every push. Operations procedures: `docs/runbooks/`.
 
 On a fresh Ubuntu 22.04/24.04 server the whole sequence is one command,
 `sudo bash infra/install/install-ubuntu.sh --domain <domain> --email <admin e-mail>` (Docker, Caddy with automatic

@@ -63,6 +63,8 @@ jobs:
       - run: pnpm typecheck
       - name: Locale catalogs (en, ar, it, ru, de) — key parity, valid ICU, same arguments, CLDR plural forms
         run: pnpm locales:check
+      - name: Hotel provisioning tool — profile validation and an idempotent run (pilot hotels, docs/pilot)
+        run: node --test infra/docker/pilot/provision.test.mjs
       - name: Schema and migrations are in sync
         run: pnpm db:check
       - name: Migrations apply to a real PostgreSQL 18
@@ -243,6 +245,14 @@ jobs:
           token=$(curl -fsS localhost:3000/api/v1/auth/login -H 'content-type: application/json' \
             -d "{\"email\":\"ops@planova.example\",\"password\":\"$HOTELLA_ADMIN_PASSWORD\"}" | jq -r .accessToken)
           infra/docker/pilot/smoke-developer.sh "$token"
+      - name: A hotel is provisioned from its profile, and provisioning again changes nothing
+        run: |
+          token=$(curl -fsS localhost:3000/api/v1/auth/login -H 'content-type: application/json' \
+            -d "{\"email\":\"ops@planova.example\",\"password\":\"$HOTELLA_ADMIN_PASSWORD\"}" | jq -r .accessToken)
+          infra/docker/pilot/pilot.sh provision infra/docker/pilot/profiles/example.json "$token" | tee provision.log
+          grep '^result ' provision.log | tail -1 | cut -c8- | jq -e '.counts.room.created == 12 and .counts.department.created == 3'
+          infra/docker/pilot/pilot.sh provision infra/docker/pilot/profiles/example.json "$token" | tee again.log
+          grep '^result ' again.log | tail -1 | cut -c8- | jq -e '[.counts[] | .created] | add == 0'
       - name: The application connects as an ordinary role bound by row-level security
         run: |
           docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml exec -T postgres \

@@ -3663,6 +3663,51 @@ guest app in Italian; a third booking at the first restaurant is refused; the re
 books a phone guest into a full sitting only with the override and a reason, marks seat/no-show; checkout cancels the
 remaining bookings; a waiter receives a push on the Hotella app (no guest data in the push) and opens the booking.
 
+
+### Pilot preparation — first pilot hotel "Sea Beach Edge" (owner, 2026-10-05)
+The owner closed Phase 13 (13.8–13.10 are future development) and chose to prepare the first pilot hotel, **Sea Beach
+Edge**. The hotel's own data lives in `docs/pilot/sea-beach-edge/` (profile and readiness status). Nothing about the
+hotel is in code (rule 15). The steps follow `docs/pilot/PILOT_READINESS_CHECKLIST.md`.
+
+**Scope.** Engineering work that a real hotel needs and the phases did not cover:
+- Repeatable hotel setup from a profile.
+- Monitoring and alerting (checklist §17).
+- The hotel's own administration screens, which are API-only today: staff accounts and roles, and the service catalog.
+
+No new bounded context.
+
+**P.1 decisions.**
+- **Hotel profile v1** (JSON, `docs/pilot/README.md`). It describes structure only:
+  - tenant, property (timezone, currency, country, locales);
+  - room types, buildings, floors and room ranges, all with names in the five locales;
+  - departments (HK, ENG and FO are required, because work is routed to them by code);
+  - property settings.
+- **Values the hotel has not given are `TBD`.** Validation lists them and refuses to apply the profile, so nothing is
+  guessed (rule 16).
+- **Applied by `infra/docker/pilot/provision.mjs` through the public API, as a platform administrator.**
+  - Idempotent: existing items are matched by code or room number, and unchanged settings are not written again.
+  - It goes through the same ActionGate, audit and RLS as any client.
+  - Order: the tenant is created first and licensed (`license-pilot.sh`) before anything else. Platform administrators
+    pass the entitlement stage, but a hotel without a licence would be unusable for its staff, so the provisioner stops
+    after the tenant until the tenant is licensed.
+- **The hotel's content is not provisioned.** Services, staff and knowledge belong to the hotel. The platform
+  administrator's role has no right to them (Spec §64; verified: the starter catalog import returns 403 for a platform
+  administrator). The hotel's administrator adds that content.
+- **Tests.** A `node --test` unit suite runs with an in-memory API (validation, ranges, idempotency, licence stop, token
+  never in errors). The CI pilot smoke provisions the example profile on the deployed stack twice; the second run
+  creates nothing.
+
+| Sprint | Scope | Status |
+|---|---|---|
+| P.1 | Hotel profile v1, `provision.mjs` + `pilot.sh provision`, example profile in the CI pilot smoke, Sea Beach Edge profile and readiness status | done |
+| P.2 | Monitoring and alerts for checklist §17: agent offline, integration health, queue depth, backup failure, disk, certificate expiry, AI budget | planned |
+| P.3 | Hotel administration in the staff web app: staff accounts, roles and memberships (invite, MFA for managers); service catalog (starter import, edit, publish) | planned |
+| P.4 | Site readiness with the hotel: fill the profile, provision, walk the checklist, the phase acceptance 🟡 items on site | waiting for the hotel |
+
+**Acceptance.** The Sea Beach Edge profile validates with no `TBD` left and provisions in one command. The hotel's
+administrator signs in, invites staff and publishes services without the API. Every §17 alert fires in a drill. The
+checklist has no ⛔.
+
 ---
 
 ## 11. Milestones & sequencing
@@ -3685,6 +3730,9 @@ Phase 0 ──> Phase 1 ──> Phase 2 ──> Phase 3 ──> Phase 4 ──> 
 the Hotella staff app in Flutter with push notifications (14.4–14.6) — runs after 11.7 and before 9.5, Phase 12 and
 Phase 13. Every hotel
 is prepared with `docs/pilot/PILOT_READINESS_CHECKLIST.md`.
+
+**Owner (2026-10-05, later):** Phase 13 closed (13.8–13.10 future development); next is the first pilot hotel, Sea
+Beach Edge (section "Pilot preparation" above, sprints P.1–P.4).
 
 Phases 7 and 8 may run in parallel after Phase 6 (they share only the Operations Engine). Phase 10 may start its .NET agent skeleton in parallel with Phase 7 since it depends only on the Connector SDK from Phase 2.
 
@@ -3746,6 +3794,7 @@ A module/phase is accepted only when all of the following are true:
 | Q24 | BMS/IoT: which protocols and vendors to support first (BACnet/IP, Modbus TCP, MQTT, a vendor cloud) | 13.2 | **Answered 2026-10-05:** vendor-neutral; BACnet/IP and Modbus TCP bridges in the agent (ADR-0025, 13.9) |
 | Q25 | Door locks and Wi-Fi: which vendors (e.g. physical keys vs mobile keys) and partnership terms | 13.3 | **Answered 2026-10-05:** VingCard / ASSA ABLOY first, as an adapter (ADR-0025, 13.10; needs ASSA ABLOY partner access) |
 | Q26 | POS and ERP: which systems at the pilot hotel | 13.5 | **Answered 2026-10-05:** Wi-Fi, POS and ERP stay vendor-neutral, modular connectors (ADR-0025) |
+| Q28 | Sea Beach Edge: the hotel's data for its profile (timezone, currency, country, default language, room types, buildings, floors, rooms) and its systems (OPERA version, IFC8, OWS, WhatsApp number) | P.4 | open — the hotel (`docs/pilot/sea-beach-edge/README.md`) |
 
 ---
 

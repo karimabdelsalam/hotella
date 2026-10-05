@@ -1,0 +1,21 @@
+{
+  "profileVersion": 1,
+  "tenant": { "code": "SEA_BEACH_EDGE", "name": "Sea Beach Edge" },
+  "property": {
+    "code": "SBE",
+    "name": "Sea Beach Edge",
+    "timezone": "TBD",
+    "currency": "TBD",
+    "country": "TBD",
+    "defaultLocale": "TBD",
+    "enabledLocales": ["en", "ar", "it", "ru", "de"]
+  },
+  "roomTypes": "TBD",
+  "buildings": "TBD",
+  "departments": [
+    { "code": "HK", "names": { "en": "Housekeeping", "ar": "التدبير الفندقي", "it": "Housekeeping", "ru": "Хаускипинг", "de": "Housekeeping" } },
+    { "code": "ENG", "names": { "en": "Engineering", "ar": "الصيانة", "it": "Manutenzione", "ru": "Инженерная служба", "de": "Technik" } },
+    { "code": "FO", "names": { "en": "Front office", "ar": "الاستقبال", "it": "Ricevimento", "ru": "Служба приёма", "de": "Rezeption" } }
+  ],
+  "settings": []
+}

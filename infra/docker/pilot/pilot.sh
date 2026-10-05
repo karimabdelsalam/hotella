@@ -11,6 +11,9 @@
 #   pilot.sh admin <email> <name> create a platform administrator (password: $HOTELLA_ADMIN_PASSWORD or prompt)
 #   pilot.sh backup [full|diff]   pgBackRest backup (creates the stanza on first use) + archive check
 #   pilot.sh restore-drill        restore the latest backup into a throwaway instance and verify it
+#   pilot.sh provision <profile.json> <token>
+#                                 create the hotel from its profile (docs/pilot/README.md): tenant, pilot licence,
+#                                 property, buildings, floors, room types, rooms, departments, starter catalog, settings
 #   pilot.sh push-setup <project-id> <service-account.json>
 #                                 turn on pushes to the Hotella staff app (Firebase); the key goes to OpenBao
 #   pilot.sh status               containers, readiness, backups
@@ -277,6 +280,29 @@ cmd_restore_drill() {
   docker volume rm -f "${PROJECT}_drilldata" >/dev/null 2>&1 || true
 }
 
+# Runs the hotel provisioner (provision.mjs) in the api image, so the host needs no Node.js. The token travels in the
+# environment, never on a command line.
+provisioner() {
+  local profile="$1"; shift
+  HOTELLA_TOKEN="$token" docker run --rm --network host -e HOTELLA_TOKEN \
+    -v "$HERE/provision.mjs:/provision/provision.mjs:ro" -v "$profile:/provision/profile.json:ro" \
+    --entrypoint node "hotella/api:${HOTELLA_VERSION:-local}" /provision/provision.mjs \
+    --api "${HOTELLA_API:-http://127.0.0.1:${HOTELLA_API_PORT:-3000}/api/v1}" "$@" /provision/profile.json
+}
+
+# Creates (or completes) a hotel from its profile: validate, create the tenant, license it for the pilot (every module,
+# license-pilot.sh), then everything else. Idempotent: run it again whenever the profile grows.
+cmd_provision() {
+  local profile token
+  profile="$(realpath "${1:?hotel profile (JSON)}")"
+  token="${2:?platform admin access token}"
+  [ -s "$profile" ] || die "no such file: $profile"
+  provisioner "$profile" --check || die "the profile is not ready; fill what it lists and run again"
+  provisioner "$profile" --tenant-only
+  "$HERE/license-pilot.sh" "$token" "$(json_get "v['tenant']['code']" <"$profile")"
+  provisioner "$profile"
+}
+
 # Pushes to the Hotella staff app (ADR-0023, docs/runbooks/push-notifications.md): the Firebase service-account key
 # goes to OpenBao (never to disk next to the code), the project id to the compose environment; api and worker restart.
 cmd_push_setup() {
@@ -325,8 +351,9 @@ case "${1:-}" in
   admin) shift; cmd_admin "$@" ;;
   backup) shift; cmd_backup "$@" ;;
   restore-drill) cmd_restore_drill ;;
+  provision) shift; cmd_provision "$@" ;;
   push-setup) shift; cmd_push_setup "$@" ;;
   status) cmd_status ;;
   down) cmd_down ;;
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  *) sed -n '2,20p' "$0"; exit 1 ;;
 esac

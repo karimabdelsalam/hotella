@@ -115,6 +115,9 @@ yet a measured load test; the pilot's monitoring (§13) confirms or adjusts them
       inspections; guest relations; lost & found; logbook — each smoke-tested in English and Arabic with the
       property's real configuration.
 - [ ] Roles and staff accounts created; MFA for managers.
+- [ ] The hotel's structure (property, buildings, floors, room types, rooms, departments) created from its profile with
+      `pilot.sh provision` and no `TBD` left (`docs/pilot/README.md`); the status of each hotel in
+      `docs/pilot/<hotel>/README.md`.
 
 ## 13. AI configuration
 - [ ] Providers (Anthropic / OpenAI) with keys in OpenBao; routing per capability; monthly budget (default 100 USD per

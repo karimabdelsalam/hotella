@@ -1,0 +1,108 @@
+{
+  "profileVersion": 1,
+  "tenant": { "code": "PILOT", "name": "Pilot Hotels" },
+  "property": {
+    "code": "EXAMPLE",
+    "name": "Example Resort",
+    "timezone": "Africa/Cairo",
+    "currency": "EGP",
+    "country": "EG",
+    "defaultLocale": "en",
+    "enabledLocales": ["en", "ar", "it", "ru", "de"]
+  },
+  "roomTypes": [
+    {
+      "code": "DBL",
+      "capacity": 2,
+      "names": {
+        "en": "Double room",
+        "ar": "غرفة مزدوجة",
+        "it": "Camera doppia",
+        "ru": "Двухместный номер",
+        "de": "Doppelzimmer"
+      }
+    },
+    {
+      "code": "TWN",
+      "capacity": 2,
+      "names": {
+        "en": "Twin room",
+        "ar": "غرفة بسريرين",
+        "it": "Camera con due letti",
+        "ru": "Номер с двумя кроватями",
+        "de": "Zweibettzimmer"
+      }
+    }
+  ],
+  "buildings": [
+    {
+      "code": "MAIN",
+      "names": {
+        "en": "Main building",
+        "ar": "المبنى الرئيسي",
+        "it": "Edificio principale",
+        "ru": "Главный корпус",
+        "de": "Hauptgebäude"
+      },
+      "floors": [
+        {
+          "code": "F1",
+          "floorLabel": "1",
+          "names": {
+            "en": "First floor",
+            "ar": "الطابق الأول",
+            "it": "Primo piano",
+            "ru": "Первый этаж",
+            "de": "Erster Stock"
+          },
+          "rooms": [{ "from": 101, "to": 106, "roomType": "DBL" }]
+        },
+        {
+          "code": "F2",
+          "floorLabel": "2",
+          "names": {
+            "en": "Second floor",
+            "ar": "الطابق الثاني",
+            "it": "Secondo piano",
+            "ru": "Второй этаж",
+            "de": "Zweiter Stock"
+          },
+          "rooms": [{ "from": 201, "to": 205, "roomType": "TWN" }, { "number": "P1" }]
+        }
+      ]
+    }
+  ],
+  "departments": [
+    {
+      "code": "HK",
+      "names": {
+        "en": "Housekeeping",
+        "ar": "التدبير الفندقي",
+        "it": "Housekeeping",
+        "ru": "Хаускипинг",
+        "de": "Housekeeping"
+      }
+    },
+    {
+      "code": "ENG",
+      "names": {
+        "en": "Engineering",
+        "ar": "الصيانة",
+        "it": "Manutenzione",
+        "ru": "Инженерная служба",
+        "de": "Technik"
+      }
+    },
+    {
+      "code": "FO",
+      "names": {
+        "en": "Front office",
+        "ar": "الاستقبال",
+        "it": "Ricevimento",
+        "ru": "Служба приёма",
+        "de": "Rezeption"
+      }
+    }
+  ],
+  "settings": [{ "key": "hk.stayover.hour", "value": 9 }]
+}

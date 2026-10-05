@@ -31,6 +31,8 @@ infra/docker/pilot/pilot.sh migrate       # migrations as hotella_admin, then gr
 infra/docker/pilot/pilot.sh start         # api + worker, waits for /api/v1/ready
 infra/docker/pilot/pilot.sh admin you@planova.example You   # first platform administrator (password prompted, never echoed)
 infra/docker/pilot/pilot.sh backup full   # first full backup; also proves WAL archiving works
+infra/docker/pilot/pilot.sh provision docs/pilot/<hotel>/profile.json <admin token>
+                                          # the hotel from its profile: tenant + pilot licence, property, rooms, departments (docs/pilot/README.md)
 ```
 
 ### Immediately after the first installation (manual)
