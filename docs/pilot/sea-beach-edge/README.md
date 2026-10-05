@@ -33,7 +33,7 @@ Legend: ✅ ready (evidence) · 🔧 Planova engineering, planned · ⛔ waiting
 | 14 | Licensing | ✅ | `pilot.sh provision` licenses the tenant with `PILOT_ALL` for the pilot. The commercial plan is the owner's decision. |
 | 15 | Offline behaviour | ✅ / ⛔ | Proven in CI (agent queue, reconnect, offline entitlements). To be repeated on site. |
 | 16 | Backup and restore | ✅ / ⛔ owner | pgBackRest and a restore drill (CI). An off-site copy location is needed. |
-| 17 | Monitoring and alerts | 🔧 | Logs, metrics and traces exist (Grafana stack). The alert rules are not built yet (P.2). |
+| 17 | Monitoring and alerts | ✅ / ⛔ owner | `hotella monitor` every 5 minutes (P.2, `docs/runbooks/monitoring.md`). Choose where alerts go (Telegram or webhook) with `hotella alert-setup`, and who is on call. |
 | 18 | Rollback | ✅ | `docs/runbooks/rollback.md`; the agent's signed update with rollback. |
 | 19 | Acceptance | ⛔ | One week of live traffic and sign-off by each department. |
 | — | Staff app "Hotella" (pushes) | ⛔ owner | Firebase project and store accounts (Q19). |

@@ -147,7 +147,9 @@ yet a measured load test; the pilot's monitoring (§13) confirms or adjusts them
 
 ## 17. Logging and monitoring
 - [ ] Logs (no personal data) and metrics/traces in the Grafana stack; alerts for agent offline, integration health
-      DEGRADED/OFFLINE, queue depth, backup failure, disk space, certificate expiry, AI budget.
+      DEGRADED/OFFLINE, queue depth, backup failure, disk space, certificate expiry, AI budget — the platform monitor
+      (`hotella monitor`, every 5 minutes; `docs/runbooks/monitoring.md`) with a destination set (`hotella alert-setup`)
+      and its test message received.
 - [ ] Who is on call, and how the hotel reports a problem.
 
 ## 18. Rollback

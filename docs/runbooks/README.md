@@ -8,6 +8,7 @@ The pilot runs on one hardened Linux host with Docker Compose (`infra/docker/com
 | [deploy.md](deploy.md) | First installation, upgrades, host hardening |
 | [rollback.md](rollback.md) | A release misbehaves |
 | [backup-restore.md](backup-restore.md) | Backup schedule, restore drill, real restore, point-in-time recovery |
+| [monitoring.md](monitoring.md) | Platform monitor: alert rules, destinations (Telegram, webhook), first steps per alert |
 | [secret-rotation.md](secret-rotation.md) | Rotating any credential or key; OpenBao unseal and root token handling |
 | [agent-enrollment.md](agent-enrollment.md) | Installing, renewing or revoking a hotel agent; testing with the simulator |
 

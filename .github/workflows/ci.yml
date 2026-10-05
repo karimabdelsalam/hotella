@@ -65,6 +65,8 @@ jobs:
         run: pnpm locales:check
       - name: Hotel provisioning tool — profile validation and an idempotent run (pilot hotels, docs/pilot)
         run: node --test infra/docker/pilot/provision.test.mjs
+      - name: Platform monitor rules — alerts fire once, remind, resolve once (checklist §17)
+        run: python3 -m unittest discover -s infra/docker/pilot -p '*_test.py' -v
       - name: Schema and migrations are in sync
         run: pnpm db:check
       - name: Migrations apply to a real PostgreSQL 18
@@ -253,6 +255,14 @@ jobs:
           grep '^result ' provision.log | tail -1 | cut -c8- | jq -e '.counts.room.created == 12 and .counts.department.created == 3'
           infra/docker/pilot/pilot.sh provision infra/docker/pilot/profiles/example.json "$token" | tee again.log
           grep '^result ' again.log | tail -1 | cut -c8- | jq -e '[.counts[] | .created] | add == 0'
+      - name: The platform monitor probes the deployed stack, and a stopped worker raises an alert (checklist §17)
+        run: |
+          infra/docker/pilot/pilot.sh monitor --dry-run --json > monitor.json
+          jq -e '(.facts.probe_errors // {}) == {} and ([.active[] | select(.key | startswith("container:") or . == "api:ready" or . == "openbao:sealed")] | length == 0)' monitor.json
+          jq -e '.facts.backup != null and (.facts.queues | length == 5)' monitor.json
+          docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml stop worker
+          infra/docker/pilot/pilot.sh monitor --dry-run --json | jq -e '[.send[] | select(.key == "container:worker" and .event == "FIRING")] | length == 1'
+          infra/docker/pilot/pilot.sh start
       - name: The application connects as an ordinary role bound by row-level security
         run: |
           docker compose -p hotella-pilot -f infra/docker/compose.pilot.yml exec -T postgres \

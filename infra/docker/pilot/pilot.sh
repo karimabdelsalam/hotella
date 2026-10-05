@@ -14,6 +14,9 @@
 #   pilot.sh provision <profile.json> <token>
 #                                 create the hotel from its profile (docs/pilot/README.md): tenant, pilot licence,
 #                                 property, buildings, floors, room types, rooms, departments, starter catalog, settings
+#   pilot.sh monitor [--dry-run]  check the platform and notify alerts (cron runs it every 5 minutes; monitor.py)
+#   pilot.sh alert-setup webhook|telegram
+#                                 where alerts go: a webhook taking {"text": …} or a Telegram bot (asked, never echoed)
 #   pilot.sh push-setup <project-id> <service-account.json>
 #                                 turn on pushes to the Hotella staff app (Firebase); the key goes to OpenBao
 #   pilot.sh status               containers, readiness, backups
@@ -303,6 +306,36 @@ cmd_provision() {
   provisioner "$profile"
 }
 
+# Platform monitor (checklist §17): probes, rules and delivery are in monitor.py.
+cmd_monitor() { python3 "$HERE/monitor.py" run "$@"; }
+
+# Where monitor alerts go. Values are asked for (not taken from the command line, which lands in shell history) and kept
+# in .secrets/alerting.env (0600); a test message confirms the destination.
+cmd_alert_setup() {
+  local kind="${1:?webhook or telegram}" file="$SECRETS/alerting.env" url token chat
+  touch "$file"; chmod 0600 "$file"
+  case "$kind" in
+    webhook)
+      read -r -s -p "Webhook URL (receives {\"text\": …}): " url; echo
+      [[ "$url" =~ ^https:// ]] || die "the webhook must be an https:// URL"
+      set_env "$file" HOTELLA_ALERT_WEBHOOK_URL "$url" ;;
+    telegram)
+      read -r -s -p "Telegram bot token: " token; echo
+      read -r -p "Telegram chat id: " chat
+      [[ "$token" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]] || die "not a Telegram bot token"
+      [[ "$chat" =~ ^-?[0-9]+$ ]] || die "not a Telegram chat id"
+      set_env "$file" HOTELLA_ALERT_TELEGRAM_TOKEN "$token"
+      set_env "$file" HOTELLA_ALERT_TELEGRAM_CHAT_ID "$chat" ;;
+    *) die "alert-setup webhook | telegram" ;;
+  esac
+  python3 "$HERE/monitor.py" test
+}
+set_env() {
+  local file="$1" key="$2" value="$3"
+  { grep -v "^$key=" "$file" || true; printf '%s=%s\n' "$key" "$value"; } >"$file.tmp"
+  chmod 0600 "$file.tmp"; mv "$file.tmp" "$file"
+}
+
 # Pushes to the Hotella staff app (ADR-0023, docs/runbooks/push-notifications.md): the Firebase service-account key
 # goes to OpenBao (never to disk next to the code), the project id to the compose environment; api and worker restart.
 cmd_push_setup() {
@@ -352,8 +385,10 @@ case "${1:-}" in
   backup) shift; cmd_backup "$@" ;;
   restore-drill) cmd_restore_drill ;;
   provision) shift; cmd_provision "$@" ;;
+  monitor) shift; cmd_monitor "$@" ;;
+  alert-setup) shift; cmd_alert_setup "$@" ;;
   push-setup) shift; cmd_push_setup "$@" ;;
   status) cmd_status ;;
   down) cmd_down ;;
-  *) sed -n '2,20p' "$0"; exit 1 ;;
+  *) sed -n '2,23p' "$0"; exit 1 ;;
 esac

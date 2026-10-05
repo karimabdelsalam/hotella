@@ -3697,10 +3697,24 @@ No new bounded context.
   never in errors). The CI pilot smoke provisions the example profile on the deployed stack twice; the second run
   creates nothing.
 
+**P.2 decisions.**
+- **A host monitor, not metrics.** The application exports no metrics yet, and the Grafana stack is optional. Alerts
+  therefore come from a host monitor (`infra/docker/pilot/monitor.py`, standard library only) that cron runs every five
+  minutes.
+- **What it probes.** Compose, readiness, OpenBao, pgBackRest, disks and TLS endpoints, plus read-only SQL for agent and
+  AI-budget state and Valkey for queue length.
+- **Fixed rules (rule 11), checked by unit tests.** The thresholds follow the platform's own rules: the agent is offline
+  after 3 minutes (as in `classifyHealth`) and the budget default is the setting's default.
+- **Notifications.** An alert fires once, is repeated every 12 hours, and resolves once. It goes to a `{"text"}` webhook
+  and/or a Telegram bot. The destination secrets live in `.secrets/alerting.env` (0600) and are asked for
+  interactively. Messages carry codes and numbers only.
+- **Tests.** The CI pilot smoke probes the deployed stack with no probe failing, then stops the worker and sees its
+  alert fire. Runbook: `docs/runbooks/monitoring.md`.
+
 | Sprint | Scope | Status |
 |---|---|---|
 | P.1 | Hotel profile v1, `provision.mjs` + `pilot.sh provision`, example profile in the CI pilot smoke, Sea Beach Edge profile and readiness status | done |
-| P.2 | Monitoring and alerts for checklist §17: agent offline, integration health, queue depth, backup failure, disk, certificate expiry, AI budget | planned |
+| P.2 | Monitoring and alerts for checklist §17: agent offline, integration health, queue depth, backup failure, disk, certificate expiry, AI budget | done |
 | P.3 | Hotel administration in the staff web app: staff accounts, roles and memberships (invite, MFA for managers); service catalog (starter import, edit, publish) | planned |
 | P.4 | Site readiness with the hotel: fill the profile, provision, walk the checklist, the phase acceptance 🟡 items on site | waiting for the hotel |
 

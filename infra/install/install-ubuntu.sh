@@ -265,6 +265,12 @@ SHELL=/bin/bash
 30 2 * * 0 root $PILOT backup full >>/var/log/hotella-backup.log 2>&1
 EOF
 chmod 0644 /etc/cron.d/hotella
+# Platform monitor (docs/runbooks/monitoring.md): every five minutes; destinations with `hotella alert-setup`.
+cat >/etc/cron.d/hotella-monitor <<EOF
+SHELL=/bin/bash
+*/5 * * * * root $PILOT monitor >>/var/log/hotella-monitor.log 2>&1
+EOF
+chmod 0644 /etc/cron.d/hotella-monitor
 
 cat >/usr/local/bin/hotella <<EOF
 #!/usr/bin/env bash
@@ -301,4 +307,5 @@ Next (docs/runbooks/deploy.md):
 
 Everyday commands:  sudo hotella status · sudo hotella backup full · sudo hotella unseal · sudo hotella start
 Pushes to the Hotella app: sudo hotella push-setup <firebase-project-id> <service-account.json>
+Alerts (checked every 5 minutes): sudo hotella alert-setup telegram   (or: webhook)
 EOF
