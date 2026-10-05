@@ -84,7 +84,32 @@ export const AI_INSIGHTS_SLOW_TURNAROUND = defineSetting({
   descriptionKey: 'ai.setting.insights_slow_turnaround',
 });
 
+/**
+ * Cloud speech for a hotel (ADR-0025, owner decision Q22): guest voice audio is processed on Planova-operated
+ * infrastructure only, unless the hotel approved an external speech provider — recorded here with who approved it and
+ * when. Per property only; the external provider must also pass the platform allowlist and the tenant's opt-in.
+ */
+export const AI_SPEECH_EXTERNAL = defineSetting<
+  | { enabled: false }
+  | { enabled: true; approvedBy: string; approvedAt: string; reference?: string | undefined }
+>({
+  key: 'ai.speech.external',
+  scopes: ['PROPERTY'],
+  schema: z.discriminatedUnion('enabled', [
+    z.object({ enabled: z.literal(false) }),
+    z.object({
+      enabled: z.literal(true),
+      approvedBy: z.string().trim().min(2).max(120),
+      approvedAt: z.iso.date(),
+      reference: z.string().trim().max(120).optional(),
+    }),
+  ]),
+  default: { enabled: false },
+  descriptionKey: 'ai.setting.speech_external',
+});
+
 export const AI_SETTINGS = [
+  AI_SPEECH_EXTERNAL,
   AI_EXTERNAL_PROVIDERS_ALLOWED,
   AI_EXTERNAL_PROVIDERS_ENABLED,
   AI_BUDGET_MONTHLY_LIMIT_MINOR,

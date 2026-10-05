@@ -7,6 +7,7 @@ import {
 import { GUEST_API, type GuestPublicApi } from '@hotella/domain-guest/public';
 import { ORGANIZATION_API, type OrganizationPublicApi } from '@hotella/domain-organization/public';
 import type { ContextProviderCode } from '../domain/agents';
+import { type CallerAssurance, ROOM_CONTEXT_NOTE } from '../domain/caller-assurance';
 import type { ClassifiedText, DataClass, GatewayMessage } from '../public';
 
 export interface ContextRequest {
@@ -17,6 +18,8 @@ export interface ContextRequest {
   readonly locale: string;
   readonly providers: readonly ContextProviderCode[];
   readonly recentMessages: number;
+  /** Who is speaking (ADR-0025): a room-context caller gets no personal details and only the call's own turns. */
+  readonly assurance?: CallerAssurance;
 }
 
 export interface BuiltContext {
@@ -60,6 +63,9 @@ export class ContextEngine {
       summary.push({ provider, items: lines.length, dataClass });
       if (lines.length > 0) parts.push({ text: block(provider, lines), dataClass });
     };
+    const roomContext = req.assurance === 'ROOM_CONTEXT';
+    if (roomContext)
+      parts.push({ text: block('caller', ROOM_CONTEXT_NOTE), dataClass: 'INTERNAL' });
     for (const provider of req.providers) {
       switch (provider) {
         case 'property.profile': {
@@ -84,7 +90,7 @@ export class ContextEngine {
             ? await this.org.getRoom(req.tenantId, req.propertyId, stay.currentRoomId)
             : null;
           add(provider, 'CONFIDENTIAL', [
-            `Guest first name: ${member?.givenName ?? 'unknown'}`,
+            ...(roomContext ? [] : [`Guest first name: ${member?.givenName ?? 'unknown'}`]),
             `Stay status: ${stay.status}`,
             `Room: ${room?.roomNumber ?? 'not assigned'}`,
             `Expected departure: ${stay.expectedDeparture}`,
@@ -130,6 +136,8 @@ export class ContextEngine {
           );
           history = messages.flatMap((m): GatewayMessage[] => {
             if (!m.body) return [];
+            // A room-context caller hears only the call's turns, never what the verified guest wrote elsewhere.
+            if (roomContext && m.channelType !== 'VOICE') return [];
             if (m.direction === 'INBOUND')
               return [{ role: 'user', content: m.body, dataClass: 'CONFIDENTIAL' }];
             const who = m.senderType === 'AI' ? '' : `(${m.senderType.toLowerCase()}) `;

@@ -441,5 +441,7 @@
   "errors.ai.insight.version_conflict": "تم تغيير الرؤية في الأثناء. أعد التحميل وحاول مرة أخرى.",
   "errors.ai.tool.no_person": "لا يمكن استخدام هذا المساعد إلا نيابةً عن أحد الموظفين.",
   "errors.ai.consult.not_allowed": "لا يُسمح لهذا المساعد باستشارة مساعد آخر.",
-  "errors.ai.consult.too_deep": "لا يمكن للمساعد الذي تمت استشارته أن يستشير مساعدًا آخر."
+  "errors.ai.consult.too_deep": "لا يمكن للمساعد الذي تمت استشارته أن يستشير مساعدًا آخر.",
+  "errors.comms.voice.extension_duplicate": "التحويلة {extension} مكررة.",
+  "errors.comms.voice.room_not_found": "غرفة التحويلة {extension} غير موجودة في هذا الفندق."
 }

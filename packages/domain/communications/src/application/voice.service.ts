@@ -14,7 +14,7 @@ import { newId, type PropertyScope, TransactionRunner } from '@hotella/platform-
 import { EventPublisher } from '@hotella/platform-events';
 import { InjectLogger, type Logger } from '@hotella/platform-observability';
 import { SettingsReader } from '@hotella/platform-settings';
-import { COMMS_VOICE_ROOM_PHONE_TRUSTED } from '../domain/settings';
+import { COMMS_VOICE_ROOM_CONTEXT } from '../domain/settings';
 import { CallRepositories } from '../infrastructure/call-repositories';
 import { ConversationRepositories } from '../infrastructure/conversation-repositories';
 import { CommsRepositories } from '../infrastructure/repositories';
@@ -37,15 +37,18 @@ export type TransferReason =
   | 'SPEECH_UNAVAILABLE'
   | 'SPEECH_FAILED';
 
+/** How the directory knows a caller (stored on the call; metadata only, Q23). */
+export type CallerKind = 'ROOM' | 'PUBLIC' | 'STAFF' | 'OPERATOR' | 'UNKNOWN' | 'EXTERNAL';
+
 export const callsQuerySchema = z.object({
   before: z.iso.datetime({ offset: true }).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
 /**
- * The voice channel (BUILD_PLAN 13.4). The gateway reports calls; a call from a room phone of an in-house stay — only
- * where the property trusts room phones (Q27) — joins that stay's conversation and is answered by whoever answers the
- * conversation (the concierge in AUTO mode). Every other call, and every call the platform cannot serve, goes to the
+ * The voice channel (BUILD_PLAN 13.4, ADR-0025). The gateway reports calls; a call from a guest-room extension of the
+ * directory whose room has one in-house stay gets room context (Q27): it joins that stay's conversation and is answered
+ * by whoever answers the conversation (the concierge in AUTO mode, with the room-context tools only). Every other call, and every call the platform cannot serve, goes to the
  * operator extension at once. Utterance audio is transcribed here and dropped; only the words are kept.
  */
 @Injectable()
@@ -93,7 +96,7 @@ export class VoiceService {
     const outcome = await this.tx.run(async () => {
       const scope = { tenantId: channel.tenantId };
       const identity = await this.identities.observe(channel.tenantId, 'VOICE', e.from, e.at);
-      const stay = await this.roomPhoneStay(channel, e.from, config.roomExtensionPrefix);
+      const { callerKind, stay } = await this.roomContext(channel, e.from);
       let reason: TransferReason | null = stay ? null : 'UNTRUSTED_CALLER';
       const conversation = stay
         ? await this.engine.conversationForCall(channel, stay, identity.id)
@@ -110,6 +113,7 @@ export class VoiceService {
         channelId: channel.id,
         providerCallId: e.callId,
         fromIdentityId: identity.id,
+        callerKind,
         conversationId: conversation?.id ?? null,
         stayId: stay?.id ?? null,
         status: reason ? 'TRANSFERRED' : 'ANSWERED',
@@ -339,26 +343,23 @@ export class VoiceService {
   }
 
   /**
-   * The in-house stay a room phone stands for: only when the property trusts room phones, the caller is
-   * `<prefix><room number>` of a known room, and exactly one in-house stay is in that room (never a guess, rule 16).
+   * Who is calling, by the channel's extension directory (ADR-0025, Q27). Only a ROOM extension whose room has exactly
+   * one in-house stay gives room context — the room and stay, not the person; everyone else goes to the operator.
+   * Nothing is inferred from the number itself (rule 16).
    */
-  private async roomPhoneStay(
+  private async roomContext(
     channel: ChannelRow,
     from: string,
-    prefix: string,
-  ): Promise<StaySummary | null> {
+  ): Promise<{ callerKind: CallerKind; stay: StaySummary | null }> {
     const at = { tenantId: channel.tenantId, propertyId: channel.propertyId };
-    if (!(await this.settings.value(COMMS_VOICE_ROOM_PHONE_TRUSTED, at))) return null;
-    if (!/^\d{1,16}$/.test(from) || !from.startsWith(prefix) || from.length === prefix.length)
-      return null;
-    const room = await this.org.getRoomByNumber(
-      at.tenantId,
-      at.propertyId,
-      from.slice(prefix.length),
-    );
-    if (!room) return null;
-    const stays = await this.guests.inHouseStaysInRoom(at.tenantId, at.propertyId, room.id);
-    return stays.length === 1 ? stays[0]! : null;
+    if (!/^[0-9*#]{1,16}$/.test(from)) return { callerKind: 'EXTERNAL', stay: null };
+    const entry = await this.calls.extension({ tenantId: at.tenantId }, channel.id, from);
+    if (!entry) return { callerKind: 'UNKNOWN', stay: null };
+    if (entry.kind !== 'ROOM' || !entry.roomId) return { callerKind: entry.kind, stay: null };
+    if (!(await this.settings.value(COMMS_VOICE_ROOM_CONTEXT, at)))
+      return { callerKind: 'ROOM', stay: null };
+    const stays = await this.guests.inHouseStaysInRoom(at.tenantId, at.propertyId, entry.roomId);
+    return { callerKind: 'ROOM', stay: stays.length === 1 ? stays[0]! : null };
   }
 
   private adapter(channel: ChannelRow): VoiceProvider {
@@ -367,11 +368,8 @@ export class VoiceService {
     return adapter;
   }
 
-  private config(channel: ChannelRow): { operatorExtension: string; roomExtensionPrefix: string } {
-    return this.runtime.context(channel).config as {
-      operatorExtension: string;
-      roomExtensionPrefix: string;
-    };
+  private config(channel: ChannelRow): { operatorExtension: string } {
+    return this.runtime.context(channel).config as { operatorExtension: string };
   }
 }
 
@@ -382,6 +380,7 @@ function view(c: CallRow) {
     conversationId: c.conversationId,
     stayId: c.stayId,
     status: c.status,
+    callerKind: c.callerKind,
     transferReason: c.transferReason,
     transferExtension: c.transferExtension,
     startedAt: c.startedAt,

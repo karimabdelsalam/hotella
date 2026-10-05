@@ -4,6 +4,7 @@
   "ai.permission.usage_read": "KI-Nutzung und -Kosten einsehen",
   "ai.setting.external_providers_allowed": "KI-Anbieter außerhalb der Installation, die überhaupt verwendet werden dürfen",
   "ai.setting.external_providers_enabled": "KI-Anbieter außerhalb der Installation für diese Hotelgruppe zulassen",
+  "ai.setting.speech_external": "Cloud-Sprachverarbeitung für Gästeanrufe: nur mit dokumentierter Freigabe des Hotels (wer und wann); aus bedeutet nur lokale Verarbeitung",
   "ai.setting.budget_monthly_limit_minor": "Monatliches Limit für KI-Anbieter außerhalb der Installation (in kleinster Währungseinheit)",
   "ai.approval.ai_action": "Eine vom KI-Assistenten vorgeschlagene Aktion",
   "ai.permission.execution_read": "Einsehen, was der KI-Assistent getan hat und warum",

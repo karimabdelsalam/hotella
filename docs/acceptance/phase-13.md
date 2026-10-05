@@ -25,7 +25,7 @@ Legend: ✅ verified by automation · 🟡 needs a human or an owner decision.
 | 11 | Core not redesigned (BUILD_PLAN Phase 13 rule) | ✅ | New capabilities arrive as connectors, a channel adapter, canonical events (`hotel.pos.check_closed`), integration events and ports (`SPEECH_SERVICES`, `ACCESS_API`, `ERP_API`); no core context changed shape. |
 | 12 | Real vendor systems (PBX/SIP, BMS protocols, door locks and Wi-Fi, POS, ERP) | 🟡 | Owner decisions Q21, Q24, Q25 and Q26; until then the neutral profiles and simulator faces stand in. |
 | 13 | Voice with real telephony and a real on-prem speech model | 🟡 | Tests use the FAKE speech provider and the simulated gateway; the pilot needs a PBX bridge (Q21) and a local speech server (`OPENAI_COMPATIBLE` `/audio/*`). Q22 (external speech) and Q23 (recording) stay at their safe defaults. |
-| 14 | Whether a room phone may stand for the room's stay (concierge answers by voice) | 🟡 | Owner question Q27 (security trade-off): `comms.voice.room_phone_trusted` defaults to off, so every call goes to the operator. |
+| 14 | Room phones (Q27, decided 2026-10-05): a directory ROOM extension gives room context; the concierge then serves the room only, and sensitive things go to the operator | ✅ | Sprint 13.7 (ADR-0025): `caller-assurance.spec.ts`; `voice.integration.spec.ts` (unknown, external and public extensions → operator; a room call cannot read the guest and the name is not in the model's input). |
 
 ## Deviations recorded during Phase 13
 - Link protocol 3 (several connectors on one link) was dropped: several connectors on one host are ADR-0020 instances,
@@ -40,7 +40,8 @@ Legend: ✅ verified by automation · 🟡 needs a human or an owner decision.
 - ERP item codes are external references of parts (`eng.part` ↔ `ERP_ITEM`), not a field on the part (rule 3) — 13.5.
 
 ## Open items carried forward
-- 🟡 Owner: Q21–Q27 (vendors, external speech, recording, room-phone trust).
+- Owner decisions Q21–Q27 answered on 2026-10-05 (ADR-0025). Follow-ups: 13.8 SIP bridge (Grandstream), 13.9
+  BACnet/Modbus bridges, 13.10 VingCard adapter (needs ASSA ABLOY partner access).
 - Staff screens for calls, stay spend and requisitions are API-only in v1 (the inbox already shows voice turns).
 - Pre-existing: `Promise.all` inside transactions in the integrations context (capability registry, commissioning)
   triggers pg's deprecation warning on concurrent queries of one client; it should become sequential before pg 9.

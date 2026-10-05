@@ -441,5 +441,7 @@
   "errors.ai.insight.version_conflict": "The insight was changed meanwhile. Reload and try again.",
   "errors.ai.tool.no_person": "This assistant can only be used on behalf of a staff member.",
   "errors.ai.consult.not_allowed": "This assistant may not consult another assistant.",
-  "errors.ai.consult.too_deep": "A consulted assistant cannot consult another one."
+  "errors.ai.consult.too_deep": "A consulted assistant cannot consult another one.",
+  "errors.comms.voice.extension_duplicate": "Extension {extension} appears more than once.",
+  "errors.comms.voice.room_not_found": "The room of extension {extension} does not exist at this property."
 }

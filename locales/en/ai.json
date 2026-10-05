@@ -4,6 +4,7 @@
   "ai.permission.usage_read": "See AI usage and cost",
   "ai.setting.external_providers_allowed": "AI providers outside the installation that may be used at all",
   "ai.setting.external_providers_enabled": "Allow AI providers outside the installation for this hotel group",
+  "ai.setting.speech_external": "Cloud speech for guest calls: only with the hotel’s recorded approval (who and when); off means on-premises speech only",
   "ai.setting.budget_monthly_limit_minor": "Monthly limit for AI providers outside the installation (minor currency units)",
   "ai.approval.ai_action": "An action proposed by the AI assistant",
   "ai.permission.execution_read": "See what the AI assistant did and why",

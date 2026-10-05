@@ -8,6 +8,7 @@ import {
   ActivationController,
   CallsController,
   ChannelsController,
+  VoiceDirectoryController,
   InboxController,
   RoomQrController,
 } from './api/controllers';
@@ -25,6 +26,7 @@ import { JsonHttpSmsAdapter } from './application/adapters/sms-http';
 import { VoiceGatewayAdapter } from './application/adapters/voice-gateway';
 import { SpeechRegistry } from './application/speech';
 import { VoiceService } from './application/voice.service';
+import { VoiceDirectoryService } from './application/voice-directory.service';
 import { CallRepositories } from './infrastructure/call-repositories';
 import { ConversationService } from './application/conversation.service';
 import { InboxService } from './application/inbox.service';
@@ -128,6 +130,7 @@ export class CommunicationsCoreModule implements OnModuleInit {
     RoomQrController,
     InboxController,
     CallsController,
+    VoiceDirectoryController,
     GuestActivationController,
     GuestSelfController,
     GuestChatController,
@@ -140,6 +143,7 @@ export class CommunicationsCoreModule implements OnModuleInit {
     GuestPortalService,
     GuestSessionGuard,
     InboxService,
+    VoiceDirectoryService,
   ],
 })
 export class CommunicationsModule implements OnModuleInit {

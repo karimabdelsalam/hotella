@@ -3211,6 +3211,10 @@ eng (telemetry)
 | 13.4 | Voice channel: Planova Voice Profile, `VOICE` adapter, calls, STT/TTS via gateway (on-prem), concierge voice turns, transfer, `VOICE_MINUTES`; simulator | done |
 | 13.5 | POS and ERP: closed checks to twin and spend facts; ERP stock read and requisitions from parts; simulators | done |
 | 13.6 | Phase 13 acceptance (`docs/acceptance/phase-13.md`) | done |
+| 13.7 | Owner decisions Q22/Q27 (ADR-0025): voice extension directory, room-context assurance for the concierge, per-hotel approval for external speech | done |
+| 13.8 | SIP voice bridge in the hotel agent (`VOICE_SIP`), Grandstream UCM first (Q21) | planned |
+| 13.9 | BACnet/IP and Modbus TCP telemetry bridges in the agent (Q24) | planned |
+| 13.10 | VingCard / ASSA ABLOY lock adapter (Q25) | blocked — needs ASSA ABLOY partner access |
 
 Order rationale: the SDK first (everything else plugs into it); telemetry and access next (deterministic, high
 operational value, no vendor needed to prove them); voice after (depends on an AUDIO model on-prem and Q22/Q23).
@@ -3405,6 +3409,36 @@ approved → SENT with the command id, or APPROVED with `NO_CONNECTOR`/`UNLINKED
 `eng.requisition.request`), `/eng/parts/:id/erp-item` and `/eng/parts/:id/stock` (`eng.parts.manage`); the engineering
 desk role may request. Simulator: `SimulatedErp` (stores ledger, blocked items). Tests: `erp.e2e-spec.ts` (an ERP agent
 over the real link), `requisitions.integration.spec.ts` (approval, command, settlement, rejection, tenant leak).
+
+**13.7 design (owner decisions of 2026-10-05, ADR-0025).**
+- *Extension directory:* `comms.voice_extensions(id, tenant, property, channel_id, extension, kind ROOM|PUBLIC|STAFF|
+  OPERATOR, room_id, version)` unique per channel and extension, tenant FK + RLS; API under
+  `/properties/:id/channels/:channelId/extensions` (`channel.manage`): GET, PUT (replace the directory, audited), POST
+  `rooms-by-number {prefix}` (adds a ROOM entry for each room without one). The voice adapter's `roomExtensionPrefix`
+  goes away. A call gets room context only from a `ROOM` entry whose room has exactly one in-house stay; `comms.calls`
+  records `caller_kind` (`ROOM|PUBLIC|STAFF|OPERATOR|UNKNOWN|EXTERNAL`). Setting `comms.voice.room_context` (default
+  on) replaces `comms.voice.room_phone_trusted`.
+- *Assurance:* `ConversationMessage` gains `channelType` and `assurance` (`VERIFIED|ROOM_CONTEXT`; voice turns of a
+  room-context call are `ROOM_CONTEXT`). The concierge, for a `ROOM_CONTEXT` turn: tools ∩ `ROOM_CONTEXT_TOOLS`
+  (`catalog.list_services`, `operations.find_open_requests`, `operations.create_service_request`,
+  `housekeeping.set_room_signal`, `relations.suggest_complaint`, `knowledge.search`, `restaurant.find_tables`,
+  `communication.send_message`); context without the guest's name and with only the voice turns of the conversation;
+  a `caller` block saying the speaker is not verified; the execution's context step records the assurance. Sensitive asks → hand-off
+  `SENSITIVE_REQUEST` → transfer to the operator.
+- *Speech approval:* property setting `ai.speech.external` (`{enabled:false}` or `{enabled:true, approvedBy, approvedAt,
+  reference?}`); the gateway's `AUDIO` route skips `EXTERNAL` providers unless it is enabled for the property.
+
+**13.7 as built.** Migration 0061 (`comms.voice_extensions` with tenant FK + RLS; `comms.calls.caller_kind`);
+`VoiceDirectoryService` and `/properties/:id/channels/:channelId/extensions` (GET, PUT, POST `rooms-by-number`;
+`channel.manage`; a room must belong to the property; audited); the voice adapter lost `roomExtensionPrefix`; setting
+`comms.voice.room_context` (default on). `ConversationMessage.channelType|assurance`; AI `domain/caller-assurance.ts`
+(`ROOM_CONTEXT_TOOLS`, `toolsFor`), the concierge records the assurance in its context step and runs a room-context turn (and
+its shadow) with the allowlist; the context engine drops the guest's name and other channels' messages and adds the
+`caller` block. `ai.speech.external` (property; approval with `approvedBy`/`approvedAt` required to enable) and
+`speechAllowed()` in the gateway's `AUDIO` route. Tests: `caller-assurance.spec.ts`, egress unit, and
+`voice.integration.spec.ts` (unknown, external and public extensions → operator with their caller kind; a room call's
+`guest.get_current_stay` is refused and the name is not in the model's input; cloud speech unused without approval;
+directory prefill and tenant isolation).
 
 #### 13.E Tests and acceptance
 - Unit: rule evaluation (threshold/hysteresis/rate/stuck/missing), minute aggregation, webhook signature window,
@@ -3701,13 +3735,13 @@ A module/phase is accepted only when all of the following are true:
 | Q18 | Restaurant allowance counted per stay (room reservation) or per person; 7-night block configurable | 14.2 | per stay, block 7 nights, 1 booking per block (Spec B.1); owner may change |
 | Q19 | Apple Developer Program and Google Play accounts, Firebase project, store name "Hotella" (purchases) | 14.4 | open — owner |
 | Q20 | Staff app technology | — | **Answered 2026-10-05:** Flutter, one app "Hotella", sign-in per hotel (ADR-0023) |
-| Q21 | Voice: which PBX / voice gateway or CPaaS (on-prem SIP gateway vs cloud telephony) | 13.4 | open — owner (neutral Planova Voice Profile + simulator until then) |
-| Q22 | Voice: may guest audio go to an external speech model, or on-prem only | 13.4 | open — owner (default on-prem only, ADR-0024) |
-| Q23 | Voice: record calls (consent wording, retention) or never | 13.4 | open — owner (default never) |
-| Q27 | Voice: may a call from a room's phone stand for that room's in-house stay (the concierge answers and acts for the stay), or must every call go to the operator | 13.4 | open — owner (security trade-off; default off: setting `comms.voice.room_phone_trusted`) |
-| Q24 | BMS/IoT: which protocols and vendors to support first (BACnet/IP, Modbus TCP, MQTT, a vendor cloud) | 13.2 | open — owner (neutral profile via agent/webhook until then) |
-| Q25 | Door locks and Wi-Fi: which vendors (e.g. physical keys vs mobile keys) and partnership terms | 13.3 | open — owner (commercial) |
-| Q26 | POS and ERP: which systems at the pilot hotel | 13.5 | open — owner |
+| Q21 | Voice: which PBX / voice gateway or CPaaS (on-prem SIP gateway vs cloud telephony) | 13.4 | **Answered 2026-10-05:** Grandstream first, built on standard SIP for other PBXs (ADR-0025, Sprint 13.8) |
+| Q22 | Voice: may guest audio go to an external speech model, or on-prem only | 13.4 | **Answered 2026-10-05:** on-prem only by default; cloud speech only by explicit per-hotel setting with the hotel's approval (ADR-0025, 13.7) |
+| Q23 | Voice: record calls (consent wording, retention) or never | 13.4 | **Answered 2026-10-05:** never; call metadata only (ADR-0025) |
+| Q27 | Voice: may a call from a room's phone stand for that room's in-house stay (the concierge answers and acts for the stay), or must every call go to the operator | 13.4 | **Answered 2026-10-05:** room-context identification on; sensitive information and actions need verification; other extensions go to the operator (ADR-0025, 13.7) |
+| Q24 | BMS/IoT: which protocols and vendors to support first (BACnet/IP, Modbus TCP, MQTT, a vendor cloud) | 13.2 | **Answered 2026-10-05:** vendor-neutral; BACnet/IP and Modbus TCP bridges in the agent (ADR-0025, 13.9) |
+| Q25 | Door locks and Wi-Fi: which vendors (e.g. physical keys vs mobile keys) and partnership terms | 13.3 | **Answered 2026-10-05:** VingCard / ASSA ABLOY first, as an adapter (ADR-0025, 13.10; needs ASSA ABLOY partner access) |
+| Q26 | POS and ERP: which systems at the pilot hotel | 13.5 | **Answered 2026-10-05:** Wi-Fi, POS and ERP stay vendor-neutral, modular connectors (ADR-0025) |
 
 ---
 

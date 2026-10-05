@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { desc, eq, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, lt, sql } from 'drizzle-orm';
 import {
   DATABASE,
   type Database,
@@ -9,7 +9,7 @@ import {
   type TenantScope,
   tenantWhere,
 } from '@hotella/platform-database';
-import { calls, type CallRow } from './schema';
+import { calls, type CallRow, voiceExtensions, type VoiceExtensionRow } from './schema';
 
 /** Voice calls (BUILD_PLAN 13.4). */
 @Injectable()
@@ -102,5 +102,44 @@ export class CallRepositories {
       )
       .orderBy(desc(calls.startedAt))
       .limit(opts.limit);
+  }
+
+  // ---- extension directory ----
+
+  extension(
+    scope: TenantScope,
+    channelId: string,
+    extension: string,
+  ): Promise<VoiceExtensionRow | undefined> {
+    return this.x
+      .select()
+      .from(voiceExtensions)
+      .where(
+        tenantWhere(
+          voiceExtensions,
+          scope,
+          and(eq(voiceExtensions.channelId, channelId), eq(voiceExtensions.extension, extension)),
+        ),
+      )
+      .then((r) => r[0]);
+  }
+
+  extensionsOf(scope: TenantScope, channelId: string): Promise<VoiceExtensionRow[]> {
+    return this.x
+      .select()
+      .from(voiceExtensions)
+      .where(tenantWhere(voiceExtensions, scope, eq(voiceExtensions.channelId, channelId)))
+      .orderBy(asc(voiceExtensions.extension));
+  }
+
+  async replaceExtensions(
+    scope: TenantScope,
+    channelId: string,
+    rows: Array<typeof voiceExtensions.$inferInsert>,
+  ): Promise<void> {
+    await this.x
+      .delete(voiceExtensions)
+      .where(tenantWhere(voiceExtensions, scope, eq(voiceExtensions.channelId, channelId)));
+    if (rows.length > 0) await this.x.insert(voiceExtensions).values(rows);
   }
 }

@@ -62,20 +62,21 @@ export const COMMS_AI_MODE_DEFAULT = defineSetting<'OFF' | 'ASSIST' | 'AUTO'>({
 });
 
 /**
- * Voice (BUILD_PLAN 13.4, owner question Q27): whether a call from a room's phone may stand for the room's in-house stay,
- * so the concierge answers it and acts for the stay. Off by default: every call then goes to the operator.
+ * Voice room context (ADR-0025, owner decision Q27): a call from a guest-room extension of the directory stands for the
+ * room's in-house stay — the room and stay, not the person — so the concierge answers it with the room-context tools.
+ * On by default; a hotel may switch it off, and then every call goes to the operator.
  */
-export const COMMS_VOICE_ROOM_PHONE_TRUSTED = defineSetting({
-  key: 'comms.voice.room_phone_trusted',
+export const COMMS_VOICE_ROOM_CONTEXT = defineSetting({
+  key: 'comms.voice.room_context',
   scopes: SCOPES,
   schema: z.boolean(),
-  default: false,
-  descriptionKey: 'comms.setting.voice_room_phone_trusted',
+  default: true,
+  descriptionKey: 'comms.setting.voice_room_context',
 });
 
 export const COMMUNICATIONS_SETTINGS = [
   COMMS_AI_MODE_DEFAULT,
-  COMMS_VOICE_ROOM_PHONE_TRUSTED,
+  COMMS_VOICE_ROOM_CONTEXT,
   COMMS_OTP_PRIMARY_CHANNEL,
   COMMS_OTP_FALLBACK_CHANNELS,
   COMMS_OTP_FALLBACK_TIMEOUT_SECONDS,

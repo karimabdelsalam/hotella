@@ -42,6 +42,13 @@ export interface ConversationMessage {
   readonly direction: 'INBOUND' | 'OUTBOUND';
   readonly senderType: 'GUEST' | 'STAFF' | 'AI' | 'SYSTEM' | 'EXTERNAL';
   readonly body: string | null;
+  /** The channel it came or went on (`WHATSAPP`, `GUEST_WEB`, `VOICE`…). */
+  readonly channelType: string;
+  /**
+   * How well the sender is known (ADR-0025): `VERIFIED` (activation, OTP or staff-verified identity with a live grant)
+   * or `ROOM_CONTEXT` (a call from the room's phone: the room and stay, not the person). Outbound messages are VERIFIED.
+   */
+  readonly assurance: 'VERIFIED' | 'ROOM_CONTEXT';
   readonly createdAt: string;
 }
 

@@ -441,5 +441,7 @@
   "errors.ai.insight.version_conflict": "Die Erkenntnis wurde inzwischen geändert. Neu laden und erneut versuchen.",
   "errors.ai.tool.no_person": "Dieser Assistent kann nur im Auftrag eines Mitarbeiters genutzt werden.",
   "errors.ai.consult.not_allowed": "Dieser Assistent darf keinen anderen Assistenten befragen.",
-  "errors.ai.consult.too_deep": "Ein befragter Assistent kann keinen weiteren befragen."
+  "errors.ai.consult.too_deep": "Ein befragter Assistent kann keinen weiteren befragen.",
+  "errors.comms.voice.extension_duplicate": "Die Nebenstelle {extension} kommt mehrfach vor.",
+  "errors.comms.voice.room_not_found": "Das Zimmer der Nebenstelle {extension} gibt es in diesem Haus nicht."
 }

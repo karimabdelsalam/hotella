@@ -7786,6 +7786,141 @@
         ]
       }
     },
+    "/api/v1/properties/{propertyId}/channels/{channelId}/extensions": {
+      "get": {
+        "operationId": "VoiceDirectoryController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VoiceDirectory"
+        ]
+      },
+      "put": {
+        "operationId": "VoiceDirectoryController_replace",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceDirectoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VoiceDirectory"
+        ]
+      }
+    },
+    "/api/v1/properties/{propertyId}/channels/{channelId}/extensions/rooms-by-number": {
+      "post": {
+        "operationId": "VoiceDirectoryController_roomsByNumber",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channelId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomsByNumberDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VoiceDirectory"
+        ]
+      }
+    },
     "/api/v1/guest/activation/start": {
       "post": {
         "operationId": "GuestActivationController_start",
@@ -20653,6 +20788,78 @@
         "required": [
           "mode"
         ]
+      },
+      "VoiceDirectoryDto": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "maxItems": 5000,
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "extension": {
+                      "type": "string",
+                      "pattern": "^[0-9*#]{1,16}$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "ROOM"
+                      ]
+                    },
+                    "roomId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "extension",
+                    "kind",
+                    "roomId"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "extension": {
+                      "type": "string",
+                      "pattern": "^[0-9*#]{1,16}$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "PUBLIC",
+                        "STAFF",
+                        "OPERATOR"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "extension",
+                    "kind"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "entries"
+        ]
+      },
+      "RoomsByNumberDto": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "default": "",
+            "type": "string",
+            "pattern": "^\\d{0,6}$"
+          }
+        }
       },
       "StartActivationDto": {
         "type": "object",

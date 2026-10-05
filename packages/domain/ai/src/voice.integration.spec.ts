@@ -200,7 +200,7 @@ describe.skipIf(needsInfra())(`Voice channel (${infraSkipReason()})`, () => {
     await new Promise<void>((r) => server?.close(() => r()));
   });
 
-  it('refuses forged or unknown deliveries and, by default, hands every call to the operator', async () => {
+  it('refuses forged or unknown deliveries; outside numbers and extensions not in the directory go to the operator', async () => {
     const started = (id: string, from: string) => ({
       type: 'call.started',
       call_id: id,
@@ -212,7 +212,7 @@ describe.skipIf(needsInfra())(`Voice channel (${infraSkipReason()})`, () => {
     await post([started('unknown', '504')], VOICE.signingSecret, newId()).expect(404);
     expect(await callRow('forged')).toBeUndefined();
 
-    // Room phones are not trusted until the property says so (Q27): even room 504 goes to the operator.
+    // Room context needs the extension directory (ADR-0025): 504 is not in it yet, so it is an unknown extension.
     const res = await post([
       started('ext-1', '+201001234567'),
       started('room-early', '504'),
@@ -226,20 +226,49 @@ describe.skipIf(needsInfra())(`Voice channel (${infraSkipReason()})`, () => {
     expect(await callRow('room-early')).toMatchObject({
       status: 'TRANSFERRED',
       transfer_reason: 'UNTRUSTED_CALLER',
+      caller_kind: 'UNKNOWN',
       conversation_id: null,
     });
+    expect(await callRow('ext-1')).toMatchObject({ caller_kind: 'EXTERNAL' });
     // A repeated delivery changes nothing.
     await post([started('ext-1', '+201001234567')]).expect(200, { received: 1, applied: 0 });
   });
 
-  it('a room-phone call: spoken words become a request and the answer is spoken back', async () => {
-    await setting('comms.voice.room_phone_trusted', true);
+  it('a room-phone call has room context: spoken words become a request and the answer is spoken back', async () => {
+    const directory = `${base()}/channels/${channelId}/extensions`;
+    await h
+      .http()
+      .put(directory)
+      .set('X-Test-Actor', gm())
+      .send({
+        entries: [
+          { extension: '504', kind: 'ROOM', roomId: hotel.roomId },
+          { extension: '100', kind: 'PUBLIC' },
+        ],
+      })
+      .expect(200);
+    // A room of another hotel cannot be put in this directory.
+    await h
+      .http()
+      .put(directory)
+      .set('X-Test-Actor', gm())
+      .send({ entries: [{ extension: '900', kind: 'ROOM', roomId: other.roomId }] })
+      .expect(422);
     await route('AUDIO', 'VOICE_S', 'ON_PREM', 'SENSITIVE');
+    // The lobby phone is a public-area extension: operator.
+    await post([
+      { type: 'call.started', call_id: 'lobby-1', from: '100', to: '1000', at: at(0) },
+    ]).expect(200);
+    expect(await callRow('lobby-1')).toMatchObject({
+      status: 'TRANSFERRED',
+      caller_kind: 'PUBLIC',
+      transfer_reason: 'UNTRUSTED_CALLER',
+    });
     await post([
       { type: 'call.started', call_id: 'call-1', from: '504', to: '1000', at: at(0) },
     ]).expect(200, { received: 1, applied: 1 });
     const call = await callRow('call-1');
-    expect(call).toMatchObject({ status: 'ANSWERED', stay_id: hotel.stayId });
+    expect(call).toMatchObject({ status: 'ANSWERED', stay_id: hotel.stayId, caller_kind: 'ROOM' });
     const conversation = (
       await h.db.execute(
         sql`select reply_channel_type, reply_channel_id from comms.conversations where id = ${call.conversation_id as string}`,
@@ -273,20 +302,34 @@ describe.skipIf(needsInfra())(`Voice channel (${infraSkipReason()})`, () => {
     ).rows[0] as { n: number };
     expect(speech.n).toBe(1);
 
+    // Room context (Q27): the room, not the person. The guest's details are not readable; the name is not in context.
+    let seen = '';
+    let refused: unknown;
     fake.reset();
     fake.reply(
-      {
-        toolCalls: [
-          {
-            id: 't',
-            name: 'operations__create_service_request',
-            arguments: { service_code: 'EXTRA_TOWELS', fields: { quantity: 2 } },
-          },
-        ],
+      (request) => {
+        seen = JSON.stringify(request.messages);
+        return { toolCalls: [{ id: 'g', name: 'guest__get_current_stay', arguments: {} }] };
+      },
+      (request) => {
+        const tool = [...request.messages].reverse().find((m) => m.role === 'tool');
+        refused = tool ? JSON.parse(tool.content) : null;
+        return {
+          toolCalls: [
+            {
+              id: 't',
+              name: 'operations__create_service_request',
+              arguments: { service_code: 'EXTRA_TOWELS', fields: { quantity: 2 } },
+            },
+          ],
+        };
       },
       { content: JSON.stringify({ reply: 'Two towels are on their way.', handoff: null }) },
     );
     expect(await asWorker(await received())).toBe('REPLIED');
+    expect(refused).toMatchObject({ status: 'REFUSED' });
+    expect(seen).toContain('not the person speaking');
+    expect(seen).not.toContain('Mona');
     const [towels] = (await catalog.serviceRequestsOfStay(hotel.tenantId, hotel.stayId)).filter(
       (r) => r.serviceCode === 'EXTRA_TOWELS',
     );
@@ -332,8 +375,9 @@ describe.skipIf(needsInfra())(`Voice channel (${infraSkipReason()})`, () => {
     expect(types).toEqual(expect.arrayContaining(['comms.call.started', 'comms.call.ended']));
   });
 
-  it('speech the egress policy may not send goes to the operator instead', async () => {
-    await route('AUDIO', 'VOICE_X', 'EXTERNAL', 'CONFIDENTIAL');
+  it('guest speech stays on-premises: an external speech provider is not used without the hotel approval (Q22)', async () => {
+    // Even a cloud provider allowed to receive SENSITIVE data is skipped: the hotel has not approved cloud speech.
+    await route('AUDIO', 'VOICE_X', 'EXTERNAL', 'SENSITIVE');
     await expect(
       h.app.get(ModelGatewayService).transcribe({
         tenantId: hotel.tenantId,
@@ -362,6 +406,18 @@ describe.skipIf(needsInfra())(`Voice channel (${infraSkipReason()})`, () => {
       path: '/transfer',
       body: { to: 'call-2', extension: '9' },
     });
+    // The approval is recorded with who approved it and when; "enabled" alone is refused.
+    await h
+      .http()
+      .put('/config/values/ai.speech.external')
+      .set('X-Test-Actor', ADMIN)
+      .send({
+        scope: 'PROPERTY',
+        tenantId: hotel.tenantId,
+        propertyId: hotel.propertyId,
+        value: { enabled: true },
+      })
+      .expect(422);
     await route('AUDIO', 'VOICE_S2', 'ON_PREM', 'SENSITIVE');
   });
 
@@ -402,6 +458,19 @@ describe.skipIf(needsInfra())(`Voice channel (${infraSkipReason()})`, () => {
   });
 
   it('staff see the calls of their property only; another tenant learns nothing', async () => {
+    const directory = `${base()}/channels/${channelId}/extensions`;
+    // Prefilling from room numbers adds rooms that have no entry yet; 504 is already a room phone.
+    const prefilled = await h
+      .http()
+      .post(`${directory}/rooms-by-number`)
+      .set('X-Test-Actor', gm())
+      .send({ prefix: '' })
+      .expect(200);
+    expect(prefilled.body).toEqual({ added: 0 });
+    const entries = (await h.http().get(directory).set('X-Test-Actor', gm()).expect(200))
+      .body as Array<{ extension: string; kind: string }>;
+    expect(entries.map((e) => `${e.extension}:${e.kind}`)).toEqual(['100:PUBLIC', '504:ROOM']);
+    await h.http().get(directory).set('X-Test-Actor', staff(gmId, other.tenantId)).expect(404);
     const list = await h.http().get(`${base()}/calls`).set('X-Test-Actor', gm()).expect(200);
     const ids = (list.body as Array<{ status: string; transferReason: string | null }>).map(
       (c) => c.transferReason,

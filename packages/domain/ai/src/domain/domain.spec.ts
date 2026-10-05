@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyEgress, maskIdentifiers, mayReceive } from './egress';
+import { applyEgress, maskIdentifiers, mayReceive, speechAllowed } from './egress';
 import { estimateCostMinor, pickRule } from './routing';
 
 describe('egress policy', () => {
@@ -41,6 +41,14 @@ describe('egress policy', () => {
     expect(
       applyEgress(onPrem, [{ text: 'Guest phone +201001112233', dataClass: 'CONFIDENTIAL' }]).kept,
     ).toEqual(['Guest phone +201001112233']);
+  });
+});
+
+describe('guest speech egress (ADR-0025, Q22)', () => {
+  it('stays on Planova-operated providers unless the hotel approved cloud speech', () => {
+    expect(speechAllowed('ON_PREM', { enabled: false })).toBe(true);
+    expect(speechAllowed('EXTERNAL', { enabled: false })).toBe(false);
+    expect(speechAllowed('EXTERNAL', { enabled: true })).toBe(true);
   });
 });
 

@@ -158,8 +158,5 @@ describe('Planova Voice Profile v1 adapter', () => {
     expect(adapter.configSchema.safeParse({ ...CONFIG, operatorExtension: 'desk' }).success).toBe(
       false,
     );
-    expect(adapter.configSchema.safeParse({ ...CONFIG, roomExtensionPrefix: '7' }).success).toBe(
-      true,
-    );
   });
 });

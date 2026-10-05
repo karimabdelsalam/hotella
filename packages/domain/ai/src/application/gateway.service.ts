@@ -7,12 +7,19 @@ import { AppError } from '@hotella/platform-i18n';
 import { InjectLogger, type Logger, RequestContext } from '@hotella/platform-observability';
 import { SecretResolver } from '@hotella/platform-secrets';
 import { SettingsReader } from '@hotella/platform-settings';
-import { applyEgress, type EgressPolicy, maskIdentifiers, mayReceive } from '../domain/egress';
+import {
+  applyEgress,
+  type EgressPolicy,
+  maskIdentifiers,
+  mayReceive,
+  speechAllowed,
+} from '../domain/egress';
 import { estimateCostMinor, pickRule } from '../domain/routing';
 import {
   AI_BUDGET_MONTHLY_LIMIT_MINOR,
   AI_EXTERNAL_PROVIDERS_ALLOWED,
   AI_EXTERNAL_PROVIDERS_ENABLED,
+  AI_SPEECH_EXTERNAL,
   killSwitch,
 } from '../domain/settings';
 import { AiRepositories } from '../infrastructure/repositories';
@@ -233,9 +240,21 @@ export class ModelGatewayService implements ModelGatewayApi {
     };
     let previous: string | null = null;
     let lastError: string = 'NO_ROUTE';
+    // Guest audio leaves Planova-operated infrastructure only with the hotel's recorded approval (ADR-0025, Q22).
+    const approval =
+      input.propertyId != null
+        ? await this.settings.value(AI_SPEECH_EXTERNAL, {
+            tenantId: input.tenantId,
+            propertyId: input.propertyId,
+          })
+        : { enabled: false };
     for (const c of await this.candidates(input.tenantId, input.propertyId ?? null, 'AUDIO')) {
       const adapter = this.providers.get(c.provider.kind);
-      if (!adapter || !mayReceive(c.policy, input.dataClass)) {
+      if (
+        !adapter ||
+        !mayReceive(c.policy, input.dataClass) ||
+        !speechAllowed(c.provider.egress, approval)
+      ) {
         if (adapter) lastError = 'EGRESS_POLICY';
         continue;
       }

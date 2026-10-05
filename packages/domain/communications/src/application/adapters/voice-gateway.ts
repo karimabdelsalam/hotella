@@ -22,14 +22,6 @@ const config = z.object({
   baseUrl: z.url(),
   /** Where calls go that the platform does not answer: unknown callers, hand-offs, speech failures. */
   operatorExtension: extension,
-  /**
-   * Room phones dial in as `<prefix><room number>` (e.g. prefix `""`: room 214 calls from `214`). A call is tied to a
-   * room only through this configured rule and only when the property trusts room phones (setting, Q27).
-   */
-  roomExtensionPrefix: z
-    .string()
-    .regex(/^\d{0,6}$/)
-    .default(''),
 });
 
 /** Credential JSON (one SecretRef): the secret that signs the gateway's events and the token for its API. */

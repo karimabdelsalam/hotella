@@ -674,6 +674,12 @@ export class ConversationService implements CommunicationsPublicApi {
         direction: m.direction,
         senderType: m.senderType,
         body: m.body,
+        channelType: m.channelType,
+        // Voice reaches a stay only through room context (ADR-0025): the room, not a verified person.
+        assurance:
+          m.direction === 'INBOUND' && m.channelType === 'VOICE'
+            ? ('ROOM_CONTEXT' as const)
+            : ('VERIFIED' as const),
         createdAt: m.createdAt.toISOString(),
       })),
     );

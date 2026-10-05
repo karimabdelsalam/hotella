@@ -718,6 +718,8 @@ export const calls = classify(
       stayId: uuid('stay_id'),
       status: callStatus('status').notNull(),
       /** Why the platform did not (or no longer) answers: UNTRUSTED_CALLER, AI_OFF, HANDOFF, SPEECH_UNAVAILABLE… */
+      /** Who called, as the extension directory knows it (ADR-0025): ROOM, PUBLIC, STAFF, OPERATOR, UNKNOWN, EXTERNAL. */
+      callerKind: varchar('caller_kind', { length: 16 }).notNull().default('UNKNOWN'),
       transferReason: varchar('transfer_reason', { length: 32 }),
       transferExtension: varchar('transfer_extension', { length: 16 }),
       startedAt: tz('started_at').notNull(),
@@ -752,6 +754,7 @@ export const calls = classify(
     conversationId: 'INTERNAL',
     stayId: 'INTERNAL',
     status: 'INTERNAL',
+    callerKind: 'INTERNAL',
     transferReason: 'INTERNAL',
     transferExtension: 'INTERNAL',
     startedAt: 'INTERNAL',
@@ -764,3 +767,47 @@ export const calls = classify(
   },
 );
 export type CallRow = typeof calls.$inferSelect;
+
+export const voiceExtensionKind = comms.enum('voice_extension_kind', [
+  'ROOM',
+  'PUBLIC',
+  'STAFF',
+  'OPERATOR',
+]);
+
+/**
+ * The extension directory of a voice channel (ADR-0025, Q27): which extension is a guest room's phone, a public-area
+ * phone, a staff phone or the operator. Only a ROOM entry can give a call room context; an extension that is not here
+ * is unknown and goes to the operator — never guessed from the number (rule 16).
+ */
+export const voiceExtensions = classify(
+  comms.table(
+    'voice_extensions',
+    {
+      ...baseColumns(),
+      tenantId: uuid('tenant_id').notNull(),
+      propertyId: uuid('property_id').notNull(),
+      channelId: uuid('channel_id')
+        .notNull()
+        .references(() => channels.id),
+      extension: varchar('extension', { length: 16 }).notNull(),
+      kind: voiceExtensionKind('kind').notNull(),
+      roomId: uuid('room_id'),
+      ...versioned(),
+    },
+    (t) => [unique('voice_extensions_channel_uq').on(t.channelId, t.extension)],
+  ),
+  {
+    id: 'INTERNAL',
+    createdAt: 'INTERNAL',
+    updatedAt: 'INTERNAL',
+    tenantId: 'INTERNAL',
+    propertyId: 'INTERNAL',
+    channelId: 'INTERNAL',
+    extension: 'INTERNAL',
+    kind: 'INTERNAL',
+    roomId: 'INTERNAL',
+    version: 'INTERNAL',
+  },
+);
+export type VoiceExtensionRow = typeof voiceExtensions.$inferSelect;

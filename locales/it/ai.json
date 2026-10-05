@@ -4,6 +4,7 @@
   "ai.permission.usage_read": "Vedere utilizzo e costi dell'IA",
   "ai.setting.external_providers_allowed": "Provider IA esterni all'installazione che possono essere utilizzati",
   "ai.setting.external_providers_enabled": "Consentire provider IA esterni all'installazione per questo gruppo alberghiero",
+  "ai.setting.speech_external": "Riconoscimento vocale cloud per le chiamate degli ospiti: solo con l’approvazione registrata dell’hotel (chi e quando); disattivato significa solo elaborazione interna",
   "ai.setting.budget_monthly_limit_minor": "Limite mensile per i provider IA esterni all'installazione (unità minime di valuta)",
   "ai.approval.ai_action": "Un'azione proposta dall'assistente IA",
   "ai.permission.execution_read": "Vedere cosa ha fatto l'assistente IA e perché",

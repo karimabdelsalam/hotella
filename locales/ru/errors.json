@@ -441,5 +441,7 @@
   "errors.ai.insight.version_conflict": "Вывод был изменён. Обновите страницу и попробуйте снова.",
   "errors.ai.tool.no_person": "Этот ассистент работает только от имени сотрудника.",
   "errors.ai.consult.not_allowed": "Этому ассистенту нельзя обращаться к другому ассистенту.",
-  "errors.ai.consult.too_deep": "Ассистент, к которому обратились, не может сам обращаться к другому."
+  "errors.ai.consult.too_deep": "Ассистент, к которому обратились, не может сам обращаться к другому.",
+  "errors.comms.voice.extension_duplicate": "Внутренний номер {extension} указан более одного раза.",
+  "errors.comms.voice.room_not_found": "Номера для внутреннего {extension} нет в этом отеле."
 }

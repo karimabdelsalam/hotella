@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { ActorStore, PropertyScoped, RequirePermission } from '@hotella/platform-auth';
 import type { PropertyScope } from '@hotella/platform-database';
@@ -22,6 +33,11 @@ import {
 } from '../application/inbox.service';
 import { callsQuerySchema, VoiceService } from '../application/voice.service';
 import {
+  roomsByNumberSchema,
+  VoiceDirectoryService,
+  voiceDirectorySchema,
+} from '../application/voice-directory.service';
+import {
   ChannelAdminService,
   createChannelSchema,
   updateChannelSchema,
@@ -39,6 +55,8 @@ class AssignConversationDto extends createZodDto(assignConversationSchema) {}
 class TakeoverDto extends createZodDto(takeoverSchema) {}
 class AiModeDto extends createZodDto(aiModeSchema) {}
 class CallsQueryDto extends createZodDto(callsQuerySchema) {}
+class VoiceDirectoryDto extends createZodDto(voiceDirectorySchema) {}
+class RoomsByNumberDto extends createZodDto(roomsByNumberSchema) {}
 
 function propertyScope(ctx: RequestContext, actors: ActorStore, propertyId: string): PropertyScope {
   const tenantId = ctx.tenantId ?? actors.require().tenantId;
@@ -294,5 +312,51 @@ export class CallsController {
   @RequirePermission('inbox.read')
   list(@Param('propertyId') propertyId: string, @Query() query: CallsQueryDto) {
     return this.voice.list(propertyScope(this.ctx, this.actors, propertyId), query);
+  }
+}
+
+/** The extension directory of a voice channel (ADR-0025, Q27): which extensions are guest rooms. */
+@Controller('properties/:propertyId/channels/:channelId/extensions')
+@PropertyScoped({ from: 'param' })
+export class VoiceDirectoryController {
+  constructor(
+    private readonly directory: VoiceDirectoryService,
+    private readonly ctx: RequestContext,
+    private readonly actors: ActorStore,
+  ) {}
+
+  @Get()
+  @RequirePermission('channel.manage')
+  list(@Param('propertyId') propertyId: string, @Param('channelId') channelId: string) {
+    return this.directory.list(propertyScope(this.ctx, this.actors, propertyId), channelId);
+  }
+
+  @Put()
+  @RequirePermission('channel.manage')
+  replace(
+    @Param('propertyId') propertyId: string,
+    @Param('channelId') channelId: string,
+    @Body() body: VoiceDirectoryDto,
+  ) {
+    return this.directory.replace(
+      propertyScope(this.ctx, this.actors, propertyId),
+      channelId,
+      body,
+    );
+  }
+
+  @Post('rooms-by-number')
+  @HttpCode(200)
+  @RequirePermission('channel.manage')
+  roomsByNumber(
+    @Param('propertyId') propertyId: string,
+    @Param('channelId') channelId: string,
+    @Body() body: RoomsByNumberDto,
+  ) {
+    return this.directory.roomsByNumber(
+      propertyScope(this.ctx, this.actors, propertyId),
+      channelId,
+      body,
+    );
   }
 }

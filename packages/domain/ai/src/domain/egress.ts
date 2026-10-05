@@ -88,3 +88,14 @@ export function applyEgress(
   }
   return { kept, dropped };
 }
+
+/**
+ * Guest speech (ADR-0025, Q22): audio goes to an external provider only when the hotel approved cloud speech; providers
+ * on Planova-operated infrastructure are always allowed (the data-class policy still applies to both).
+ */
+export function speechAllowed(
+  egress: EgressPolicy['egress'],
+  hotelApproval: { readonly enabled: boolean },
+): boolean {
+  return egress !== 'EXTERNAL' || hotelApproval.enabled;
+}

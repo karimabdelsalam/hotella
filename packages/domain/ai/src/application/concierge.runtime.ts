@@ -31,6 +31,7 @@ import { type ExecutionHandle, ToolExecutor } from './tools/executor';
 import { DryRunExecutor } from './tools/dry-run.executor';
 import { ToolRegistry } from './tools/registry';
 import { conversationContract } from './agent-contracts';
+import { type CallerAssurance, toolsFor } from '../domain/caller-assurance';
 
 export type ConciergeOutcome = 'SKIPPED' | 'REPLIED' | 'DRAFTED' | 'HANDED_OFF' | 'FAILED';
 
@@ -91,8 +92,14 @@ export class ConciergeRuntime {
     const latestInbound = [...recent].reverse().find((m) => m.direction === 'INBOUND');
     if (!latestInbound || latestInbound.id !== input.messageId) return 'SKIPPED';
 
-    // The version that answers this conversation (a canary takes a fixed share), and a shadow to try beside it.
-    const { agent, shadow } = await this.agents.select(this.agentCode, conversation.id);
+    // The version that answers this conversation (a canary takes a fixed share), and a shadow to try beside it. A
+    // room-context caller (ADR-0025, Q27) gets the room-context tools only — the allowlist binds, not the prompt.
+    const assurance: CallerAssurance = latestInbound.assurance;
+    const selected = await this.agents.select(this.agentCode, conversation.id);
+    const agent = { ...selected.agent, tools: toolsFor(selected.agent.tools, assurance) };
+    const shadow = selected.shadow
+      ? { ...selected.shadow, tools: toolsFor(selected.shadow.tools, assurance) }
+      : null;
     const member = (await this.guests.stayParty(input.tenantId, conversation.stayId)).find(
       (m) => m.guestId === conversation.guestId,
     );
@@ -147,7 +154,7 @@ export class ConciergeRuntime {
             assist ? 'SKIPPED' : await this.handOff(handle, 'AI_FAILURE'),
           );
         }
-        conversed = await this.converse(handle, agent, locale);
+        conversed = await this.converse(handle, agent, locale, assurance);
         const output = conversed.output;
         if (!output) return await this.finish(handle, await this.handOff(handle, 'AI_FAILURE'));
         if (assist) {
@@ -300,8 +307,10 @@ export class ConciergeRuntime {
     handle: ExecutionHandle,
     agent: PublishedAgent,
     locale: ReplyLocale,
+    assurance: CallerAssurance,
   ): Promise<Conversed> {
     const built = await this.context.build({
+      assurance,
       tenantId: handle.tenantId,
       propertyId: handle.propertyId,
       guest: handle.guest,
@@ -314,7 +323,14 @@ export class ConciergeRuntime {
       type: 'CONTEXT',
       name: 'context',
       outcome: 'OK',
-      summary: { providers: built.summary, history: built.history.length, locale },
+      // Who was speaking (ADR-0025): a room-context caller ran with the room-context tools only.
+      summary: {
+        providers: built.summary,
+        history: built.history.length,
+        locale,
+        assurance,
+        tools: agent.tools.length,
+      },
     });
     const contract = conversationContract(agent, locale);
     const system: ClassifiedText[] = [...contract.system, ...built.parts];
