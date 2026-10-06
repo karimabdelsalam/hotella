@@ -158,7 +158,7 @@ apt_install() { apt-get install -y -qq --no-install-recommends "$@" >/dev/null; 
 # ---------------------------------------------------------------- 2. packages
 say "installing base packages"
 apt-get update -qq
-apt_install ca-certificates curl git gnupg openssl python3 ufw unattended-upgrades cron
+apt_install ca-certificates curl git gnupg openssl python3 jq ufw unattended-upgrades cron
 
 if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
   say "installing Docker Engine and the Compose plugin (Docker's repository)"
@@ -372,6 +372,11 @@ if ! HOTELLA_ADMIN_PASSWORD="$password" "$PILOT" admin "$EMAIL" "$ADMIN_NAME" >/
   warn "the administrator was not created (it may already exist); sign in with your existing password"
   generated=false
   [ -n "${HOTELLA_ADMIN_PASSWORD:-}" ] || can_login=false
+fi
+# A generated password is shown now, before anything that could still fail, so it is never lost.
+if $generated; then
+  printf '\n\033[1;32m[hotella]\033[0m platform administrator %s — password: %s\n' "$EMAIL" "$password"
+  printf '          shown once and stored nowhere: save it in your password manager now.\n\n'
 fi
 
 say "first full backup (also proves WAL archiving works)"
