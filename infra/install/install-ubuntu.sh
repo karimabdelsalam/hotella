@@ -131,7 +131,7 @@ elif [ "$cpus" -lt 8 ] || [ "$mem_gb" -lt 30 ]; then
 fi
 # Ports: a port Hotella's own containers already hold (a second run) is fine; anything else is a conflict.
 port_owner() { ss -ltnpH "( sport = :$1 )" 2>/dev/null | head -1; }
-hotella_running() { command -v docker >/dev/null && docker ps -q --filter label=com.docker.compose.project=hotella-pilot | grep -q .; }
+hotella_running() { command -v docker >/dev/null && [ -n "$(docker ps -q --filter label=com.docker.compose.project=hotella-pilot)" ]; }
 check_port() {
   local owner; owner="$(port_owner "$1")"
   [ -z "$owner" ] && return 0

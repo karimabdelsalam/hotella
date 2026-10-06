@@ -169,11 +169,17 @@ cmd_vault_init() {
   cmd_unseal
   BAO_TOKEN="$(json_get "v['root_token']" <"$SECRETS/openbao-init.json")"; export BAO_TOKEN
   for _ in $(seq 1 30); do bao token lookup >/dev/null 2>&1 && break; sleep 1; done
-  bao secrets list -format=json | grep -q '"kv/"' || bao secrets enable -path=kv kv-v2 >/dev/null
-  bao auth list -format=json | grep -q '"approle/"' || bao auth enable approle >/dev/null
+  # Read each list whole before searching it: with pipefail, `bao … | grep -q` fails when grep stops reading early
+  # (the writer gets SIGPIPE), which made a second installation try to enable what already exists.
+  local mounts auths audits
+  mounts="$(bao secrets list -format=json)"
+  grep -q '"kv/"' <<<"$mounts" || bao secrets enable -path=kv kv-v2 >/dev/null
+  auths="$(bao auth list -format=json)"
+  grep -q '"approle/"' <<<"$auths" || bao auth enable approle >/dev/null
   # Audit: every request to OpenBao is logged with its identity (values HMAC-ed) — SECRETS_LIFECYCLE.md. The device is
   # declared in openbao.hcl (OpenBao 2.x refuses API-created audit devices); here we only check it is active.
-  bao audit list -format=json 2>/dev/null | grep -q '"file/"' || die "OpenBao audit device missing (openbao.hcl)"
+  audits="$(bao audit list -format=json 2>/dev/null || true)"
+  grep -q '"file/"' <<<"$audits" || die "OpenBao audit device missing (openbao.hcl)"
   # Least privilege: api/worker read only the application secrets, AI provider keys and channel credentials; the
   # agent gateway also reads the agent PKI.
   printf 'path "kv/data/hotella/app" { capabilities = ["read"] }\npath "kv/data/hotella/ai/*" { capabilities = ["read"] }\npath "kv/data/hotella/comms/*" { capabilities = ["read"] }\n' |
