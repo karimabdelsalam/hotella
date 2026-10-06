@@ -173,10 +173,13 @@ test('guest relations confirms the concierge’s suggestion, handles it and offe
   const backend = await mockBackend(page, GUEST_RELATIONS);
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto('/en/relations');
+  // On a phone the sections are in the menu drawer.
+  await page.getByRole('button', { name: 'Open the menu' }).click();
   await expect(page.getByRole('link', { name: 'Guest relations' })).toHaveAttribute(
     'aria-current',
     'page',
   );
+  await page.getByRole('button', { name: 'Close the menu' }).click();
   await expect(
     page.getByRole('heading', { name: '1 suggestion from the concierge' }),
   ).toBeVisible();

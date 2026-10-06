@@ -143,10 +143,13 @@ test('an inspector starts a checklist on a room, answers it on the spot and comp
   const backend = await mockBackend(page, INSPECTOR);
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto('/en/inspections');
+  // On a phone the sections are in the menu drawer.
+  await page.getByRole('button', { name: 'Open the menu' }).click();
   await expect(page.getByRole('link', { name: 'Inspections' })).toHaveAttribute(
     'aria-current',
     'page',
   );
+  await page.getByRole('button', { name: 'Close the menu' }).click();
   await page.getByRole('combobox', { name: 'Checklist' }).selectOption(TEMPLATE);
   await page.getByRole('combobox', { name: 'Room' }).selectOption(ROOM);
   await page.getByRole('button', { name: 'Start inspection' }).click();

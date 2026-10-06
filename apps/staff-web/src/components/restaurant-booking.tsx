@@ -18,12 +18,15 @@ export function RestaurantBooking({
   busy,
   run,
   onBooked,
+  room: forRoom,
 }: {
   readonly base: string;
   readonly canOverride: boolean;
   readonly busy: boolean;
   readonly run: Run;
   readonly onBooked: () => void;
+  /** Embedded at the front desk for a room already found: its stays are looked up at once, no search form. */
+  readonly room?: string;
 }) {
   const t = useTranslations('staff.restaurant');
   const session = useSession();
@@ -39,6 +42,26 @@ export function RestaurantBooking({
   const [notes, setNotes] = useState('');
   const [override, setOverride] = useState(false);
   const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (!forRoom) return;
+    let live = true;
+    setStay(null);
+    session
+      .api<StayForBooking[]>(
+        `${base}/restaurant-reservations/stays?room=${encodeURIComponent(forRoom)}`,
+      )
+      .then((found) => {
+        if (!live) return;
+        setStays(found);
+        if (found.length === 1) choose(found[0]!);
+      })
+      .catch(() => live && setStays([]));
+    return () => {
+      live = false;
+    };
+    // `choose` only sets state; the lookup follows the room alone.
+  }, [session, base, forRoom]);
 
   const firstNight = stay ? (stay.arrival > localToday() ? stay.arrival : localToday()) : '';
   const lastNight = stay ? shiftDate(stay.departure, -1) : '';
@@ -96,48 +119,56 @@ export function RestaurantBooking({
       setOverride(false);
       setReason('');
       setSittingId('');
-      setStays(null);
-      setStay(null);
-      setRoom('');
+      if (!forRoom) {
+        setStays(null);
+        setStay(null);
+        setRoom('');
+      }
       onBooked();
     }
   }
 
+  const Frame = forRoom ? 'div' : 'main';
   return (
-    <main
-      className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]"
+    <Frame
+      className={cx(
+        'grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]',
+        forRoom ? '' : 'p-4',
+      )}
       aria-label={t('tab.BOOK')}
     >
       <section className={cx(card, 'flex flex-col gap-3')} aria-labelledby="find-title">
         <h2 id="find-title" className="font-bold">
-          {t('find_room')}
+          {forRoom ? t('stays_of_room', { room: forRoom }) : t('find_room')}
         </h2>
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!room.trim()) return;
-            void run(async () => {
-              setStay(null);
-              setStays(
-                await session.api<StayForBooking[]>(
-                  `${base}/restaurant-reservations/stays?room=${encodeURIComponent(room.trim())}`,
-                ),
-              );
-            });
-          }}
-        >
-          <input
-            aria-label={t('room')}
-            placeholder={t('room')}
-            className={cx(field, 'w-32')}
-            value={room}
-            onChange={(e) => setRoom(e.target.value)}
-          />
-          <Button type="submit" disabled={busy}>
-            {t('find')}
-          </Button>
-        </form>
+        {!forRoom && (
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!room.trim()) return;
+              void run(async () => {
+                setStay(null);
+                setStays(
+                  await session.api<StayForBooking[]>(
+                    `${base}/restaurant-reservations/stays?room=${encodeURIComponent(room.trim())}`,
+                  ),
+                );
+              });
+            }}
+          >
+            <input
+              aria-label={t('room')}
+              placeholder={t('room')}
+              className={cx(field, 'w-32')}
+              value={room}
+              onChange={(e) => setRoom(e.target.value)}
+            />
+            <Button type="submit" disabled={busy}>
+              {t('find')}
+            </Button>
+          </form>
+        )}
         {stays && stays.length === 0 && <p className="text-sm text-slate-500">{t('no_stay')}</p>}
         <ul className="flex flex-col gap-2">
           {stays?.map((s) => (
@@ -296,6 +327,6 @@ export function RestaurantBooking({
           </Button>
         </section>
       )}
-    </main>
+    </Frame>
   );
 }

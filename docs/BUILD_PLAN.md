@@ -3749,6 +3749,55 @@ No new bounded context.
 administrator signs in, invites staff and publishes services without the API. Every §17 alert fires in a drill. The
 checklist has no ⛔.
 
+### Staff experience — S sprints (owner, 2026-10-06)
+
+The owner tried the demo hotel and found the staff web hard to follow: a flat row of 15 sections, no home page, and no
+obvious way for the desk to act for a guest who calls (a service, a table). The owner chose "structure + home + front
+desk first" and a clean, modern SaaS look. This is UI work on the existing APIs: no new endpoint, table, event or
+permission. Rule 23 decides every choice: the platform stays complex, the screens stay simple.
+
+**S.1 decisions.**
+- **Frame.** One application shell (`components/shell.tsx`) around every page. The hotel's mark and the screens sit in
+  a side navigation on the start side, grouped the way a hotel works: *Reception* (front desk, inbox, arrivals, keys),
+  *Operations* (housekeeping, engineering, telemetry, inspections), *Guest care* (relations, restaurant, lost & found),
+  *Management* (logbook, intelligence, services, staff, brand), and *Planova* (control plane, platform administrators
+  only). The groups and their permission/licence filter are data in `lib/nav.ts`; an empty group is hidden. On a phone
+  the navigation is a drawer behind the menu button. The sign-in and invitation pages have no navigation.
+- **Top bar.** `components/header.tsx`: a room search (with `stay.read`) that opens the front desk on that room; "+ New"
+  with what the person can start (`QUICK_ACTIONS` in `lib/nav.ts`: a guest request by phone, a restaurant booking, a
+  complaint, a fault, a found item, a logbook note, an invitation), each shown only with every permission it needs;
+  the language; the person's initials and sign-out.
+- **Home (`/home`).** The first page after sign-in (and of `/`). Today in numbers, each only with its permission:
+  guests in house and departures today (`stay.read`, IN_HOUSE stays), arrivals today (EXPECTED stays due today or
+  earlier), open guest requests (`request.read`), tonight's restaurant bookings (`restaurant.reservation.read`,
+  confirmed or seated). Counting is plain code over the domain APIs (rule 11). Then the quick actions, the open
+  requests (each opens the front desk on its room) and today's arrivals.
+- **Front desk (`/front-desk`).** Find a room (the property's rooms, then `GET /rooms/:id/current-stay`; an unknown
+  number and an empty room say so). The stay card shows the guest, dates, party, status and links to keys and
+  complaints. Two tools: *Guest request* lists the active published services (`GET /catalog/services`), renders their
+  required fields from the published version (TEXT, NUMBER, CHOICE, BOOLEAN, DATETIME; labels from the version's
+  `fieldLabels` in the screen's language) and sends `POST /stays/:stayId/service-requests` (source STAFF, the same
+  rules as the guest app; a duplicate is related, and the desk is told so); *Restaurant booking* embeds the existing
+  booking for that room without a second search. The stay's requests are listed beside them (`GET
+  /service-requests?stayId=`), and an open one can be cancelled with an optional reason (`request.manage`). The PMS
+  remains the source of the stay (rule 19): nothing here creates or changes one.
+- **Returning after sign-in.** A signed-out visit remembers the page in the tab's `sessionStorage` (the path only), and
+  signing in returns there; otherwise to the home page.
+- **Layout fix.** The body grows with its content, so the Planova footer always comes after the page instead of over
+  its last lines.
+
+| Sprint | Scope | Status |
+|---|---|---|
+| S.1 | Application shell (grouped side navigation, top bar with room search and "+ New"), home page, front desk (phone requests, restaurant booking, the stay's requests and cancellation); Playwright en/ar | done |
+| S.2 | Requests and tasks board for supervisors: one list across departments with SLA due times, assign and escalate; the attendant's "my tasks" | next |
+| S.3 | Walk every existing screen by role (front desk, housekeeping, engineering, restaurant, manager) into the new frame: page headers, empty states, one design language | planned |
+| S.4 | Remaining desk flows the demo showed missing (e.g. a guest's message or complaint taken on the phone from the stay card), found with the owner | planned |
+
+**Acceptance (S.1).** A front-desk user signs in to the home page, sees today's numbers, finds a room from the top bar,
+sends a service request on a guest's behalf, cancels one and books a table for the same room without leaving the
+page, in English and Arabic (`e2e/front-desk.spec.ts`). Someone without the desk's permissions sees neither the desk nor
+its tools.
+
 ---
 
 ## 11. Milestones & sequencing

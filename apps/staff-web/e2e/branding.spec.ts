@@ -76,8 +76,8 @@ test('a manager uploads the hotel logo and sets its name and colour; the header 
   expect(put?.path).toBe(`/properties/${PROPERTY}/branding/logo`);
   expect(put?.type).toBe('image/png');
   expect(Buffer.compare(put!.body as Buffer, PNG)).toBe(0);
-  // The header and the preview now show the uploaded logo.
-  await expect(page.locator('header img[alt="Red Sea Resort"]')).toBeVisible();
+  // The side navigation's hotel mark and the preview now show the uploaded logo.
+  await expect(page.getByTestId('sidebar').locator('img[alt="Red Sea Resort"]')).toBeVisible();
   await expect(page.getByTestId('brand-preview').locator('img')).toBeVisible();
 
   await page.getByLabel('Hotel name').fill('Red Sea Grand');
@@ -98,7 +98,7 @@ test('a manager uploads the hotel logo and sets its name and colour; the header 
 
   await page.getByRole('button', { name: 'Remove logo' }).click();
   await expect(page.getByRole('status')).toHaveText('The logo was removed.');
-  await expect(page.locator('header img')).toHaveCount(0);
+  await expect(page.getByTestId('sidebar').locator('img')).toHaveCount(0);
   // The attribution stays, small, with its fixed text and link: it is not a brand setting.
   const footer = page.getByTestId('attribution');
   await expect(footer.getByRole('link', { name: 'Powered by Planova' })).toHaveAttribute(

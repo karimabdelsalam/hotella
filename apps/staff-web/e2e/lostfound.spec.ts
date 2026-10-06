@@ -182,10 +182,13 @@ test('an attendant hands in a found item from the phone, without seeing anyoneâ€
   const backend = await mockBackend(page, ['lostfound.register']);
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto('/en/lostfound');
+  // On a phone the sections are in the menu drawer.
+  await page.getByRole('button', { name: 'Open the menu' }).click();
   await expect(page.getByRole('link', { name: 'Lost & Found' })).toHaveAttribute(
     'aria-current',
     'page',
   );
+  await page.getByRole('button', { name: 'Close the menu' }).click();
   await expect(page.getByRole('tab')).toHaveCount(0);
   const form = page.getByRole('form', { name: 'Hand in a found item' });
   await form.getByRole('combobox', { name: 'What is it' }).selectOption('WATCH');

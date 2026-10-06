@@ -36,6 +36,12 @@ pnpm --filter @hotella/staff-web dev   # http://localhost:3100/en (or /ar); WEB_
 pnpm --filter @hotella/staff-web e2e   # Playwright, English (LTR) and Arabic (RTL), API mocked in the browser
 ```
 
+Every page sits in one frame (`src/components/shell.tsx`): the side navigation, grouped by department, and the top bar
+(`header.tsx`: room search, "+ New", language, sign-out). A new screen is one entry in `NAV_GROUPS` in `src/lib/nav.ts`
+(path, permission, licensed module, icon) plus its `staff.app.section_<key>` locale key; something staff start often is
+one entry in `QUICK_ACTIONS`. Signed-in people land on `/home`; the desk works a room at `/front-desk` (BUILD_PLAN,
+"Staff experience").
+
 Guest web app (`apps/guest-web`, ADR-0009), the PWA guests open from activation links (`/a/<token>`) and room QR codes
 (`/q/<token>`); set `PUBLIC_BASE_URL=http://localhost:3200` for the API so the links it issues open it:
 

@@ -118,4 +118,5 @@ Legend: **BP §n** = Build Plan section; **P n** = Phase; **CM n** = `CLAUDE.md`
 | On-premises hosting | Spec says "cloud platform" generically; product owner decision | ADR-0013 |
 | Restaurant context (schema `restaurant`): à la carte reservations with a per-stay allowance | Owner decision 2026-10-05 (Spec Appendix B.1); not in the original module list | BP §10 Phase 14 (14.2–14.3); CLAUDE.md schema list |
 | Staff mobile app "Hotella" in Flutter with push notifications | Owner decision 2026-10-05; the spec names web apps only | ADR-0023; BP §10 Phase 14 (14.4–14.6) |
+| Staff web frame: side navigation grouped by department, top bar (room search, "+ New"), home page and front desk | Owner feedback 2026-10-06 on the demo ("simple staff UX", Spec §1, CLAUDE.md rule 23); UI over existing APIs only | BP §10 "Staff experience" (S.1); `apps/staff-web/src/lib/nav.ts`, `e2e/front-desk.spec.ts` |
 | Voice callers stand for a stay only from a room phone, and only where the property trusts room phones (default off) | Caller ids can be spoofed; the spec routes verified identities only (§18.3) | BP 13.4 notes; owner question Q27; `comms.voice.room_phone_trusted` |

@@ -10,12 +10,12 @@
 :root {
   --brand-primary: #0f4c81;
 }
-html,
-body {
+/* The page grows with its content (the footer always comes after it); the body is at least the window's height. */
+html {
   height: 100%;
 }
 body {
-  @apply bg-slate-100 font-sans text-slate-900 antialiased;
+  @apply bg-slate-50 font-sans text-slate-900 antialiased;
 }
 
 /* Brand colour helpers: the colour itself comes from the hotel's resolved brand at run time. */

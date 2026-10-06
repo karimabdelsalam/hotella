@@ -64,6 +64,9 @@ export interface Me {
     readonly id: string;
     readonly tenantId: string | null;
     readonly isPlatformAdmin?: boolean;
+    readonly email?: string;
+    readonly givenName?: string;
+    readonly familyName?: string | null;
   };
   readonly memberships: ReadonlyArray<{
     readonly propertyId: string | null;
@@ -818,4 +821,71 @@ export interface DepartmentSummary {
   readonly id: string;
   readonly code: string;
   readonly name: string;
+}
+
+// ---- front desk and home (the guest context's stays; the catalog's service requests) ----
+
+export interface StayRow {
+  readonly id: string;
+  readonly status: 'EXPECTED' | 'IN_HOUSE' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
+  readonly expectedArrival: string;
+  readonly expectedDeparture: string;
+  readonly actualCheckinAt: string | null;
+  readonly eta: string | null;
+  readonly adults: number;
+  readonly children: number;
+  readonly primaryGuest: {
+    readonly givenName: string;
+    readonly familyName: string | null;
+    readonly vipCode?: string | null;
+  } | null;
+}
+
+/** A room's current stay (`/rooms/:id/current-stay`). */
+export interface RoomCurrentStay extends StayRow {
+  readonly room: { readonly id: string; readonly roomNumber: string };
+}
+
+export type ServiceRequestStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface ServiceRequestRow {
+  readonly id: string;
+  readonly serviceCode: string;
+  readonly serviceName: string;
+  readonly stayId: string;
+  readonly status: ServiceRequestStatus;
+  readonly source: string;
+  readonly requestedForAt: string | null;
+  readonly createdAt: string;
+  readonly roomNumber: string | null;
+  readonly guestName: string | null;
+}
+
+export type ServiceFieldDefinition =
+  | {
+      readonly code: string;
+      readonly required: boolean;
+      readonly type: 'TEXT';
+      readonly maxLength?: number;
+    }
+  | {
+      readonly code: string;
+      readonly required: boolean;
+      readonly type: 'NUMBER';
+      readonly min?: number;
+      readonly max?: number;
+    }
+  | {
+      readonly code: string;
+      readonly required: boolean;
+      readonly type: 'CHOICE';
+      readonly options: readonly string[];
+    }
+  | { readonly code: string; readonly required: boolean; readonly type: 'DATETIME' | 'BOOLEAN' };
+
+/** The parts of a published service version the desk needs to take a request. */
+export interface DeskServiceVersion extends ServiceVersionView {
+  readonly requiredFields?: readonly ServiceFieldDefinition[];
+  readonly availability?: { readonly allowScheduling?: boolean };
+  readonly eligibility?: { readonly stayStatuses?: readonly string[] };
 }

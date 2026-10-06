@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Button } from '@hotella/ui';
 import { Header } from '../../../components/header';
+import { takeNextPath } from '../../../components/shell';
 import { useRouter } from '../../../i18n/navigation';
 import { ApiError, useSession } from '../../../lib/session';
 
@@ -22,7 +23,7 @@ export default function LoginPage() {
   useEffect(() => setHotel(new URLSearchParams(window.location.search).get('hotel') ?? ''), []);
 
   useEffect(() => {
-    if (session.state === 'signed-in') router.replace('/inbox');
+    if (session.state === 'signed-in') router.replace(takeNextPath() ?? '/home');
   }, [session.state, router]);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -40,7 +41,7 @@ export default function LoginPage() {
         });
         if (next) return setChallenge(next.challengeToken);
       }
-      router.replace('/inbox');
+      // Signed in: the effect above takes the person where they were going.
     } catch (err) {
       setError(err instanceof ApiError && err.detail ? err.detail : t('failed'));
     } finally {

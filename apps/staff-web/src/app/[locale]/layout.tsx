@@ -4,6 +4,7 @@ import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { AttributionFooter } from '@hotella/ui';
+import { StaffShell } from '../../components/shell';
 import { routing, RTL_LOCALES } from '../../i18n/routing';
 import { MeProvider } from '../../lib/access';
 import { StaffBrandProvider } from '../../lib/brand';
@@ -43,7 +44,7 @@ export default async function LocaleLayout({
           <SessionProvider>
             <MeProvider>
               <StaffBrandProvider>
-                <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+                <StaffShell>{children}</StaffShell>
               </StaffBrandProvider>
             </MeProvider>
           </SessionProvider>
